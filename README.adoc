@@ -1,0 +1,50 @@
+= mzTab Validator Webapplication
+Nils Hoffmann <nils.hoffmann@isas.de>
+
+Build status: image:https://travis-ci.org/nilshoffmann/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/nilshoffmann/jmzTab-m-webapp"]
+
+This project provides a validator implementation for the mzTab 1.0 standard and for the current draft 1.1 standard.
+
+== Building the project from the command-line
+
+In order to build the project and run the unit tests, execute the following command from a terminal:
+
+	./mvnw install
+
+== Running the Web Application for Validation
+The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
+The `target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
+
+  ./mztabvalidation-<VERSION>.jar
+
+This will start the application with a default configuration, running on http port 8083. 
+The application can then be accessed from your web browser at
+
+  http://localhost:8083/mztabvalidator
+
+== Building the Web Application Docker Image
+If you want to run the web application as a docker container, you can build it as follows:
+
+  ./mvnw -Pdocker install
+
+This will build a Docker container for the webapplication and will make it locally available to be run by docker.
+
+  docker image ls
+  REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
+  isas/mztab-validator-webapp   1.0.0-SNAPSHOT      b87d4683db50        About an hour ago   472MB
+
+Please note that the base image we use is quite large (for details, see `web/Dockerfile`), but also includes monitoring utilities and automatic scaling and limiting of the 
+internal JVMs memory based on the amount of memory allocated for the container by Docker.
+
+To run the web application as a Docker container, type in the following (replacing <VERSION> with the current project version, i.e. the TAG version displayed by `docker image ls`):
+
+  docker run -it --rm --name mztabvalidator -p 8080:8083 -m 150M isas/mztab-validator-webapp:<VERSION>
+
+== References
+
+This project is based on and uses code that was developed for the https://github.com/PRIDE-Utilities/jmzTab[original jmzTab project]:
+
+http://onlinelibrary.wiley.com/doi/10.1002/pmic.201300560/abstract[Qing-Wei Xu et al., Proteomics 2014; Jun;14(11):1328-32.] http://onlinelibrary.wiley.com/doi/10.1002/pmic.201300560/pdf[PDF File.] https://www.ncbi.nlm.nih.gov/pubmed/24659499[PubMed record.]
+
+It uses the new reader / writer and validator APIs of https://github.com/nilshoffmann/jmzTab-m[the jmztab 1.1 reference implementation]
+
