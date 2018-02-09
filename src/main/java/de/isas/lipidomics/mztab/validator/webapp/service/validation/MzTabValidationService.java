@@ -34,7 +34,7 @@ import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorType.Level;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @Service
 public class MzTabValidationService implements ValidationService {

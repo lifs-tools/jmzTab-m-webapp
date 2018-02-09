@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public interface ValidationService {
     static enum MzTabVersion{MZTAB_1_0, MZTAB_1_1};

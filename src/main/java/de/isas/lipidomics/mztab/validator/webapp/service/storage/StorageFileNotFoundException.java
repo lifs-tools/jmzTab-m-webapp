@@ -17,7 +17,7 @@ package de.isas.lipidomics.mztab.validator.webapp.service.storage;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public class StorageFileNotFoundException extends StorageException {
 

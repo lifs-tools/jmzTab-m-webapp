@@ -1,5 +1,5 @@
 = mzTab Validator Webapplication
-Nils Hoffmann <nils.hoffmann@isas.de>
+Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 
 Build status: image:https://travis-ci.org/nilshoffmann/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/nilshoffmann/jmzTab-m-webapp"]
 
