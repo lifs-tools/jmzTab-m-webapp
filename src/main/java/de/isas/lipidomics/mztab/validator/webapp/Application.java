@@ -30,7 +30,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @SpringBootApplication
 @EnableConfigurationProperties(StorageProperties.class)

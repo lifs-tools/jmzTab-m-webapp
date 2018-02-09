@@ -1,5 +1,5 @@
 FROM fabric8/java-jboss-openjdk8-jdk:1.3.1
-MAINTAINER Nils Hoffmann <nils.hoffmann@isas.de>
+MAINTAINER Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 VOLUME /tmp
 # receive jar file to host via argument
 ARG JAR_FILE

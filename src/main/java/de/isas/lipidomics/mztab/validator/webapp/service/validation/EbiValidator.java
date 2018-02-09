@@ -29,7 +29,7 @@ import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorType;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public class EbiValidator implements Validator {
 

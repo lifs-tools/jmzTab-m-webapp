@@ -36,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @Service
 public class FileSystemStorageService implements StorageService {

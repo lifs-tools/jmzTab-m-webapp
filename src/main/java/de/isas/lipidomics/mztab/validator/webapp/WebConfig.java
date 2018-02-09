@@ -29,7 +29,7 @@ import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @Configuration
 @EnableAsync

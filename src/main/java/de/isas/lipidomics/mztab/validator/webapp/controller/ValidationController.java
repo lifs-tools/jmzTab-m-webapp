@@ -48,7 +48,7 @@ import org.springframework.web.util.UriComponents;
 
 /**
  *
- * @author Nils Hoffmann <nils.hoffmann@isas.de>
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @Controller
 public class ValidationController {

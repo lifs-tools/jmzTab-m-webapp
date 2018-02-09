@@ -73,6 +73,7 @@
     <app.name>mztabvalidator</app.name>
     <contextPath>/</contextPath>
     <ga.id></ga.id>
+    <start-class>de.isas.lipidomics.mztab.validator.webapp.Application</start-class>
   </properties>
 
   <dependencyManagement>
@@ -223,7 +224,7 @@
     </dependency>
     <dependency>
       <groupId>de.isas.mztab</groupId>
-      <artifactId>io</artifactId>
+      <artifactId>jmztabm-io</artifactId>
       <version>${project.version}</version>
       <type>jar</type>
     </dependency>
@@ -271,6 +272,7 @@
           <failBuildOnCVSS>4</failBuildOnCVSS>
           <skipProvidedScope>true</skipProvidedScope>
           <skipRuntimeScope>true</skipRuntimeScope>
+          <suppressionFile>suppressions.xml</suppressionFile>
         </configuration>
         <executions>
           <execution>
