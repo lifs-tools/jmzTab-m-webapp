@@ -39,6 +39,9 @@
                   <div class="col-sm-7 no-gutters">
                     <input id="file" name="file" type="file" th:field="*{validationForm.file}"/>
                   </div>
+                  <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
+                      Select a local mzTab file to upload and validate.
+                  </small>
                 </div>
                 <div class="form-group row">
                   <label for="level" class="col-sm-5 col-form-label">Validation level</label>
@@ -54,6 +57,9 @@
                 <div class="form-group row">
                   <label for="maxErrors" class="col-sm-5 col-form-label">Maximum number of errors to report</label>
                   <input class="col-sm-7" type="text" th:field="*{validationForm.maxErrors}"/>
+                  <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
+                      The maximum number of parsing and validation errors that should be reported, minimum of 1.
+                  </small>
                 </div>
                 <div class="form-group row">
                   <label for="version" class="col-sm-5 col-form-label">mzTab specification version to validate against</label>
@@ -62,6 +68,9 @@
                             th:value="${version}" 
                             th:text="#{${version}}">MZTab1_1</option>
                   </select>
+                  <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
+                      The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 1.1 validation and vice-versa.
+                  </small>
                 </div>
 
                 <button id="validate" type="submit" class="btn btn-primary" disabled="true">Validate</button>
