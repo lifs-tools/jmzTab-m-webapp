@@ -9,6 +9,7 @@ import de.isas.mztab1_1.model.Error;
 import de.isas.mztab1_1.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
+import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import io.swagger.annotations.*;
@@ -22,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2018-01-11T19:50:29.849+01:00")
@@ -67,7 +67,7 @@ public interface ValidatePlainApi {
         if(getObjectMapper().isPresent() && getAcceptHeader().isPresent()) {
             if (getAcceptHeader().get().contains("application/json")) {
                 UserSessionFile file = getStorageService().get().store(mztabfile, getRequest().get().getSession().getId());
-                return new ResponseEntity<>(getValidationService().get().validate(ValidationService.MzTabVersion.MZTAB_1_1, file, 100), HttpStatus.OK);
+                return new ResponseEntity<>(getValidationService().get().validate(ValidationService.MzTabVersion.MZTAB_1_1, file, 100, ValidationLevel.INFO), HttpStatus.OK);
             }
         } else {
             log.warn("ObjectMapper or HttpServletRequest not configured in default ValidatePlainApi interface so no example is generated");

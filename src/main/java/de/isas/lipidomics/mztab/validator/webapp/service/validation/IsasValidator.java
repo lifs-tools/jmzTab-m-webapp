@@ -40,49 +40,46 @@ public class IsasValidator implements Validator {
     @Override
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors) throws IllegalStateException, IOException {
-        MZTabFileParser parser;
+        MZTabFileParser parser = null;
         List<ValidationMessage> validationResults = Collections.emptyList();
         try {
-            parser = new MZTabFileParser(filepath.toFile(),
+            parser = new MZTabFileParser(filepath.toFile());
+            parser.parse(
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
-            MZTabErrorList errorList = parser.getErrorList();
-            validationResults = new ArrayList<>(
-                errorList.size());
-            for (MZTabError error : errorList.getErrorList()) {
-                ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
-                switch (error.getType().
-                    getLevel()) {
-                    case Error:
-                        level = ValidationMessage.MessageTypeEnum.ERROR;
-                        break;
-                    case Info:
-                        level = ValidationMessage.MessageTypeEnum.INFO;
-                        break;
-                    case Warn:
-                        level = ValidationMessage.MessageTypeEnum.WARN;
-                        break;
-                    default:
-                        throw new IllegalStateException("State " + error.
-                            getType().
-                            getLevel() + " is not handled in switch/case statement!");
+        } finally {
+            if (parser != null) {
+                MZTabErrorList errorList = parser.getErrorList();
+                validationResults = new ArrayList<>(
+                    errorList.size());
+                for (MZTabError error : errorList.getErrorList()) {
+                    ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
+                    switch (error.getType().
+                        getLevel()) {
+                        case Error:
+                            level = ValidationMessage.MessageTypeEnum.ERROR;
+                            break;
+                        case Info:
+                            level = ValidationMessage.MessageTypeEnum.INFO;
+                            break;
+                        case Warn:
+                            level = ValidationMessage.MessageTypeEnum.WARN;
+                            break;
+                        default:
+                            throw new IllegalStateException("State " + error.
+                                getType().
+                                getLevel() + " is not handled in switch/case statement!");
+                    }
+                    ValidationMessage vr = new ValidationMessage().lineNumber(
+                        Long.valueOf(error.getLineNumber())).
+                        messageType(level).
+                        message(error.getMessage()).
+                        code(error.toString());
+                    Logger.getLogger(MzTabValidationService.class.getName()).
+                        info(vr.toString());
+                    validationResults.add(vr);
                 }
-                ValidationMessage vr = new ValidationMessage().lineNumber(
-                    Long.valueOf(error.getLineNumber())).
-                    messageType(level).
-                    message(error.getMessage()).
-                    code(error.toString());
-                Logger.getLogger(MzTabValidationService.class.getName()).
-                    info(vr.toString());
-                validationResults.add(vr);
             }
             return validationResults;
-        } catch (MZTabException ex) {
-            Logger.getLogger(IsasValidator.class.getName()).
-                log(Level.SEVERE, null, ex);
-        } catch (MZTabErrorOverflowException ex) {
-            Logger.getLogger(IsasValidator.class.getName()).
-                log(Level.SEVERE, null, ex);
         }
-        return validationResults;
     }
 }

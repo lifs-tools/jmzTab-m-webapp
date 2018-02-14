@@ -21,6 +21,7 @@ import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageFileNotFoundException;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
+import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import java.io.IOException;
 import java.util.Date;
 import javax.servlet.http.HttpServletRequest;
@@ -45,6 +46,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponents;
+//import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabErrorType;
 
 /**
  *
@@ -97,7 +99,8 @@ public class ValidationController {
             .fromServletMapping(request).
             pathSegment("validate", usf.getFilename()).
             queryParam("version", validationForm.getMzTabVersion()).
-            queryParam("maxErrors", validationForm.getMaxErrors()).
+            queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
+            queryParam("level", validationForm.getLevel()).
             build();
         ModelAndView modelAndView = new ModelAndView(
             "redirect:" + uri.toUriString());
@@ -107,7 +110,7 @@ public class ValidationController {
     @GetMapping(value = "/validate/{filename:.+}")
     public ModelAndView validateFile(@PathVariable String filename, @QueryParam(
         "version") ValidationService.MzTabVersion version, @QueryParam(
-        "maxErrors") int maxErrors, HttpServletRequest request,
+        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, HttpServletRequest request,
         HttpSession session) {
         if (session == null) {
             UriComponents uri = ServletUriComponentsBuilder
@@ -127,15 +130,20 @@ public class ValidationController {
             validationVersion = ValidationService.MzTabVersion.MZTAB_1_1;
             modelAndView.addObject("validationVersion", validationVersion);
         }
-        if (maxErrors > 0) {
-            modelAndView.addObject("validationMaxErrors", maxErrors);
+        if (maxErrors >= 0) {
+            modelAndView.addObject("validationMaxErrors", Math.max(1, maxErrors));
         } else {
             modelAndView.addObject("validationMaxErrors", 100);
         }
+        ValidationLevel validationLevel = ValidationLevel.INFO;
+        if(level!=null) {
+            validationLevel = level;
+        }
+        modelAndView.addObject("validationLevel", validationLevel);
         UserSessionFile usf = new UserSessionFile(filename, session.getId());
         modelAndView.addObject("validationResults", validationService.
             asValidationResults(validationService.validate(
-                validationVersion, usf, maxErrors)));
+                validationVersion, usf, maxErrors, validationLevel)));
         return modelAndView;
     }
 

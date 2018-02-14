@@ -16,22 +16,22 @@
             <div class="card-header">
               Validation Results
             </div>
-            <div class="card-body"><h4 class="card-title">Validated <span th:text="${validationFile}"/> against mzTab version <span th:text="#{${validationVersion}}"/>.</h4>
+            <div class="card-body"><h4 class="card-title">Validated <span th:text="${validationFile}"/> against <span th:text="#{${validationVersion}}"/>.</h4>
               <div th:unless="${not #lists.isEmpty(validationResults)}" class="alert alert-success" role="alert">
                 <strong>Validation passed!</strong> Your file complies with the mzTab standard.
               </div>
               <div th:if="${not #lists.isEmpty(validationResults)}" class="alert alert-warning" role="alert">
                 <strong>Validation failed!</strong> Your file does not comply with the mzTab standard.
               </div>
-              <div>
-                Showing the first <span th:text="${validationMaxErrors}"/> validation errors for each error level.
+              <div class="my-3">
+                Showing up to <span th:text="${validationMaxErrors}"/> validation errors on level <span th:text="${validationLevel}"/> and below.
               </div>
               <table id="validationResultTable" class="table table-striped table-hover pt-1 px-0" width="100%">
                 <thead class="thead-light">
                   <tr>
                     <th scope="col">Line Number</th>
-                    <th scope="col">Validation Level</th>
-                    <th scope="col">Validation Message</th>
+                    <th scope="col">Level</th>
+                    <th scope="col">Message</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -15,12 +15,13 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
-import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.mztab1_1.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 import uk.ac.ebi.pride.jmztab.utils.MZTabFileParser;
 import uk.ac.ebi.pride.jmztab.utils.errors.MZTabError;
@@ -35,11 +36,62 @@ public class EbiValidator implements Validator {
 
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors) throws IllegalStateException, IOException {
+        SortedSet<ValidationMessage> results = new TreeSet<>((vm1,
+            vm2) ->
+        {
+            int lineNumber = Long.compare(vm1.getLineNumber(), vm2.
+                getLineNumber());
+            if (lineNumber == 0) {
+                int messageType = vm1.getMessageType().
+                    compareTo(vm2.getMessageType());
+                if (messageType == 0) {
+                    int code = vm1.getCode().
+                        compareTo(vm2.getCode());
+                    return code;
+                } else {
+                    return messageType;
+                }
+            }
+            return lineNumber;
+        });
+        MZTabErrorType.Level level = MZTabErrorType.findLevel(validationLevel);
+        switch (level) {
+            case Info:
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Info.name(), maxErrors);
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Warn.name(), maxErrors);
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Error.name(), maxErrors);
+                break;
+            case Warn:
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Warn.name(), maxErrors);
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Error.name(), maxErrors);
+                break;
+            case Error:
+                applyParserForLevel(results, filepath,
+                    MZTabErrorType.Level.Error.name(), maxErrors);
+                break;
+            default:
+                throw new IllegalStateException(
+                    "State '" + level + "' is not handled in switch/case statement!");
+        }
+
+        List<ValidationMessage> validationResults = new ArrayList<>(results.
+            size());
+        validationResults.addAll(results);
+        return validationResults.subList(0, Math.min(
+            validationResults.size(), maxErrors));
+    }
+
+    private void applyParserForLevel(SortedSet<ValidationMessage> results,
+        Path filepath,
+        String validationLevel, int maxErrors) throws IllegalStateException, IOException {
         MZTabFileParser parser = new MZTabFileParser(filepath.toFile(),
             System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
         MZTabErrorList errorList = parser.getErrorList();
-        List<ValidationMessage> validationResults = new ArrayList<>(errorList.
-            size());
         for (MZTabError error : errorList.getErrorList()) {
             ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
             switch (error.getType().
@@ -54,8 +106,8 @@ public class EbiValidator implements Validator {
                     level = ValidationMessage.MessageTypeEnum.WARN;
                     break;
                 default:
-                    throw new IllegalStateException("State " + error.getType().
-                        getLevel() + " is not handled in switch/case statement!");
+                    throw new IllegalStateException("State '" + error.getType().
+                        getLevel() + "' is not handled in switch/case statement!");
             }
             ValidationMessage vr = new ValidationMessage().lineNumber(Long.
                 valueOf(error.getLineNumber())).
@@ -64,8 +116,7 @@ public class EbiValidator implements Validator {
                 code(error.toString());
             Logger.getLogger(MzTabValidationService.class.getName()).
                 info(vr.toString());
-            validationResults.add(vr);
+            results.add(vr);
         }
-        return validationResults;
     }
 }

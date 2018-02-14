@@ -15,7 +15,6 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.domain;
 
-import de.isas.lipidomics.jmztabm.validation.MzTabValidator;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import java.util.Arrays;
 import java.util.List;
@@ -27,19 +26,27 @@ import org.springframework.web.multipart.MultipartFile;
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public class ValidationForm {
+
     private MultipartFile file = null;
     private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_1_1;
     private Integer maxErrors = 100;
-    private final List<ValidationService.MzTabVersion> allVersions = Arrays.asList(ValidationService.MzTabVersion.values());
+    private ValidationLevel level = ValidationLevel.INFO;
+    private final List<ValidationLevel> allLevels = Arrays.asList(ValidationLevel.values());
+    private final List<ValidationService.MzTabVersion> allVersions = Arrays.
+        asList(ValidationService.MzTabVersion.values());
 
     public ValidationForm() {
-        this(null, ValidationService.MzTabVersion.MZTAB_1_1, 100);
+        this(null, ValidationService.MzTabVersion.MZTAB_1_1, 100,
+            ValidationLevel.INFO);
     }
+
     public ValidationForm(MultipartFile file,
-        ValidationService.MzTabVersion mzTabVersion, Integer maxErrors) {
+        ValidationService.MzTabVersion mzTabVersion, Integer maxErrors,
+        ValidationLevel level) {
         this.file = file;
         this.mzTabVersion = mzTabVersion;
         this.maxErrors = maxErrors;
+        this.level = level;
     }
 
     public MultipartFile getFile() {
@@ -48,10 +55,6 @@ public class ValidationForm {
 
     public void setFile(MultipartFile file) {
         this.file = file;
-    }
-    
-    public List<ValidationService.MzTabVersion> getAllVersions() {
-        return allVersions;
     }
 
     public ValidationService.MzTabVersion getMzTabVersion() {
@@ -70,12 +73,31 @@ public class ValidationForm {
         this.maxErrors = maxErrors;
     }
 
+    public ValidationLevel getLevel() {
+        return level;
+    }
+
+    public void setLevel(ValidationLevel level) {
+        this.level = level;
+    }
+    
+    public List<ValidationService.MzTabVersion> getAllVersions() {
+        return this.allVersions;
+    }
+    
+    public List<ValidationLevel> getAllLevels() {
+        return this.allLevels;
+    }
+
     @Override
     public int hashCode() {
-        int hash = 3;
-        hash = 97 * hash + Objects.hashCode(this.file);
-        hash = 97 * hash + Objects.hashCode(this.mzTabVersion);
-        hash = 97 * hash + Objects.hashCode(this.maxErrors);
+        int hash = 5;
+        hash = 59 * hash + Objects.hashCode(this.file);
+        hash = 59 * hash + Objects.hashCode(this.mzTabVersion);
+        hash = 59 * hash + Objects.hashCode(this.maxErrors);
+        hash = 59 * hash + Objects.hashCode(this.level);
+        hash = 59 * hash + Objects.hashCode(this.allLevels);
+        hash = 59 * hash + Objects.hashCode(this.allVersions);
         return hash;
     }
 
@@ -100,12 +122,21 @@ public class ValidationForm {
         if (!Objects.equals(this.maxErrors, other.maxErrors)) {
             return false;
         }
+        if (this.level != other.level) {
+            return false;
+        }
+        if (!Objects.equals(this.allLevels, other.allLevels)) {
+            return false;
+        }
+        if (!Objects.equals(this.allVersions, other.allVersions)) {
+            return false;
+        }
         return true;
     }
 
     @Override
     public String toString() {
-        return "ValidationForm{" + "file=" + file + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + '}';
+        return "ValidationForm{" + "file=" + file + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + '}';
     }
 
 }

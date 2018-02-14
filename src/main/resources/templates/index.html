@@ -41,6 +41,17 @@
                   </div>
                 </div>
                 <div class="form-group row">
+                  <label for="level" class="col-sm-5 col-form-label">Validation level</label>
+                  <select class="col-sm-7" th:field="*{validationForm.level}">
+                    <option th:each="level : *{validationForm.allLevels}" 
+                            th:value="${level}" 
+                            th:text="#{${level}}">Info</option>
+                  </select>
+                  <small id="levelHelpBlock" class="col-sm-12 form-text text-muted">
+                      The 'Info' level includes 'Warn' and 'Error' level messages, the 'Warn' level includes 'Error' level messages.
+                  </small>
+                </div>
+                <div class="form-group row">
                   <label for="maxErrors" class="col-sm-5 col-form-label">Maximum number of errors to report</label>
                   <input class="col-sm-7" type="text" th:field="*{validationForm.maxErrors}"/>
                 </div>

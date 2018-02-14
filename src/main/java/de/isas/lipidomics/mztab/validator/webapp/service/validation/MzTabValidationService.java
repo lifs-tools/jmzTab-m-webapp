@@ -30,7 +30,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorType.Level;
 
 /**
  *
@@ -48,16 +47,13 @@ public class MzTabValidationService implements ValidationService {
 
     @Override
     public List<ValidationMessage> validate(MzTabVersion mzTabVersion,
-        UserSessionFile userSessionFile, int maxErrors) {
+        UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel) {
         Path filepath = storageService.load(userSessionFile);
 
         try {
             List<ValidationMessage> validationResults = new ArrayList<>();
             validationResults.addAll(
-                validate(mzTabVersion, filepath, Level.Info,
-                    maxErrors));
-            validationResults.addAll(
-                validate(mzTabVersion, filepath, Level.Error,
+                validate(mzTabVersion, filepath, validationLevel,
                     maxErrors));
             return validationResults;
         } catch (IOException ex) {
@@ -69,7 +65,7 @@ public class MzTabValidationService implements ValidationService {
 
     private List<ValidationMessage> validate(MzTabVersion mzTabVersion,
         Path filepath,
-        Level validationLevel, int maxErrors) throws IllegalStateException, IOException {
+        ValidationLevel validationLevel, int maxErrors) throws IllegalStateException, IOException {
         switch (mzTabVersion) {
             case MZTAB_1_0:
                 return new EbiValidator().validate(filepath, validationLevel.
