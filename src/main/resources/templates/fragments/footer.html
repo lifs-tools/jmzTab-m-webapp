@@ -6,6 +6,11 @@
     <footer th:fragment="footer" class="sticky-bottom footer mastfooter" style="background-color: #FFFFFF;">
       <div class="container-fluid">
         <div class="row">
+          <div class="col-md-12">
+            <small>Based on <a href="https://github.com/PRIDE-Utilities/jmzTab">jmzTab</a> <span th:if="${page!=null and page.jmztabVersion != null}" th:text="${page.jmztabVersion}"></span> and <a href="https://github.com/nilshoffmann/jmzTab-m">jmzTab-m</a> <span th:if="${page!=null and page.jmztabmVersion != null}" th:text="${page.jmztabmVersion}"></span></small>
+          </div>
+        </div>
+        <div class="row">
           <div class="col-md-4">
             <figure class="figure float-left m-2 p-2">
               <a href="https://www.isas.de/en" target="_blank"><img src="/static/img/isas-logo.jpg" th:src="@{/img/isas-logo.jpg}" width="200px" class="figure-img img-fluid" alt="ISAS Logo"/></a>

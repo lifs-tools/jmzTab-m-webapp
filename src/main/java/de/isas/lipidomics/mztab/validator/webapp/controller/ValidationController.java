@@ -64,7 +64,13 @@ public class ValidationController {
 
     @Value("${ga.id}")
     private String gaId;
+    
+    @Value("${jmztab.version.number}")
+    private String jmztabVersionNumber;
 
+    @Value("${jmztabm.version.number}")
+    private String jmztabmVersionNumber;
+    
     @Autowired
     public ValidationController(StorageService storageService,
         ValidationService validationService) {
@@ -75,7 +81,7 @@ public class ValidationController {
     @GetMapping("/")
     public ModelAndView listUploadedFiles() throws IOException {
         ModelAndView model = new ModelAndView("index");
-        model.addObject("page", new Page("mzTabValidator", versionNumber, gaId));
+        model.addObject("page", new Page("mzTabValidator", versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber));
         model.addObject("validationForm", new ValidationForm());
         return model;
     }
@@ -121,7 +127,7 @@ public class ValidationController {
         }
         ModelAndView modelAndView = new ModelAndView("validationResult");
         modelAndView.
-            addObject("page", new Page("mzTabValidator", versionNumber, gaId));
+            addObject("page", new Page("mzTabValidator", versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber));
         modelAndView.addObject("validationFile", filename);
         ValidationService.MzTabVersion validationVersion = version;
         if (validationVersion != null) {
@@ -159,7 +165,7 @@ public class ValidationController {
     public ModelAndView handleMultipartError(HttpServletRequest req, MultipartException exception)
         throws Exception {
         ModelAndView mav = new ModelAndView();
-        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId));
+        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber));
         mav.addObject("error", exception);
         mav.addObject("url", req.getRequestURL());
         mav.addObject("timestamp", new Date().toString());
@@ -172,7 +178,7 @@ public class ValidationController {
     public ModelAndView handleError(HttpServletRequest req, Exception exception)
         throws Exception {
         ModelAndView mav = new ModelAndView();
-        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId));
+        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber));
         mav.addObject("error", exception);
         mav.addObject("url", req.getRequestURL());
         mav.addObject("timestamp", new Date().toString());
@@ -185,7 +191,7 @@ public class ValidationController {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ModelAndView handleUnmapped(HttpServletRequest req) {
         ModelAndView mav = new ModelAndView();
-        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId));
+        mav.addObject("page", new Page("mzTabValidator", versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber));
         mav.addObject("error", "Resource not found!");
         mav.addObject("url", req.getRequestURL());
         mav.addObject("timestamp", new Date().toString());
