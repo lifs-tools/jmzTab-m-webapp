@@ -22,14 +22,20 @@ import java.util.Objects;
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public class Page {
+
     private String title;
     private String appVersion;
-    private String gaId; 
+    private String gaId;
+    private String jmztabVersion;
+    private String jmztabmVersion;
 
-    public Page(String title, String appVersion, String gaId) {
+    public Page(String title, String appVersion, String gaId,
+        String jmztabVersion, String jmztabmVersion) {
         this.title = title;
         this.appVersion = appVersion;
         this.gaId = gaId;
+        this.jmztabVersion = jmztabVersion;
+        this.jmztabmVersion = jmztabmVersion;
     }
 
     public String getTitle() {
@@ -47,21 +53,39 @@ public class Page {
     public void setAppVersion(String appVersion) {
         this.appVersion = appVersion;
     }
-    
+
     public void setGaId(String gaId) {
         this.gaId = gaId;
     }
-    
+
     public String getGaId() {
         return this.gaId;
     }
 
+    public String getJmztabVersion() {
+        return jmztabVersion;
+    }
+
+    public void setJmztabVersion(String jmztabVersion) {
+        this.jmztabVersion = jmztabVersion;
+    }
+
+    public String getJmztabmVersion() {
+        return jmztabmVersion;
+    }
+
+    public void setJmztabmVersion(String jmztabmVersion) {
+        this.jmztabmVersion = jmztabmVersion;
+    }
+
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 67 * hash + Objects.hashCode(this.title);
-        hash = 67 * hash + Objects.hashCode(this.appVersion);
-        hash = 67 * hash + Objects.hashCode(this.gaId);
+        int hash = 5;
+        hash = 41 * hash + Objects.hashCode(this.title);
+        hash = 41 * hash + Objects.hashCode(this.appVersion);
+        hash = 41 * hash + Objects.hashCode(this.gaId);
+        hash = 41 * hash + Objects.hashCode(this.jmztabVersion);
+        hash = 41 * hash + Objects.hashCode(this.jmztabmVersion);
         return hash;
     }
 
@@ -86,12 +110,18 @@ public class Page {
         if (!Objects.equals(this.gaId, other.gaId)) {
             return false;
         }
+        if (!Objects.equals(this.jmztabVersion, other.jmztabVersion)) {
+            return false;
+        }
+        if (!Objects.equals(this.jmztabmVersion, other.jmztabmVersion)) {
+            return false;
+        }
         return true;
     }
 
     @Override
     public String toString() {
-        return "Page{" + "title=" + title + ", appVersion=" + appVersion + ", gaId="+ gaId +'}';
+        return "Page{" + "title=" + title + ", appVersion=" + appVersion + ", gaId=" + gaId + ", jmztabVersion=" + jmztabVersion + ", jmztabmVersion=" + jmztabmVersion + '}';
     }
 
 }
