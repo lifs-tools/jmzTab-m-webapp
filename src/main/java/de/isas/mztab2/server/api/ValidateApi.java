@@ -3,11 +3,11 @@
  * https://github.com/swagger-api/swagger-codegen
  * Do not edit the class manually.
  */
-package de.isas.mztab1_1.server.api;
+package de.isas.mztab2.server.api;
 
-import de.isas.mztab1_1.model.Error;
-import de.isas.mztab1_1.model.MzTab;
-import de.isas.mztab1_1.model.ValidationMessage;
+import de.isas.mztab2.model.Error;
+import de.isas.mztab2.model.MzTab;
+import de.isas.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.annotations.*;
 import org.slf4j.Logger;

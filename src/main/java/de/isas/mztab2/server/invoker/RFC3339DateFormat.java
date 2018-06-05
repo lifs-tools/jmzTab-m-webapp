@@ -1,4 +1,4 @@
-package de.isas.mztab1_1.server.invoker;
+package de.isas.mztab2.server.invoker;
 
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.databind.util.ISO8601Utils;

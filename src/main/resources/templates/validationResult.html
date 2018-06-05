@@ -47,6 +47,39 @@
               <a class="btn btn-primary float-left" href="/" th:href="@{/}">Back</a>
             </div>
           </div>
+          <div class="card my-2">
+            <div class="card-header">
+              <button class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
+                Metadata Section
+              </button>
+            </div>
+            <div class="card-body collapse" id="metadataSection">
+              <div th:unless="${#lists.isEmpty(metaDataRows)}" class="alert alert-success" role="alert">
+                <strong>Metadata present!</strong> Your file contains a metadata section.
+              </div>
+              <div th:if="${#lists.isEmpty(metaDataRows)}" class="alert alert-warning" role="alert">
+                <strong>Metadata missing!</strong> Your file does not contain a metadata section.
+              </div>
+              <table id="metaDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                <thead class="thead-light">
+                  <tr>
+                    <th scope="col">Line Number</th>
+                    <th scope="col">Prefix</th>
+                    <th scope="col">Key</th>
+                    <th scope="col">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:each="metaDataRow : ${metaDataRows}">
+                    <td th:text="${metaDataRow[0]}"></td>
+                    <td th:text="${metaDataRow[1]}"></td>
+                    <td th:text="${metaDataRow[2]}"></td>
+                    <td th:text="${metaDataRow[3]}"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </main>
 
         <th:block th:include="fragments/footer :: footer"></th:block>

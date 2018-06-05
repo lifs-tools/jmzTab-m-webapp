@@ -3,10 +3,10 @@
  * https://github.com/swagger-api/swagger-codegen
  * Do not edit the class manually.
  */
-package de.isas.mztab1_1.server.api;
+package de.isas.mztab2.server.api;
 
-import de.isas.mztab1_1.model.Error;
-import de.isas.mztab1_1.model.ValidationMessage;
+import de.isas.mztab2.model.Error;
+import de.isas.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
@@ -67,7 +67,7 @@ public interface ValidatePlainApi {
         if(getObjectMapper().isPresent() && getAcceptHeader().isPresent()) {
             if (getAcceptHeader().get().contains("application/json")) {
                 UserSessionFile file = getStorageService().get().store(mztabfile, getRequest().get().getSession().getId());
-                return new ResponseEntity<>(getValidationService().get().validate(ValidationService.MzTabVersion.MZTAB_1_1, file, 100, ValidationLevel.INFO), HttpStatus.OK);
+                return new ResponseEntity<>(getValidationService().get().validate(ValidationService.MzTabVersion.MZTAB_2_0, file, 100, ValidationLevel.INFO), HttpStatus.OK);
             }
         } else {
             log.warn("ObjectMapper or HttpServletRequest not configured in default ValidatePlainApi interface so no example is generated");

@@ -13,14 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.isas.mztab1_1.server.api;
+package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
-@javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2018-01-11T19:50:29.849+01:00")
+import de.isas.mztab2.model.ValidationMessage;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
-public class ApiException extends Exception{
-    private int code;
-    public ApiException (int code, String msg) {
-        super(msg);
-        this.code = code;
-    }
+/**
+ *
+ * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ */
+public interface WebValidator {
+
+    public List<ValidationMessage> validate(Path filepath,
+        String validationLevel, int maxErrors) throws IllegalStateException, IOException;
+
+    public Map<String, List<List<String>>> parse(Path filepath, String validationLevel,
+        int maxErrors) throws IOException;
 }

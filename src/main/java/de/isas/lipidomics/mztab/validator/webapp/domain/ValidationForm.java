@@ -28,7 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ValidationForm {
 
     private MultipartFile file = null;
-    private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_1_1;
+    private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_2_0;
     private Integer maxErrors = 100;
     private ValidationLevel level = ValidationLevel.INFO;
     private final List<ValidationLevel> allLevels = Arrays.asList(ValidationLevel.values());
@@ -36,7 +36,7 @@ public class ValidationForm {
         asList(ValidationService.MzTabVersion.values());
 
     public ValidationForm() {
-        this(null, ValidationService.MzTabVersion.MZTAB_1_1, 100,
+        this(null, ValidationService.MzTabVersion.MZTAB_2_0, 100,
             ValidationLevel.INFO);
     }
 

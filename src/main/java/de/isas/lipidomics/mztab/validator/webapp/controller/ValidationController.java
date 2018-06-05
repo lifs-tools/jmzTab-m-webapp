@@ -23,7 +23,10 @@ import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageFileNotF
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Date;
+import java.util.stream.Stream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.QueryParam;
@@ -44,7 +47,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponents;
-//import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabErrorType;
+//import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
 
 /**
  *
@@ -101,7 +104,7 @@ public class ValidationController {
             sessionId);
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
-            pathSegment("validate", usf.getFilename()).
+            pathSegment("validate", usf.getSessionId()).
             queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
@@ -111,8 +114,8 @@ public class ValidationController {
         return modelAndView;
     }
 
-    @GetMapping(value = "/validate/{filename:.+}")
-    public ModelAndView validateFile(@PathVariable String filename, @QueryParam(
+    @GetMapping(value = "/validate/{sessionId:.+}")
+    public ModelAndView validateFile(@PathVariable String sessionId, @QueryParam(
         "version") ValidationService.MzTabVersion version, @QueryParam(
         "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, HttpServletRequest request,
         HttpSession session) {
@@ -124,14 +127,15 @@ public class ValidationController {
                 "redirect:" + uri.toUriString());
         }
         ModelAndView modelAndView = new ModelAndView("validationResult");
+        Path filePath = storageService.loadAll(sessionId).findFirst().get();
         modelAndView.
-            addObject("page", createPage("mzTabValidator"));
-        modelAndView.addObject("validationFile", filename);
+            addObject("page", createPage(sessionId));
+        modelAndView.addObject("validationFile", filePath);
         ValidationService.MzTabVersion validationVersion = version;
         if (validationVersion != null) {
             modelAndView.addObject("validationVersion", validationVersion);
         } else {
-            validationVersion = ValidationService.MzTabVersion.MZTAB_1_1;
+            validationVersion = ValidationService.MzTabVersion.MZTAB_2_0;
             modelAndView.addObject("validationVersion", validationVersion);
         }
         if (maxErrors >= 0) {
@@ -144,11 +148,20 @@ public class ValidationController {
             validationLevel = level;
         }
         modelAndView.addObject("validationLevel", validationLevel);
-        UserSessionFile usf = new UserSessionFile(filename, session.getId());
+        UserSessionFile usf = new UserSessionFile(filePath.toString(), session.getId());
         modelAndView.addObject("validationResults", validationService.
             asValidationResults(validationService.validate(
                 validationVersion, usf, maxErrors, validationLevel)));
+        modelAndView.addObject("metaDataRows", validationService.parse(version,
+            usf, maxErrors, validationLevel).getOrDefault("METADATA", Collections.emptyList()));
         return modelAndView;
+    }
+    
+    @GetMapping("/about")
+    public ModelAndView handleAbout() {
+        ModelAndView model = new ModelAndView("about");
+        model.addObject("page", createPage("About"));
+        return model;
     }
 
     @ExceptionHandler(StorageFileNotFoundException.class)

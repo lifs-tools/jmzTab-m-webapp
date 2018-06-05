@@ -18,16 +18,20 @@ package de.isas.lipidomics.mztab.validator.webapp.service;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
-import de.isas.mztab1_1.model.ValidationMessage;
+import de.isas.mztab2.model.ValidationMessage;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public interface ValidationService {
-    static enum MzTabVersion{MZTAB_1_0, MZTAB_1_1};
+    static enum MzTabVersion{MZTAB_1_0, MZTAB_2_0};
     List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
+    
+    public Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+        UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
     
     List<ValidationResult> asValidationResults(List<ValidationMessage> validationMessage);
 }

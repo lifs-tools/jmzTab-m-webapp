@@ -20,12 +20,13 @@ import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
-import de.isas.mztab1_1.model.ValidationMessage;
+import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,7 +63,40 @@ public class MzTabValidationService implements ValidationService {
         }
         return Collections.emptyList();
     }
+    
+    @Override
+    public Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+        UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel) {
+        Path filepath = storageService.load(userSessionFile);
 
+        try {
+            return parse(mzTabVersion, filepath, validationLevel,
+                    maxErrors);
+        } catch (IOException ex) {
+            Logger.getLogger(MzTabValidationService.class.getName()).
+                log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        return Collections.emptyMap();
+    }
+ 
+    private Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+        Path filepath,
+        ValidationLevel validationLevel, int maxErrors) throws IllegalStateException, IOException {
+        switch (mzTabVersion) {
+            case MZTAB_1_0:
+                return new EbiValidator().parse(filepath, validationLevel.
+                    name(),
+                    maxErrors);
+            case MZTAB_2_0:
+                return new IsasValidator().parse(filepath, validationLevel.
+                    name(),
+                    maxErrors);
+            default:
+                throw new IllegalStateException(
+                    "Unsupported mzTab version: " + mzTabVersion.toString());
+        }
+    }
+    
     private List<ValidationMessage> validate(MzTabVersion mzTabVersion,
         Path filepath,
         ValidationLevel validationLevel, int maxErrors) throws IllegalStateException, IOException {
@@ -71,7 +105,7 @@ public class MzTabValidationService implements ValidationService {
                 return new EbiValidator().validate(filepath, validationLevel.
                     name(),
                     maxErrors);
-            case MZTAB_1_1:
+            case MZTAB_2_0:
                 return new IsasValidator().validate(filepath, validationLevel.
                     name(),
                     maxErrors);

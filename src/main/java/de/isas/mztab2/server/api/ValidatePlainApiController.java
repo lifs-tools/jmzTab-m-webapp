@@ -1,4 +1,4 @@
-package de.isas.mztab1_1.server.api;
+package de.isas.mztab2.server.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
