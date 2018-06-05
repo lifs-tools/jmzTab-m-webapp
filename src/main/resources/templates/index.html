@@ -66,10 +66,10 @@
                   <select class="col-sm-7" th:field="*{validationForm.mzTabVersion}">
                     <option th:each="version : *{validationForm.allVersions}" 
                             th:value="${version}" 
-                            th:text="#{${version}}">MZTab1_1</option>
+                            th:text="#{${version}}">MZTab2_0</option>
                   </select>
                   <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
-                      The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 1.1 validation and vice-versa.
+                      The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
                   </small>
                 </div>
 

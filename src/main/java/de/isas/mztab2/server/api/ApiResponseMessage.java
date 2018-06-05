@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.isas.mztab1_1.server.api;
+package de.isas.mztab2.server.api;
 
 import javax.xml.bind.annotation.XmlTransient;
 

@@ -15,27 +15,35 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
-import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
-import de.isas.mztab1_1.model.ValidationMessage;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import de.isas.mztab2.io.MzTabNonValidatingWriter;
+import de.isas.mztab2.io.MzTabWriterDefaults;
+import de.isas.mztab2.model.MzTab;
+import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import uk.ac.ebi.pride.jmztab1_1.utils.MZTabFileParser;
-import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabError;
-import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabErrorList;
-import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabErrorOverflowException;
-import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabErrorType;
-import uk.ac.ebi.pride.jmztab1_1.utils.errors.MZTabException;
+import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
+import uk.ac.ebi.pride.jmztab2.utils.MZTabFileParser;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabError;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorList;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
 
 /**
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
-public class IsasValidator implements Validator {
+public class IsasValidator implements WebValidator {
 
     @Override
     public List<ValidationMessage> validate(Path filepath,
@@ -81,5 +89,43 @@ public class IsasValidator implements Validator {
             }
             return validationResults;
         }
+    }
+
+    @Override
+    public Map<String, List<List<String>>> parse(Path filepath,
+        String validationLevel, int maxErrors) throws IOException {
+        MZTabFileParser parser = new MZTabFileParser(filepath.toFile());
+        parser.parse(
+            System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
+        MzTab mzTabFile = parser.getMZTabFile();
+        MzTabWriterDefaults writerDefaults = new MzTabWriterDefaults();
+        CsvMapper mapper = writerDefaults.metadataMapper();
+        CsvSchema schema = writerDefaults.metaDataSchema(mapper);
+        if (mzTabFile.getMetadata().
+            getMzTabVersion() == null) {
+            //set default version if not set
+            mzTabFile.getMetadata().
+                mzTabVersion(MZTabConstants.VERSION_MZTAB_M);
+        }
+        StringWriter writer = new StringWriter();
+        try {
+            mapper.writer(schema).
+                writeValue(writer, mzTabFile.getMetadata());
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
+                log(Level.SEVERE, null, ex);
+        }
+        Map<String, List<List<String>>> mzTabLines = new LinkedHashMap<>();
+        String[] metaDataLines = writer.toString().
+            split(MZTabConstants.NEW_LINE);
+        List<List<String>> metaData = new ArrayList<>();
+        for (int i = 0; i < metaDataLines.length; i++) {
+            String[] metaDataLine = metaDataLines[i].split(
+                MZTabConstants.TAB_STRING);
+            metaData.add(Arrays.asList("" + (i + 1), metaDataLine[0],
+                metaDataLine[1], metaDataLine[2]));
+        }
+        mzTabLines.put("METADATA", metaData);
+        return mzTabLines;
     }
 }

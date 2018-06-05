@@ -13,18 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.isas.lipidomics.mztab.validator.webapp.service.validation;
+package de.isas.mztab2.server.api;
 
-import de.isas.mztab1_1.model.ValidationMessage;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
+@javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2018-01-11T19:50:29.849+01:00")
 
-/**
- *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
- */
-public interface Validator {
-    public List<ValidationMessage> validate(Path filepath,
-             String validationLevel, int maxErrors) throws IllegalStateException, IOException;
+public class NotFoundException extends ApiException {
+    private int code;
+    public NotFoundException (int code, String msg) {
+        super(code, msg);
+        this.code = code;
+    }
 }

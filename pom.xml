@@ -44,12 +44,12 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <jmztab.version>3.0.4</jmztab.version>
-    <jmztabm.version>0.9.0-SNAPSHOT</jmztabm.version>
+    <jmztabm.version>0.9.4-SNAPSHOT</jmztabm.version>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>1.8</java.version>
     <application.version.number>${project.version}</application.version.number>
     <springfox.version>2.8.0</springfox.version>
-    <spring.boot.version>1.5.10.RELEASE</spring.boot.version>
+    <spring.boot.version>1.5.13.RELEASE</spring.boot.version>
     <docker.image.prefix>isas</docker.image.prefix>
     <dockerfile.plugin.version>1.3.7</dockerfile.plugin.version>
     <lombok.version>1.16.20</lombok.version>
@@ -169,6 +169,11 @@
         <artifactId>jmztabm-io</artifactId>
         <version>${jmztabm.version}</version>
       </dependency>
+      <dependency>
+        <groupId>de.isas.mztab</groupId>
+        <artifactId>jmztabm-validation</artifactId>
+        <version>${jmztabm.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -268,7 +273,7 @@
       </resource>
     </resources>
     <plugins>
-      <plugin>
+<!--      <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>3.1.1</version>
@@ -286,7 +291,7 @@
             </goals>
           </execution>
         </executions>
-      </plugin>
+      </plugin>-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-install-plugin</artifactId>

@@ -15,11 +15,12 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
-import de.isas.mztab1_1.model.ValidationMessage;
+import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.logging.Logger;
@@ -32,8 +33,9 @@ import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorType;
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
-public class EbiValidator implements Validator {
+public class EbiValidator implements WebValidator {
 
+    @Override
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors) throws IllegalStateException, IOException {
         SortedSet<ValidationMessage> results = new TreeSet<>((vm1,
@@ -118,5 +120,11 @@ public class EbiValidator implements Validator {
                 info(vr.toString());
             results.add(vr);
         }
+    }
+
+    @Override
+    public Map<String, List<List<String>>> parse(Path filepath, String validationLevel,
+        int maxErrors) throws IOException {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }
