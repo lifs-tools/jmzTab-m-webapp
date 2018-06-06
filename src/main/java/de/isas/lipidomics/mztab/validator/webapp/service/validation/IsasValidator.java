@@ -26,8 +26,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,7 +92,7 @@ public class IsasValidator implements WebValidator {
     }
 
     @Override
-    public Map<String, List<List<String>>> parse(Path filepath,
+    public Map<String, List<Map<String, String>>> parse(Path filepath,
         String validationLevel, int maxErrors) throws IOException {
         MZTabFileParser parser = new MZTabFileParser(filepath.toFile());
         parser.parse(
@@ -115,17 +115,112 @@ public class IsasValidator implements WebValidator {
             Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                 log(Level.SEVERE, null, ex);
         }
-        Map<String, List<List<String>>> mzTabLines = new LinkedHashMap<>();
+        Map<String, List<Map<String, String>>> mzTabLines = new LinkedHashMap<>();
         String[] metaDataLines = writer.toString().
             split(MZTabConstants.NEW_LINE);
-        List<List<String>> metaData = new ArrayList<>();
+        List<Map<String, String>> metaData = new ArrayList<>();
+        int lineNumber = 1;
         for (int i = 0; i < metaDataLines.length; i++) {
             String[] metaDataLine = metaDataLines[i].split(
                 MZTabConstants.TAB_STRING);
-            metaData.add(Arrays.asList("" + (i + 1), metaDataLine[0],
-                metaDataLine[1], metaDataLine[2]));
+            Map<String, String> lineMap = new LinkedHashMap<>();
+            lineMap.put("LINE_NUMBER", lineNumber+"");
+            lineMap.put("PREFIX", metaDataLine[0]);
+            lineMap.put("KEY", metaDataLine[1]);
+            lineMap.put("VALUE", metaDataLine[2]);
+            metaData.add(lineMap);
+            lineNumber++;
         }
-        mzTabLines.put("METADATA", metaData);
+        mzTabLines.put("META", metaData);
+
+        mapper = writerDefaults.smallMoleculeSummaryMapper();
+        schema = writerDefaults.smallMoleculeSummarySchema(mapper, mzTabFile);
+        writer = new StringWriter();
+        try {
+            mapper.writer(schema).
+                writeValue(writer, mzTabFile.getSmallMoleculeSummary());
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
+                log(Level.SEVERE, null, ex);
+        }
+
+        String[] summaryDataLines = writer.toString().
+            split(MZTabConstants.NEW_LINE);
+        String[] summaryHeader = summaryDataLines[0].split(MZTabConstants.TAB_STRING);
+        List<Map<String, String>> summaryData = new ArrayList<>();
+        //due to the header
+        lineNumber++;
+        for (int i = 1; i < summaryDataLines.length; i++) {
+            String[] dataLine = summaryDataLines[i].split(
+                MZTabConstants.TAB_STRING);
+            Map<String, String> lineMap = new LinkedHashMap<>();
+            lineMap.put("LINE_NUMBER", lineNumber + "");
+            for(int j=0; j<summaryHeader.length; j++) {
+                lineMap.put(summaryHeader[j], dataLine[j]);
+            }
+            summaryData.add(lineMap);
+            lineNumber++;
+        }
+        mzTabLines.put("SUMMARY", summaryData);
+        
+        mapper = writerDefaults.smallMoleculeFeatureMapper();
+        schema = writerDefaults.smallMoleculeFeatureSchema(mapper, mzTabFile);
+        writer = new StringWriter();
+        try {
+            mapper.writer(schema).
+                writeValue(writer, mzTabFile.getSmallMoleculeFeature());
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
+                log(Level.SEVERE, null, ex);
+        }
+        String[] featureDataLines = writer.toString().
+            split(MZTabConstants.NEW_LINE);
+        String[] featureHeader = featureDataLines[0].split(MZTabConstants.TAB_STRING);
+        List<Map<String, String>> featureData = new ArrayList<>();
+        //due to the header
+        lineNumber++;
+        for (int i = 1; i < featureDataLines.length; i++) {
+            String[] dataLine = featureDataLines[i].split(
+                MZTabConstants.TAB_STRING);
+            Map<String, String> lineMap = new LinkedHashMap<>();
+            lineMap.put("LINE_NUMBER", lineNumber + "");
+            for(int j=0; j<featureHeader.length; j++) {
+                lineMap.put(featureHeader[j], dataLine[j]);
+            }
+            featureData.add(lineMap);
+            lineNumber++;
+        }
+        mzTabLines.put("FEATURE", featureData);
+        
+        mapper = writerDefaults.smallMoleculeEvidenceMapper();
+        schema = writerDefaults.smallMoleculeEvidenceSchema(mapper, mzTabFile);
+        writer = new StringWriter();
+        try {
+            mapper.writer(schema).
+                writeValue(writer, mzTabFile.getSmallMoleculeEvidence());
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
+                log(Level.SEVERE, null, ex);
+        }
+        String[] evidenceDataLines = writer.toString().
+            split(MZTabConstants.NEW_LINE);
+        String[] evidenceHeader = evidenceDataLines[0].split(MZTabConstants.TAB_STRING);
+        List<Map<String, String>> evidenceData = new ArrayList<>();
+        //due to the header
+        lineNumber++;
+        for (int i = 1; i < evidenceDataLines.length; i++) {
+            String[] dataLine = evidenceDataLines[i].split(
+                MZTabConstants.TAB_STRING);
+            Map<String, String> lineMap = new LinkedHashMap<>();
+            lineMap.put("LINE_NUMBER", lineNumber + "");
+            for(int j=0; j<evidenceHeader.length; j++) {
+                lineMap.put(evidenceHeader[j], dataLine[j]);
+            }
+            evidenceData.add(lineMap);
+            lineNumber++;
+        }
+        mzTabLines.put("EVIDENCE", evidenceData);
+
         return mzTabLines;
     }
 }

@@ -123,7 +123,7 @@ public class EbiValidator implements WebValidator {
     }
 
     @Override
-    public Map<String, List<List<String>>> parse(Path filepath, String validationLevel,
+    public Map<String, List<Map<String,String>>> parse(Path filepath, String validationLevel,
         int maxErrors) throws IOException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }

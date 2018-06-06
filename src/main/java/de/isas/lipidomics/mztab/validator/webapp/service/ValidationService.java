@@ -30,7 +30,7 @@ public interface ValidationService {
     static enum MzTabVersion{MZTAB_1_0, MZTAB_2_0};
     List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
     
-    public Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+    public Map<String, List<Map<String, String>>> parse(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
     
     List<ValidationResult> asValidationResults(List<ValidationMessage> validationMessage);

@@ -65,7 +65,7 @@ public class MzTabValidationService implements ValidationService {
     }
     
     @Override
-    public Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+    public Map<String, List<Map<String,String>>> parse(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel) {
         Path filepath = storageService.load(userSessionFile);
 
@@ -79,7 +79,7 @@ public class MzTabValidationService implements ValidationService {
         return Collections.emptyMap();
     }
  
-    private Map<String, List<List<String>>> parse(MzTabVersion mzTabVersion,
+    private Map<String, List<Map<String,String>>> parse(MzTabVersion mzTabVersion,
         Path filepath,
         ValidationLevel validationLevel, int maxErrors) throws IllegalStateException, IOException {
         switch (mzTabVersion) {
