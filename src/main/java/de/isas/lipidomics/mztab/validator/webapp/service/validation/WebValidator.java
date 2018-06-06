@@ -30,6 +30,6 @@ public interface WebValidator {
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors) throws IllegalStateException, IOException;
 
-    public Map<String, List<List<String>>> parse(Path filepath, String validationLevel,
+    public Map<String, List<Map<String,String>>> parse(Path filepath, String validationLevel,
         int maxErrors) throws IOException;
 }

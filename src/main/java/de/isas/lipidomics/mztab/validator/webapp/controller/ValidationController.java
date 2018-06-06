@@ -24,9 +24,12 @@ import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.stream.Stream;
+import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.QueryParam;
@@ -129,7 +132,7 @@ public class ValidationController {
         ModelAndView modelAndView = new ModelAndView("validationResult");
         Path filePath = storageService.loadAll(sessionId).findFirst().get();
         modelAndView.
-            addObject("page", createPage(sessionId));
+            addObject("page", createPage(filePath.getFileName().toString()));
         modelAndView.addObject("validationFile", filePath);
         ValidationService.MzTabVersion validationVersion = version;
         if (validationVersion != null) {
@@ -152,9 +155,23 @@ public class ValidationController {
         modelAndView.addObject("validationResults", validationService.
             asValidationResults(validationService.validate(
                 validationVersion, usf, maxErrors, validationLevel)));
-        modelAndView.addObject("metaDataRows", validationService.parse(version,
-            usf, maxErrors, validationLevel).getOrDefault("METADATA", Collections.emptyList()));
+        Map<String, List<Map<String, String>>> mzTabContents = validationService.parse(version,
+            usf, maxErrors, validationLevel);
+        addDataRowsFor(modelAndView, mzTabContents, "META");
+        addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
+        addDataRowsFor(modelAndView, mzTabContents, "FEATURE");
+        addDataRowsFor(modelAndView, mzTabContents, "EVIDENCE");
         return modelAndView;
+    }
+
+    protected void addDataRowsFor(ModelAndView modelAndView,
+        Map<String, List<Map<String, String>>> mzTabContents, String key) {
+        modelAndView.addObject(key.toLowerCase()+"DataRows", mzTabContents.getOrDefault(key, Collections.emptyList()));
+        Collection<String> featureKeys = mzTabContents.getOrDefault(key, Collections.emptyList()).stream().findFirst().map((t) ->
+        {
+            return t.keySet();
+        }).orElse(Collections.emptySet());
+        modelAndView.addObject(key.toLowerCase()+"DataColumnKeys", featureKeys);
     }
     
     @GetMapping("/about")

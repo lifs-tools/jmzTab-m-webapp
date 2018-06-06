@@ -35,8 +35,8 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @SpringBootApplication
 @EnableConfigurationProperties(StorageProperties.class)
 @EnableSwagger2
-@ComponentScan(basePackages = {"de.isas.mztab1_1.server.invoker",
-    "de.isas.mztab1_1.server.api", "de.isas.lipidomics.mztab", "io.swagger.configuration"})
+@ComponentScan(basePackages = {"de.isas.mztab2.server.invoker",
+    "de.isas.mztab2.server.api", "de.isas.lipidomics.mztab", "io.swagger.configuration"})
 public class Application {
 
     public static void main(String[] args) {

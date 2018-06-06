@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head></head>
+  <body>
+    <div th:fragment="mztab-summary">
+    <div class="card my-2">
+            <div class="card-header">
+              <button class="btn btn-link" data-toggle="collapse" data-target="#summarySection" aria-expanded="true" aria-controls="summarySection">
+                Small Molecule Summary
+              </button>
+              <span th:if="${#lists.isEmpty(summaryDataRows)}" class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i></span>
+            </div>
+            <div class="card-body collapse" style="overflow:scroll" id="summarySection">
+              <div th:if="${#lists.isEmpty(summaryDataRows)}" class="alert alert-warning" role="alert">
+                <strong>Small molecule summary section missing!</strong> Your file does not contain small molecule summary data.
+              </div>
+              <table id="summaryDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(summaryDataColumnKeys)}">
+                <thead class="thead-light">
+                  <tr>
+                    <th th:each="dataRowKey : ${summaryDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:each="dataRow : ${summaryDataRows}">
+                    <td th:each="dataRowKey : ${summaryDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+    </div>
+  </body>
+</html>

@@ -23,7 +23,7 @@ public class SwaggerDocumentationConfig {
             .license("Apache 2.0")
             .licenseUrl("http://www.apache.org/licenses/LICENSE-2.0.html")
             .termsOfServiceUrl("")
-            .version("1.1.0")
+            .version("2.0.0")
             .contact(new Contact("","", "nils.hoffmann@isas.de"))
             .build();
     }
@@ -36,7 +36,7 @@ public class SwaggerDocumentationConfig {
                     .apis(Predicates.not(RequestHandlerSelectors.basePackage("org.springframework.cloud")))
                     .apis(Predicates.not(RequestHandlerSelectors.basePackage("org.springframework.data.rest.webmvc")))
                     .apis(Predicates.not(RequestHandlerSelectors.basePackage("de.isas.lipidomics.mztab.validator.webapp.controller")))
-                    .apis(RequestHandlerSelectors.basePackage("de.isas.mztab1_1.server.api"))
+                    .apis(RequestHandlerSelectors.basePackage("de.isas.mztab2.server.api"))
                     .build()
                 .directModelSubstitute(java.time.LocalDate.class, java.sql.Date.class)
                 .directModelSubstitute(java.time.OffsetDateTime.class, java.util.Date.class)
