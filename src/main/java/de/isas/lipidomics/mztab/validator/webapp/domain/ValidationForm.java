@@ -31,22 +31,25 @@ public class ValidationForm {
     private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_2_0;
     private Integer maxErrors = 100;
     private ValidationLevel level = ValidationLevel.INFO;
-    private final List<ValidationLevel> allLevels = Arrays.asList(ValidationLevel.values());
+    private Boolean checkCvMapping = false;
+    private final List<ValidationLevel> allLevels = Arrays.asList(
+        ValidationLevel.values());
     private final List<ValidationService.MzTabVersion> allVersions = Arrays.
         asList(ValidationService.MzTabVersion.values());
 
     public ValidationForm() {
         this(null, ValidationService.MzTabVersion.MZTAB_2_0, 100,
-            ValidationLevel.INFO);
+            ValidationLevel.INFO, false);
     }
 
     public ValidationForm(MultipartFile file,
         ValidationService.MzTabVersion mzTabVersion, Integer maxErrors,
-        ValidationLevel level) {
+        ValidationLevel level, Boolean checkCvMapping) {
         this.file = file;
         this.mzTabVersion = mzTabVersion;
         this.maxErrors = maxErrors;
         this.level = level;
+        this.checkCvMapping = checkCvMapping;
     }
 
     public MultipartFile getFile() {
@@ -80,13 +83,21 @@ public class ValidationForm {
     public void setLevel(ValidationLevel level) {
         this.level = level;
     }
-    
+
     public List<ValidationService.MzTabVersion> getAllVersions() {
         return this.allVersions;
     }
-    
+
     public List<ValidationLevel> getAllLevels() {
         return this.allLevels;
+    }
+
+    public Boolean getCheckCvMapping() {
+        return this.checkCvMapping;
+    }
+
+    public void setCheckCvMapping(Boolean checkCvMapping) {
+        this.checkCvMapping = checkCvMapping;
     }
 
     @Override
@@ -98,6 +109,7 @@ public class ValidationForm {
         hash = 59 * hash + Objects.hashCode(this.level);
         hash = 59 * hash + Objects.hashCode(this.allLevels);
         hash = 59 * hash + Objects.hashCode(this.allVersions);
+        hash = 59 * hash + Objects.hashCode(this.checkCvMapping);
         return hash;
     }
 
@@ -131,12 +143,15 @@ public class ValidationForm {
         if (!Objects.equals(this.allVersions, other.allVersions)) {
             return false;
         }
+        if (!Objects.equals(this.checkCvMapping, other.checkCvMapping)) {
+            return false;
+        }
         return true;
     }
 
     @Override
     public String toString() {
-        return "ValidationForm{" + "file=" + file + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + '}';
+        return "ValidationForm{" + "file=" + file + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + ", checkCvMapping=" + checkCvMapping + '}';
     }
 
 }

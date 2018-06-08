@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public interface ValidationService {
     static enum MzTabVersion{MZTAB_1_0, MZTAB_2_0};
-    List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
+    List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel, boolean checkCvMapping);
     
     public Map<String, List<Map<String, String>>> parse(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);

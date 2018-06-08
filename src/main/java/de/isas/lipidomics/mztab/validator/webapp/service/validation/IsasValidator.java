@@ -22,22 +22,22 @@ import de.isas.mztab2.io.MzTabNonValidatingWriter;
 import de.isas.mztab2.io.MzTabWriterDefaults;
 import de.isas.mztab2.model.MzTab;
 import de.isas.mztab2.model.ValidationMessage;
+import de.isas.mztab2.validation.CvMappingValidator;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.xml.bind.JAXBException;
 import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
 import uk.ac.ebi.pride.jmztab2.utils.MZTabFileParser;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabError;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorList;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  *
@@ -47,7 +47,7 @@ public class IsasValidator implements WebValidator {
 
     @Override
     public List<ValidationMessage> validate(Path filepath,
-        String validationLevel, int maxErrors) throws IllegalStateException, IOException {
+        String validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException {
         MZTabFileParser parser = null;
         List<ValidationMessage> validationResults = Collections.emptyList();
         try {
@@ -56,39 +56,24 @@ public class IsasValidator implements WebValidator {
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
         } finally {
             if (parser != null) {
-                MZTabErrorList errorList = parser.getErrorList();
-                validationResults = new ArrayList<>(
-                    errorList.size());
-                for (MZTabError error : errorList.getErrorList()) {
-                    ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
-                    switch (error.getType().
-                        getLevel()) {
-                        case Error:
-                            level = ValidationMessage.MessageTypeEnum.ERROR;
-                            break;
-                        case Info:
-                            level = ValidationMessage.MessageTypeEnum.INFO;
-                            break;
-                        case Warn:
-                            level = ValidationMessage.MessageTypeEnum.WARN;
-                            break;
-                        default:
-                            throw new IllegalStateException("State " + error.
-                                getType().
-                                getLevel() + " is not handled in switch/case statement!");
+                validationResults = parser.getErrorList().
+                    convertToValidationMessages();
+                if (checkCvMapping) {
+                    try {
+                        CvMappingValidator cvValidator = CvMappingValidator.of(
+                            CvMappingValidator.class.getResource(
+                                "/mappings/mzTab-M-mapping.xml"), checkCvMapping);
+                        validationResults.addAll(cvValidator.validate(parser.
+                            getMZTabFile()));
+                    } catch (JAXBException ex) {
+                        Logger.getLogger(IsasValidator.class.getName()).
+                            log(Level.SEVERE, null, ex);
+                        throw new IOException(ex);
                     }
-                    ValidationMessage vr = new ValidationMessage().lineNumber(
-                        Long.valueOf(error.getLineNumber())).
-                        messageType(level).
-                        message(error.getMessage()).
-                        code(error.toString());
-                    Logger.getLogger(MzTabValidationService.class.getName()).
-                        info(vr.toString());
-                    validationResults.add(vr);
                 }
             }
-            return validationResults;
         }
+        return validationResults;
     }
 
     @Override
@@ -124,7 +109,7 @@ public class IsasValidator implements WebValidator {
             String[] metaDataLine = metaDataLines[i].split(
                 MZTabConstants.TAB_STRING);
             Map<String, String> lineMap = new LinkedHashMap<>();
-            lineMap.put("LINE_NUMBER", lineNumber+"");
+            lineMap.put("LINE_NUMBER", lineNumber + "");
             lineMap.put("PREFIX", metaDataLine[0]);
             lineMap.put("KEY", metaDataLine[1]);
             lineMap.put("VALUE", metaDataLine[2]);
@@ -134,19 +119,25 @@ public class IsasValidator implements WebValidator {
         mzTabLines.put("META", metaData);
 
         mapper = writerDefaults.smallMoleculeSummaryMapper();
-        schema = writerDefaults.smallMoleculeSummarySchema(mapper, mzTabFile);
-        writer = new StringWriter();
         try {
+            schema = writerDefaults.
+                smallMoleculeSummarySchema(mapper, mzTabFile);
+            writer = new StringWriter();
             mapper.writer(schema).
                 writeValue(writer, mzTabFile.getSmallMoleculeSummary());
         } catch (JsonProcessingException ex) {
             Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                 log(Level.SEVERE, null, ex);
+        } catch (MZTabException ex) {
+            Logger.getLogger(IsasValidator.class.getName()).
+                log(Level.SEVERE, null, ex);
+            throw new IOException(ex);
         }
 
         String[] summaryDataLines = writer.toString().
             split(MZTabConstants.NEW_LINE);
-        String[] summaryHeader = summaryDataLines[0].split(MZTabConstants.TAB_STRING);
+        String[] summaryHeader = summaryDataLines[0].split(
+            MZTabConstants.TAB_STRING);
         List<Map<String, String>> summaryData = new ArrayList<>();
         //due to the header
         lineNumber++;
@@ -155,27 +146,33 @@ public class IsasValidator implements WebValidator {
                 MZTabConstants.TAB_STRING);
             Map<String, String> lineMap = new LinkedHashMap<>();
             lineMap.put("LINE_NUMBER", lineNumber + "");
-            for(int j=0; j<summaryHeader.length; j++) {
+            for (int j = 0; j < summaryHeader.length; j++) {
                 lineMap.put(summaryHeader[j], dataLine[j]);
             }
             summaryData.add(lineMap);
             lineNumber++;
         }
         mzTabLines.put("SUMMARY", summaryData);
-        
+
         mapper = writerDefaults.smallMoleculeFeatureMapper();
-        schema = writerDefaults.smallMoleculeFeatureSchema(mapper, mzTabFile);
-        writer = new StringWriter();
         try {
+            schema = writerDefaults.
+                smallMoleculeFeatureSchema(mapper, mzTabFile);
+            writer = new StringWriter();
             mapper.writer(schema).
                 writeValue(writer, mzTabFile.getSmallMoleculeFeature());
         } catch (JsonProcessingException ex) {
             Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                 log(Level.SEVERE, null, ex);
+        } catch (MZTabException ex) {
+            Logger.getLogger(IsasValidator.class.getName()).
+                log(Level.SEVERE, null, ex);
+            throw new IOException(ex);
         }
         String[] featureDataLines = writer.toString().
             split(MZTabConstants.NEW_LINE);
-        String[] featureHeader = featureDataLines[0].split(MZTabConstants.TAB_STRING);
+        String[] featureHeader = featureDataLines[0].split(
+            MZTabConstants.TAB_STRING);
         List<Map<String, String>> featureData = new ArrayList<>();
         //due to the header
         lineNumber++;
@@ -184,27 +181,33 @@ public class IsasValidator implements WebValidator {
                 MZTabConstants.TAB_STRING);
             Map<String, String> lineMap = new LinkedHashMap<>();
             lineMap.put("LINE_NUMBER", lineNumber + "");
-            for(int j=0; j<featureHeader.length; j++) {
+            for (int j = 0; j < featureHeader.length; j++) {
                 lineMap.put(featureHeader[j], dataLine[j]);
             }
             featureData.add(lineMap);
             lineNumber++;
         }
         mzTabLines.put("FEATURE", featureData);
-        
+
         mapper = writerDefaults.smallMoleculeEvidenceMapper();
-        schema = writerDefaults.smallMoleculeEvidenceSchema(mapper, mzTabFile);
-        writer = new StringWriter();
         try {
+            schema = writerDefaults.smallMoleculeEvidenceSchema(mapper,
+                mzTabFile);
+            writer = new StringWriter();
             mapper.writer(schema).
                 writeValue(writer, mzTabFile.getSmallMoleculeEvidence());
         } catch (JsonProcessingException ex) {
             Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                 log(Level.SEVERE, null, ex);
+        } catch (MZTabException ex) {
+            Logger.getLogger(IsasValidator.class.getName()).
+                log(Level.SEVERE, null, ex);
+            throw new IOException(ex);
         }
         String[] evidenceDataLines = writer.toString().
             split(MZTabConstants.NEW_LINE);
-        String[] evidenceHeader = evidenceDataLines[0].split(MZTabConstants.TAB_STRING);
+        String[] evidenceHeader = evidenceDataLines[0].split(
+            MZTabConstants.TAB_STRING);
         List<Map<String, String>> evidenceData = new ArrayList<>();
         //due to the header
         lineNumber++;
@@ -213,7 +216,7 @@ public class IsasValidator implements WebValidator {
                 MZTabConstants.TAB_STRING);
             Map<String, String> lineMap = new LinkedHashMap<>();
             lineMap.put("LINE_NUMBER", lineNumber + "");
-            for(int j=0; j<evidenceHeader.length; j++) {
+            for (int j = 0; j < evidenceHeader.length; j++) {
                 lineMap.put(evidenceHeader[j], dataLine[j]);
             }
             evidenceData.add(lineMap);
