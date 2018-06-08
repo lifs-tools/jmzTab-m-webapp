@@ -22,9 +22,9 @@ import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageFileNotFoundException;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
+import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -111,6 +111,7 @@ public class ValidationController {
             queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
+            queryParam("checkCvMapping", validationForm.getCheckCvMapping()).
             build();
         ModelAndView modelAndView = new ModelAndView(
             "redirect:" + uri.toUriString());
@@ -120,7 +121,7 @@ public class ValidationController {
     @GetMapping(value = "/validate/{sessionId:.+}")
     public ModelAndView validateFile(@PathVariable String sessionId, @QueryParam(
         "version") ValidationService.MzTabVersion version, @QueryParam(
-        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, HttpServletRequest request,
+        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, @QueryParam("checkCvMapping") boolean checkCvMapping, HttpServletRequest request,
         HttpSession session) {
         if (session == null) {
             UriComponents uri = ServletUriComponentsBuilder
@@ -151,10 +152,12 @@ public class ValidationController {
             validationLevel = level;
         }
         modelAndView.addObject("validationLevel", validationLevel);
+        modelAndView.addObject("checkCvMapping", checkCvMapping);
         UserSessionFile usf = new UserSessionFile(filePath.toString(), session.getId());
-        modelAndView.addObject("validationResults", validationService.
+        List<ValidationResult> validationResults = validationService.
             asValidationResults(validationService.validate(
-                validationVersion, usf, maxErrors, validationLevel)));
+                validationVersion, usf, maxErrors, validationLevel, checkCvMapping));
+        modelAndView.addObject("validationResults", validationResults);
         Map<String, List<Map<String, String>>> mzTabContents = validationService.parse(version,
             usf, maxErrors, validationLevel);
         addDataRowsFor(modelAndView, mzTabContents, "META");

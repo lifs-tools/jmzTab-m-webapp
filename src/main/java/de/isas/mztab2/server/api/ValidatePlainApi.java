@@ -97,7 +97,7 @@ public interface ValidatePlainApi {
                 List<ValidationMessage> messages = getValidationService().
                     get().
                     validate(ValidationService.MzTabVersion.MZTAB_2_0, file, 100,
-                        ValidationLevel.INFO);
+                        ValidationLevel.INFO, false);
                 HttpStatus status = HttpStatus.OK;
                 if (messages.size() > 0) {
                     status = HttpStatus.UNPROCESSABLE_ENTITY;

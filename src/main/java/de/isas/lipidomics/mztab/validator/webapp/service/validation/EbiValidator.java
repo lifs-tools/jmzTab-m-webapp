@@ -37,7 +37,7 @@ public class EbiValidator implements WebValidator {
 
     @Override
     public List<ValidationMessage> validate(Path filepath,
-        String validationLevel, int maxErrors) throws IllegalStateException, IOException {
+        String validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException {
         SortedSet<ValidationMessage> results = new TreeSet<>((vm1,
             vm2) ->
         {
