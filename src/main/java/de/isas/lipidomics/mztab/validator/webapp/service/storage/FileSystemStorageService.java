@@ -58,7 +58,6 @@ public class FileSystemStorageService implements StorageService {
             }
 
             Path sessionPath = buildSessionPath(sessionId);
-            deleteAll(sessionId);
             Files.createDirectories(sessionPath);
             Files.copy(file.getInputStream(), buildPathToFile(sessionPath,
                 filename),
