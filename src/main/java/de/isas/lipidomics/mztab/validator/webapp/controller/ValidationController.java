@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.QueryParam;
@@ -102,12 +103,13 @@ public class ValidationController {
             return new ModelAndView(
                 "redirect:" + uri.toUriString());
         }
-        String sessionId = session.getId();
+//        String sessionId = session.getId();
+        UUID uuid = UUID.randomUUID();
         UserSessionFile usf = storageService.store(validationForm.getFile(),
-            sessionId);
+            uuid);
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
-            pathSegment("validate", usf.getSessionId()).
+            pathSegment("validate", uuid.toString()).
             queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
@@ -119,7 +121,7 @@ public class ValidationController {
     }
 
     @GetMapping(value = "/validate/{sessionId:.+}")
-    public ModelAndView validateFile(@PathVariable String sessionId, @QueryParam(
+    public ModelAndView validateFile(@PathVariable UUID sessionId, @QueryParam(
         "version") ValidationService.MzTabVersion version, @QueryParam(
         "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, @QueryParam("checkCvMapping") boolean checkCvMapping, HttpServletRequest request,
         HttpSession session) {
@@ -135,6 +137,7 @@ public class ValidationController {
         modelAndView.
             addObject("page", createPage(filePath.getFileName().toString()));
         modelAndView.addObject("validationFile", filePath);
+        modelAndView.addObject("sessionId", sessionId);
         ValidationService.MzTabVersion validationVersion = version;
         if (validationVersion != null) {
             modelAndView.addObject("validationVersion", validationVersion);
@@ -153,7 +156,7 @@ public class ValidationController {
         }
         modelAndView.addObject("validationLevel", validationLevel);
         modelAndView.addObject("checkCvMapping", checkCvMapping);
-        UserSessionFile usf = new UserSessionFile(filePath.toString(), session.getId());
+        UserSessionFile usf = new UserSessionFile(filePath.toString(), sessionId);
         List<ValidationResult> validationResults = validationService.
             asValidationResults(validationService.validate(
                 validationVersion, usf, maxErrors, validationLevel, checkCvMapping));
@@ -182,6 +185,31 @@ public class ValidationController {
         ModelAndView model = new ModelAndView("about");
         model.addObject("page", createPage("About"));
         return model;
+    }
+    
+    private ModelAndView redirectToServletRoot(HttpServletRequest request) {
+        UriComponents uri = ServletUriComponentsBuilder
+            .fromServletMapping(request).
+            build();
+        ModelAndView mav = new ModelAndView("redirect:" + uri.toUriString());
+        return mav;
+    }
+    
+    @GetMapping(value = "/validate/{sessionId:.+}/delete")
+    public ModelAndView deleteResults(@PathVariable UUID sessionId,
+        HttpServletRequest request,
+        HttpSession session, RedirectAttributes redirectAttrs) {
+        if (session == null) {
+            return redirectToServletRoot(request);
+        }
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Please supply your session-id!");
+        }
+        storageService.deleteAll(sessionId);
+        redirectAttrs.addFlashAttribute("message",
+            "Files for session " + sessionId.toString() + " have been deleted!");
+        redirectAttrs.addFlashAttribute("messageLevel", "alert-success");
+        return redirectToServletRoot(request);
     }
 
     @ExceptionHandler(StorageFileNotFoundException.class)

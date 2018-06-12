@@ -17,6 +17,7 @@ package de.isas.lipidomics.mztab.validator.webapp.service;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,17 +30,17 @@ public interface StorageService {
 
     void init();
 
-    UserSessionFile store(MultipartFile file, String sessionId);
+    UserSessionFile store(MultipartFile file, UUID sessionId);
     
-    UserSessionFile store(String fileContent, String sessionId);
+    UserSessionFile store(String fileContent, UUID sessionId);
 
-    Stream<Path> loadAll(String sessionId);
+    Stream<Path> loadAll(UUID sessionId);
 
     Path load(UserSessionFile userSessionFile);
 
     Resource loadAsResource(UserSessionFile userSessionFile);
 
-    void deleteAll(String sessionId);
+    void deleteAll(UUID sessionId);
     
     void deleteAll();
 

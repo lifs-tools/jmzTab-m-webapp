@@ -137,7 +137,7 @@ public class MzTabValidationService implements ValidationService {
                     getMessageType().
                     getValue().
                     toUpperCase());
-                return new ValidationResult(message.getLineNumber(), level,
+                return new ValidationResult(message.getLineNumber(), message.getCategory().name(), level,
                     message.getMessage(), message.getCode());
             }).
             collect(Collectors.toList());

@@ -49,7 +49,7 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
-    public UserSessionFile store(MultipartFile file, String sessionId) {
+    public UserSessionFile store(MultipartFile file, UUID sessionId) {
         String filename = StringUtils.cleanPath(file.getOriginalFilename());
         try {
             if (file.isEmpty()) {
@@ -58,7 +58,7 @@ public class FileSystemStorageService implements StorageService {
             }
 
             Path sessionPath = buildSessionPath(sessionId);
-            FileSystemUtils.deleteRecursively(sessionPath.toFile());
+            deleteAll(sessionId);
             Files.createDirectories(sessionPath);
             Files.copy(file.getInputStream(), buildPathToFile(sessionPath,
                 filename),
@@ -70,7 +70,7 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
-    public UserSessionFile store(String fileContent, String sessionId) {
+    public UserSessionFile store(String fileContent, UUID sessionId) {
         String filename = UUID.randomUUID() + ".mztab";
         try {
             Path sessionPath = buildSessionPath(sessionId);
@@ -85,7 +85,7 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
-    public Stream<Path> loadAll(String sessionId) {
+    public Stream<Path> loadAll(UUID sessionId) {
         Path sessionPath = buildSessionPath(sessionId);
         try {
             return Files.walk(sessionPath, 1).
@@ -99,14 +99,12 @@ public class FileSystemStorageService implements StorageService {
 
     }
 
-    private Path buildSessionPath(String sessionId) {
+    private Path buildSessionPath(UUID sessionId) {
         if (sessionId == null) {
             throw new StorageException(
                 "Cannot store file when sessionId is null!");
         }
-        String sessionPathId = UUID.nameUUIDFromBytes(sessionId.getBytes()).
-            toString();
-        return this.rootLocation.resolve(sessionPathId);
+        return this.rootLocation.resolve(sessionId.toString());
     }
 
     private Path buildPathToFile(Path sessionPath, String filename) {
@@ -148,7 +146,7 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
-    public void deleteAll(String sessionId) {
+    public void deleteAll(UUID sessionId) {
         Path sessionPath = buildSessionPath(sessionId);
         FileSystemUtils.deleteRecursively(sessionPath.toFile());
     }

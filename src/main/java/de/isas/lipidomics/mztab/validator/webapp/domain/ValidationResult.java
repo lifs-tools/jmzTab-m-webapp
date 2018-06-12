@@ -24,15 +24,17 @@ import java.util.Objects;
  */
 public class ValidationResult {
 
-
     private final Long lineNumber;
+    private final String category;
     private final ValidationLevel level;
     private final String message;
     private final String ruleId;
     private final String styleClass;
 
-    public ValidationResult(Long lineNumber, ValidationLevel level, String message, String ruleId) {
+    public ValidationResult(Long lineNumber, String category,
+        ValidationLevel level, String message, String ruleId) {
         this.lineNumber = lineNumber;
+        this.category = category;
         this.level = level;
         this.message = message;
         this.ruleId = ruleId;
@@ -68,13 +70,19 @@ public class ValidationResult {
         return styleClass;
     }
 
+    public String getCategory() {
+        return category;
+    }
+
     @Override
     public int hashCode() {
         int hash = 7;
-        hash = 53 * hash + Objects.hashCode(this.lineNumber);
-        hash = 53 * hash + Objects.hashCode(this.level);
-        hash = 53 * hash + Objects.hashCode(this.message);
-        hash = 53 * hash + Objects.hashCode(this.ruleId);
+        hash = 41 * hash + Objects.hashCode(this.lineNumber);
+        hash = 41 * hash + Objects.hashCode(this.category);
+        hash = 41 * hash + Objects.hashCode(this.level);
+        hash = 41 * hash + Objects.hashCode(this.message);
+        hash = 41 * hash + Objects.hashCode(this.ruleId);
+        hash = 41 * hash + Objects.hashCode(this.styleClass);
         return hash;
     }
 
@@ -90,13 +98,19 @@ public class ValidationResult {
             return false;
         }
         final ValidationResult other = (ValidationResult) obj;
-        if (!Objects.equals(this.lineNumber, other.lineNumber)) {
+        if (!Objects.equals(this.category, other.category)) {
             return false;
         }
         if (!Objects.equals(this.message, other.message)) {
             return false;
         }
         if (!Objects.equals(this.ruleId, other.ruleId)) {
+            return false;
+        }
+        if (!Objects.equals(this.styleClass, other.styleClass)) {
+            return false;
+        }
+        if (!Objects.equals(this.lineNumber, other.lineNumber)) {
             return false;
         }
         if (this.level != other.level) {
@@ -107,7 +121,7 @@ public class ValidationResult {
 
     @Override
     public String toString() {
-        return "ValidationResult{" + "lineNumber=" + lineNumber + ", level=" + level + ", message=" + message + ", ruleId=" + ruleId + '}';
+        return "ValidationResult{" + "lineNumber=" + lineNumber + ", category=" + category + ", level=" + level + ", message=" + message + ", ruleId=" + ruleId + ", styleClass=" + styleClass + '}';
     }
 
 }
