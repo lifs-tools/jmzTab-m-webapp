@@ -16,6 +16,7 @@
 package de.isas.lipidomics.mztab.validator.webapp.domain;
 
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  *
@@ -23,9 +24,9 @@ import java.util.Objects;
  */
 public class UserSessionFile {
     private String filename;
-    private String sessionId;
+    private UUID sessionId;
 
-    public UserSessionFile(String filename, String sessionId) {
+    public UserSessionFile(String filename, UUID sessionId) {
         this.filename = filename;
         this.sessionId = sessionId;
     }
@@ -38,11 +39,11 @@ public class UserSessionFile {
         this.filename = filename;
     }
 
-    public String getSessionId() {
+    public UUID getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(String sessionId) {
+    public void setSessionId(UUID sessionId) {
         this.sessionId = sessionId;
     }
 

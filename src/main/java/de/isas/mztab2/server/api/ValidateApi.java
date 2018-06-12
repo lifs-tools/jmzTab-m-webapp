@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
     date = "2018-01-11T19:50:29.849+01:00")
@@ -97,10 +98,7 @@ public interface ValidateApi {
                     String mzTabString = stringWriter.toString("UTF-8");
                     UserSessionFile file = getStorageService().
                         get().
-                        store(mzTabString, getRequest().
-                            get().
-                            getSession().
-                            getId());
+                        store(mzTabString, UUID.randomUUID());
                     List<ValidationMessage> messages = getValidationService().
                         get().
                         validate(ValidationService.MzTabVersion.MZTAB_2_0, file,

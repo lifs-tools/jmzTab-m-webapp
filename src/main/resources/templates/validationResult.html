@@ -30,6 +30,7 @@
                 <thead class="thead-light">
                   <tr>
                     <th scope="col">Line Number</th>
+                    <th scope="col">Category</th>
                     <th scope="col">Level</th>
                     <th scope="col">Message</th>
                   </tr>
@@ -37,14 +38,16 @@
                 <tbody>
                   <tr th:each="validationResult : ${validationResults}" th:classappend="${validationResult.styleClass}">
                     <td th:text="${validationResult.lineNumber}"></td>
-                    <td th:text="${validationResult.level}"></td>
+                    <td th:text="#{${validationResult.category}}"></td>
+                    <td th:text="#{${validationResult.level}}"></td>
                     <td th:text="${validationResult.message}"></td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div class="card-header">
+            <div class="card-footer">
               <a class="btn btn-primary float-left" href="/" th:href="@{/}">Back</a>
+              <a class="btn btn-danger float-right" href="#" th:href="@{'/validate/'+${sessionId}+'/delete'}">Delete</a>
             </div>
           </div>
           <th:block th:include="fragments/mztab-metadata :: mztab-metadata"></th:block>
