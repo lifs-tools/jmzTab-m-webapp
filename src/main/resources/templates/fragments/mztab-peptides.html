@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head></head>
+  <body>
+    <div th:fragment="mztab-peptides">
+    <div class="card my-2">
+            <div class="card-header">
+              <button class="btn btn-link" data-toggle="collapse" data-target="#peptidesSection" aria-expanded="true" aria-controls="peptidesSection">
+                Peptides
+              </button>
+              <span th:if="${#lists.isEmpty(peptidesDataRows)}" class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i></span>
+            </div>
+            <div class="card-body collapse" style="overflow:scroll" id="peptidesSection">
+              <div th:if="${#lists.isEmpty(peptidesDataRows)}" class="alert alert-warning" role="alert">
+                <strong>Peptides section missing!</strong> Your file does not contain peptides data.
+              </div>
+              <table id="peptidesDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(peptidesDataColumnKeys)}">
+                <thead class="thead-light">
+                  <tr>
+                    <th th:each="dataRowKey : ${peptidesDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:each="dataRow : ${peptidesDataRows}">
+                    <td th:each="dataRowKey : ${peptidesDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+    </div>
+  </body>
+</html>

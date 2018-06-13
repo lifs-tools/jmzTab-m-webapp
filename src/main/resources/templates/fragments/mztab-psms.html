@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head></head>
+  <body>
+    <div th:fragment="mztab-psms">
+      <div class="card my-2">
+        <div class="card-header">
+          <button class="btn btn-link" data-toggle="collapse" data-target="#psmsSection" aria-expanded="true" aria-controls="psmsSection">
+            PSMs
+          </button>
+          <span th:if="${#lists.isEmpty(psmsDataRows)}" class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i></span>
+        </div>
+        <div class="card-body collapse" style="overflow:scroll" id="psmsSection">
+          <div th:if="${#lists.isEmpty(psmsDataRows)}" class="alert alert-warning" role="alert">
+            <strong>PSMs section missing!</strong> Your file does not contain psm data.
+          </div>
+          <table id="psmsDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(psmsDataColumnKeys)}">
+            <thead class="thead-light">
+              <tr>
+                <th th:each="dataRowKey : ${psmsDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="dataRow : ${psmsDataRows}">
+                <td th:each="dataRowKey : ${psmsDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

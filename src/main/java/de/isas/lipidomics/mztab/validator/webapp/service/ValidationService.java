@@ -34,4 +34,6 @@ public interface ValidationService {
         UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
     
     List<ValidationResult> asValidationResults(List<ValidationMessage> validationMessage);
+    
+    List<ValidationResult> filterByLevel(List<ValidationResult> validationResults, ValidationLevel level);
 }

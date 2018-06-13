@@ -26,64 +26,7 @@
               </ul>
             </div>
           </div>
-          <div class="card my-2">
-            <div class="card-header">
-              Validation
-            </div>
-            <div class="card-body"><h4 class="card-title">Upload your mzTab file for validation:</h4>
-              <form method="POST" enctype="multipart/form-data" action="/" th:action="@{/}">
-                <!--<fieldset>-->
-                <div class="form-group row">
-                  <label for="file" class="col-sm-5 col-form-label">mzTab File to validate</label>
-                  <div class="col-sm-7 no-gutters">
-                    <input id="file" name="file" type="file" th:field="*{validationForm.file}"/>
-                  </div>
-                  <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
-                      Select a local mzTab file to upload and validate.
-                  </small>
-                </div>
-                <div class="form-group row">
-                  <label for="level" class="col-sm-5 col-form-label">Validation level</label>
-                  <select class="col-sm-7" th:field="*{validationForm.level}">
-                    <option th:each="level : *{validationForm.allLevels}" 
-                            th:value="${level}" 
-                            th:text="#{${level}}">Info</option>
-                  </select>
-                  <small id="levelHelpBlock" class="col-sm-12 form-text text-muted">
-                      The 'Info' level includes 'Warn' and 'Error' level messages, the 'Warn' level includes 'Error' level messages.
-                  </small>
-                </div>
-                <div class="form-group row">
-                  <label for="maxErrors" class="col-sm-5 col-form-label">Maximum number of errors to report</label>
-                  <input class="col-sm-7" type="text" th:field="*{validationForm.maxErrors}"/>
-                  <small id="maxErrorsHelpBlock" class="col-sm-12 form-text text-muted">
-                      The maximum number of parsing and validation errors that should be reported, minimum of 1.
-                  </small>
-                </div>
-                <div class="form-group row">
-                  <label for="version" class="col-sm-5 col-form-label">mzTab specification version to validate against</label>
-                  <select class="col-sm-7" th:field="*{validationForm.mzTabVersion}">
-                    <option th:each="version : *{validationForm.allVersions}" 
-                            th:value="${version}" 
-                            th:text="#{${version}}">MZTab2_0</option>
-                  </select>
-                  <small id="versionHelpBlock" class="col-sm-12 form-text text-muted">
-                      The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
-                  </small>
-                </div>
-                <div class="form-group row">
-                  <label for="checkCvMapping" class="col-sm-5 col-form-label">Perform semantic validation with default mapping file</label>
-                  <input type="checkbox" class="col-sm-7" th:field="*{validationForm.checkCvMapping}"/>
-                  <small id="checkCvMappingHelpBlock" class="col-sm-12 form-text text-muted">
-                      If checked, use the default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
-                  </small>
-                </div>
-
-                <button id="validate" type="submit" class="btn btn-primary" disabled="true">Validate</button>
-                <!--</fieldset>-->
-              </form>
-            </div>
-          </div>
+          <th:block th:include="fragments/validation-form :: validation-form"></th:block>
         </main>
 
         <th:block th:include="fragments/footer :: footer"></th:block>
