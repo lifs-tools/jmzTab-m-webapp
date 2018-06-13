@@ -17,6 +17,8 @@ package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
+import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.ERROR;
+import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.WARN;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
@@ -137,8 +139,36 @@ public class MzTabValidationService implements ValidationService {
                     getMessageType().
                     getValue().
                     toUpperCase());
-                return new ValidationResult(message.getLineNumber(), message.getCategory().name(), level,
+                return new ValidationResult(message.getLineNumber(), message.
+                    getCategory().
+                    name(), level,
                     message.getMessage(), message.getCode());
+            }).
+            collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ValidationResult> filterByLevel(
+        List<ValidationResult> validationResults, ValidationLevel level) {
+        return validationResults.stream().
+            filter((vr) ->
+            {
+                switch (level) {
+                    case ERROR:
+                        if (vr.getLevel() == ERROR) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    case WARN:
+                        if (vr.getLevel() == WARN || vr.getLevel() == ERROR) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    default:
+                        return true;
+                }
             }).
             collect(Collectors.toList());
     }

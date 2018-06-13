@@ -15,6 +15,7 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.controller;
 
+import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationStatistics;
 import de.isas.lipidomics.mztab.validator.webapp.domain.Page;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationForm;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
@@ -23,6 +24,9 @@ import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageFileNotF
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
+import de.isas.lipidomics.mztab.validator.webapp.service.SessionIdGenerator;
+import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageException;
+import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -31,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.QueryParam;
@@ -62,6 +67,7 @@ public class ValidationController {
 
     private final StorageService storageService;
     private final ValidationService validationService;
+    private final SessionIdGenerator sessionIdGenerator;
     private int maxErrors = 100;
 
     @Value("${version.number}")
@@ -78,9 +84,10 @@ public class ValidationController {
     
     @Autowired
     public ValidationController(StorageService storageService,
-        ValidationService validationService) {
+        ValidationService validationService, SessionIdGenerator sessionIdGenerator) {
         this.storageService = storageService;
         this.validationService = validationService;
+        this.sessionIdGenerator = sessionIdGenerator;
     }
 
     @GetMapping("/")
@@ -103,13 +110,14 @@ public class ValidationController {
             return new ModelAndView(
                 "redirect:" + uri.toUriString());
         }
-//        String sessionId = session.getId();
-        UUID uuid = UUID.randomUUID();
         UserSessionFile usf = storageService.store(validationForm.getFile(),
-            uuid);
+            sessionIdGenerator.generate());
+        if(storageService.load(usf)==null) {
+            throw new StorageException("Could not load user session file!");
+        }
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
-            pathSegment("validate", uuid.toString()).
+            pathSegment("validate", usf.getSessionId().toString()).
             queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
@@ -160,13 +168,21 @@ public class ValidationController {
         List<ValidationResult> validationResults = validationService.
             asValidationResults(validationService.validate(
                 validationVersion, usf, maxErrors, validationLevel, checkCvMapping));
-        modelAndView.addObject("validationResults", validationResults);
+        modelAndView.addObject("validationStatistics", new ValidationStatistics(validationResults));
+        modelAndView.addObject("validationResults", validationService.filterByLevel(validationResults, level));
         Map<String, List<Map<String, String>>> mzTabContents = validationService.parse(version,
             usf, maxErrors, validationLevel);
-        addDataRowsFor(modelAndView, mzTabContents, "META");
-        addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
-        addDataRowsFor(modelAndView, mzTabContents, "FEATURE");
-        addDataRowsFor(modelAndView, mzTabContents, "EVIDENCE");
+        if(validationVersion==ValidationService.MzTabVersion.MZTAB_2_0) {
+            addDataRowsFor(modelAndView, mzTabContents, "META");
+            addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
+            addDataRowsFor(modelAndView, mzTabContents, "FEATURE");
+            addDataRowsFor(modelAndView, mzTabContents, "EVIDENCE");
+        } else {
+            addDataRowsFor(modelAndView, mzTabContents, "META");
+            addDataRowsFor(modelAndView, mzTabContents, "PROTEINS");
+            addDataRowsFor(modelAndView, mzTabContents, "PEPTIDES");
+            addDataRowsFor(modelAndView, mzTabContents, "PSMS");
+        }
         return modelAndView;
     }
 
