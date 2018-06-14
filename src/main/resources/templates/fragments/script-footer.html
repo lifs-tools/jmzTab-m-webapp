@@ -8,6 +8,13 @@
       <!-- Placed at the end of the document so the pages load faster -->
       <script th:src="@{/js/datatables.min.js}" src="/js/datatables.min.js" type="text/javascript"/>
       <script th:src="@{/js/datatables.init.js}" src="/js/datatables.init.js" type="text/javascript"/>
+      <script type="text/javascript">
+        $('#validate').on('click',function() {
+          if (typeof _paq != 'undefined') {
+            _paq.push(['trackEvent', 'validate', 'validateUploadedFile']);
+          }
+        });
+      </script>
     </div>
   </body>
 </html>
