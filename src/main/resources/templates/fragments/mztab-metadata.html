@@ -11,7 +11,7 @@
             </div>
             <div class="card-body collapse" style="overflow:scroll" id="metadataSection">
               <div th:if="${#lists.isEmpty(metaDataRows)}" class="alert alert-danger" role="alert">
-                <strong>Metadata missing!</strong> Your file does not contain a metadata section.
+                <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
               </div>
                <table id="metaDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(metaDataColumnKeys)}">
                 <thead class="thead-light">

@@ -13,19 +13,17 @@
         <th:block th:include="fragments/nav :: nav"></th:block>
         <main role="main" class="my-3">
           <th:block th:include="fragments/validation-result :: validation-result"></th:block>
-          <th:block th:switch="${validationVersion}">
-            <th:block th:case="'MZTAB_2_0'">
-              <th:block th:include="fragments/mztab-metadata :: mztab-metadata"></th:block>
-              <th:block th:include="fragments/mztab-summary :: mztab-summary"></th:block>
-              <th:block th:include="fragments/mztab-features :: mztab-features"></th:block>
-              <th:block th:include="fragments/mztab-evidence :: mztab-evidence"></th:block>
-            </th:block>
-            <!--
-            <th:block th:case="'MZTAB_1_0'">
-              <th:block th:include="fragments/mztab-proteins :: mztab-proteins"></th:block>
-              <th:block th:include="fragments/mztab-peptides :: mztab-peptides"></th:block>
-              <th:block th:include="fragments/mztab-psms :: mztab-psms"></th:block>
-            </th:block>-->
+          <th:block th:if="${validationVersion.name()=='MZTAB_2_0'}"> <!--validationVersion=='MZTAB_2_0'-->
+            <th:block th:include="fragments/mztab-metadata :: mztab-metadata"></th:block>
+            <th:block th:include="fragments/mztab-summary :: mztab-summary"></th:block>
+            <th:block th:include="fragments/mztab-features :: mztab-features"></th:block>
+            <th:block th:include="fragments/mztab-evidence :: mztab-evidence"></th:block>
+          </th:block>
+
+          <th:block th:if="${validationVersion.name()=='MZTAB_1_0'}">
+            <th:block th:include="fragments/mztab-proteins :: mztab-proteins"></th:block>
+            <th:block th:include="fragments/mztab-peptides :: mztab-peptides"></th:block>
+            <th:block th:include="fragments/mztab-psms :: mztab-psms"></th:block>
           </th:block>
         </main>
 

@@ -75,16 +75,17 @@ public class ValidationController {
 
     @Value("${ga.id}")
     private String gaId;
-    
+
     @Value("${jmztab.version.number}")
     private String jmztabVersionNumber;
 
     @Value("${jmztabm.version.number}")
     private String jmztabmVersionNumber;
-    
+
     @Autowired
     public ValidationController(StorageService storageService,
-        ValidationService validationService, SessionIdGenerator sessionIdGenerator) {
+        ValidationService validationService,
+        SessionIdGenerator sessionIdGenerator) {
         this.storageService = storageService;
         this.validationService = validationService;
         this.sessionIdGenerator = sessionIdGenerator;
@@ -112,12 +113,13 @@ public class ValidationController {
         }
         UserSessionFile usf = storageService.store(validationForm.getFile(),
             sessionIdGenerator.generate());
-        if(storageService.load(usf)==null) {
+        if (storageService.load(usf) == null) {
             throw new StorageException("Could not load user session file!");
         }
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
-            pathSegment("validate", usf.getSessionId().toString()).
+            pathSegment("validate", usf.getSessionId().
+                toString()).
             queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
@@ -131,7 +133,9 @@ public class ValidationController {
     @GetMapping(value = "/validate/{sessionId:.+}")
     public ModelAndView validateFile(@PathVariable UUID sessionId, @QueryParam(
         "version") ValidationService.MzTabVersion version, @QueryParam(
-        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level, @QueryParam("checkCvMapping") boolean checkCvMapping, HttpServletRequest request,
+        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level,
+        @QueryParam("checkCvMapping") boolean checkCvMapping,
+        HttpServletRequest request,
         HttpSession session) {
         if (session == null) {
             UriComponents uri = ServletUriComponentsBuilder
@@ -141,9 +145,12 @@ public class ValidationController {
                 "redirect:" + uri.toUriString());
         }
         ModelAndView modelAndView = new ModelAndView("validationResult");
-        Path filePath = storageService.loadAll(sessionId).findFirst().get();
+        Path filePath = storageService.loadAll(sessionId).
+            findFirst().
+            get();
         modelAndView.
-            addObject("page", createPage(filePath.getFileName().toString()));
+            addObject("page", createPage(filePath.getFileName().
+                toString()));
         modelAndView.addObject("validationFile", filePath);
         modelAndView.addObject("sessionId", sessionId);
         ValidationService.MzTabVersion validationVersion = version;
@@ -154,12 +161,13 @@ public class ValidationController {
             modelAndView.addObject("validationVersion", validationVersion);
         }
         if (maxErrors >= 0) {
-            modelAndView.addObject("validationMaxErrors", Math.max(1, maxErrors));
+            modelAndView.
+                addObject("validationMaxErrors", Math.max(1, maxErrors));
         } else {
             modelAndView.addObject("validationMaxErrors", 100);
         }
         ValidationLevel validationLevel = ValidationLevel.INFO;
-        if(level!=null) {
+        if (level != null) {
             validationLevel = level;
         }
         modelAndView.addObject("validationLevel", validationLevel);
@@ -167,12 +175,17 @@ public class ValidationController {
         UserSessionFile usf = new UserSessionFile(filePath.toString(), sessionId);
         List<ValidationResult> validationResults = validationService.
             asValidationResults(validationService.validate(
-                validationVersion, usf, maxErrors, validationLevel, checkCvMapping));
-        modelAndView.addObject("validationStatistics", new ValidationStatistics(validationResults));
-        modelAndView.addObject("validationResults", validationService.filterByLevel(validationResults, level));
-        Map<String, List<Map<String, String>>> mzTabContents = validationService.parse(version,
-            usf, maxErrors, validationLevel);
-        if(validationVersion==ValidationService.MzTabVersion.MZTAB_2_0) {
+                validationVersion, usf, maxErrors, validationLevel,
+                checkCvMapping));
+        modelAndView.addObject("validationStatistics", new ValidationStatistics(
+            validationResults));
+        modelAndView.addObject("validationResults", validationService.
+            filterByLevel(validationResults, level).
+            subList(0, Math.min(validationResults.size(), maxErrors)));
+        Map<String, List<Map<String, String>>> mzTabContents = validationService.
+            parse(version,
+                usf, maxErrors, validationLevel);
+        if (validationVersion == ValidationService.MzTabVersion.MZTAB_2_0) {
             addDataRowsFor(modelAndView, mzTabContents, "META");
             addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
             addDataRowsFor(modelAndView, mzTabContents, "FEATURE");
@@ -188,21 +201,28 @@ public class ValidationController {
 
     protected void addDataRowsFor(ModelAndView modelAndView,
         Map<String, List<Map<String, String>>> mzTabContents, String key) {
-        modelAndView.addObject(key.toLowerCase()+"DataRows", mzTabContents.getOrDefault(key, Collections.emptyList()));
-        Collection<String> featureKeys = mzTabContents.getOrDefault(key, Collections.emptyList()).stream().findFirst().map((t) ->
-        {
-            return t.keySet();
-        }).orElse(Collections.emptySet());
-        modelAndView.addObject(key.toLowerCase()+"DataColumnKeys", featureKeys);
+        modelAndView.addObject(key.toLowerCase() + "DataRows", mzTabContents.
+            getOrDefault(key, Collections.emptyList()));
+        Collection<String> featureKeys = mzTabContents.getOrDefault(key,
+            Collections.emptyList()).
+            stream().
+            findFirst().
+            map((t) ->
+            {
+                return t.keySet();
+            }).
+            orElse(Collections.emptySet());
+        modelAndView.
+            addObject(key.toLowerCase() + "DataColumnKeys", featureKeys);
     }
-    
+
     @GetMapping("/about")
     public ModelAndView handleAbout() {
         ModelAndView model = new ModelAndView("about");
         model.addObject("page", createPage("About"));
         return model;
     }
-    
+
     private ModelAndView redirectToServletRoot(HttpServletRequest request) {
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
@@ -210,7 +230,7 @@ public class ValidationController {
         ModelAndView mav = new ModelAndView("redirect:" + uri.toUriString());
         return mav;
     }
-    
+
     @GetMapping(value = "/validate/{sessionId:.+}/delete")
     public ModelAndView deleteResults(@PathVariable UUID sessionId,
         HttpServletRequest request,
@@ -237,7 +257,8 @@ public class ValidationController {
 
     @ExceptionHandler(MultipartException.class)
     @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
-    public ModelAndView handleMultipartError(HttpServletRequest req, MultipartException exception)
+    public ModelAndView handleMultipartError(HttpServletRequest req,
+        MultipartException exception)
         throws Exception {
         ModelAndView mav = new ModelAndView();
         mav.addObject("page", createPage("mzTabValidator"));
@@ -277,10 +298,11 @@ public class ValidationController {
 
     protected Page createPage(String title) {
         String gaId = this.gaId;
-        if(this.gaId!=null) {
-            gaId = (gaId.isEmpty()?null:gaId);
+        if (this.gaId != null) {
+            gaId = (gaId.isEmpty() ? null : gaId);
         }
-        return new Page(title, versionNumber, gaId, jmztabVersionNumber, jmztabmVersionNumber);
+        return new Page(title, versionNumber, gaId, jmztabVersionNumber,
+            jmztabmVersionNumber);
     }
 
 }
