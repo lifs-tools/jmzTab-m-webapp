@@ -20,6 +20,7 @@ import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.ERROR;
 import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.WARN;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
+import de.isas.lipidomics.mztab.validator.webapp.service.AnalyticsTracker;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import de.isas.mztab2.model.ValidationMessage;
@@ -44,16 +45,19 @@ import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 public class MzTabValidationService implements ValidationService {
 
     private final StorageService storageService;
-
+    private final AnalyticsTracker tracker;
+    
     @Autowired
-    public MzTabValidationService(StorageService storageService) {
+    public MzTabValidationService(StorageService storageService, AnalyticsTracker tracker) {
         this.storageService = storageService;
+        this.tracker = tracker;
     }
 
     @Override
     public List<ValidationMessage> validate(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel, boolean checkCvMapping) {
+        tracker.started(userSessionFile.getSessionId(), "validation", "init");
         Path filepath = storageService.load(userSessionFile);
 
         try {
@@ -61,16 +65,19 @@ public class MzTabValidationService implements ValidationService {
             validationResults.addAll(
                 validate(mzTabVersion, filepath, validationLevel,
                     maxErrors, checkCvMapping));
+            tracker.stopped(userSessionFile.getSessionId(), "validation", "success");
             return validationResults;
         } catch (IOException ex) {
             if (ex.getCause() instanceof MZTabException) {
                 MZTabException mex = (MZTabException) ex.getCause();
+                tracker.stopped(userSessionFile.getSessionId(), "validation", "fail");
                 return Arrays.asList(mex.getError().
                     toValidationMessage());
             }
             Logger.getLogger(MzTabValidationService.class.getName()).
                 log(java.util.logging.Level.SEVERE, null, ex);
         }
+        tracker.stopped(userSessionFile.getSessionId(), "validation", "fail");
         return Collections.emptyList();
     }
 
@@ -79,14 +86,18 @@ public class MzTabValidationService implements ValidationService {
         MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel) {
+        tracker.started(userSessionFile.getSessionId(), "parse", "init");
         Path filepath = storageService.load(userSessionFile);
 
         try {
-            return parse(mzTabVersion, filepath, validationLevel,
+            Map<String, List<Map<String, String>>> lines = parse(mzTabVersion, filepath, validationLevel,
                 maxErrors);
+            tracker.stopped(userSessionFile.getSessionId(), "parse", "success");
+            return lines;
         } catch (IOException ex) {
             Logger.getLogger(MzTabValidationService.class.getName()).
                 log(java.util.logging.Level.SEVERE, null, ex);
+            tracker.stopped(userSessionFile.getSessionId(), "parse", "fail");
         }
         return Collections.emptyMap();
     }

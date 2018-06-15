@@ -31,6 +31,9 @@ import java.io.OutputStreamWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
     date = "2018-01-11T19:50:29.849+01:00")
@@ -64,7 +67,7 @@ public interface ValidateApi {
     }
 
     @ApiOperation(value = "", nickname = "validateMzTabFile",
-        notes = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors. ",
+        notes = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors.",
         response = ValidationMessage.class, responseContainer = "List", tags = {
             "validate",})
     @ApiResponses(value = {
@@ -83,7 +86,19 @@ public interface ValidateApi {
         consumes = {"application/json", "application/xml"},
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
-        value = "mzTab file that should be validated.", required = true) @Valid @RequestBody MzTab mztabfile) {
+        value = "mzTab file that should be validated.", required = true) @Valid @RequestBody MzTab mztabfile,
+        @RequestParam(
+            value = "The level of errors that should be reported, one of ERROR, WARN, INFO.",
+            defaultValue = "info",
+            required = false) @Valid String level,
+        @RequestParam(
+            value = "The maximum number of errors to return.",
+            defaultValue = "100",
+            required = false) @Valid @Min(0) @Max(500) Integer maxErrors,
+        @RequestParam(
+            value = "Whether a semantic validation against the default rule set should be performed.",
+            defaultValue = "false",
+            required = false) @Valid boolean semanticValidation) {
         if (getObjectMapper().
             isPresent() && getAcceptHeader().
                 isPresent()) {
@@ -102,7 +117,11 @@ public interface ValidateApi {
                     List<ValidationMessage> messages = getValidationService().
                         get().
                         validate(ValidationService.MzTabVersion.MZTAB_2_0, file,
-                            100, ValidationLevel.INFO, false);
+                            maxErrors, ValidationLevel.valueOf(
+                                level == null ? "INFO" : level.toUpperCase()),
+                            semanticValidation);
+                    messages = messages.subList(0, Math.min(messages.size(),
+                    maxErrors));
                     HttpStatus status = HttpStatus.OK;
                     if (messages.size() > 0) {
                         status = HttpStatus.UNPROCESSABLE_ENTITY;

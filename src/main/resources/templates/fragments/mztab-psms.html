@@ -12,7 +12,7 @@
         </div>
         <div class="card-body collapse" style="overflow:scroll" id="psmsSection">
           <div th:if="${#lists.isEmpty(psmsDataRows)}" class="alert alert-warning" role="alert">
-            <strong>PSMs section missing!</strong> Your file does not contain psm data.
+            <strong>PSMs section missing!</strong> Your file does not contain psm data or it could not be parsed.
           </div>
           <table id="psmsDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(psmsDataColumnKeys)}">
             <thead class="thead-light">

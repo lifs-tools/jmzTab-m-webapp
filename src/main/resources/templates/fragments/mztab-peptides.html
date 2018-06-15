@@ -12,7 +12,7 @@
             </div>
             <div class="card-body collapse" style="overflow:scroll" id="peptidesSection">
               <div th:if="${#lists.isEmpty(peptidesDataRows)}" class="alert alert-warning" role="alert">
-                <strong>Peptides section missing!</strong> Your file does not contain peptides data.
+                <strong>Peptides section missing!</strong> Your file does not contain peptides data or it could not be parsed.
               </div>
               <table id="peptidesDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(peptidesDataColumnKeys)}">
                 <thead class="thead-light">

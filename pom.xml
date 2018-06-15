@@ -266,7 +266,18 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>jmztabm-validation</artifactId>
-      <version>0.9.4-SNAPSHOT</version>
+      <version>${jmztabm.version}</version>
+    </dependency>
+<!--    <dependency>
+      <groupId>org.piwik.java.tracking</groupId>
+      <artifactId>piwik-java-tracker</artifactId>
+      <version>1.2</version>
+    </dependency>-->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 
@@ -452,7 +463,7 @@
       </plugins>
     </pluginManagement>
     <plugins>
-<!--      <plugin>
+      <!--      <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>3.1.1</version>
