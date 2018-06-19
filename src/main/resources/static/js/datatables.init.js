@@ -27,31 +27,66 @@ $(document).ready(
                   });
         });
 $('#validationResultTable').DataTable(
-        {
-          dom: 'Bfrtip',
-          buttons: [
-            {
-              extend: 'copy',
-              text: '<u>C</u>opy',
-              key: {
-                key: 'c',
-                ctrlKey: true
-              }
-            },
-            {
-              extend: 'csv',
-              text: 'TSV',
-              filename: '*-validation',
-              //className: 'btn btn-success',
-              fieldSeparator: '\t',
-              extension: '.tsv',
-              exportOptions: {
-                modifier: {
-                  search: 'none'
-                }
-              }
-            }
-
-          ]
+  {
+    dom: 'Bfrtip',
+    buttons: [
+      {
+        extend: 'copy',
+        text: '<u>C</u>opy',
+        key: {
+          key: 'c',
+          ctrlKey: true
         }
+      },
+      {
+        extend: 'csv',
+        text: 'TSV',
+        filename: '*-validation',
+        //className: 'btn btn-success',
+        fieldSeparator: '\t',
+        extension: '.tsv',
+        exportOptions: {
+          modifier: {
+            search: 'none'
+          }
+        }
+      }
+
+    ]
+  }
+);
+$('#evidenceDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#featureDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#metaDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#peptidesDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#proteinsDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#psmsDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
+);
+$('#summaryDataRowsTable').DataTable(
+  {
+    dom: 'frtip'
+  }
 );
