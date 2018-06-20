@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 import javax.xml.bind.JAXBException;
 import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
 import uk.ac.ebi.pride.jmztab2.utils.MZTabFileParser;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorOverflowException;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
@@ -54,6 +55,9 @@ public class IsasValidator implements WebValidator {
             parser = new MZTabFileParser(filepath.toFile());
             parser.parse(
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
+        } catch (MZTabErrorOverflowException ex) {
+            Logger.getLogger(IsasValidator.class.getName()).
+                            log(Level.SEVERE, null, ex);
         } finally {
             if (parser != null) {
                 validationResults = parser.getErrorList().
