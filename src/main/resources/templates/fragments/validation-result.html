@@ -7,8 +7,23 @@
         <div class="card-header">
           Validation Results
         </div>
-        <div class="card-body"><h4 class="card-title">Validated <span th:text="${validationFile}"/> against <span th:text="#{${validationVersion}}"/> on level <span th:text="${validationLevel}"></span>.</h4>
-          <div th:unless="${not #lists.isEmpty(validationResults)}" class="alert alert-success" role="alert">
+        <div class="card-body">
+          <div th:if="${sessionId}"><a href="" th:href="@{'/result/'+${sessionId}}">Link to this results page.</a></div>
+          <div th:if="${status.name()!='UNINITIALIZED'} and ${refresh}" class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" th:attr="aria-valuenow=${progress}" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" th:style="'width: '+${progress}+'%'" style="width: 75%"></div>
+          </div>
+<!--          <div th:if="${status.name() == 'FINISHED'}" class="alert alert-success" role="alert">
+            <strong>Validation finished!</strong> Please inspect your results below.
+          </div>-->
+<!--          <div th:if="${message} or ${status.name() == 'FAILED'}" class="alert alert-warning" role="alert">
+            <strong>Validation failed!</strong> Please check the message output.
+          </div>-->
+          <div th:unless="${status.name() == 'FINISHED' or status.name() =='FAILED'}" class="alert alert-info" role="alert">
+            <strong>Validation in state <span th:text="${status.name()}">NN</span>!</strong> <span th:if="${refresh}">This page will reload automatically every <span th:text="${refresh}"></span> seconds.</span>
+          </div>
+          <hr />
+          <h4 class="card-title">Validation of <span th:text="${validationFile}"/> against <span th:text="#{${validationVersion}}"/> on level <span th:text="${validationLevel}"></span>.</h4>
+          <div th:if="${status.name() == 'FINISHED' and #lists.isEmpty(validationResults)}" class="alert alert-success" role="alert">
             <strong>Validation passed!</strong> Your file complies with the mzTab standard.
           </div>
           <div th:if="${not #lists.isEmpty(validationResults)}" class="alert alert-warning" role="alert">

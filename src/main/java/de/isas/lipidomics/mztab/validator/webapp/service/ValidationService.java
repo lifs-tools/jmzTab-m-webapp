@@ -15,18 +15,33 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.service;
 
+import de.isas.lipidomics.mztab.validator.webapp.domain.ToolResult;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.mztab2.model.ValidationMessage;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.springframework.scheduling.annotation.Async;
 
 /**
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public interface ValidationService {
+    public static enum Status {
+        UNINITIALIZED, PREPARING, STARTED, RUNNING, FINISHED, FAILED
+    };
+
+    @Async
+    CompletableFuture<ToolResult> runValidation(MzTabVersion mzTabVersion,
+        UserSessionFile userSessionFile, int maxErrors,
+        ValidationLevel validationLevel, boolean checkCvMapping);
+
+    ToolResult getStatus(UUID userSessionId);
+    
     static enum MzTabVersion{MZTAB_1_0, MZTAB_2_0};
     List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel, boolean checkCvMapping);
     
