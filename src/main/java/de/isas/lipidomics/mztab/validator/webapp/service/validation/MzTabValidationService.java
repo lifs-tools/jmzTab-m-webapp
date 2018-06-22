@@ -15,6 +15,7 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 
+import de.isas.lipidomics.mztab.validator.webapp.domain.ToolResult;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.ERROR;
@@ -22,6 +23,7 @@ import static de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel.W
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.lipidomics.mztab.validator.webapp.service.AnalyticsTracker;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
+import de.isas.lipidomics.mztab.validator.webapp.service.ToolResultService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
@@ -29,11 +31,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
@@ -46,11 +52,14 @@ public class MzTabValidationService implements ValidationService {
 
     private final StorageService storageService;
     private final AnalyticsTracker tracker;
-    
+    private final ToolResultService resultService;
+
     @Autowired
-    public MzTabValidationService(StorageService storageService, AnalyticsTracker tracker) {
+    public MzTabValidationService(StorageService storageService,
+        AnalyticsTracker tracker, ToolResultService resultService) {
         this.storageService = storageService;
         this.tracker = tracker;
+        this.resultService = resultService;
     }
 
     @Override
@@ -65,12 +74,14 @@ public class MzTabValidationService implements ValidationService {
             validationResults.addAll(
                 validate(mzTabVersion, filepath, validationLevel,
                     maxErrors, checkCvMapping));
-            tracker.stopped(userSessionFile.getSessionId(), "validation", "success");
+            tracker.stopped(userSessionFile.getSessionId(), "validation",
+                "success");
             return validationResults;
         } catch (IOException ex) {
             if (ex.getCause() instanceof MZTabException) {
                 MZTabException mex = (MZTabException) ex.getCause();
-                tracker.stopped(userSessionFile.getSessionId(), "validation", "fail");
+                tracker.stopped(userSessionFile.getSessionId(), "validation",
+                    "fail");
                 return Arrays.asList(mex.getError().
                     toValidationMessage());
             }
@@ -90,7 +101,8 @@ public class MzTabValidationService implements ValidationService {
         Path filepath = storageService.load(userSessionFile);
 
         try {
-            Map<String, List<Map<String, String>>> lines = parse(mzTabVersion, filepath, validationLevel,
+            Map<String, List<Map<String, String>>> lines = parse(mzTabVersion,
+                filepath, validationLevel,
                 maxErrors);
             tracker.stopped(userSessionFile.getSessionId(), "parse", "success");
             return lines;
@@ -182,5 +194,60 @@ public class MzTabValidationService implements ValidationService {
                 }
             }).
             collect(Collectors.toList());
+    }
+
+    @Override
+    public ToolResult getStatus(UUID userSessionId) {
+        return resultService.getOrCreateResultFor(userSessionId);
+    }
+
+    @Async("toolThreadPoolTaskExecutor")
+    @Override
+    public CompletableFuture<ToolResult> runValidation(MzTabVersion mzTabVersion,
+        UserSessionFile userSessionFile, int maxErrors,
+        ValidationLevel validationLevel, boolean checkCvMapping) {
+        UUID userSessionId = userSessionFile.getSessionId();
+        ToolResult status = resultService.getOrCreateResultFor(
+            userSessionId);
+        //return immediately, if we have finished already
+        if (status.getStatus() == Status.FINISHED || status.getStatus() == Status.FAILED) {
+            return CompletableFuture.completedFuture(status);
+        }
+        if (status.getStatus() == Status.UNINITIALIZED) {
+            tracker.started(userSessionId, "validation", "init");
+            status.setStatus(Status.PREPARING);
+            Path filepath = storageService.load(userSessionFile);
+            status.setStatus(Status.STARTED);
+            try {
+                List<ValidationMessage> validationResults = new ArrayList<>();
+                status.setStatus(Status.RUNNING);
+                validationResults.addAll(
+                    validate(mzTabVersion, filepath, validationLevel,
+                        maxErrors, checkCvMapping));
+                tracker.stopped(userSessionFile.getSessionId(), "validation",
+                    "success");
+                status.setMessages(validationResults);
+                status.setStatus(Status.FINISHED);
+                resultService.addResultFor(userSessionId, status);
+                return CompletableFuture.completedFuture(status);
+            } catch (IOException | RuntimeException ex) {
+                tracker.
+                    stopped(userSessionFile.getSessionId(), "validation",
+                        "fail");
+                status.setException(ex);
+                status.setStatus(Status.FAILED);
+                if (ex.getCause() instanceof MZTabException) {
+                    MZTabException mex = (MZTabException) ex.getCause();
+                    status.setMessages(Arrays.asList(mex.getError().
+                        toValidationMessage()));
+                }
+                resultService.addResultFor(userSessionId, status);
+                tracker.
+                    stopped(userSessionFile.getSessionId(), "validation", "fail");
+                return CompletableFuture.completedFuture(status);
+            }
+        } else {
+            return CompletableFuture.completedFuture(status);
+        }
     }
 }

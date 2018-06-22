@@ -15,11 +15,13 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp;
 
+import java.util.concurrent.Executor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -71,5 +73,12 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         messageSource.setBasename("i18n/messages");
         messageSource.setDefaultEncoding("UTF-8");
         return messageSource;
+    }
+    
+    @Bean(name = "toolThreadPoolTaskExecutor")
+    public Executor threadPoolTaskExecutor() {
+        ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
+        tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors()-1));
+        return tpe;
     }
 }

@@ -17,6 +17,8 @@ package de.isas.lipidomics.mztab.validator.webapp.controller;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationStatistics;
 import de.isas.lipidomics.mztab.validator.webapp.domain.Page;
+import de.isas.lipidomics.mztab.validator.webapp.domain.ToolResult;
+import de.isas.lipidomics.mztab.validator.webapp.domain.ToolResult.Keys;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationForm;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
@@ -25,20 +27,24 @@ import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.lipidomics.mztab.validator.webapp.service.SessionIdGenerator;
+import de.isas.lipidomics.mztab.validator.webapp.service.ToolResultService;
+import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService.Status;
 import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageException;
-import de.isas.mztab2.model.ValidationMessage;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.QueryParam;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -62,12 +68,14 @@ import org.springframework.web.util.UriComponents;
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
+@Slf4j
 @Controller
 public class ValidationController {
 
     private final StorageService storageService;
     private final ValidationService validationService;
     private final SessionIdGenerator sessionIdGenerator;
+    private final ToolResultService resultService;
     private int maxErrors = 100;
 
     @Value("${version.number}")
@@ -85,10 +93,11 @@ public class ValidationController {
     @Autowired
     public ValidationController(StorageService storageService,
         ValidationService validationService,
-        SessionIdGenerator sessionIdGenerator) {
+        SessionIdGenerator sessionIdGenerator, ToolResultService resultService) {
         this.storageService = storageService;
         this.validationService = validationService;
         this.sessionIdGenerator = sessionIdGenerator;
+        this.resultService = resultService;
     }
 
     @GetMapping("/")
@@ -144,47 +153,154 @@ public class ValidationController {
             return new ModelAndView(
                 "redirect:" + uri.toUriString());
         }
+
+        Status status = validationService.getStatus(sessionId).
+            getStatus();
+        if (status == Status.UNINITIALIZED) {
+            Path filePath = storageService.loadAll(sessionId).
+                findFirst().
+                get();
+            UserSessionFile usf = new UserSessionFile(filePath.toString(),
+                sessionId);
+            ToolResult toolResult = resultService.getOrCreateResultFor(
+                sessionId);
+            Map<ToolResult.Keys, String> parameters = new EnumMap(
+                ToolResult.Keys.class);
+            parameters.putIfAbsent(ToolResult.Keys.MZTABVERSION, version.
+                name());
+            parameters.putIfAbsent(ToolResult.Keys.MAXERRORS, maxErrors + "");
+            parameters.putIfAbsent(ToolResult.Keys.VALIDATIONLEVEL,
+                level.name());
+            parameters.putIfAbsent(ToolResult.Keys.CHECKCVMAPPING, Boolean.
+                toString(checkCvMapping));
+            toolResult.setParameters(parameters);
+            resultService.addResultFor(sessionId, toolResult);
+            validationService.runValidation(version, usf, maxErrors,
+                level, checkCvMapping);
+        }
+        UriComponents uri = ServletUriComponentsBuilder
+            .fromServletMapping(request).
+            pathSegment("result", sessionId.toString()).
+            build();
+        return new ModelAndView(
+            "redirect:" + uri.toUriString());
+    }
+
+    @GetMapping(value = "/result/{sessionId:.+}")
+    public ModelAndView getResults(@PathVariable String sessionId,
+        HttpServletRequest request,
+        HttpSession session) throws FileNotFoundException {
+        if (session == null) {
+            return redirectToServletRoot(request);
+        }
         ModelAndView modelAndView = new ModelAndView("validationResult");
-        Path filePath = storageService.loadAll(sessionId).
-            findFirst().
+        log.info("Preparing result view");
+
+        UUID userSessionId = UUID.fromString(
+            sessionId);
+        ToolResult result = resultService.getOrCreateResultFor(userSessionId);
+        if (result == null) {
+            throw new NullPointerException(
+                "No results for session id " + sessionId + "!");
+        }
+        Optional<Path> validationFile = storageService.loadAll(userSessionId).
+            findFirst();
+        if (!validationFile.isPresent()) {
+            throw new NullPointerException(
+                "No results for session id " + sessionId + "!");
+        }
+        Path filePath = validationFile.
             get();
+        log.info("Creating page");
         modelAndView.
             addObject("page", createPage(filePath.getFileName().
                 toString()));
         modelAndView.addObject("validationFile", filePath);
         modelAndView.addObject("sessionId", sessionId);
-        ValidationService.MzTabVersion validationVersion = version;
+        log.info("Retrieving mztab version");
+        ValidationService.MzTabVersion validationVersion = ValidationService.MzTabVersion.
+            valueOf(result.getParameters().
+                get(ToolResult.Keys.MZTABVERSION));
         if (validationVersion != null) {
             modelAndView.addObject("validationVersion", validationVersion);
         } else {
             validationVersion = ValidationService.MzTabVersion.MZTAB_2_0;
             modelAndView.addObject("validationVersion", validationVersion);
         }
+        log.info("Validation version is {}", validationVersion);
+        Integer maxErrors = Integer.parseInt(result.getParameters().
+            getOrDefault(Keys.MAXERRORS, "100"));
         if (maxErrors >= 0) {
             modelAndView.
                 addObject("validationMaxErrors", Math.max(1, maxErrors));
         } else {
             modelAndView.addObject("validationMaxErrors", 100);
         }
+        log.info("Max errors are {}", maxErrors);
         ValidationLevel validationLevel = ValidationLevel.INFO;
+        ValidationLevel level = ValidationLevel.valueOf(result.getParameters().
+            getOrDefault(Keys.VALIDATIONLEVEL, "INFO"));
         if (level != null) {
             validationLevel = level;
         }
         modelAndView.addObject("validationLevel", validationLevel);
+        log.info("Validation level is {}", validationLevel);
+        boolean checkCvMapping = Boolean.parseBoolean(result.getParameters().
+            getOrDefault(Keys.CHECKCVMAPPING, "false"));
         modelAndView.addObject("checkCvMapping", checkCvMapping);
-        UserSessionFile usf = new UserSessionFile(filePath.toString(), sessionId);
-        List<ValidationResult> validationResults = validationService.
-            asValidationResults(validationService.validate(
-                validationVersion, usf, maxErrors, validationLevel,
-                checkCvMapping));
+        log.info("Check cv mapping is {}", checkCvMapping);
+        UserSessionFile usf = new UserSessionFile(filePath.toString(),
+            userSessionId);
+        modelAndView.addObject("status", result.getStatus());
+        log.info("Current status is {}", result.getStatus());
+        switch (result.getStatus()) {
+            case FAILED:
+                modelAndView.addObject("progress", 0);
+                modelAndView.addObject("message", result.getException().
+                    getMessage());
+                modelAndView.addObject("messageLevel", "alert-danger");
+                addValidationResults(modelAndView, validationService.
+                    asValidationResults(result.getMessages()), level, maxErrors,
+                    validationVersion, usf, validationLevel);
+                break;
+            case PREPARING:
+                modelAndView.addObject("progress", 10);
+                modelAndView.addObject("refresh", 5);
+                break;
+            case STARTED:
+                modelAndView.addObject("progress", 25);
+                modelAndView.addObject("refresh", 5);
+                break;
+            case RUNNING:
+                modelAndView.addObject("progress", 50);
+                modelAndView.addObject("refresh", 5);
+                break;
+            case FINISHED:
+                modelAndView.addObject("progress", 100);
+                addValidationResults(modelAndView, validationService.
+                    asValidationResults(result.getMessages()), level, maxErrors,
+                    validationVersion, usf, validationLevel);
+                break;
+            default:
+                modelAndView.addObject("progress", 0);
+        }
+        return modelAndView;
+    }
+
+    protected void addValidationResults(ModelAndView modelAndView,
+        List<ValidationResult> validationResults, ValidationLevel level,
+        Integer maxErrors1, ValidationService.MzTabVersion validationVersion,
+        UserSessionFile usf, ValidationLevel validationLevel) {
         modelAndView.addObject("validationStatistics", new ValidationStatistics(
             validationResults));
-        modelAndView.addObject("validationResults", validationService.
-            filterByLevel(validationResults, level).
-            subList(0, Math.min(validationResults.size(), maxErrors)));
+        modelAndView.addObject("validationResults",
+            validationService.
+                filterByLevel(validationResults, level).
+                subList(0,
+                    Math.min(validationResults.size(), maxErrors1)));
         Map<String, List<Map<String, String>>> mzTabContents = validationService.
-            parse(version,
-                usf, maxErrors, validationLevel);
+            parse(validationVersion,
+                usf, maxErrors1, validationLevel);
         if (validationVersion == ValidationService.MzTabVersion.MZTAB_2_0) {
             addDataRowsFor(modelAndView, mzTabContents, "META");
             addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
@@ -196,7 +312,6 @@ public class ValidationController {
             addDataRowsFor(modelAndView, mzTabContents, "PEPTIDES");
             addDataRowsFor(modelAndView, mzTabContents, "PSMS");
         }
-        return modelAndView;
     }
 
     protected void addDataRowsFor(ModelAndView modelAndView,
@@ -242,6 +357,7 @@ public class ValidationController {
             throw new IllegalArgumentException("Please supply your session-id!");
         }
         storageService.deleteAll(sessionId);
+        resultService.deleteResultFor(sessionId);
         redirectAttrs.addFlashAttribute("message",
             "Files for session " + sessionId.toString() + " have been deleted!");
         redirectAttrs.addFlashAttribute("messageLevel", "alert-success");

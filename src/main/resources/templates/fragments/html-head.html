@@ -31,6 +31,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
     <meta name="description" content="mzTab online validator"/>
     <meta name="author" content="Nils Hoffmann"/>
+    <meta th:if="${refresh}" http-equiv="refresh" th:content="${refresh}" content="10"/>
     <!--<link rel="icon" href="../../../../favicon.ico">-->
 
     <title th:text="${page!=null?page.title:'mzTab Online Validator'}">mzTab Online Validator</title>
