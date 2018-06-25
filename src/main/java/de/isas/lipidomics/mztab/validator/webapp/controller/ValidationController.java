@@ -291,6 +291,7 @@ public class ValidationController {
                 break;
             default:
                 modelAndView.addObject("progress", 0);
+                modelAndView.addObject("refresh", 5);
         }
         return modelAndView;
     }
