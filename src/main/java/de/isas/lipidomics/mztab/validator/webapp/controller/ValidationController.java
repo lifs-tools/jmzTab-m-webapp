@@ -273,11 +273,11 @@ public class ValidationController {
                 break;
             case PREPARING:
                 modelAndView.addObject("progress", 10);
-                modelAndView.addObject("refresh", 5);
+                modelAndView.addObject("refresh", 1);
                 break;
             case STARTED:
                 modelAndView.addObject("progress", 25);
-                modelAndView.addObject("refresh", 5);
+                modelAndView.addObject("refresh", 2);
                 break;
             case RUNNING:
                 modelAndView.addObject("progress", 50);
@@ -291,7 +291,7 @@ public class ValidationController {
                 break;
             default:
                 modelAndView.addObject("progress", 0);
-                modelAndView.addObject("refresh", 5);
+                modelAndView.addObject("refresh", 1);
         }
         return modelAndView;
     }
