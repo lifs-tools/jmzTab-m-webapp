@@ -15,6 +15,7 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.controller;
 
+import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationStatistics;
 import de.isas.lipidomics.mztab.validator.webapp.domain.Page;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ToolResult;
@@ -76,19 +77,8 @@ public class ValidationController {
     private final ValidationService validationService;
     private final SessionIdGenerator sessionIdGenerator;
     private final ToolResultService resultService;
+    private final AppInfo appInfo;
     private int maxErrors = 100;
-
-    @Value("${version.number}")
-    private String versionNumber;
-
-    @Value("${ga.id}")
-    private String gaId;
-
-    @Value("${jmztab.version.number}")
-    private String jmztabVersionNumber;
-
-    @Value("${jmztabm.version.number}")
-    private String jmztabmVersionNumber;
     
     @Value("${minCleanupAge}")
     private Long minCleanupAge;
@@ -96,14 +86,16 @@ public class ValidationController {
     @Value("${spring.http.multipart.max-file-size}")
     private String uploadLimit;
 
+
     @Autowired
     public ValidationController(StorageService storageService,
         ValidationService validationService,
-        SessionIdGenerator sessionIdGenerator, ToolResultService resultService) {
+        SessionIdGenerator sessionIdGenerator, ToolResultService resultService, AppInfo appInfo) {
         this.storageService = storageService;
         this.validationService = validationService;
         this.sessionIdGenerator = sessionIdGenerator;
         this.resultService = resultService;
+        this.appInfo = appInfo;
     }
 
     @GetMapping("/")
@@ -422,12 +414,7 @@ public class ValidationController {
     }
 
     protected Page createPage(String title) {
-        String gaId = this.gaId;
-        if (this.gaId != null) {
-            gaId = (gaId.isEmpty() ? null : gaId);
-        }
-        return new Page(title, versionNumber, gaId, jmztabVersionNumber,
-            jmztabmVersionNumber);
+        return new Page(title, appInfo);
     }
 
 }

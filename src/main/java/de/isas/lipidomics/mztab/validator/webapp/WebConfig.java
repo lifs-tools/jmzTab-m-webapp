@@ -15,6 +15,7 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp;
 
+import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
 import java.util.concurrent.Executor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
@@ -60,6 +61,11 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         LocaleChangeInterceptor lci = new LocaleChangeInterceptor();
         lci.setParamName("lang");
         return lci;
+    }
+    
+    @Bean
+    public AppInfo appInfo() {
+        return new AppInfo();
     }
 
     @Override

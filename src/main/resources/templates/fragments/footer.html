@@ -6,8 +6,21 @@
     <footer th:fragment="footer" class="sticky-bottom footer mastfooter" style="background-color: #FFFFFF;">
       <div class="container-fluid">
         <div class="row">
-          <div class="col-md-12">
+          <div class="col-md-4">
             <small>Based on <a href="https://github.com/PRIDE-Utilities/jmzTab">jmzTab</a> <span th:if="${page!=null and page.jmztabVersion != null}" th:text="${page.jmztabVersion}"></span> and <a href="https://github.com/nilshoffmann/jmzTab-m">jmzTab-m</a> <span th:if="${page!=null and page.jmztabmVersion != null}" th:text="${page.jmztabmVersion}"></span></small>
+          </div>
+          <!--
+              private String title;
+    private String appVersion;
+    private String gaId;
+    private String jmztabVersion;
+    private String jmztabmVersion;
+    private String buildDate;
+    private String scmCommitId;
+    private String scmBranch;
+          -->
+          <div class="col-md-8 text-right">
+            <small class="text-muted" th:if="${page!=null and page.scmCommitId != null and page.buildDate != null and page.scmBranch != null}">Built on <span th:text="${page.buildDate}"></span> from commit <a th:href="${'https://github.com/nilshoffmann/jmzTab-m-webapp/commit/'+page.scmCommitId}" target="_blank" href="https://github.com/nilshoffmann/jmzTab-m-webapp/commit/"><span th:text="${page.scmCommitId}"></span></a> on branch <span th:text="${page.scmBranch}"></span></small>
           </div>
         </div>
         <div class="row">
