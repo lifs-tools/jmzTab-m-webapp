@@ -15,12 +15,13 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.domain;
 
-import java.util.Objects;
+import lombok.Data;
 
 /**
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
+@Data
 public class Page {
 
     private String title;
@@ -28,100 +29,22 @@ public class Page {
     private String gaId;
     private String jmztabVersion;
     private String jmztabmVersion;
+    private String buildDate;
+    private String scmCommitId;
+    private String scmBranch;
 
-    public Page(String title, String appVersion, String gaId,
-        String jmztabVersion, String jmztabmVersion) {
+    public Page(String title, AppInfo appInfo) {
         this.title = title;
-        this.appVersion = appVersion;
+        this.appVersion = appInfo.getVersionNumber();
+        String gaId = appInfo.getGaId();
+        if (gaId != null) {
+            gaId = (gaId.isEmpty() ? null : gaId);
+        }
         this.gaId = gaId;
-        this.jmztabVersion = jmztabVersion;
-        this.jmztabmVersion = jmztabmVersion;
+        this.jmztabVersion = appInfo.getJmztabVersionNumber();
+        this.jmztabmVersion = appInfo.getJmztabmVersionNumber();
+        this.buildDate = appInfo.getBuildDate();
+        this.scmCommitId = appInfo.getScmCommitId();
+        this.scmBranch = appInfo.getScmBranch();
     }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getAppVersion() {
-        return appVersion;
-    }
-
-    public void setAppVersion(String appVersion) {
-        this.appVersion = appVersion;
-    }
-
-    public void setGaId(String gaId) {
-        this.gaId = gaId;
-    }
-
-    public String getGaId() {
-        return this.gaId;
-    }
-
-    public String getJmztabVersion() {
-        return jmztabVersion;
-    }
-
-    public void setJmztabVersion(String jmztabVersion) {
-        this.jmztabVersion = jmztabVersion;
-    }
-
-    public String getJmztabmVersion() {
-        return jmztabmVersion;
-    }
-
-    public void setJmztabmVersion(String jmztabmVersion) {
-        this.jmztabmVersion = jmztabmVersion;
-    }
-
-    @Override
-    public int hashCode() {
-        int hash = 5;
-        hash = 41 * hash + Objects.hashCode(this.title);
-        hash = 41 * hash + Objects.hashCode(this.appVersion);
-        hash = 41 * hash + Objects.hashCode(this.gaId);
-        hash = 41 * hash + Objects.hashCode(this.jmztabVersion);
-        hash = 41 * hash + Objects.hashCode(this.jmztabmVersion);
-        return hash;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final Page other = (Page) obj;
-        if (!Objects.equals(this.title, other.title)) {
-            return false;
-        }
-        if (!Objects.equals(this.appVersion, other.appVersion)) {
-            return false;
-        }
-        if (!Objects.equals(this.gaId, other.gaId)) {
-            return false;
-        }
-        if (!Objects.equals(this.jmztabVersion, other.jmztabVersion)) {
-            return false;
-        }
-        if (!Objects.equals(this.jmztabmVersion, other.jmztabmVersion)) {
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    public String toString() {
-        return "Page{" + "title=" + title + ", appVersion=" + appVersion + ", gaId=" + gaId + ", jmztabVersion=" + jmztabVersion + ", jmztabmVersion=" + jmztabmVersion + '}';
-    }
-
 }
