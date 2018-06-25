@@ -201,6 +201,7 @@ public class ValidationController {
             return redirectToServletRoot(request);
         }
         ModelAndView modelAndView = new ModelAndView("validationResult");
+        modelAndView.addObject("minCleanupAge", minCleanupAge);
         log.info("Preparing result view");
 
         UUID userSessionId = UUID.fromString(
@@ -298,7 +299,6 @@ public class ValidationController {
         List<ValidationResult> validationResults, ValidationLevel level,
         Integer maxErrors1, ValidationService.MzTabVersion validationVersion,
         UserSessionFile usf, ValidationLevel validationLevel) {
-        modelAndView.addObject("minCleanupAge", minCleanupAge);
         modelAndView.addObject("validationStatistics", new ValidationStatistics(
             validationResults));
         modelAndView.addObject("validationResults",
