@@ -532,6 +532,13 @@
   </build>
   <profiles>
     <profile>
+      <id>dev</id>
+      <properties>
+        <spring.profiles.active>dev</spring.profiles.active>
+      </properties>
+    </profile>
+   
+    <profile>
       <id>release</id>
       <build>
         <plugins>
