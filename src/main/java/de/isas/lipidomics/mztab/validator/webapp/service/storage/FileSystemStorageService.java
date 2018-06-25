@@ -24,12 +24,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.util.StringUtils;
@@ -39,14 +45,26 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
+@Slf4j
 @Service
 public class FileSystemStorageService implements StorageService {
 
     private final Path rootLocation;
 
+    @Value("${minCleanupAge}")
+    private Long minCleanupAge = 7l;
+    
     @Autowired
     public FileSystemStorageService(StorageProperties properties) {
         this.rootLocation = Paths.get(properties.getLocation());
+    }
+    
+    public void setMinCleanupAge(long days) {
+        this.minCleanupAge = days;
+    }
+    
+    public long getMinCleanupAge() {
+        return this.minCleanupAge;
     }
 
     @Override
@@ -97,6 +115,45 @@ public class FileSystemStorageService implements StorageService {
             throw new StorageException("Failed to read stored files", e);
         }
 
+    }
+
+    @Scheduled(cron = "${oldFileMaintenanceSchedule}")
+    public void deleteOldFiles() {
+        log.info("Starting old file maintenance");
+        Clock clock = Clock.systemUTC();
+        Instant now = clock.instant(); // Where clock is a java.time.Clock, for testability
+        log.info("Reference instant is {}", now);
+        try {
+            Files.newDirectoryStream(this.rootLocation, path ->
+                path.toFile().
+                    isDirectory()).
+                forEach((dir) ->
+                {
+                    try {
+                        log.info("Checking directory {}", dir);
+                        FileTime t = Files.getLastModifiedTime(dir);
+                        Instant fileInstant = t.toInstant();
+                        Duration difference = Duration.between(fileInstant, now);
+                        long days = difference.toDays();
+                        log.info("Age difference for {} is {} days", dir, days);
+                        if(days>=minCleanupAge) {
+                            log.info("Deleting {}", dir);
+                            FileSystemUtils.deleteRecursively(dir.toFile());
+                        } else {
+                            log.info("Not deleting {}", dir);
+                        }
+                    } catch (IOException ex) {
+                        log.error(
+                            "Encountered exception during old file maintenance:",
+                            ex);
+                    }
+
+                });
+        } catch (IOException ioex) {
+            log.
+                error("Encountered exception during old file maintenance:", ioex);
+        }
+        log.info("Stopping old file maintenance");
     }
 
     private Path buildSessionPath(UUID sessionId) {

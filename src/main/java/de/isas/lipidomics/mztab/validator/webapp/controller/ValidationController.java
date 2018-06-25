@@ -89,6 +89,12 @@ public class ValidationController {
 
     @Value("${jmztabm.version.number}")
     private String jmztabmVersionNumber;
+    
+    @Value("${minCleanupAge}")
+    private Long minCleanupAge;
+    
+    @Value("${spring.http.multipart.max-file-size}")
+    private String uploadLimit;
 
     @Autowired
     public ValidationController(StorageService storageService,
@@ -105,6 +111,7 @@ public class ValidationController {
         ModelAndView model = new ModelAndView("index");
         model.addObject("page", createPage("mzTabValidator"));
         model.addObject("validationForm", new ValidationForm());
+        model.addObject("uploadLimit", uploadLimit);
         return model;
     }
 
@@ -291,6 +298,7 @@ public class ValidationController {
         List<ValidationResult> validationResults, ValidationLevel level,
         Integer maxErrors1, ValidationService.MzTabVersion validationVersion,
         UserSessionFile usf, ValidationLevel validationLevel) {
+        modelAndView.addObject("minCleanupAge", minCleanupAge);
         modelAndView.addObject("validationStatistics", new ValidationStatistics(
             validationResults));
         modelAndView.addObject("validationResults",
