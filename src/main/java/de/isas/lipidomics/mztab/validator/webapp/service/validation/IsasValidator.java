@@ -65,8 +65,8 @@ public class IsasValidator implements WebValidator {
                 if (checkCvMapping) {
                     try {
                         CvMappingValidator cvValidator = CvMappingValidator.of(
-                            CvMappingValidator.class.getResource(
-                                "/mappings/mzTab-M-mapping.xml"), checkCvMapping);
+                            IsasValidator.class.getResource(
+                                "/static/examples/mzTab-M-mapping.xml"), checkCvMapping);
                         validationResults.addAll(cvValidator.validate(parser.
                             getMZTabFile()));
                     } catch (JAXBException ex) {

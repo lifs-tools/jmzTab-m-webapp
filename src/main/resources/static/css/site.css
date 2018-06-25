@@ -1,0 +1,21 @@
+.card-img-right {
+  max-width:50%;
+  height: -webkit-fill-available;
+  max-height: -moz-fill-available;
+  max-height: -webkit-fill-available;
+  max-height: fill-available;
+}
+.no-gutters {
+  margin-right: 0;
+  margin-left: 0;
+  padding-right: 0;
+  padding-left: 0;
+}
+#validationResultTable_wrapper {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+.form-group {
+  padding-right: 1rem;
+}
+
