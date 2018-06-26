@@ -30,7 +30,7 @@
             <div th:unless="${noWarningsOrErrors}" class="alert alert-warning" role="alert">
               <strong>Validation failed with <span th:text="${validationStatistics.errors}"></span> error, <span th:text="${validationStatistics.warnings}"></span> warning, and <span th:text="${validationStatistics.infos}"></span> info messages!</strong> Please check the output below for details!
             </div>
-            <div th:if="${noWarningsOrErrors}" class="alert alert-info" role="alert">
+            <div th:if="${validationStatistics.infos &gt; 0}" class="alert alert-info" role="alert">
               <strong>Validation successful with <span th:text="${validationStatistics.infos}"></span> suggestions for improvements!</strong> Please check the output below for details!
             </div>
           </div>
