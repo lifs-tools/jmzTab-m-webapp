@@ -194,7 +194,7 @@ public class ValidationController {
         }
         ModelAndView modelAndView = new ModelAndView("validationResult");
         modelAndView.addObject("minCleanupAge", minCleanupAge);
-        log.info("Preparing result view");
+        log.debug("Preparing result view");
 
         UUID userSessionId = UUID.fromString(
             sessionId);
@@ -211,13 +211,13 @@ public class ValidationController {
         }
         Path filePath = validationFile.
             get();
-        log.info("Creating page");
+        log.debug("Creating page");
         modelAndView.
             addObject("page", createPage(filePath.getFileName().
                 toString()));
         modelAndView.addObject("validationFile", filePath);
         modelAndView.addObject("sessionId", sessionId);
-        log.info("Retrieving mztab version");
+        log.debug("Retrieving mztab version");
         ValidationService.MzTabVersion validationVersion = ValidationService.MzTabVersion.
             valueOf(result.getParameters().
                 get(ToolResult.Keys.MZTABVERSION));
@@ -227,7 +227,7 @@ public class ValidationController {
             validationVersion = ValidationService.MzTabVersion.MZTAB_2_0;
             modelAndView.addObject("validationVersion", validationVersion);
         }
-        log.info("Validation version is {}", validationVersion);
+        log.debug("Validation version is {}", validationVersion);
         Integer maxErrors = Integer.parseInt(result.getParameters().
             getOrDefault(Keys.MAXERRORS, "100"));
         if (maxErrors >= 0) {
@@ -236,7 +236,7 @@ public class ValidationController {
         } else {
             modelAndView.addObject("validationMaxErrors", 100);
         }
-        log.info("Max errors are {}", maxErrors);
+        log.debug("Max errors are {}", maxErrors);
         ValidationLevel validationLevel = ValidationLevel.INFO;
         ValidationLevel level = ValidationLevel.valueOf(result.getParameters().
             getOrDefault(Keys.VALIDATIONLEVEL, "INFO"));
@@ -244,15 +244,15 @@ public class ValidationController {
             validationLevel = level;
         }
         modelAndView.addObject("validationLevel", validationLevel);
-        log.info("Validation level is {}", validationLevel);
+        log.debug("Validation level is {}", validationLevel);
         boolean checkCvMapping = Boolean.parseBoolean(result.getParameters().
             getOrDefault(Keys.CHECKCVMAPPING, "false"));
         modelAndView.addObject("checkCvMapping", checkCvMapping);
-        log.info("Check cv mapping is {}", checkCvMapping);
+        log.debug("Check cv mapping is {}", checkCvMapping);
         UserSessionFile usf = new UserSessionFile(filePath.toString(),
             userSessionId);
         modelAndView.addObject("status", result.getStatus());
-        log.info("Current status is {}", result.getStatus());
+        log.debug("Current status is {}", result.getStatus());
         switch (result.getStatus()) {
             case FAILED:
                 modelAndView.addObject("progress", 0);
