@@ -79,18 +79,18 @@ public class ValidationController {
     private final ToolResultService resultService;
     private final AppInfo appInfo;
     private int maxErrors = 100;
-    
+
     @Value("${minCleanupAge}")
     private Long minCleanupAge;
-    
+
     @Value("${spring.http.multipart.max-file-size}")
     private String uploadLimit;
-
 
     @Autowired
     public ValidationController(StorageService storageService,
         ValidationService validationService,
-        SessionIdGenerator sessionIdGenerator, ToolResultService resultService, AppInfo appInfo) {
+        SessionIdGenerator sessionIdGenerator, ToolResultService resultService,
+        AppInfo appInfo) {
         this.storageService = storageService;
         this.validationService = validationService;
         this.sessionIdGenerator = sessionIdGenerator;
@@ -292,8 +292,10 @@ public class ValidationController {
         List<ValidationResult> validationResults, ValidationLevel level,
         Integer maxErrors1, ValidationService.MzTabVersion validationVersion,
         UserSessionFile usf, ValidationLevel validationLevel) {
-        modelAndView.addObject("validationStatistics", new ValidationStatistics(
-            validationResults));
+        ValidationStatistics vs = new ValidationStatistics(
+            validationResults);
+        modelAndView.addObject("validationStatistics", vs);
+        modelAndView.addObject("noWarningsOrErrors", vs.getNoErrorsOrWarnings());
         modelAndView.addObject("validationResults",
             validationService.
                 filterByLevel(validationResults, level).

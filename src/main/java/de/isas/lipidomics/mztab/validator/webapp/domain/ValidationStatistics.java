@@ -26,6 +26,7 @@ public class ValidationStatistics {
     private long errors;
     private long warnings;
     private long infos;
+    private boolean noErrorsOrWarnings;
 
     public ValidationStatistics(List<ValidationResult> validationResults) {
         errors = validationResults.stream().
@@ -46,6 +47,7 @@ public class ValidationStatistics {
                 return t.getLevel() == ValidationLevel.INFO;
             }).
             count();
+        noErrorsOrWarnings = (errors == 0l && warnings == 0l);
     }
 
     public long getErrors() {
@@ -71,7 +73,13 @@ public class ValidationStatistics {
     public void setInfos(long nInfos) {
         this.infos = nInfos;
     }
-    
-    
+
+    public boolean getNoErrorsOrWarnings() {
+        return this.noErrorsOrWarnings;
+    }
+
+    public void setNoErrorsOrWarnings(boolean b) {
+        this.noErrorsOrWarnings = b;
+    }
 
 }
