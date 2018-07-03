@@ -13,38 +13,8 @@
         <th:block th:include="fragments/nav :: nav"></th:block>
 
         <main role="main" class="my-3">
-          <div class="card flex-md-row mb-2">
-            <div class="card-body d-flex flex-column align-items-start">
-              <h4 class="card-title">Reference validator for mzTab 2.0-M</h4>
-              <p><a href="https://github.com/HUPO-PSI/mzTab" target="_blank">mzTab 2.0 for metabolomics</a> is a data exchange format for mass-spectrometry-based experimental data from the "omics" and neighboring sciences, focusing on small molecules like metabolites and lipids.</p>
-              <ul>
-                <li>It is hierarchically organized, from metadata to summary information to ms features and evidence,</li>
-                <li>captures quantitative and qualitative information about reported molecules for individual ms runs and aggregated across study variables,</li>
-                <li>follows minimum recommended reporting guidelines for omics experiments, and</li>
-                <li>provides structural, logical and semantic (controlled vocabulary terms) validation.</li>
-              </ul>
-              <p>This application provides a web-based validator for mzTab 2.0-M and the prior mzTab version 1.0 (mainly for proteomics) below, and a <a href="/swagger-ui.html" th:href="@{/swagger-ui.html}" target="_blank">REST API</a> for programmatic validation against mzTab 2.0-M.</p>
-            </div>
-            <img class="card-body card-img-right flex-auto d-none d-lg-block" src="/static/img/mzTab-reporting-format-levels-hierarchy.png" th:src="@{/img/mzTab-reporting-format-levels-hierarchy.png}" alt="mzTab-m 2.0 structure"/>
-          </div>
-          <div class="card my-2">
-            <div class="card-header">
-              Example files
-            </div>
-            <div class="card-body">
-              <h4 class="card-title">Download one of these example files:</h4>
-              <ul>
-                <li><a href="/static/examples/lipidomics-example.mzTab" th:href="@{/examples/lipidomics-example.mzTab}">lipidomics-example.mzTab</a> (2.0, Small Example)</li>
-                <li><a href="/static/examples/MTBLS263.mzTab" th:href="@{/examples/MTBLS263.mztab}">MTBLS263.mztab</a> (2.0, Larger Example)</li>
-                <li><a href="/static/examples/lda2-lipidomics.mztab" th:href="@{/examples/lda2-lipidomics.mztab}">lda2-lipidomics.mztab</a> (2.0, Large Example)</li>
-              </ul>
-              More files are available <a href="https://github.com/HUPO-PSI/mzTab/tree/master/examples/2_0-Metabolomics_Draft" target="_blank">here</a>.
-              <h4>Download one of the mapping files for semantic validation:</h4>
-              <ul>
-                <li><a href="/static/examples/mzTab-M-mapping.xml" th:href="@{/examples/mzTab-M-mapping.xml}">mzTab-M-mapping.xml</a> (2.0, Default mapping file)</li>
-              </ul>
-            </div>
-          </div>
+          <th:block th:include="fragments/overview :: overview"></th:block>
+          <th:block th:include="fragments/examples :: examples"></th:block>
           <th:block th:include="fragments/validation-form :: validation-form"></th:block>
         </main>
 

@@ -2,63 +2,20 @@
 <html xmlns:th="http://www.thymeleaf.org">
   <head></head>
   <body>
-    <div th:fragment="validation-form">
-      <div class="card my-2">
-        <div class="card-header">
-          Validation
+    <div th:fragment="overview">
+      <div class="card flex-md-row mb-2">
+        <div class="card-body d-flex flex-column align-items-start">
+          <h4 class="card-title">Reference validator for mzTab 2.0-M</h4>
+          <p><a href="https://github.com/HUPO-PSI/mzTab" target="_blank">mzTab 2.0 for metabolomics</a> is a data exchange format for mass-spectrometry-based experimental data from the "omics" and neighboring sciences, focusing on small molecules like metabolites and lipids.</p>
+          <ul>
+            <li>It is hierarchically organized, from metadata to summary information to ms features and evidence,</li>
+            <li>captures quantitative and qualitative information about reported molecules for individual ms runs and aggregated across study variables,</li>
+            <li>follows minimum recommended reporting guidelines for omics experiments, and</li>
+            <li>provides structural, logical and semantic (controlled vocabulary terms) validation.</li>
+          </ul>
+          <p>This application provides a web-based validator for mzTab 2.0-M and the prior mzTab version 1.0 (mainly for proteomics) below, and a <a href="/swagger-ui.html" th:href="@{/swagger-ui.html}" target="_blank">REST API</a> for programmatic validation against mzTab 2.0-M.</p>
         </div>
-        <div class="card-body"><h4 class="card-title">Upload your mzTab file for validation:</h4>
-          <form method="POST" enctype="multipart/form-data" action="/" th:action="@{/}">
-            <!--<fieldset>-->
-            <div class="form-group row">
-              <label for="file" class="col-sm-5 col-form-label">mzTab File to validate</label>
-              <div class="col-sm-7 no-gutters">
-                <input id="file" name="file" type="file" th:field="*{validationForm.file}"/>
-              </div>
-              <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
-                Select a local mzTab file to upload and validate. Size limit is <span th:text="${uploadLimit}"></span>.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="level" class="col-sm-5 col-form-label">Validation level</label>
-              <select class="col-sm-7 no-gutters" th:field="*{validationForm.level}">
-                <option th:each="level : *{validationForm.allLevels}" 
-                        th:value="${level}" 
-                        th:text="#{${level}}">Info</option>
-              </select>
-              <small id="levelHelpBlock" class="col-sm-12 form-text text-muted">
-                The 'Info' level includes 'Warn' and 'Error' level messages, the 'Warn' level includes 'Error' level messages.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="maxErrors" class="col-sm-5 col-form-label">Maximum number of errors to report</label>
-              <input class="col-sm-7 no-gutters" type="text" th:field="*{validationForm.maxErrors}"/>
-              <small id="maxErrorsHelpBlock" class="col-sm-12 form-text text-muted">
-                The maximum number of parsing and logical validation errors that should be reported, minimum of 1.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="version" class="col-sm-5 col-form-label">mzTab specification version to validate against</label>
-              <select class="col-sm-7 no-gutters" th:field="*{validationForm.mzTabVersion}">
-                <option th:each="version : *{validationForm.allVersions}" 
-                        th:value="${version}" 
-                        th:text="#{${version}}">MZTab2_0</option>
-              </select>
-              <small id="versionHelpBlock" class="col-sm-12 form-text text-muted">
-                The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="checkCvMapping" class="col-sm-5 col-form-label">Perform semantic validation with default mapping file</label>
-              <input type="checkbox" th:field="*{validationForm.checkCvMapping}"/>
-              <small id="checkCvMappingHelpBlock" class="col-sm-12 form-text text-muted">
-                If checked, use the default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
-              </small>
-            </div>
-            <button id="validate" type="submit" class="btn btn-primary" disabled="true">Validate</button>
-            <!--</fieldset>-->
-          </form>
-        </div>
+        <img class="card-body card-img-right flex-auto d-none d-lg-block" src="/static/img/mzTab-reporting-format-levels-hierarchy.png" th:src="@{/img/mzTab-reporting-format-levels-hierarchy.png}" alt="mzTab-m 2.0 structure"/>
       </div>
     </div>
   </body>

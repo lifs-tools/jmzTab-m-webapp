@@ -34,11 +34,13 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 @SpringBootApplication
-@EnableConfigurationProperties(StorageProperties.class)
+@EnableConfigurationProperties(value = {StorageProperties.class,
+    ExampleFileConfig.class})
 @EnableSwagger2
 @EnableScheduling
 @ComponentScan(basePackages = {"de.isas.mztab2.server.invoker",
-    "de.isas.mztab2.server.api", "de.isas.lipidomics.mztab", "io.swagger.configuration"})
+    "de.isas.mztab2.server.api", "de.isas.lipidomics.mztab",
+    "io.swagger.configuration"})
 public class Application {
 
     public static void main(String[] args) {
