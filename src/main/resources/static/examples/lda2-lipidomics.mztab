@@ -49,10 +49,10 @@ MTD	database[1]	[, , no database, null]
 MTD	database[1]-prefix	null																						
 MTD	database[1]-url	null																						
 MTD	database[1]-version	Unknown																						
-MTD	Database[2]	[, , LipidDataAnalyzer2, lda2]																						
-MTD	Database[2]-prefix	lda2																						
-MTD	Database[2]-url	https://github.com/ThallingerLab/LDA2																						
-MTD	Database[2]-version	2.6.3_nightly																						
+MTD	database[2]	[, , LipidDataAnalyzer2, lda2]																						
+MTD	database[2]-prefix	lda2																						
+MTD	database[2]-url	https://github.com/ThallingerLab/LDA2																						
+MTD	database[2]-version	2.6.3_nightly																						
 MTD	small_molecule-identification_reliability	[MS, MS:XXXXX, MSI-2007-numeric, ]																						
 MTD	id_confidence_measure[1]	[MS, MS:1002890, fragmentation score, ]																						
 																								

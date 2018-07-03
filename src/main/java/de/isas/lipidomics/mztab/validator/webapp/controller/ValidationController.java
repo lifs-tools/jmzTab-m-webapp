@@ -15,6 +15,7 @@
  */
 package de.isas.lipidomics.mztab.validator.webapp.controller;
 
+import de.isas.lipidomics.mztab.validator.webapp.ExampleFileConfig;
 import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationStatistics;
 import de.isas.lipidomics.mztab.validator.webapp.domain.Page;
@@ -86,24 +87,28 @@ public class ValidationController {
     @Value("${spring.http.multipart.max-file-size}")
     private String uploadLimit;
 
+    private ExampleFileConfig exampleFileConfig;
+
     @Autowired
     public ValidationController(StorageService storageService,
         ValidationService validationService,
         SessionIdGenerator sessionIdGenerator, ToolResultService resultService,
-        AppInfo appInfo) {
+        AppInfo appInfo, ExampleFileConfig exampleFileConfig) {
         this.storageService = storageService;
         this.validationService = validationService;
         this.sessionIdGenerator = sessionIdGenerator;
         this.resultService = resultService;
         this.appInfo = appInfo;
+        this.exampleFileConfig = exampleFileConfig;
     }
 
     @GetMapping("/")
-    public ModelAndView listUploadedFiles() throws IOException {
+    public ModelAndView handleHome() throws IOException {
         ModelAndView model = new ModelAndView("index");
         model.addObject("page", createPage("mzTabValidator"));
         model.addObject("validationForm", new ValidationForm());
         model.addObject("uploadLimit", uploadLimit);
+        model.addObject("exampleFiles", exampleFileConfig.getExampleFile());
         return model;
     }
 
