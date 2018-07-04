@@ -4,25 +4,46 @@
   <body>
     <div th:fragment="examples">
       <div class="card my-2">
-            <div class="card-header">
-              Example files
-            </div>
-            <div class="card-body">
-              <h4 class="card-title">Download one of these example files:</h4>
-              <ul>
-                <li th:each="exampleFile : ${exampleFiles}" th:if="${exampleFile.section=='example'}">
-                  <a href="#" th:href="${exampleFile.uri}" target="_blank" th:text="${exampleFile.name}">lipidomics-example.mzTab</a>&nbsp;<span th:text="${exampleFile.description}">(2.0, Small Example)</span>
-                </li>
-              </ul>
-              More files are available <a href="https://github.com/HUPO-PSI/mzTab/tree/master/examples/2_0-Metabolomics_Draft" target="_blank">here</a>.
-              <h4>Download one of the mapping files for semantic validation:</h4>
-              <ul>
-                <li th:each="exampleFile : ${exampleFiles}" th:if="${exampleFile.section=='mapping'}">
-                  <a href="#" th:href="${exampleFile.uri}" target="_blank" th:text="${exampleFile.name}">lipidomics-example.mzTab</a>&nbsp;<span th:text="${exampleFile.description}">(2.0, Small Example)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+        <div class="card-header">
+          Example files
+        </div>
+        <div class="card-body">
+          <!--<h4 class="card-title">Download one of these example files:</h4>-->
+          <table id="exampleFilesTable" class="table table-sm table-hover pt-1 px-0" width="100%">
+            <thead class="thead-light">
+              <tr>
+                <th>File</th>
+                <th>mzTab-M Version</th>
+                <th>Focus</th>
+                <th>Created by</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="exampleFile : ${exampleFiles}" th:if="${exampleFile.section=='example'}">
+                <td><a href="#" th:href="${exampleFile.uri}" target="_blank" th:text="${exampleFile.name}">lipidomics-example.mzTab</a></td>
+                <td th:text="${exampleFile.version}">2.0</td>
+                <td th:text="${exampleFile.focus}">Metabolomics</td>
+                <td th:text="${exampleFile.createdBy}">LDA2</td>
+                <td th:text="${exampleFile.description}">Remarks</td>
+              </tr>
+            </tbody>
+          </table>
+          <ul>
+            <li th:each="exampleFile : ${exampleFile}" th:if="${exampleFile.section=='example'}">
+              <a href="#" th:href="${exampleFile.uri}" target="_blank" th:text="${exampleFile.name}">lipidomics-example.mzTab</a>&nbsp;<span th:text="${exampleFile.description}">(2.0, Small Example)</span>
+            </li>
+          </ul>
+          More files are available <a href="https://github.com/HUPO-PSI/mzTab/tree/master/examples/2_0-Metabolomics_Draft" target="_blank">here</a>.
+          <hr/>
+          <h4>Download one of the mapping files for semantic validation:</h4>
+          <ul>
+            <li th:each="exampleFile : ${exampleFiles}" th:if="${exampleFile.section=='mapping'}">
+              <a href="#" th:href="${exampleFile.uri}" target="_blank" th:text="${exampleFile.name}">lipidomics-example.mzTab</a>&nbsp;<span th:text="${exampleFile.description}">(2.0, Small Example)</span>
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
   </body>
 </html>
