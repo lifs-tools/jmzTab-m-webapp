@@ -27,5 +27,8 @@ public class ExampleFile {
     private String name;
     private URI uri;
     private String description;
+    private String version;
+    private String focus;
+    private String createdBy;
     private String section;
 }
