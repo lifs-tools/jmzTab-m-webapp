@@ -15,7 +15,7 @@ In order to build the project and run the unit tests, execute the following comm
 The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
 The `target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
 
-  ./mztabvalidation-<VERSION>.jar
+  ./mztab-validator-webapp-<VERSION>.jar
 
 This will start the application with a default configuration, running on http port 8083. 
 The application can then be accessed from your web browser at

@@ -30,6 +30,7 @@ import uk.ac.ebi.pride.jmztab.utils.MZTabFileParser;
 import uk.ac.ebi.pride.jmztab.utils.errors.MZTabError;
 import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorList;
 import uk.ac.ebi.pride.jmztab.utils.errors.MZTabErrorType;
+import uk.ac.ebi.pride.jmztab.utils.errors.MZTabException;
 
 /**
  *
@@ -43,6 +44,11 @@ public class EbiValidator implements WebValidator {
         SortedSet<ValidationMessage> results = new TreeSet<>((vm1,
             vm2) ->
         {
+            if (vm1.getLineNumber() == -1) {
+                return 1;
+            } else if (vm2.getLineNumber() == -1) {
+                return -1;
+            }
             int lineNumber = Long.compare(vm1.getLineNumber(), vm2.
                 getLineNumber());
             if (lineNumber == 0) {
@@ -93,34 +99,71 @@ public class EbiValidator implements WebValidator {
     private void applyParserForLevel(SortedSet<ValidationMessage> results,
         Path filepath,
         String validationLevel, int maxErrors) throws IllegalStateException, IOException {
-        MZTabFileParser parser = new MZTabFileParser(filepath.toFile(),
-            System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
-        MZTabErrorList errorList = parser.getErrorList();
-        for (MZTabError error : errorList.getErrorList()) {
-            ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
-            switch (error.getType().
-                getLevel()) {
-                case Error:
-                    level = ValidationMessage.MessageTypeEnum.ERROR;
-                    break;
-                case Info:
-                    level = ValidationMessage.MessageTypeEnum.INFO;
-                    break;
-                case Warn:
-                    level = ValidationMessage.MessageTypeEnum.WARN;
-                    break;
-                default:
-                    throw new IllegalStateException("State '" + error.getType().
-                        getLevel() + "' is not handled in switch/case statement!");
+        try {
+            MZTabFileParser parser = new MZTabFileParser(filepath.toFile(),
+                System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
+            MZTabErrorList errorList = parser.getErrorList();
+            for (MZTabError error : errorList.getErrorList()) {
+                ValidationMessage.MessageTypeEnum level = ValidationMessage.MessageTypeEnum.INFO;
+                switch (error.getType().
+                    getLevel()) {
+                    case Error:
+                        level = ValidationMessage.MessageTypeEnum.ERROR;
+                        break;
+                    case Info:
+                        level = ValidationMessage.MessageTypeEnum.INFO;
+                        break;
+                    case Warn:
+                        level = ValidationMessage.MessageTypeEnum.WARN;
+                        break;
+                    default:
+                        throw new IllegalStateException("State '" + error.
+                            getType().
+                            getLevel() + "' is not handled in switch/case statement!");
+                }
+                ValidationMessage vr = new ValidationMessage().lineNumber(Long.
+                    valueOf(error.getLineNumber())).
+                    messageType(level).
+                    message(error.getMessage()).
+                    code(error.toString());
+                Logger.getLogger(MzTabValidationService.class.getName()).
+                    info(vr.toString());
+                results.add(vr);
             }
-            ValidationMessage vr = new ValidationMessage().lineNumber(Long.
-                valueOf(error.getLineNumber())).
-                messageType(level).
-                message(error.getMessage()).
-                code(error.toString());
-            Logger.getLogger(MzTabValidationService.class.getName()).
-                info(vr.toString());
-            results.add(vr);
+        } catch (IOException ex) {
+            if (ex.getCause() instanceof MZTabException) {
+                MZTabException mex = (MZTabException) ex.getCause();
+                ValidationMessage.MessageTypeEnum level;
+                switch (mex.getError().
+                    getType().
+                    getLevel()) {
+                    case Error:
+                        level = ValidationMessage.MessageTypeEnum.ERROR;
+                        break;
+                    case Info:
+                        level = ValidationMessage.MessageTypeEnum.INFO;
+                        break;
+                    case Warn:
+                        level = ValidationMessage.MessageTypeEnum.WARN;
+                        break;
+                    default:
+                        throw new IllegalStateException("State '" + mex.
+                            getError().
+                            getType().
+                            getLevel() + "' is not handled in switch/case statement!");
+                }
+                ValidationMessage vr = new ValidationMessage().lineNumber(Long.
+                    valueOf(mex.getError().
+                        getLineNumber())).
+                    messageType(level).
+                    message(mex.getError().
+                        getMessage()).
+                    code(mex.getError().
+                        toString());
+                Logger.getLogger(MzTabValidationService.class.getName()).
+                    info(vr.toString());
+                results.add(vr);
+            }
         }
     }
 
@@ -134,7 +177,7 @@ public class EbiValidator implements WebValidator {
         int lineNumber = 1;
         Map<String, List<Map<String, String>>> mzTabLines = new LinkedHashMap<>();
 //        if (mzTabFile == null) {
-            return mzTabLines;
+        return mzTabLines;
 //        }
 //        if (mzTabFile.getMetadata() != null) {
 //            try (StringWriter writer = new StringWriter()) {

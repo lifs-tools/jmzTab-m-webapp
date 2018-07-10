@@ -25,17 +25,18 @@ import de.isas.lipidomics.mztab.validator.webapp.service.AnalyticsTracker;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ToolResultService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
+import de.isas.mztab2.cvmapping.CvParameterLookupService;
 import de.isas.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,13 +54,16 @@ public class MzTabValidationService implements ValidationService {
     private final StorageService storageService;
     private final AnalyticsTracker tracker;
     private final ToolResultService resultService;
+    private final CvParameterLookupService lookupService;
 
     @Autowired
     public MzTabValidationService(StorageService storageService,
-        AnalyticsTracker tracker, ToolResultService resultService) {
+        AnalyticsTracker tracker, ToolResultService resultService,
+        CvParameterLookupService lookupService) {
         this.storageService = storageService;
         this.tracker = tracker;
         this.resultService = resultService;
+        this.lookupService = lookupService;
     }
 
     @Override
@@ -106,7 +110,7 @@ public class MzTabValidationService implements ValidationService {
                 maxErrors);
             tracker.stopped(userSessionFile.getSessionId(), "parse", "success");
             return lines;
-        } catch (IOException ex) {
+        } catch (IOException | RuntimeException ex) {
             Logger.getLogger(MzTabValidationService.class.getName()).
                 log(java.util.logging.Level.SEVERE, null, ex);
             tracker.stopped(userSessionFile.getSessionId(), "parse", "fail");
@@ -124,8 +128,9 @@ public class MzTabValidationService implements ValidationService {
                     name(),
                     maxErrors);
             case MZTAB_2_0:
-                return new IsasValidator().parse(filepath, validationLevel.
-                    name(),
+                return new IsasValidator(lookupService).parse(filepath,
+                    validationLevel.
+                        name(),
                     maxErrors);
             default:
                 throw new IllegalStateException(
@@ -142,8 +147,9 @@ public class MzTabValidationService implements ValidationService {
                     name(),
                     maxErrors, checkCvMapping);
             case MZTAB_2_0:
-                return new IsasValidator().validate(filepath, validationLevel.
-                    name(),
+                return new IsasValidator(lookupService).validate(filepath,
+                    validationLevel.
+                        name(),
                     maxErrors, checkCvMapping);
             default:
                 throw new IllegalStateException(
@@ -234,12 +240,16 @@ public class MzTabValidationService implements ValidationService {
                 tracker.
                     stopped(userSessionFile.getSessionId(), "validation",
                         "fail");
+                Logger.getLogger(MzTabValidationService.class.getName()).
+                            log(Level.SEVERE, null, ex);
                 status.setException(ex);
                 status.setStatus(Status.FAILED);
                 if (ex.getCause() instanceof MZTabException) {
                     MZTabException mex = (MZTabException) ex.getCause();
                     status.setMessages(Arrays.asList(mex.getError().
                         toValidationMessage()));
+                } else {
+                    throw new RuntimeException(ex);
                 }
                 resultService.addResultFor(userSessionId, status);
                 tracker.
