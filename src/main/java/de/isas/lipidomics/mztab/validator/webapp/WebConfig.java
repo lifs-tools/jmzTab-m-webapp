@@ -16,6 +16,7 @@
 package de.isas.lipidomics.mztab.validator.webapp;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
+import de.isas.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +30,8 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
+import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
+import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfig;
 
 /**
  *
@@ -86,5 +89,12 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
         tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors()-1));
         return tpe;
+    }
+    
+    @Bean
+    public CvParameterLookupService cvParameterLookupService() {
+        OLSWsConfig config = new OLSWsConfig();
+        OLSClient client = new OLSClient(config);
+        return new CvParameterLookupService(client);
     }
 }

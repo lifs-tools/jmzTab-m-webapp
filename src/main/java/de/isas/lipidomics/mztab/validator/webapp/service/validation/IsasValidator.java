@@ -18,6 +18,7 @@ package de.isas.lipidomics.mztab.validator.webapp.service.validation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import de.isas.mztab2.cvmapping.CvParameterLookupService;
 import de.isas.mztab2.io.MzTabNonValidatingWriter;
 import de.isas.mztab2.io.MzTabWriterDefaults;
 import de.isas.mztab2.model.MzTab;
@@ -46,11 +47,17 @@ import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
  */
 public class IsasValidator implements WebValidator {
 
+    private final CvParameterLookupService lookupService;
+
+    public IsasValidator(CvParameterLookupService lookupService) {
+        this.lookupService = lookupService;
+    }
+
     @Override
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException {
         MZTabFileParser parser = null;
-        List<ValidationMessage> validationResults = Collections.emptyList();
+        List<ValidationMessage> validationResults = new ArrayList<>();
         try {
             parser = new MZTabFileParser(filepath.toFile());
             parser.parse(
@@ -60,13 +67,14 @@ public class IsasValidator implements WebValidator {
                             log(Level.SEVERE, null, ex);
         } finally {
             if (parser != null) {
-                validationResults = parser.getErrorList().
-                    convertToValidationMessages();
+                validationResults.addAll(parser.getErrorList().
+                    convertToValidationMessages());
                 if (checkCvMapping) {
                     try {
                         CvMappingValidator cvValidator = CvMappingValidator.of(
                             IsasValidator.class.getResource(
-                                "/static/examples/mzTab-M-mapping.xml"), checkCvMapping);
+                                "/static/examples/mzTab-M-mapping.xml"),
+                            lookupService, checkCvMapping);
                         validationResults.addAll(cvValidator.validate(parser.
                             getMZTabFile()));
                     } catch (JAXBException ex) {
