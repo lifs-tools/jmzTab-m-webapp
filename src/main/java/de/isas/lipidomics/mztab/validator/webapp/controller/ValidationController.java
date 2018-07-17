@@ -29,9 +29,11 @@ import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationResult;
 import de.isas.lipidomics.mztab.validator.webapp.service.SessionIdGenerator;
+import de.isas.lipidomics.mztab.validator.webapp.service.StorageService.SLOT;
 import de.isas.lipidomics.mztab.validator.webapp.service.ToolResultService;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService.Status;
 import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageException;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -125,9 +127,23 @@ public class ValidationController {
                 "redirect:" + uri.toUriString());
         }
         UserSessionFile usf = storageService.store(validationForm.getFile(),
-            sessionIdGenerator.generate());
-        if (storageService.load(usf) == null) {
+            sessionIdGenerator.generate(), SLOT.MZTABFILE);
+        if (storageService.load(usf, SLOT.MZTABFILE) == null) {
             throw new StorageException("Could not load user session file!");
+        }
+        UserSessionFile validationFile;
+        if (validationForm.getMappingFile() == null || validationForm.getMappingFile().isEmpty()) {
+            validationFile = storageService.
+                store(ValidationController.class.getResource(
+                    "/static/examples/mzTab-M-mapping.xml"), usf.
+                        getSessionId(), SLOT.MAPPINGFILE);
+        } else {
+            validationFile = storageService.store(validationForm.
+                getMappingFile(), "semantic-validation.xml", usf.getSessionId(),
+                SLOT.MAPPINGFILE);
+        }
+        if (storageService.load(validationFile, SLOT.MAPPINGFILE) == null) {
+            throw new StorageException("Could not load mapping file!");
         }
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
@@ -161,11 +177,8 @@ public class ValidationController {
         Status status = validationService.getStatus(sessionId).
             getStatus();
         if (status == Status.UNINITIALIZED) {
-            Path filePath = storageService.loadAll(sessionId).
-                findFirst().
-                get();
-            UserSessionFile usf = new UserSessionFile(filePath.toString(),
-                sessionId);
+            UserSessionFile usf = storageService.load(sessionId, SLOT.MZTABFILE);
+            UserSessionFile mappingFile = storageService.load(sessionId, SLOT.MAPPINGFILE);
             ToolResult toolResult = resultService.getOrCreateResultFor(
                 sessionId);
             Map<ToolResult.Keys, String> parameters = new EnumMap(
@@ -180,7 +193,7 @@ public class ValidationController {
             toolResult.setParameters(parameters);
             resultService.addResultFor(sessionId, toolResult);
             validationService.runValidation(version, usf, maxErrors,
-                level, checkCvMapping);
+                level, checkCvMapping, mappingFile);
         }
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
@@ -208,19 +221,15 @@ public class ValidationController {
             throw new NullPointerException(
                 "No results for session id " + sessionId + "!");
         }
-        Optional<Path> validationFile = storageService.loadAll(userSessionId).
-            findFirst();
-        if (!validationFile.isPresent()) {
+        UserSessionFile validatedFile = storageService.load(userSessionId, SLOT.MZTABFILE);
+        if (validatedFile == null) {
             throw new NullPointerException(
                 "No results for session id " + sessionId + "!");
         }
-        Path filePath = validationFile.
-            get();
         log.debug("Creating page");
         modelAndView.
-            addObject("page", createPage(filePath.getFileName().
-                toString()));
-        modelAndView.addObject("validationFile", filePath);
+            addObject("page", createPage(validatedFile.getFilename()));
+        modelAndView.addObject("validationFile", validatedFile.getFilename());
         modelAndView.addObject("sessionId", sessionId);
         log.debug("Retrieving mztab version");
         ValidationService.MzTabVersion validationVersion = ValidationService.MzTabVersion.
@@ -254,8 +263,6 @@ public class ValidationController {
             getOrDefault(Keys.CHECKCVMAPPING, "false"));
         modelAndView.addObject("checkCvMapping", checkCvMapping);
         log.debug("Check cv mapping is {}", checkCvMapping);
-        UserSessionFile usf = new UserSessionFile(filePath.toString(),
-            userSessionId);
         modelAndView.addObject("status", result.getStatus());
         log.debug("Current status is {}", result.getStatus());
         switch (result.getStatus()) {
@@ -266,7 +273,7 @@ public class ValidationController {
                 modelAndView.addObject("messageLevel", "alert-danger");
                 addValidationResults(modelAndView, validationService.
                     asValidationResults(result.getMessages()), level, maxErrors,
-                    validationVersion, usf, validationLevel);
+                    validationVersion, validatedFile, validationLevel);
                 break;
             case PREPARING:
                 modelAndView.addObject("progress", 10);
@@ -284,7 +291,7 @@ public class ValidationController {
                 modelAndView.addObject("progress", 100);
                 addValidationResults(modelAndView, validationService.
                     asValidationResults(result.getMessages()), level, maxErrors,
-                    validationVersion, usf, validationLevel);
+                    validationVersion, validatedFile, validationLevel);
                 break;
             default:
                 modelAndView.addObject("progress", 0);

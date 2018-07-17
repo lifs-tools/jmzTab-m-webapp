@@ -49,10 +49,19 @@
               </small>
             </div>
             <div class="form-group row">
-              <label for="checkCvMapping" class="col-sm-5 col-form-label">Perform semantic validation with default mapping file</label>
+              <label for="checkCvMapping" class="col-sm-5 col-form-label">Perform semantic validation with provided or default mapping file</label>
               <input type="checkbox" th:field="*{validationForm.checkCvMapping}"/>
               <small id="checkCvMappingHelpBlock" class="col-sm-12 form-text text-muted">
-                If checked, use the default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
+                If checked, use the provided or default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
+              </small>
+            </div>
+            <div class="form-group row">
+              <label for="file" class="col-sm-5 col-form-label">CV Mapping File to use for semantic validation</label>
+              <div class="col-sm-7 no-gutters">
+                <input id="mappingFile" name="file" type="file" th:field="*{validationForm.mappingFile}"/>
+              </div>
+              <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
+                Select a local cv mapping file to upload and use for validation. Size limit is <span th:text="${uploadLimit}"></span>.
               </small>
             </div>
             <button id="validate" type="submit" class="btn btn-primary" disabled="true">Validate</button>

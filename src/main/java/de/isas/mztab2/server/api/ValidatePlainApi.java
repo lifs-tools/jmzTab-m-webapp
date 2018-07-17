@@ -107,13 +107,18 @@ public interface ValidatePlainApi {
                 contains("application/json")) {
                 UserSessionFile file = getStorageService().
                     get().
-                    store(mztabfile, UUID.randomUUID());
+                    store(mztabfile, UUID.randomUUID(), StorageService.SLOT.MZTABFILE);
+                UserSessionFile mappingFile = getStorageService().
+                        get().
+                        store(ValidateApi.class.getResource(
+                            "/static/examples/mzTab-M-mapping.xml"), file.
+                                getSessionId(), StorageService.SLOT.MAPPINGFILE);
                 List<ValidationMessage> messages = getValidationService().
                     get().
                     validate(ValidationService.MzTabVersion.MZTAB_2_0, file,
                         maxErrors,
                         ValidationLevel.valueOf(level == null ? "INFO" : level.
-                            toUpperCase()), semanticValidation);
+                            toUpperCase()), semanticValidation, mappingFile);
                 messages = messages.subList(0, Math.min(messages.size(),
                     maxErrors));
                 HttpStatus status = HttpStatus.OK;

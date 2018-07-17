@@ -30,14 +30,17 @@ import lombok.Data;
  */
 @Data
 public class ToolResult {
-    public static enum Keys { MZTABVERSION, MAXERRORS, VALIDATIONLEVEL, CHECKCVMAPPING };
+
+    public static enum Keys {
+        MZTABVERSION, MAXERRORS, VALIDATIONLEVEL, CHECKCVMAPPING
+    };
 
     private List<ValidationMessage> messages = new ArrayList<>();
 
     private Exception exception;
 
     private Status status;
-    
+
     private Map<ToolResult.Keys, String> parameters = new EnumMap<>(Keys.class);
 
     public ToolResult() {

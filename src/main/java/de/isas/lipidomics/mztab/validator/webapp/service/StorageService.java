@@ -16,6 +16,7 @@
 package de.isas.lipidomics.mztab.validator.webapp.service;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -27,21 +28,30 @@ import org.springframework.web.multipart.MultipartFile;
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
 public interface StorageService {
+    
+    public static enum SLOT {MZTABFILE, MAPPINGFILE};
 
     void init();
 
-    UserSessionFile store(MultipartFile file, UUID sessionId);
+    UserSessionFile store(MultipartFile file, UUID sessionId, SLOT slot);
+
+    UserSessionFile store(MultipartFile file, String userFileName,
+        UUID sessionId, SLOT slot);
     
-    UserSessionFile store(String fileContent, UUID sessionId);
+    UserSessionFile store(URL url, UUID sessionId, SLOT slot);
+
+    UserSessionFile store(String fileContent, UUID sessionId, SLOT slot);
 
     Stream<Path> loadAll(UUID sessionId);
+    
+    UserSessionFile load(UUID sessionId, SLOT slot);
 
-    Path load(UserSessionFile userSessionFile);
+    Path load(UserSessionFile userSessionFile, SLOT slot);
 
-    Resource loadAsResource(UserSessionFile userSessionFile);
+    Resource loadAsResource(UserSessionFile userSessionFile, SLOT slot);
 
     void deleteAll(UUID sessionId);
-    
+
     void deleteAll();
 
 }

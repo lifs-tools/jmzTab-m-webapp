@@ -28,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ValidationForm {
 
     private MultipartFile file = null;
+    private MultipartFile mappingFile = null;
     private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_2_0;
     private Integer maxErrors = 100;
     private ValidationLevel level = ValidationLevel.INFO;
@@ -38,14 +39,15 @@ public class ValidationForm {
         asList(ValidationService.MzTabVersion.values());
 
     public ValidationForm() {
-        this(null, ValidationService.MzTabVersion.MZTAB_2_0, 100,
+        this(null, null, ValidationService.MzTabVersion.MZTAB_2_0, 100,
             ValidationLevel.INFO, false);
     }
 
-    public ValidationForm(MultipartFile file,
+    public ValidationForm(MultipartFile file, MultipartFile mappingFile,
         ValidationService.MzTabVersion mzTabVersion, Integer maxErrors,
         ValidationLevel level, Boolean checkCvMapping) {
         this.file = file;
+        this.mappingFile = mappingFile;
         this.mzTabVersion = mzTabVersion;
         this.maxErrors = maxErrors;
         this.level = level;
@@ -58,6 +60,14 @@ public class ValidationForm {
 
     public void setFile(MultipartFile file) {
         this.file = file;
+    }
+
+    public MultipartFile getMappingFile() {
+        return mappingFile;
+    }
+
+    public void setMappingFile(MultipartFile mappingFile) {
+        this.mappingFile = mappingFile;
     }
 
     public ValidationService.MzTabVersion getMzTabVersion() {
@@ -104,6 +114,7 @@ public class ValidationForm {
     public int hashCode() {
         int hash = 5;
         hash = 59 * hash + Objects.hashCode(this.file);
+        hash = 59 * hash + Objects.hashCode(this.mappingFile);
         hash = 59 * hash + Objects.hashCode(this.mzTabVersion);
         hash = 59 * hash + Objects.hashCode(this.maxErrors);
         hash = 59 * hash + Objects.hashCode(this.level);
@@ -126,6 +137,9 @@ public class ValidationForm {
         }
         final ValidationForm other = (ValidationForm) obj;
         if (!Objects.equals(this.file, other.file)) {
+            return false;
+        }
+        if (!Objects.equals(this.mappingFile, other.mappingFile)) {
             return false;
         }
         if (this.mzTabVersion != other.mzTabVersion) {
@@ -151,7 +165,7 @@ public class ValidationForm {
 
     @Override
     public String toString() {
-        return "ValidationForm{" + "file=" + file + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + ", checkCvMapping=" + checkCvMapping + '}';
+        return "ValidationForm{" + "file=" + file + ", mappingFile=" + mappingFile + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + ", checkCvMapping=" + checkCvMapping + '}';
     }
 
 }
