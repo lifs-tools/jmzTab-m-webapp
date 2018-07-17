@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.isas.lipidomics.mztab.validator.webapp.domain.UserSessionFile;
 import de.isas.lipidomics.mztab.validator.webapp.domain.ValidationLevel;
 import de.isas.lipidomics.mztab.validator.webapp.service.StorageService;
+import de.isas.lipidomics.mztab.validator.webapp.service.StorageService.SLOT;
 import de.isas.lipidomics.mztab.validator.webapp.service.ValidationService;
 import de.isas.mztab2.io.MzTabNonValidatingWriter;
 import io.swagger.annotations.*;
@@ -113,15 +114,20 @@ public interface ValidateApi {
                     String mzTabString = stringWriter.toString("UTF-8");
                     UserSessionFile file = getStorageService().
                         get().
-                        store(mzTabString, UUID.randomUUID());
+                        store(mzTabString, UUID.randomUUID(), SLOT.MZTABFILE);
+                    UserSessionFile mappingFile = getStorageService().
+                        get().
+                        store(ValidateApi.class.getResource(
+                            "/static/examples/mzTab-M-mapping.xml"), file.
+                                getSessionId(), SLOT.MAPPINGFILE);
                     List<ValidationMessage> messages = getValidationService().
                         get().
                         validate(ValidationService.MzTabVersion.MZTAB_2_0, file,
                             maxErrors, ValidationLevel.valueOf(
                                 level == null ? "INFO" : level.toUpperCase()),
-                            semanticValidation);
+                            semanticValidation, mappingFile);
                     messages = messages.subList(0, Math.min(messages.size(),
-                    maxErrors));
+                        maxErrors));
                     HttpStatus status = HttpStatus.OK;
                     if (messages.size() > 0) {
                         status = HttpStatus.UNPROCESSABLE_ENTITY;

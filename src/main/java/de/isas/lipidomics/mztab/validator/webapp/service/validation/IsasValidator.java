@@ -24,6 +24,7 @@ import de.isas.mztab2.io.MzTabWriterDefaults;
 import de.isas.mztab2.model.MzTab;
 import de.isas.mztab2.model.ValidationMessage;
 import de.isas.mztab2.validation.CvMappingValidator;
+import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -55,7 +56,7 @@ public class IsasValidator implements WebValidator {
 
     @Override
     public List<ValidationMessage> validate(Path filepath,
-        String validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException {
+        String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException {
         MZTabFileParser parser = null;
         List<ValidationMessage> validationResults = new ArrayList<>();
         try {
@@ -64,7 +65,15 @@ public class IsasValidator implements WebValidator {
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
         } catch (MZTabErrorOverflowException ex) {
             Logger.getLogger(IsasValidator.class.getName()).
-                            log(Level.SEVERE, null, ex);
+                log(Level.SEVERE, null, ex);
+            ValidationMessage vm = new ValidationMessage();
+            vm.setCategory(ValidationMessage.CategoryEnum.CROSS_CHECK);
+            vm.setCode("");
+            vm.setLineNumber(-1l);
+            vm.setMessageType(
+                ValidationMessage.MessageTypeEnum.ERROR);
+            vm.setMessage(ex.getMessage());
+            validationResults.add(vm);
         } finally {
             if (parser != null) {
                 validationResults.addAll(parser.getErrorList().
@@ -72,8 +81,9 @@ public class IsasValidator implements WebValidator {
                 if (checkCvMapping) {
                     try {
                         CvMappingValidator cvValidator = CvMappingValidator.of(
-                            IsasValidator.class.getResource(
-                                "/static/examples/mzTab-M-mapping.xml"),
+//                            IsasValidator.class.getResource(
+//                                "/static/examples/mzTab-M-mapping.xml"),
+                            validationFile.toFile(),
                             lookupService, checkCvMapping);
                         validationResults.addAll(cvValidator.validate(parser.
                             getMZTabFile()));
@@ -81,6 +91,18 @@ public class IsasValidator implements WebValidator {
                         Logger.getLogger(IsasValidator.class.getName()).
                             log(Level.SEVERE, null, ex);
                         throw new IOException(ex);
+                    } catch (IllegalArgumentException iae) {
+                        Logger.getLogger(IsasValidator.class.getName()).
+                            log(Level.SEVERE, null, iae);
+                        ValidationMessage vm = new ValidationMessage();
+                        vm.setCategory(
+                            ValidationMessage.CategoryEnum.CROSS_CHECK);
+                        vm.setCode("");
+                        vm.setLineNumber(-1l);
+                        vm.setMessageType(
+                            ValidationMessage.MessageTypeEnum.ERROR);
+                        vm.setMessage(iae.getMessage());
+                        validationResults.add(vm);
                     }
                 }
             }

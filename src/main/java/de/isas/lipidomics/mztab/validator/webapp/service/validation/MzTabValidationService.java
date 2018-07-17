@@ -69,15 +69,18 @@ public class MzTabValidationService implements ValidationService {
     @Override
     public List<ValidationMessage> validate(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors,
-        ValidationLevel validationLevel, boolean checkCvMapping) {
+        ValidationLevel validationLevel, boolean checkCvMapping,
+        UserSessionFile mappingFile) {
         tracker.started(userSessionFile.getSessionId(), "validation", "init");
-        Path filepath = storageService.load(userSessionFile);
+        Path filepath = storageService.load(userSessionFile,
+            StorageService.SLOT.MZTABFILE);
 
         try {
             List<ValidationMessage> validationResults = new ArrayList<>();
             validationResults.addAll(
                 validate(mzTabVersion, filepath, validationLevel,
-                    maxErrors, checkCvMapping));
+                    maxErrors, checkCvMapping, storageService.load(
+                        mappingFile, StorageService.SLOT.MAPPINGFILE)));
             tracker.stopped(userSessionFile.getSessionId(), "validation",
                 "success");
             return validationResults;
@@ -102,7 +105,8 @@ public class MzTabValidationService implements ValidationService {
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel) {
         tracker.started(userSessionFile.getSessionId(), "parse", "init");
-        Path filepath = storageService.load(userSessionFile);
+        Path filepath = storageService.load(userSessionFile,
+            StorageService.SLOT.MZTABFILE);
 
         try {
             Map<String, List<Map<String, String>>> lines = parse(mzTabVersion,
@@ -140,17 +144,32 @@ public class MzTabValidationService implements ValidationService {
 
     private List<ValidationMessage> validate(MzTabVersion mzTabVersion,
         Path filepath,
-        ValidationLevel validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException {
+        ValidationLevel validationLevel, int maxErrors, boolean checkCvMapping,
+        Path mappingFile) throws IllegalStateException, IOException {
+        if (checkCvMapping) {
+            Logger.getLogger(MzTabValidationService.class.getName()).
+                log(java.util.logging.Level.INFO,
+                    "Running validation on file {0} for mzTab version={1}, validationLevel={2}, maxErrors={3}, and mapping file={4}",
+                    new Object[]{filepath, mzTabVersion, validationLevel,
+                        maxErrors, mappingFile});
+
+        } else {
+            Logger.getLogger(MzTabValidationService.class.getName()).
+                log(java.util.logging.Level.INFO,
+                    "Running validation on file {0} for mzTab version={1}, validationLevel={2}, maxErrors={3}",
+                    new Object[]{filepath, mzTabVersion, validationLevel,
+                        maxErrors});
+        }
         switch (mzTabVersion) {
             case MZTAB_1_0:
                 return new EbiValidator().validate(filepath, validationLevel.
                     name(),
-                    maxErrors, checkCvMapping);
+                    maxErrors, checkCvMapping, mappingFile);
             case MZTAB_2_0:
                 return new IsasValidator(lookupService).validate(filepath,
                     validationLevel.
                         name(),
-                    maxErrors, checkCvMapping);
+                    maxErrors, checkCvMapping, mappingFile);
             default:
                 throw new IllegalStateException(
                     "Unsupported mzTab version: " + mzTabVersion.toString());
@@ -199,6 +218,22 @@ public class MzTabValidationService implements ValidationService {
                         return true;
                 }
             }).
+            sorted((o1,
+                o2) ->
+            {
+                int i = Long.compare(o1.getLineNumber(), o2.getLineNumber());
+                if (i == 0) {
+                    if (o1.getLevel() == o2.getLevel()) {
+                        return 0;
+                    } else if (o1.getLevel() == ValidationLevel.ERROR && (o2.
+                        getLevel() == ValidationLevel.WARN || o2.getLevel() == ValidationLevel.INFO)) {
+                        return -1;
+                    }
+                    return 1;
+                } else {
+                    return i;
+                }
+            }).
             collect(Collectors.toList());
     }
 
@@ -211,7 +246,8 @@ public class MzTabValidationService implements ValidationService {
     @Override
     public CompletableFuture<ToolResult> runValidation(MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors,
-        ValidationLevel validationLevel, boolean checkCvMapping) {
+        ValidationLevel validationLevel, boolean checkCvMapping,
+        UserSessionFile mappingFile) {
         UUID userSessionId = userSessionFile.getSessionId();
         ToolResult status = resultService.getOrCreateResultFor(
             userSessionId);
@@ -222,14 +258,16 @@ public class MzTabValidationService implements ValidationService {
         if (status.getStatus() == Status.UNINITIALIZED) {
             tracker.started(userSessionId, "validation", "init");
             status.setStatus(Status.PREPARING);
-            Path filepath = storageService.load(userSessionFile);
+            Path filepath = storageService.load(userSessionFile,
+                StorageService.SLOT.MZTABFILE);
             status.setStatus(Status.STARTED);
             try {
                 List<ValidationMessage> validationResults = new ArrayList<>();
                 status.setStatus(Status.RUNNING);
                 validationResults.addAll(
                     validate(mzTabVersion, filepath, validationLevel,
-                        maxErrors, checkCvMapping));
+                        maxErrors, checkCvMapping, storageService.load(
+                            mappingFile, StorageService.SLOT.MAPPINGFILE)));
                 tracker.stopped(userSessionFile.getSessionId(), "validation",
                     "success");
                 status.setMessages(validationResults);
@@ -241,7 +279,7 @@ public class MzTabValidationService implements ValidationService {
                     stopped(userSessionFile.getSessionId(), "validation",
                         "fail");
                 Logger.getLogger(MzTabValidationService.class.getName()).
-                            log(Level.SEVERE, null, ex);
+                    log(Level.SEVERE, null, ex);
                 status.setException(ex);
                 status.setStatus(Status.FAILED);
                 if (ex.getCause() instanceof MZTabException) {

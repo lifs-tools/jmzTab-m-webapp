@@ -28,7 +28,7 @@ import java.util.Map;
 public interface WebValidator {
 
     public List<ValidationMessage> validate(Path filepath,
-        String validationLevel, int maxErrors, boolean checkCvMapping) throws IllegalStateException, IOException;
+        String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException;
 
     public Map<String, List<Map<String,String>>> parse(Path filepath, String validationLevel,
         int maxErrors) throws IOException;
