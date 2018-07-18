@@ -163,7 +163,7 @@ Alternative term roots should either be expressed as OR (for choose any, even fr
     </CvMappingRule>-->
         
     <!-- ms level -->
-    <CvMappingRule id="ms_level_must" cvElementPath="/smallMoleculeEvidence/@msLevel" requirementLevel="MUST"  scopePath="/smallMoleculeEvidence" cvTermsCombinationLogic="AND">
+    <CvMappingRule id="ms_level_must" cvElementPath="/smallMoleculeEvidence/@msLevel" requirementLevel="MUST"  scopePath="/smallMoleculeSummary" cvTermsCombinationLogic="AND">
       <CvTerm termAccession="MS:1000511" useTerm="false" termName="ms level" isRepeatable="false" allowChildren="true" cvIdentifierRef="MS"></CvTerm>
     </CvMappingRule>
         
