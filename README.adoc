@@ -11,6 +11,10 @@ In order to build the project and run the unit tests, execute the following comm
 
 	./mvnw install
 
+== Running the Web Application for Development
+
+  cd webapp && ../mvnw spring-boot:run
+
 == Running the Web Application for Validation
 The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
 The `target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
