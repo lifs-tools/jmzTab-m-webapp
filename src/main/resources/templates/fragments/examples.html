@@ -5,9 +5,11 @@
     <div th:fragment="examples">
       <div class="card my-2">
         <div class="card-header">
-          Example files
+	  <button class="btn btn-link" data-toggle="collapse" data-target="#exampleFiles" aria-expanded="true" aria-controls="exampleFiles" style="padding:0;">
+            Example files
+          </button>
         </div>
-        <div class="card-body">
+        <div class="card-body collapse" id="exampleFiles">
           <div class="table-responsive">
             <table id="exampleFilesTable" class="table table-sm table-hover pt-1 px-0" width="100%">
               <thead class="thead-light">
