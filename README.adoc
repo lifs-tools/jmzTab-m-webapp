@@ -35,7 +35,7 @@ This will build a Docker container for the webapplication and will make it local
 
   docker image ls
   REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-  isas/mztab-validator-webapp   1.0.0-SNAPSHOT      b87d4683db50        About an hour ago   472MB
+  isas/mztab-validator-webapp   1.0.8-SNAPSHOT      b87d4683db50        About an hour ago   472MB
 
 Please note that the base image we use is quite large (for details, see `web/Dockerfile`), but also includes monitoring utilities and automatic scaling and limiting of the 
 internal JVMs memory based on the amount of memory allocated for the container by Docker.
