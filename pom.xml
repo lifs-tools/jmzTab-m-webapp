@@ -7,7 +7,7 @@
   <packaging>jar</packaging>
   <description>A web-based validator for mzTab format version 1.0 onwards.</description>
   <name>MzTab validator webapplication.</name>	
-  <url>https://github.com/nilshoffmann/jmzTab-m-webapp</url>	
+  <url>https://github.com/lifs-tools/jmzTab-m-webapp</url>	
   <licenses>
     <license>
       <name>The Apache License, Version 2.0</name>
@@ -28,9 +28,9 @@
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:git://github.com/nilshoffmann/jmztab-m-webapp.git</connection>
-    <developerConnection>scm:git:ssh://github.com:nilshoffmann/jmztab-m-webapp.git</developerConnection>
-    <url>http://github.com/nilshoffmann/jmztab-m-webapp/tree/master</url>
+    <connection>scm:git:git://github.com/lifs-tools/jmztab-m-webapp.git</connection>
+    <developerConnection>scm:git:ssh://github.com:lifs-tools/jmztab-m-webapp.git</developerConnection>
+    <url>http://github.com/lifs-tools/jmztab-m-webapp/tree/master</url>
   </scm>
   <organization>
     <name>Leibniz Institut f&uuml;r Analytische Wissenschaften - ISAS e.V.</name>
@@ -600,12 +600,12 @@
             <version>${dockerfile.plugin.version}</version>
             <executions>
               <execution>
-		<id>default</id>
+                <id>default</id>
                 <phase>install</phase>
                 <goals>
-		  <goal>build</goal>
+                  <goal>build</goal>
                   <goal>tag</goal>
-	        </goals>
+                </goals>
                 <configuration>
                   <tag>${project.version}</tag>
                 </configuration>
