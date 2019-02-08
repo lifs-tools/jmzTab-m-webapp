@@ -37,6 +37,99 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Api(value = "validatePlain", description = "the validatePlain API")
 @RequestMapping(path = "/rest/v2")
 public interface ValidatePlainApi {
+    
+    public final static String GCGCMS_EXAMPLE = "COM	Meta data section																		\n" +
+"MTD	mzTab-version	2.0.0-M																	\n" +
+"MTD	mzTab-ID	mzTab-GCxGC-MS																	\n" +
+"MTD	description	Minimal sample file for GCxGC-MS quantification of small molecules between two experiments																	\n" +
+"MTD	instrument[1]-name	[MS, MS:1001945, Pegasus 4D, ]																	\n" +
+"MTD	instrument[1]-source	[MS, MS:1000389, electron Ionization, ]																	\n" +
+"MTD	instrument[1]-analyzer[1]	[MS, MS:1000084, time-of-flight, ]																	\n" +
+"MTD	instrument[1]-detector	[MS, MS:1000114, microchannel plate detector, ]																	\n" +
+"MTD	software[1]	[MS, MS:1001799, ChromaTOF software, 3.21]\n" +
+"MTD	software[1]-setting[1]	baseline=0.2\n" +
+"MTD	software[1]-setting[2]	dbMatchTreshold=900\n" +
+"MTD	sample[1]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]																	\n" +
+"MTD	sample[1]-cell_type[1]	[CL, CL:0000233, platelet, ]																	\n" +
+"MTD	sample[1]-description	Unstimulated human blood platelets																	\n" +
+"MTD	sample[2]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]																	\n" +
+"MTD	sample[2]-cell_type[1]	[CL, CL:0000233, platelet, ]																	\n" +
+"MTD	sample[2]-description	Unstimulated human blood platelets																	\n" +
+"MTD	ms_run[1]-location	file://c:/data/control.mzML																	\n" +
+"MTD	ms_run[1]-format	[MS, MS:1000584, mzML file, ]																	\n" +
+"MTD	ms_run[1]-id_format	[MS, MS:1000776, scan number only nativeID format, ]\n" +
+"MTD	ms_run[1]-scan_polarity[1]	[MS, MS:1000130, positive scan, ]																	\n" +
+"MTD	ms_run[2]-location	file://c:/data/treatment.mzML																	\n" +
+"MTD	ms_run[2]-format	[MS, MS:1000584, mzML file, ]																	\n" +
+"MTD	ms_run[2]-id_format	[MS, MS:1000776, scan number only nativeID format, ]\n" +
+"MTD	ms_run[2]-scan_polarity[1]	[MS, MS:1000130, positive scan, ]																	\n" +
+"MTD	assay[1]-sample_ref	sample[1]																	\n" +
+"MTD	assay[1]-ms_run_ref	ms_run[1]																	\n" +
+"MTD	assay[2]-sample_ref	sample[2]																	\n" +
+"MTD	assay[2]-ms_run_ref	ms_run[2]																	\n" +
+"MTD	study_variable[1]	Untreated																	\n" +
+"MTD	study_variable[1]-assay_refs	assay[1]																	\n" +
+"MTD	study_variable[1]-description	drug response control																	\n" +
+"MTD	study_variable[1]-average_function	[MS, MS:1002962, mean, ]																	\n" +
+"MTD	study_variable[1]-variation_function	[MS, MS:1002885, standard error, ]																	\n" +
+"MTD	study_variable[2]	Treated																	\n" +
+"MTD	study_variable[2]-assay_refs	assay[2]																	\n" +
+"MTD	study_variable[2]-description	drug response treatment																	\n" +
+"MTD	study_variable[2]-average_function	[MS, MS:1002962, mean, ]																	\n" +
+"MTD	study_variable[2]-variation_function	[MS, MS:1002885, standard error, ]																	\n" +
+"MTD	cv[1]-label	MS																	\n" +
+"MTD	cv[1]-full_name	PSI-MS controlled vocabulary																	\n" +
+"MTD	cv[1]-version	20-06-2018																	\n" +
+"MTD	cv[1]-uri	https://www.ebi.ac.uk/ols/ontologies/ms																	\n" +
+"MTD	cv[2]-label	NCBITaxon																	\n" +
+"MTD	cv[2]-full_name	An ontology representation of the NCBI organismal taxonomy Ontology																	\n" +
+"MTD	cv[2]-version	2018-03-02																	\n" +
+"MTD	cv[2]-uri	https://www.ebi.ac.uk/ols/ontologies/ncbitaxon																	\n" +
+"MTD	cv[3]-label	CL																	\n" +
+"MTD	cv[3]-full_name	The Cell Ontology is a structured controlled vocabulary for cell types in animals.																	\n" +
+"MTD	cv[3]-version	2017-12-11																	\n" +
+"MTD	cv[3]-uri	https://www.ebi.ac.uk/ols/ontologies/cl																	\n" +
+"MTD	cv[4]-label	PRIDE																	\n" +
+"MTD	cv[4]-full_name	PRIDE PRoteomics IDEntifications (PRIDE) database controlled vocabulary																	\n" +
+"MTD	cv[4]-version	14-06-2018																	\n" +
+"MTD	cv[4]-uri	https://www.ebi.ac.uk/ols/ontologies/pride																	\n" +
+"MTD	cv[5]-label	XLMOD																	\n" +
+"MTD	cv[5]-full_name	cross-linking reagents and cross-linker related post-translational modifications																	\n" +
+"MTD	cv[5]-version	releases/2017-07-10																	\n" +
+"MTD	cv[5]-uri	https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/validator/resources/XLMOD.obo																	\n" +
+"MTD	database[1]	[, ,Golm Metabolite Database, ]																	\n" +
+"MTD	database[1]-prefix	GMD																	\n" +
+"MTD	database[1]-version	2.3																	\n" +
+"MTD	database[1]-uri	http://gmd.mpimp-golm.mpg.de/																	\n" +
+"MTD	database[2]	[, , no database, null]																	\n" +
+"MTD	database[2]-prefix	null																	\n" +
+"MTD	database[2]-uri	null																	\n" +
+"MTD	database[2]-version	Unknown																	\n" +
+"MTD	derivatization_agent[1]	[,,Methoxylamine hydrochloride,]																	\n" +
+"MTD	derivatization_agent[2]	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide,]																	\n" +
+"MTD	small_molecule-identification_reliability	[MS, MS:1002896, compound identification confidence level, ]																	\n" +
+"MTD	id_confidence_measure[1]	[MS, MS:1002890, fragmentation score, ]																	\n" +
+"MTD	small_molecule-quantification_unit	[PRIDE, PRIDE:0000330, Arbitrary quantification unit, ]																	\n" +
+"MTD	small_molecule_feature-quantification_unit	[PRIDE, PRIDE:0000330, Arbitrary quantification unit, ]																	\n" +
+"MTD	quantification_method	[,,baseline-corrected intensity quantification,]																	\n" +
+"MTD	custom[1]	[MS, MS:1000901, retention time normalization standard, n-alkanes C10–C36]																	\n" +
+"																			\n" +
+"COM	Small molecule summary rows (similar to Protein section). 																		\n" +
+"COM	Evidences (e.g. multiple modifications, adducts incl. charge variants are summarized). 																		\n" +
+"COM	For most use cases this summary lines might be sufficient.																		\n" +
+"SMH	SML_ID	SMF_ID_REFS	database_identifier	chemical_formula	smiles	inchi	chemical_name	uri	theoretical_neutral_mass	adduct_ions	reliability	best_id_confidence_measure	best_id_confidence_value	abundance_assay[1]	abundance_study_variable[1]	abundance_variation_study_variable[1]	abundance_assay[2]	abundance_study_variable[2]	abundance_variation_study_variable[2]\n" +
+"SML	1	1 | 2	GMD:cd7993ea-ad14-452a-a907-33376cc98790	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid	http://identifiers.org/gmd/cd7993ea-ad14-452a-a907-33376cc98790	284.478	[M+H]1+	2	[MS, MS:1002890, fragmentation score, ]	978	805.16	805.16	0	589.9	589.9	0\n" +
+"																			\n" +
+"COM	Small molecule feature rows (only reported in Complete Quantification files and if feature information like e.g. mass traces are important)																		\n" +
+"SFH	SMF_ID	SME_ID_REFS	SME_ID_REF_ambiguity_code	adduct_ion	isotopomer	exp_mass_to_charge	charge	retention_time_in_seconds	retention_time_in_seconds_start	retention_time_in_seconds_end	abundance_assay[1]	abundance_assay[2]	opt_global_retention_time_nd	opt_global_retention_time_nd_window_start	opt_global_retention_time_nd_window_end				\n" +
+"SMF	1	1	null	[M+H]1+	null	285.484	1	1564.47	1559.45	1564.48	805.16	805.16	1562 | 2.47 	1557 | 2.45 	1562 | 2.48				\n" +
+"SMF	2	2	null	[M+H]1+	null	285.484	1	1564.48	1554.45	1569.47	589.9	589.9	1562 | 2.48	1552 | 2.45	1567| 2.47				\n" +
+"																			\n" +
+"COM	Small molecule evidence rows for parent ions. Analog to PSM. 																		\n" +
+"COM	Primary use case: report single hits from spectral library or accurate mass searches without quantification.																		\n" +
+"SEH	SME_ID	evidence_input_id	database_identifier	chemical_formula	smiles	inchi	chemical_name	uri	derivatized_form	adduct_ion	exp_mass_to_charge	charge	theoretical_mass_to_charge	spectra_ref	identification_method	ms_level	id_confidence_measure[1]	rank	\n" +
+"SME	1	ms_run[1]:index=8	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide, 1]	[M+H]+	356.6588	1	356.659	ms_run[1]:index=8	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	957	1	\n" +
+"SME	2	ms_run[2]:index=23	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide, 1]	[M+H]+	356.6589	1	356.659	ms_run[2]:index=23	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	972	1	";
 
     Logger log = LoggerFactory.getLogger(ValidatePlainApi.class);
 
@@ -86,9 +179,9 @@ public interface ValidatePlainApi {
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validatePlainMzTabFile(
         @ApiParam(value = "mzTab file that should be validated.",
-            required = true) @Valid @RequestBody String mztabfile,
+            required = true, examples = @Example({@ExampleProperty(mediaType = "text/plain", value=GCGCMS_EXAMPLE),@ExampleProperty(mediaType = "text/tab-separated-values", value=GCGCMS_EXAMPLE)})) @Valid @RequestBody String mztabfile,
         @RequestParam(
-            value = "The level of errors that should be reported, one of ERROR, WARN, INFO.",
+            value = "The level of errors that should be reported, one of error, warn, info.",
             defaultValue = "info",
             required = false) @Valid String level,
         @RequestParam(
