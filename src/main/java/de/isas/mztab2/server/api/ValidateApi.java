@@ -89,7 +89,7 @@ public interface ValidateApi {
     default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
         value = "mzTab file that should be validated.", required = true) @Valid @RequestBody MzTab mztabfile,
         @RequestParam(
-            value = "The level of errors that should be reported, one of ERROR, WARN, INFO.",
+            value = "The level of errors that should be reported, one of error, warn, info.",
             defaultValue = "info",
             required = false) @Valid String level,
         @RequestParam(
