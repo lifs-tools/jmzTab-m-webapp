@@ -86,7 +86,7 @@ public class ValidationController {
     @Value("${minCleanupAge}")
     private Long minCleanupAge;
 
-    @Value("${spring.http.multipart.max-file-size}")
+    @Value("${spring.servlet.multipart.max-file-size}")
     private String uploadLimit;
 
     private ExampleFileConfig exampleFileConfig;
