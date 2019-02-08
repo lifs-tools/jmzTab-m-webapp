@@ -357,6 +357,7 @@ public class ValidationController {
         UriComponents uri = ServletUriComponentsBuilder
             .fromServletMapping(request).
             build();
+        log.info("Redirecting to {}", uri.toUriString());
         ModelAndView mav = new ModelAndView("redirect:" + uri.toUriString());
         return mav;
     }

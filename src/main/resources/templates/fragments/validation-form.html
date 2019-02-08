@@ -1,74 +1,107 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-  <head></head>
-  <body>
-    <div th:fragment="validation-form">
-      <div class="card my-2">
-        <div class="card-header">
-          Validation
+    <head></head>
+    <body>
+        <div th:fragment="validation-form">
+            <div class="card my-2">
+                <div class="card-header">
+                    Validation
+                </div>
+                <div class="card-body"><h4 class="card-title">Upload your mzTab file for validation:</h4>
+                    <form class="needs-validation" method="POST" enctype="multipart/form-data" action="/" th:action="@{/}">
+                        <!--<fieldset>-->
+                        <div class="form-row">
+                            <div class="col-sm-5">  
+                                <label for="file" class="col-form-label">mzTab File to validate</label>
+                            </div>
+                            <div class="col-sm-7">
+                                <input id="file" class="no-gutters form-control" name="file" type="file" th:field="*{validationForm.file}" required/>
+                            </div>
+                            <div class="col-sm-12">
+                                <small id="fileHelpBlock" class="form-text text-muted">
+                                    Select a local mzTab file to upload and validate. Size limit is <span th:text="${uploadLimit}"></span>.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="col-sm-5">  
+                                <label for="level" class="col-form-label">Validation level</label>
+                            </div>
+                            <div class="col-sm-7">  
+                                <select class="no-gutters form-control" th:field="*{validationForm.level}">
+                                    <option th:each="level : *{validationForm.allLevels}" 
+                                            th:value="${level}" 
+                                            th:text="#{${level}}">Info</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-12">
+                                <small id="levelHelpBlock" class="form-text text-muted">
+                                    The 'Info' level includes 'Warn' and 'Error' level messages, the 'Warn' level includes 'Error' level messages.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="col-sm-5">  
+                                <label for="maxErrors" class="col-form-label">Maximum number of errors to report</label>
+                            </div>
+                            <div class="col-sm-7">  
+                                <input class="no-gutters form-control" type="number" th:field="*{validationForm.maxErrors}" required min="1"/>
+                            </div>
+                            <div class="col-sm-12">
+                                <small id="maxErrorsHelpBlock" class="form-text text-muted">
+                                    The maximum number of parsing and logical validation errors that should be reported, minimum of 1.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="col-sm-5">  
+                                <label for="version" class="col-form-label">mzTab specification version to validate against</label>
+                            </div>
+                            <div class="col-sm-7">
+                                <select class="no-gutters form-control" th:field="*{validationForm.mzTabVersion}">
+                                    <option th:each="version : *{validationForm.allVersions}" 
+                                            th:value="${version}" 
+                                            th:text="#{${version}}">MZTab2_0</option>
+                                </select>
+                            </div><div class="col-sm-12">
+                                <small id="versionHelpBlock" class="form-text text-muted">
+                                    The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="col-sm-5">
+                                <label for="checkCvMapping" class="col-form-label">Perform semantic validation with a mapping file</label>
+                            </div>
+                            <div class="col-sm-7">
+                                <input id="checkCvMapping" type="checkbox" class="form-check-input no-gutters" th:field="*{validationForm.checkCvMapping}"/>
+                            </div>
+                            <div class="col-sm-12">
+                                <small id="checkCvMappingHelpBlock" class="form-text text-muted">
+                                    If checked, use the provided or default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="col-sm-5">
+                                <label for="mappingFile" class="col-form-label">CV Mapping File to use for semantic validation</label>
+                            </div>
+                            <div class="col-sm-7">
+                                <input id="mappingFile" class="no-gutters form-control" name="mappingFile" type="file" th:field="*{validationForm.mappingFile}"/>
+                            </div>
+                            <div class="col-sm-12">
+                                <small id="fileHelpBlock" class="form-text text-muted">
+                                    Select a local cv mapping file to upload and use for validation. Size limit is <span th:text="${uploadLimit}"></span>.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <button id="validate" type="submit" class="btn btn-primary">Validate</button>
+                        </div>
+                        <!--</fieldset>-->
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="card-body"><h4 class="card-title">Upload your mzTab file for validation:</h4>
-          <form method="POST" enctype="multipart/form-data" action="/" th:action="@{/}">
-            <!--<fieldset>-->
-            <div class="form-group row">
-              <label for="file" class="col-sm-5 col-form-label">mzTab File to validate</label>
-              <div class="col-sm-7 no-gutters">
-                <input id="file" name="file" type="file" th:field="*{validationForm.file}"/>
-              </div>
-              <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
-                Select a local mzTab file to upload and validate. Size limit is <span th:text="${uploadLimit}"></span>.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="level" class="col-sm-5 col-form-label">Validation level</label>
-              <select class="col-sm-7 no-gutters" th:field="*{validationForm.level}">
-                <option th:each="level : *{validationForm.allLevels}" 
-                        th:value="${level}" 
-                        th:text="#{${level}}">Info</option>
-              </select>
-              <small id="levelHelpBlock" class="col-sm-12 form-text text-muted">
-                The 'Info' level includes 'Warn' and 'Error' level messages, the 'Warn' level includes 'Error' level messages.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="maxErrors" class="col-sm-5 col-form-label">Maximum number of errors to report</label>
-              <input class="col-sm-7 no-gutters" type="text" th:field="*{validationForm.maxErrors}"/>
-              <small id="maxErrorsHelpBlock" class="col-sm-12 form-text text-muted">
-                The maximum number of parsing and logical validation errors that should be reported, minimum of 1.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="version" class="col-sm-5 col-form-label">mzTab specification version to validate against</label>
-              <select class="col-sm-7 no-gutters" th:field="*{validationForm.mzTabVersion}">
-                <option th:each="version : *{validationForm.allVersions}" 
-                        th:value="${version}" 
-                        th:text="#{${version}}">MZTab2_0</option>
-              </select>
-              <small id="versionHelpBlock" class="col-sm-12 form-text text-muted">
-                The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="checkCvMapping" class="col-sm-5 col-form-label">Perform semantic validation with provided or default mapping file</label>
-              <input type="checkbox" th:field="*{validationForm.checkCvMapping}"/>
-              <small id="checkCvMappingHelpBlock" class="col-sm-12 form-text text-muted">
-                If checked, use the provided or default cvMapping file to validate cv terms in the mzTab file. This will only work for mzTab 2.0+ files.
-              </small>
-            </div>
-            <div class="form-group row">
-              <label for="file" class="col-sm-5 col-form-label">CV Mapping File to use for semantic validation</label>
-              <div class="col-sm-7 no-gutters">
-                <input id="mappingFile" name="file" type="file" th:field="*{validationForm.mappingFile}"/>
-              </div>
-              <small id="fileHelpBlock" class="col-sm-12 form-text text-muted">
-                Select a local cv mapping file to upload and use for validation. Size limit is <span th:text="${uploadLimit}"></span>.
-              </small>
-            </div>
-            <button id="validate" type="submit" class="btn btn-primary" disabled="true">Validate</button>
-            <!--</fieldset>-->
-          </form>
-        </div>
-      </div>
-    </div>
-  </body>
+    </body>
 </html>

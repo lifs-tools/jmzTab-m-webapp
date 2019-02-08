@@ -1,20 +1,48 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-  <head></head>
-  <body>
-    <div th:fragment="script-footer">
-      <!-- Bootstrap / datatables minified core JavaScript
-      ================================================== -->
-      <!-- Placed at the end of the document so the pages load faster -->
-      <script th:src="@{/js/datatables.min.js}" src="/js/datatables.min.js" type="text/javascript"/>
-      <script th:src="@{/js/datatables.init.js}" src="/js/datatables.init.js" type="text/javascript"/>
-      <script type="text/javascript">
-        $('#validate').on('click',function() {
-          if (typeof _paq != 'undefined') {
-            _paq.push(['trackEvent', 'validate', 'validateUploadedFile']);
-          }
-        });
-      </script>
-    </div>
-  </body>
+    <head></head>
+    <body>
+        <div th:fragment="script-footer">
+            <!-- Bootstrap / datatables minified core JavaScript
+            ================================================== -->
+            <!-- Placed at the end of the document so the pages load faster -->
+            <script th:src="@{/js/datatables.min.js}" src="/js/datatables.min.js" type="text/javascript"/>
+            <script th:src="@{/js/datatables.init.js}" src="/js/datatables.init.js" type="text/javascript"/>
+            <script>
+                // Example starter JavaScript for disabling form submissions if there are invalid fields
+                (function () {
+                    'use strict';
+                    window.addEventListener('load', function () {
+                        // Fetch all the forms we want to apply custom Bootstrap validation styles to
+                        var forms = document.getElementsByClassName('needs-validation');
+                        // Loop over them and prevent submission
+                        var validation = Array.prototype.filter.call(forms, function (form) {
+                            form.addEventListener('submit', function (event) {
+                                if (form.checkValidity() === false) {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                }
+                                form.classList.add('was-validated');
+                            }, false);
+                        });
+                    }, false);
+                })();
+            </script>
+            <script type="text/javascript">
+                $('#validate').on('click', function () {
+                    if (typeof _paq != 'undefined') {
+                        _paq.push(['trackEvent', 'validate', 'validateUploadedFile']);
+                    }
+                });
+                $('#validationResultTable').DataTable();
+                $('#metaDataRowsTable').DataTable();
+                $('#featureDataRowsTable').DataTable();
+                $('#evidenceDataRowsTable').DataTable();
+                $('#proteinsDataRowsTable').DataTable();
+                $('#peptidesDataRowsTable').DataTable();
+                $('#psmsDataRowsTable').DataTable();
+                $('#summaryDataRowsTable').DataTable();
+            </script>
+        </div>
+    </body>
 </html>

@@ -76,7 +76,7 @@
         <maven-plugin-version>1.0.0</maven-plugin-version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
-        <contextPath>/</contextPath>
+        <contextPath>/${app.name}</contextPath>
         <ga.id></ga.id>
         <start-class>de.isas.lipidomics.mztab.validator.webapp.Application</start-class>
     </properties>
