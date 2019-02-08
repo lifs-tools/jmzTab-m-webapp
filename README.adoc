@@ -2,6 +2,7 @@
 Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 
 image:https://travis-ci.org/lifs-tools/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/lifs-tools/jmzTab-m-webapp"]
+image:https://img.shields.io/github/release/lifs-tools/jmzTab-m-webapp.svg["Latest Release", link="https://github.com/lifs-tools/jmzTab-m-webapp/releases/latest"]
 
 This project provides a validator implementation for the mzTab 1.0 standard and for the current draft 2.0 standard for metabolomics.
 
