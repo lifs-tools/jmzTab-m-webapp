@@ -93,10 +93,10 @@ public interface ValidatePlainApi {
 "MTD	cv[4]-full_name	PRIDE PRoteomics IDEntifications (PRIDE) database controlled vocabulary																	\n" +
 "MTD	cv[4]-version	14-06-2018																	\n" +
 "MTD	cv[4]-uri	https://www.ebi.ac.uk/ols/ontologies/pride																	\n" +
-"MTD	cv[5]-label	XLMOD																	\n" +
-"MTD	cv[5]-full_name	cross-linking reagents and cross-linker related post-translational modifications																	\n" +
-"MTD	cv[5]-version	releases/2017-07-10																	\n" +
-"MTD	cv[5]-uri	https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/validator/resources/XLMOD.obo																	\n" +
+"MTD	cv[5]-label	CHEBI																	\n" +
+"MTD	cv[5]-full_name	Chemical Entities of Biological Interest\n" +
+"MTD	cv[5]-version	08-02-2019																	\n" +
+"MTD	cv[5]-uri	https://www.ebi.ac.uk/ols/ontologies/chebi\n" +
 "MTD	database[1]	[, ,Golm Metabolite Database, ]																	\n" +
 "MTD	database[1]-prefix	GMD																	\n" +
 "MTD	database[1]-version	2.3																	\n" +
@@ -106,7 +106,7 @@ public interface ValidatePlainApi {
 "MTD	database[2]-uri	null																	\n" +
 "MTD	database[2]-version	Unknown																	\n" +
 "MTD	derivatization_agent[1]	[,,Methoxylamine hydrochloride,]																	\n" +
-"MTD	derivatization_agent[2]	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide,]																	\n" +
+"MTD	derivatization_agent[2]	[CHEBI, CHEBI:85064, N-methyl-N-(trimethylsilyl)trifluoroacetamide,]																	\n" +
 "MTD	small_molecule-identification_reliability	[MS, MS:1002896, compound identification confidence level, ]																	\n" +
 "MTD	id_confidence_measure[1]	[MS, MS:1002890, fragmentation score, ]																	\n" +
 "MTD	small_molecule-quantification_unit	[PRIDE, PRIDE:0000330, Arbitrary quantification unit, ]																	\n" +
@@ -128,8 +128,8 @@ public interface ValidatePlainApi {
 "COM	Small molecule evidence rows for parent ions. Analog to PSM. 																		\n" +
 "COM	Primary use case: report single hits from spectral library or accurate mass searches without quantification.																		\n" +
 "SEH	SME_ID	evidence_input_id	database_identifier	chemical_formula	smiles	inchi	chemical_name	uri	derivatized_form	adduct_ion	exp_mass_to_charge	charge	theoretical_mass_to_charge	spectra_ref	identification_method	ms_level	id_confidence_measure[1]	rank	\n" +
-"SME	1	ms_run[1]:index=8	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide, 1]	[M+H]+	356.6588	1	356.659	ms_run[1]:index=8	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	957	1	\n" +
-"SME	2	ms_run[2]:index=23	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3	[XLMOD, XLMOD:07009, N-methyl-trimethylsilyltrifluoroacetamide, 1]	[M+H]+	356.6589	1	356.659	ms_run[2]:index=23	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	972	1	";
+"SME	1	ms_run[1]:index=8	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3 [CHEBI, CHEBI:85064, N-methyl-N-(trimethylsilyl)trifluoroacetamide, 1]	[M+H]+	356.6588	1	356.659	ms_run[1]:index=8	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	957	1	\n" +
+"SME	2	ms_run[2]:index=23	GMD:f634c736-39e8-4323-8155-fa3cc26ac9e3	C18H36O2	CCCCCCCCCCCCCCCCCC(O)=O	InChI=1S/C18H36O2/c1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18(19)20/h2-17H2,1H3,(H,19,20)	Octadecanoic acid (1TMS)	http://identifiers.org/gmd.analyte/f634c736-39e8-4323-8155-fa3cc26ac9e3	[CHEBI, CHEBI:85064, N-methyl-N-(trimethylsilyl)trifluoroacetamide, 1]	[M+H]+	356.6589	1	356.659	ms_run[2]:index=23	[,, ChromaTOF database search,]	[MS, MS:1000511, ms level, 1]	972	1	";
 
     Logger log = LoggerFactory.getLogger(ValidatePlainApi.class);
 
