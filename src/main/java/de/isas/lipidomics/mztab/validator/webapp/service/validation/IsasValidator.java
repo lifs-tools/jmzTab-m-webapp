@@ -36,8 +36,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.JAXBException;
+import de.isas.mztab2.io.MzTabFileParser;
 import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
-import uk.ac.ebi.pride.jmztab2.utils.MZTabFileParser;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorOverflowException;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
@@ -57,10 +57,10 @@ public class IsasValidator implements WebValidator {
     @Override
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException {
-        MZTabFileParser parser = null;
+        MzTabFileParser parser = null;
         List<ValidationMessage> validationResults = new ArrayList<>();
         try {
-            parser = new MZTabFileParser(filepath.toFile());
+            parser = new MzTabFileParser(filepath.toFile());
             parser.parse(
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
         } catch (MZTabErrorOverflowException ex) {
@@ -113,7 +113,7 @@ public class IsasValidator implements WebValidator {
     @Override
     public Map<String, List<Map<String, String>>> parse(Path filepath,
         String validationLevel, int maxErrors) throws IOException {
-        MZTabFileParser parser = new MZTabFileParser(filepath.toFile());
+        MzTabFileParser parser = new MzTabFileParser(filepath.toFile());
         try {
             parser.parse(
                 System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
