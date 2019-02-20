@@ -51,6 +51,7 @@ import javax.ws.rs.QueryParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -118,7 +119,7 @@ public class ValidationController {
     public ModelAndView handleFileUpload(
         @ModelAttribute ValidationForm validationForm,
         RedirectAttributes redirectAttributes, HttpServletRequest request,
-        HttpSession session) {
+        HttpSession session) throws IOException {
         if (session == null) {
             UriComponents uri = ServletUriComponentsBuilder
                 .fromServletMapping(request).
@@ -134,8 +135,7 @@ public class ValidationController {
         UserSessionFile validationFile;
         if (validationForm.getMappingFile() == null || validationForm.getMappingFile().isEmpty()) {
             validationFile = storageService.
-                store(ValidationController.class.getResource(
-                    "/static/examples/mzTab-M-mapping.xml"), usf.
+                store(new ClassPathResource("/mappings/mzTab-M-mapping.xml").getURL(), usf.
                         getSessionId(), SLOT.MAPPINGFILE);
         } else {
             validationFile = storageService.store(validationForm.
