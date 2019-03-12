@@ -89,15 +89,18 @@ public interface ValidateApi {
     default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
         value = "mzTab file that should be validated.", required = true) @Valid @RequestBody MzTab mztabfile,
         @RequestParam(
-            value = "The level of errors that should be reported, one of error, warn, info.",
+            value = "level",
+//            value = "The level of errors that should be reported, one of error, warn, info.",
             defaultValue = "info",
             required = false) @Valid String level,
         @RequestParam(
-            value = "The maximum number of errors to return.",
+            value = "maxErrors",
+//            value = "The maximum number of errors to return.",
             defaultValue = "100",
             required = false) @Valid @Min(0) @Max(500) Integer maxErrors,
         @RequestParam(
-            value = "Whether a semantic validation against the default rule set should be performed.",
+            value = "maxErrors",
+//            value = "Whether a semantic validation against the default rule set should be performed.",
             defaultValue = "false",
             required = false) @Valid boolean semanticValidation) {
         if (getObjectMapper().

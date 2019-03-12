@@ -1,0 +1,249 @@
+<!DOCTYPE HTML>
+<html html-lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+    <head>
+    <th:block th:include="fragments/html-head :: html-head"></th:block>
+</head>
+<body>
+    <div class="container">
+
+        <div class="row">
+
+            <div class="container">
+                <th:block th:include="fragments/nav :: nav"></th:block>
+                <main role="main" class="my-3">
+                    <form>
+                        <div class="typeahead__container">
+                            <div class="typeahead__field">
+                                <div class="typeahead__query">
+                                    <input id="single-typeahead"
+                                           name="q"
+                                           type="search"
+                                           autocomplete="off">
+                                </div>
+                                <div class="typeahead__button">
+                                    <button type="submit">
+                                        <span class="typeahead__search-icon"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <input id="single-out" type="text"></input>
+                        </div>
+                    </form>
+                    <form>
+                        <div class="typeahead__container">
+                            <div class="typeahead__field">
+                                <div class="typeahead__query">
+                                    <input id="multi-typeahead"
+                                           name="q"
+                                           type="search"
+                                           autocomplete="off">
+                                </div>
+                                <div class="typeahead__button">
+                                    <button type="submit">
+                                        <span class="typeahead__search-icon"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <input id="multi-out" type="text"></input>
+                        </div>
+                    </form>
+                    <form class="needs-validation" method="POST" enctype="multipart/form-data"  action="/create" th:action="@{'/create/'+${sessionId}}" th:object="${mzTab}"> 
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
+                                    Metadata Section
+                                </button>
+                                <span th:if="${mzTab!=null && mzTab.metadata==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse show" style="overflow:scroll" id="metadataSection">
+                                <div th:if="${mzTab!=null && mzTab.metadata==null}" class="alert alert-danger" role="alert">
+                                    <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.metadata==null}">
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-general" aria-expanded="true" aria-controls="mtd-general">
+                                                General Information
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse show" style="overflow:scroll" id="mtd-general">
+                                            <div class="form-row" th:each="mtdProp : ${metadataGeneralProperties}">
+                                                <div class="col-sm-5">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp!='prefix'}">
+                                                    <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}"/>
+                                                    <!--<input th:type="hidden" th:field="*{metadata?.__${mtdProp.name()}__}" th:value="${metadata?.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                                <div class="col-sm-12" th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}">Field Error</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-study-props" aria-expanded="true" aria-controls="mtd-study-props">
+                                                Study Information
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse" style="overflow:scroll" id="mtd-study-props">
+                                            <div class="form-row" th:each="mtdProp : ${metadataStudyProperties}">
+                                                <div class="col-sm-5">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp!='prefix'}">
+                                                    <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}"/>
+                                                    <!--<input th:type="hidden" th:field="*{metadata.__${mtdProp.name()}__}" th:value="${metadata.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-definitions-props" aria-expanded="true" aria-controls="mtd-definitions-props">
+                                                Definitions
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse" style="overflow:scroll" id="mtd-definitions-props">
+                                            <div class="form-row" th:each="mtdProp : ${metadataDefinitionsProperties}">
+                                                <div class="col-sm-5">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp!='prefix'}">
+                                                    <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}"/>
+                                                    <!--<input th:type="hidden" th:field="*{metadata.__${mtdProp.name()}__}" th:value="${metadata.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smlSection" aria-expanded="true" aria-controls="smlSection">
+                                    Small Molecule Summary
+                                </button><span th:if="${mzTab!=null && mzTab.smallMoleculeSummary==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smlSection">
+                                <div th:if="${mzTab!=null && mzTab.smallMoleculeSummary==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Summary missing!</strong> Your file does not contain a SML section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mztab==null || mzTab.smallMoleculeSummary==null}">
+                                    <table id="smlTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th th:each="smlProp : ${smlProperties}" scope="col" th:text="${smlProp}"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="sml : ${mzTab.smallMoleculeSummary}">
+                                                <td th:each="smlProp : ${smlProperties}" th:text="${sml.__${smlProp.name()}__}"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smfSection" aria-expanded="true" aria-controls="smfSection">
+                                    Small Molecule Features
+                                </button><span th:if="${mzTab!=null && mzTab.smallMoleculeFeature==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smfSection">
+                                <div th:if="${mzTab!=null && mzTab.smallMoleculeFeature==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Feature missing!</strong> Your file does not contain a SMF section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.smallMoleculeFeature==null}">
+                                    <table id="smfTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                        <th:block th:each="smfProp : ${smfProperties}">
+                                            <th:block th:switch="${smfProp.propertyName}">
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <th th:each="assay : ${mzTab.metadata.assay}" th:text="|${smfProp.propertyName}[${assay.id}]|" scope="col"></th>
+                                                </th:block>
+                                                <th th:case="'opt'" scope="col" th:text="${smfProp.propertyName}"></th>
+                                                <th th:case="*" scope="col" th:text="${smfProp.propertyName}"></th>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="smf : ${mzTab.smallMoleculeFeature}">
+                                        <th:block th:each="smfProp : ${smfProperties}">
+                                            <th:block th:switch="${smfProp.propertyName}">
+                                                <th:block th:case="'smf_id_refs'" scope="col">
+                                                    <td th:text="${#strings.listJoin(smf.__${smfProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <td th:each="assay : ${smf.abundanceAssay}" th:text="${assay}">ABUNDANCE_ASSAY</td>
+                                                </th:block>
+                                                <td th:case="opt" th:text="${smf.__${smfProp.name()}__}">OPT</td>
+                                                <th:block th:case="'comment'" scope="col">
+                                                    <td th:text="${#strings.listJoin(smf.__${smfProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <td th:case="*" th:text="${smf.__${smfProp.name()}__}">String</td>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smeSection" aria-expanded="true" aria-controls="smeSection">
+                                    Small Molecule Evidence
+                                </button><span th:if="${mzTab!=null && mzTab.smallMoleculeEvidence==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smeSection">
+                                <div th:if="${mzTab!=null && mzTab.smallMoleculeEvidence==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Evidence missing!</strong> Your file does not contain a SME section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.smallMoleculeEvidence==null}">
+                                    <table id="smeTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th th:each="smeProp : ${smeProperties}" scope="col" th:text="${smeProp}"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="sme : ${mzTab.smallMoleculeEvidence}">
+                                                <td th:each="smeProp : ${smeProperties}" th:text="${sme.__${smeProp.name()}__}"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <button id="validate-created" type="submit" class="btn btn-primary">Validate</button>
+                            <a class="btn btn-success" th:href="@{'/create/'+${sessionId}+'/mztab'}" href="#">Download</a>
+                        </div>
+                    </form>
+                    <!--<th:block th:include="fragments/validation-result :: validation-result"></th:block>-->
+                    <!--          <th:block th:if="${validationVersion.name()=='MZTAB_2_0' and status.name() == 'FINISHED' or status.name() =='FAILED'}"> validationVersion=='MZTAB_2_0'
+                                <th:block th:include="fragments/mztab-metadata :: mztab-metadata"></th:block>
+                                <th:block th:include="fragments/mztab-summary :: mztab-summary"></th:block>
+                                <th:block th:include="fragments/mztab-features :: mztab-features"></th:block>
+                                <th:block th:include="fragments/mztab-evidence :: mztab-evidence"></th:block>
+                              </th:block>-->
+                </main>
+
+                <th:block th:include="fragments/footer :: footer"></th:block>
+
+            </div>
+
+        </div>
+
+    </div>
+<th:block th:include="fragments/script-footer :: script-footer"></th:block>
+</body>
+</html>

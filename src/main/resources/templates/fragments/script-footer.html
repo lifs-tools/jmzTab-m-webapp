@@ -6,11 +6,12 @@
             <!-- Bootstrap / datatables minified core JavaScript
             ================================================== -->
             <!-- Placed at the end of the document so the pages load faster -->
-            <script th:src="@{/js/datatables.min.js}" src="/js/datatables.min.js" type="text/javascript"/>
-            <script th:src="@{/js/datatables.init.js}" src="/js/datatables.init.js" type="text/javascript"/>
+            <!-- make sure to use <script></script>, even for referenced scripts, otherwise they will not load properly!!! -->
+            <script th:src="@{/js/datatables.min.js}" src="/js/datatables.min.js" type="text/javascript"></script>
+            <script th:src="@{/js/datatables.init.js}" src="/js/datatables.init.js" type="text/javascript"></script>
             <script>
-                // Example starter JavaScript for disabling form submissions if there are invalid fields
-                (function () {
+                // Form validation and validation messages
+                (function () { // execute immediately
                     'use strict';
                     window.addEventListener('load', function () {
                         // Fetch all the forms we want to apply custom Bootstrap validation styles to
@@ -42,6 +43,111 @@
                 $('#peptidesDataRowsTable').DataTable();
                 $('#psmsDataRowsTable').DataTable();
                 $('#summaryDataRowsTable').DataTable();
+                $('#smlTable').DataTable();
+                $('#smfTable').DataTable();
+                $('#smeTable').DataTable();
+            </script>
+            <script th:src="@{/js/jquery.typeahead.min.js}" src="/js/jquery.typeahead.min.js" type="text/javascript"></script>
+            <script type="text/javascript">
+                var ruleId = "quantification_method_must";
+//                var termRoots = ["PRIDE:0000307", "MS:1001833"];
+                var maxLevels = 5;
+                var maxItemsSingle = 1;
+                var maxItemsMulti = 20;
+                function addTypeAhead(inputSelector, outputSelector, ruleId, maxLevels, maxItems) {
+                    console.log("Initializing typeahead");
+                    var typeAheadConfig = {
+                        input: inputSelector,
+                        order: "desc",
+                        emptyTemplate: 'No results for "{{query}}", please enter more characters!',
+                        hint: true,
+                        display: ["name", "description", "termOBOId.identifier"],
+                        minLength: 1,
+                        dynamic: true,
+                        delay: 500,
+                        maxItem: 15,
+                        searchOnFocus: true,
+                        blurOnTab: false,
+                        correlativeTemplate: false,
+                        //                        matcher: function (item, displayKey) {
+                        //                            console.log("Item: " + JSON.stringify(item));
+                        //                            console.log("Display Key:" + displayKey);
+                        //                            if (item.name === "Typeahead") {
+                        //                                return undefined;
+                        //                            }
+                        //                            return true;
+                        //                        },
+                        multiselect: {
+                            limit: maxItems,
+                            limitTemplate: 'You can\'t select more than ' + maxItems + ' terms',
+                            matchOn: ["name", "description", "termOBOId.identifier"],
+                            cancelOnBackspace: true,
+//                            data: function () {
+//                                var deferred = $.Deferred();
+//                                return deferred;
+//                            },
+                            data: {
+                                ajax: {
+                                    headers: {
+                                        Accept: 'application/json'
+                                    },
+                                    type: "GET",
+                                    url: contextRoot + "rest/v2/suggest?partialParamName={{query}}&parentRuleId=" + ruleId + "&levels=" + maxLevels
+                                }
+                            },
+                            callback: {
+                                onClick: function (node, item, event) {
+                                    console.log(item);
+                                },
+                                onCancel: function (node, item, event) {
+                                    console.log(item);
+                                }
+                            }
+                        },
+                        //href: "https://www.ebi.ac.uk/ols/search?q={{termOBOId.identifier}}",
+                        template: "{{name}}: <small class='text-muted'>{{description}}</small>&nbsp;<small><a href='https://www.ebi.ac.uk/ols/search?q={{termOBOId.identifier}}' target='_blank'>[{{termOBOId.identifier}}]</a></small>",
+                        source: {
+                            ajax: {
+                                headers: {
+                                    Accept: 'application/json'
+                                },
+                                type: "GET",
+                                url: contextRoot + "rest/v2/suggest?partialParamName={{query}}&parentRuleId=" + ruleId + "&levels=" + maxLevels
+                            }
+                        },
+                        callback: {
+                            onInit: function (node) {
+                                console.log('Typeahead Initiated on ' + node.selector);
+                            },
+                            onClickAfter: function (node, a, item, event) {
+                                var arrayLength = window.Typeahead[inputSelector].items.length;
+                                var termArray = [];
+                                for (var i = 0; i < arrayLength; i++) {
+                                    var term = window.Typeahead[inputSelector].items[i];
+                                    termArray.push("[" + term.ontology_name.toUpperCase() + ", " + term.termOBOId.identifier + ", \"" + term.label + "\", ]");
+                                }
+                                $(outputSelector).val(termArray.join("|"));
+                            },
+                            onCancel: function (node, event) {
+                                var arrayLength = window.Typeahead[inputSelector].items.length;
+                                var termArray = [];
+                                for (var i = 0; i < arrayLength; i++) {
+                                    var term = window.Typeahead[inputSelector].items[i];
+                                    termArray.push("[" + term.ontology_name.toUpperCase() + ", " + term.termOBOId.identifier + ", \"" + term.label + "\", ]");
+                                }
+                                $(outputSelector).val(termArray.join("|"));
+                            },
+                            onSubmit: function (node, form, items, event) {
+                                event.preventDefault();
+                            }
+                        }
+                    };
+                    typeof $.typeahead === 'function' && $.typeahead(typeAheadConfig);
+                }
+                $(document).ready(function () {
+                    addTypeAhead('#multi-typeahead','#multi-out', ruleId, maxLevels, 10);
+                    addTypeAhead('#single-typeahead','#single-out', ruleId, maxLevels, 1);
+                });
             </script>
         </div>
     </body>

@@ -16,77 +16,77 @@
 
 $(document).ready(
         function () {
-          $('#validate').attr('disabled', true);
-          $('#file').change(
-                  function () {
-                    if ($(this).val()) {
-                      $('#validate').removeAttr('disabled');
-                    } else {
-                      $('#validate').attr('disabled', true);
-                    }
-                  });
+            $('#validate').attr('disabled', true);
+            $('#file').change(
+                    function () {
+                        if ($(this).val()) {
+                            $('#validate').removeAttr('disabled');
+                        } else {
+                            $('#validate').attr('disabled', true);
+                        }
+                    });
         });
 $('#validationResultTable').DataTable(
-  {
-    dom: 'Bfrtip',
-    buttons: [
-      {
-        extend: 'copy',
-        text: '<u>C</u>opy',
-        key: {
-          key: 'c',
-          ctrlKey: true
-        }
-      },
-      {
-        extend: 'csv',
-        text: 'TSV',
-        filename: '*-validation',
-        //className: 'btn btn-success',
-        fieldSeparator: '\t',
-        extension: '.tsv',
-        exportOptions: {
-          modifier: {
-            search: 'none'
-          }
-        }
-      }
+        {
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'copy',
+                    text: '<u>C</u>opy',
+                    key: {
+                        key: 'c',
+                        ctrlKey: true
+                    }
+                },
+                {
+                    extend: 'csv',
+                    text: 'TSV',
+                    filename: '*-validation',
+                    //className: 'btn btn-success',
+                    fieldSeparator: '\t',
+                    extension: '.tsv',
+                    exportOptions: {
+                        modifier: {
+                            search: 'none'
+                        }
+                    }
+                }
 
-    ]
-  }
+            ]
+        }
 );
 $('#evidenceDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#featureDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#metaDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#peptidesDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#proteinsDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#psmsDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );
 $('#summaryDataRowsTable').DataTable(
-  {
-    dom: 'frtip'
-  }
+        {
+            dom: 'frtip'
+        }
 );

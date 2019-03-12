@@ -16,12 +16,16 @@
 package de.isas.lipidomics.mztab.validator.webapp;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
+import de.isas.lipidomics.mztab.validator.webapp.service.ListConverter;
+import de.isas.lipidomics.mztab.validator.webapp.service.ParameterConverter;
 import de.isas.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.LocaleResolver;
@@ -48,10 +52,10 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     @Override
     public void addResourceHandlers(final ResourceHandlerRegistry registry) {
         registry.addResourceHandler("swagger-ui.html").
-            addResourceLocations("classpath:/META-INF/resources/");
+                addResourceLocations("classpath:/META-INF/resources/");
 
         registry.addResourceHandler("/webjars/**").
-            addResourceLocations("classpath:/META-INF/resources/webjars/");
+                addResourceLocations("classpath:/META-INF/resources/webjars/");
     }
 
     @Bean
@@ -65,7 +69,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         lci.setParamName("lang");
         return lci;
     }
-    
+
     @Bean
     public AppInfo appInfo() {
         return new AppInfo();
@@ -83,18 +87,39 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         messageSource.setDefaultEncoding("UTF-8");
         return messageSource;
     }
-    
+
     @Bean(name = "toolThreadPoolTaskExecutor")
     public Executor threadPoolTaskExecutor() {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
-        tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors()-1));
+        tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
         return tpe;
     }
-    
+
     @Bean
-    public CvParameterLookupService cvParameterLookupService() {
+    public OLSClient olsClient() {
         OLSWsConfig config = new OLSWsConfig();
         OLSClient client = new OLSClient(config);
+        return client;
+    }
+
+    @Bean
+    public CvParameterLookupService cvParameterLookupService(@Autowired OLSClient client) {
         return new CvParameterLookupService(client);
+    }
+
+    @Bean
+    public ParameterConverter parameterConverter() {
+        return new ParameterConverter();
+    }
+
+    @Bean
+    public ListConverter listConverter() {
+        return new ListConverter();
+    }
+    
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addConverter(listConverter());
+        registry.addConverter(parameterConverter());
     }
 }
