@@ -10,11 +10,11 @@ This project provides a validator implementation for the mzTab 1.0 standard and 
 
 In order to build the project and run the unit tests, execute the following command from a terminal:
 
-	./mvnw install
+  ./mvnw install
 
 == Running the Web Application for Development
 
-  cd webapp && ../mvnw spring-boot:run
+  ./mvnw spring-boot:run
 
 == Running the Web Application for Validation
 The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
