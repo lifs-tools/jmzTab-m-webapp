@@ -8,14 +8,15 @@
           <h4 class="card-title">Reference validator for mzTab 2.0-M</h4>
           <p><a href="https://github.com/HUPO-PSI/mzTab" target="_blank">mzTab 2.0 for metabolomics</a> is a data exchange format for mass-spectrometry-based experimental data from the "omics" and neighboring sciences, focusing on small molecules like metabolites and lipids.</p>
           <ul>
-            <li>It is hierarchically organized, from metadata to summary information to ms features and evidence,</li>
-            <li>captures quantitative and qualitative information about reported molecules for individual ms runs and aggregated across study variables,</li>
-            <li>follows minimum recommended reporting guidelines for omics experiments, and</li>
-            <li>provides structural, logical and semantic (controlled vocabulary terms) validation.</li>
+            <li>It is hierarchically organized, from metadata to summary information to mass spectrometry (MS) features and evidence,</li>
+            <li>captures quantitative and qualitative information about reported molecules for individual MS runs and aggregated across study variables,</li>
+            <li>follows minimum recommended reporting guidelines for omics experiments,</li>
+            <li>provides structural and logical validation, and</li>
+            <li>semantic validation based on controlled vocabulary (CV) terms.</li>
           </ul>
           <p>This application provides a web-based validator for mzTab 2.0-M and the prior mzTab version 1.0 (mainly for proteomics) below, and a <a href="/swagger-ui.html" th:href="@{/swagger-ui.html}" target="_blank">REST API</a> for programmatic validation against mzTab 2.0-M.</p>
         </div>
-        <img class="card-body card-img-right flex-auto d-none d-lg-block" src="/static/img/mzTab-reporting-format-levels-hierarchy.png" th:src="@{/img/mzTab-reporting-format-levels-hierarchy.png}" alt="mzTab-m 2.0 structure"/>
+        <img class="card-body flex-auto d-none d-lg-block card-img-right" src="/static/img/mzTab-Levels.svg" th:src="@{/img/mzTab-Levels.svg}" alt="mzTab-m 2.0 structure"></img>
       </div>
     </div>
   </body>
