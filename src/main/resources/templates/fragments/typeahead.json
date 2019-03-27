@@ -1,0 +1,587 @@
+{
+    "rawQuery": "APEX",
+    "query": "APEX",
+    "selector": "#js-typeahead-multi",
+    "deferred": {},
+    "tmpSource": {
+        "group": [{
+                "name": "APEX - Absolute Protein Expression",
+                "termOBOId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "globalId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "shortName": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "iri": {
+                    "identifier": "http://purl.obolibrary.org/obo/PRIDE_0000441",
+                    "type": "IRI"
+                },
+                "label": "APEX - Absolute Protein Expression",
+                "description": null,
+                "annotation": null,
+                "synonyms": null,
+                "ontology_name": "pride",
+                "score": "1.0",
+                "ontology_prefix": null,
+                "ontology_iri": "http://purl.obolibrary.org/obo/pride",
+                "is_defining_ontology": true,
+                "has_children": false,
+                "is_root": false,
+                "short_form": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "obo_id": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "obo_definition_citation": null,
+                "_links": null,
+                "obo_xref": null,
+                "obo_synonym": {},
+                "group": "group"
+            }]
+    },
+    "source": {
+        "group": [{
+                "name": "APEX - Absolute Protein Expression",
+                "termOBOId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "globalId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "shortName": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "iri": {
+                    "identifier": "http://purl.obolibrary.org/obo/PRIDE_0000441",
+                    "type": "IRI"
+                },
+                "label": "APEX - Absolute Protein Expression",
+                "description": null,
+                "annotation": null,
+                "synonyms": null,
+                "ontology_name": "pride",
+                "score": "1.0",
+                "ontology_prefix": null,
+                "ontology_iri": "http://purl.obolibrary.org/obo/pride",
+                "is_defining_ontology": true,
+                "has_children": false,
+                "is_root": false,
+                "short_form": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "obo_id": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "obo_definition_citation": null,
+                "_links": null,
+                "obo_xref": null,
+                "obo_synonym": {},
+                "group": "group"
+            }]
+    },
+    "dynamicGroups": ["group"],
+    "hasDynamicGroups": true,
+    "generatedGroupCount": 1,
+    "groupBy": "group",
+    "groups": ["group"],
+    "searchGroups": ["group"],
+    "generateGroups": ["group"],
+    "requestGroups": ["group"],
+    "result": [{
+            "matchedKey": "name",
+            "name": "APEX - Absolute Protein Expression",
+            "termOBOId": {
+                "identifier": "PRIDE:0000441",
+                "type": "OBO"
+            },
+            "globalId": {
+                "identifier": "PRIDE:0000441",
+                "type": "OBO"
+            },
+            "shortName": {
+                "identifier": "PRIDE_0000441",
+                "type": "OWL"
+            },
+            "iri": {
+                "identifier": "http://purl.obolibrary.org/obo/PRIDE_0000441",
+                "type": "IRI"
+            },
+            "label": "APEX - Absolute Protein Expression",
+            "description": null,
+            "annotation": null,
+            "synonyms": null,
+            "ontology_name": "pride",
+            "score": "1.0",
+            "ontology_prefix": null,
+            "ontology_iri": "http://purl.obolibrary.org/obo/pride",
+            "is_defining_ontology": true,
+            "has_children": false,
+            "is_root": false,
+            "short_form": {
+                "identifier": "PRIDE_0000441",
+                "type": "OWL"
+            },
+            "obo_id": {
+                "identifier": "PRIDE:0000441",
+                "type": "OBO"
+            },
+            "obo_definition_citation": null,
+            "_links": null,
+            "obo_xref": null,
+            "obo_synonym": {},
+            "group": "group"
+        }],
+    "tmpResult": {
+        "group": [{
+                "matchedKey": "name",
+                "name": "APEX - Absolute Protein Expression",
+                "termOBOId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "globalId": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "shortName": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "iri": {
+                    "identifier": "http://purl.obolibrary.org/obo/PRIDE_0000441",
+                    "type": "IRI"
+                },
+                "label": "APEX - Absolute Protein Expression",
+                "description": null,
+                "annotation": null,
+                "synonyms": null,
+                "ontology_name": "pride",
+                "score": "1.0",
+                "ontology_prefix": null,
+                "ontology_iri": "http://purl.obolibrary.org/obo/pride",
+                "is_defining_ontology": true,
+                "has_children": false,
+                "is_root": false,
+                "short_form": {
+                    "identifier": "PRIDE_0000441",
+                    "type": "OWL"
+                },
+                "obo_id": {
+                    "identifier": "PRIDE:0000441",
+                    "type": "OBO"
+                },
+                "obo_definition_citation": null,
+                "_links": null,
+                "obo_xref": null,
+                "obo_synonym": {},
+                "group": "group"
+            }]
+    },
+    "groupTemplate": "",
+    "resultHtml": {
+        "0": {},
+        "length": 1
+    },
+    "resultCount": 1,
+    "resultCountPerGroup": {
+        "group": 1
+    },
+    "options": {
+        "input": "#js-typeahead-multi",
+        "minLength": 1,
+        "maxLength": null,
+        "maxItem": 15,
+        "dynamic": true,
+        "delay": 500,
+        "order": "desc",
+        "offset": false,
+        "hint": true,
+        "accent": false,
+        "highlight": true,
+        "multiselect": {
+            "limit": 10,
+            "limitTemplate": "You can't select more than 10 terms",
+            "matchOn": ["name", "description", "termOBOId.identifier"],
+            "cancelOnBackspace": true,
+            "data": {
+                "ajax": {
+                    "headers": {
+                        "Accept": "application/json"
+                    },
+                    "type": "GET",
+                    "url": "/mztabvalidator/rest/v2/suggest?partialParamName={{query}}&parentRuleId=quantification_method_must&levels=5"
+                }
+            },
+            "callback": {}
+        },
+        "group": false,
+        "groupOrder": null,
+        "maxItemPerGroup": null,
+        "dropdownFilter": false,
+        "dynamicFilter": null,
+        "backdrop": false,
+        "backdropOnFocus": false,
+        "cache": false,
+        "ttl": 3600000,
+        "compression": false,
+        "searchOnFocus": true,
+        "blurOnTab": false,
+        "resultContainer": null,
+        "generateOnLoad": null,
+        "mustSelectItem": false,
+        "href": null,
+        "display": ["name", "description", "termOBOId.identifier"],
+        "template": "{{name}}: <small class='text-muted'>{{description}}</small>&nbsp;<small><a href='https://www.ebi.ac.uk/ols/search?q={{termOBOId.identifier}}' target='_blank'>[{{termOBOId.identifier}}]</a></small>",
+        "templateValue": null,
+        "groupTemplate": null,
+        "correlativeTemplate": false,
+        "emptyTemplate": "No results for \"{{query}}\", please enter more characters!",
+        "cancelButton": true,
+        "loadingAnimation": true,
+        "filter": true,
+        "matcher": null,
+        "source": {
+            "group": {
+                "ajax": {
+                    "headers": {
+                        "Accept": "application/json"
+                    },
+                    "type": "GET",
+                    "url": "/mztabvalidator/rest/v2/suggest?partialParamName={{query}}&parentRuleId=quantification_method_must&levels=5"
+                },
+                "minLength": 1,
+                "maxLength": null,
+                "dynamic": true,
+                "cache": false
+            }
+        },
+        "callback": {
+            "onReady": null,
+            "onShowLayout": null,
+            "onHideLayout": null,
+            "onSearch": null,
+            "onResult": null,
+            "onLayoutBuiltBefore": null,
+            "onLayoutBuiltAfter": null,
+            "onNavigateBefore": null,
+            "onNavigateAfter": null,
+            "onEnter": null,
+            "onLeave": null,
+            "onClickAfter": null,
+            "onDropdownFilter": null,
+            "onSendRequest": null,
+            "onReceiveRequest": null,
+            "onPopulateSource": null,
+            "onCacheSave": null,
+            "onCancel": null
+        },
+        "selector": {
+            "container": "typeahead__container",
+            "result": "typeahead__result",
+            "list": "typeahead__list",
+            "group": "typeahead__group",
+            "item": "typeahead__item",
+            "empty": "typeahead__empty",
+            "display": "typeahead__display",
+            "query": "typeahead__query",
+            "filter": "typeahead__filter",
+            "filterButton": "typeahead__filter-button",
+            "dropdown": "typeahead__dropdown",
+            "dropdownItem": "typeahead__dropdown-item",
+            "labelContainer": "typeahead__label-container",
+            "label": "typeahead__label",
+            "button": "typeahead__button",
+            "backdrop": "typeahead__backdrop",
+            "hint": "typeahead__hint",
+            "cancelButton": "typeahead__cancel-button"
+        },
+        "debug": false
+    },
+    "node": {
+        "0": {
+            "selector": "#js-typeahead-multi",
+            "jQuery331029971393556181371": {
+                "events": {
+                    "generate": [{
+                            "type": "generate",
+                            "origType": "generate",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "search": [{
+                            "type": "search",
+                            "origType": "search",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "keyup": [{
+                            "type": "keyup",
+                            "origType": "keyup",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "keydown": [{
+                            "type": "keydown",
+                            "origType": "keydown",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "propertychange": [{
+                            "type": "propertychange",
+                            "origType": "propertychange",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "input": [{
+                            "type": "input",
+                            "origType": "input",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }],
+                    "focus": [{
+                            "type": "focus",
+                            "origType": "focus",
+                            "guid": 21,
+                            "namespace": "js-typeahead-multi.typeahead"
+                        }]
+                }
+            }
+        },
+        "length": 1
+    },
+    "namespace": ".js-typeahead-multi.typeahead",
+    "isContentEditable": false,
+    "container": {
+        "0": {},
+        "length": 1,
+        "prevObject": {
+            "0": {
+                "selector": "#js-typeahead-multi",
+                "jQuery331029971393556181371": {
+                    "events": {
+                        "generate": [{
+                                "type": "generate",
+                                "origType": "generate",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "search": [{
+                                "type": "search",
+                                "origType": "search",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "keyup": [{
+                                "type": "keyup",
+                                "origType": "keyup",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "keydown": [{
+                                "type": "keydown",
+                                "origType": "keydown",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "propertychange": [{
+                                "type": "propertychange",
+                                "origType": "propertychange",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "input": [{
+                                "type": "input",
+                                "origType": "input",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }],
+                        "focus": [{
+                                "type": "focus",
+                                "origType": "focus",
+                                "guid": 21,
+                                "namespace": "js-typeahead-multi.typeahead"
+                            }]
+                    }
+                }
+            },
+            "length": 1
+        }
+    },
+    "resultContainer": {
+        "0": {},
+        "length": 1
+    },
+    "item": null,
+    "items": [{
+            "matchedKey": "name",
+            "name": "absolute quantitation analysis",
+            "termOBOId": {
+                "identifier": "MS:1002514",
+                "type": "OBO"
+            },
+            "globalId": {
+                "identifier": "MS:1002514",
+                "type": "OBO"
+            },
+            "shortName": {
+                "identifier": "MS_1002514",
+                "type": "OWL"
+            },
+            "iri": {
+                "identifier": "http://purl.obolibrary.org/obo/MS_1002514",
+                "type": "IRI"
+            },
+            "label": "absolute quantitation analysis",
+            "description": ["Absolute quantitation analysis."],
+            "annotation": null,
+            "synonyms": null,
+            "ontology_name": "ms",
+            "score": "1.0",
+            "ontology_prefix": null,
+            "ontology_iri": "http://purl.obolibrary.org/obo/ms.owl",
+            "is_defining_ontology": true,
+            "has_children": false,
+            "is_root": false,
+            "short_form": {
+                "identifier": "MS_1002514",
+                "type": "OWL"
+            },
+            "obo_id": {
+                "identifier": "MS:1002514",
+                "type": "OBO"
+            },
+            "obo_definition_citation": null,
+            "_links": null,
+            "obo_xref": null,
+            "obo_synonym": {},
+            "group": "group"
+        }],
+    "comparedItems": ["absolute quantitation analysisAbsolute quantitation analysis."],
+    "xhr": {},
+    "hintIndex": 0,
+    "filters": {
+        "dropdown": {},
+        "dynamic": {}
+    },
+    "dropdownFilter": {
+        "static": [],
+        "dynamic": []
+    },
+    "dropdownFilterAll": null,
+    "isDropdownEvent": false,
+    "requests": {
+        "group": {
+            "request": {
+                "url": "/mztabvalidator/rest/v2/suggest?partialParamName={{query}}&parentRuleId=quantification_method_must&levels=5",
+                "dataType": "json",
+                "headers": {
+                    "Accept": "application/json"
+                },
+                "type": "GET"
+            },
+            "callback": {
+                "beforeSend": null,
+                "done": null,
+                "fail": null,
+                "then": null,
+                "always": null
+            },
+            "extra": {
+                "path": null,
+                "group": "group"
+            },
+            "validForGroup": ["group"]
+        }
+    },
+    "backdrop": {},
+    "hint": {
+        "css": {
+            "border-color": "transparent",
+            "position": "absolute",
+            "top": 0,
+            "display": "inline",
+            "z-index": -1,
+            "float": "none",
+            "color": "silver",
+            "box-shadow": "none",
+            "cursor": "default",
+            "-webkit-user-select": "none",
+            "-moz-user-select": "none",
+            "-ms-user-select": "none",
+            "user-select": "none"
+        },
+        "container": {
+            "0": {
+                "jQuery331029971393556181371": {
+                    "events": {
+                        "click": [{
+                                "type": "click",
+                                "origType": "click",
+                                "data": null,
+                                "guid": 36,
+                                "namespace": ""
+                            }]
+                    }
+                }
+            },
+            "length": 1,
+            "prevObject": {
+                "0": {
+                    "jQuery331029971393556181371": {
+                        "events": {
+                            "click": [{
+                                    "type": "click",
+                                    "origType": "click",
+                                    "data": null,
+                                    "guid": 36,
+                                    "namespace": ""
+                                }]
+                        }
+                    }
+                },
+                "length": 1
+            }
+        }
+    },
+    "label": {
+        "container": {
+            "0": {
+                "jQuery331029971393556181371": {
+                    "events": {
+                        "click": [{
+                                "type": "click",
+                                "origType": "click",
+                                "data": null,
+                                "guid": 16,
+                                "namespace": ""
+                            }]
+                    }
+                },
+                "jQuery331029971393556181372": {
+                    "paddingRight": 32,
+                    "paddingLeft": 12,
+                    "paddingTop": 8
+                }
+            },
+            "length": 1
+        }
+    },
+    "hasDragged": false,
+    "focusOnly": false,
+    "resultItemCount": 1,
+    "displayEmptyTemplate": false
+}

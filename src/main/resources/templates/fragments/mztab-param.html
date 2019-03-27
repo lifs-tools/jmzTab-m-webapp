@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+    <head></head>
+    <body>
+        <!-- elementSelectorPath => 'metadata.__${mtdProp.name()}__' -->
+        <div th:fragment="mztab-param (mtdProp, elementSelectorPath, param, maxTerms)">
+            <!--<form>-->
+                <div class="form-row">
+                    <div class="col-sm-2">
+                        <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                    </div>
+                    <div class="col-sm-10">
+                        <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}" th:id="error-metadata.__${mtdProp.name()}__" class="help-block invalid-feedback"></span>
+                    </div>
+<!--                    <div class="typeahead__container">
+                        <div class="typeahead__field">
+                            <div class="typeahead__query">
+                                <input th:id="${elementSelectorPath+'-typeahead'}"
+                                       name="q"
+                                       type="search"
+                                       autocomplete="off">
+                            </div>
+                            <div class="typeahead__button">
+                                <button type="submit">
+                                    <span class="typeahead__search-icon"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <input th:id="${elementSelectorPath+'-out'}" type="text"></input>
+                    </div>
+                    <script th:inline="javascript">
+                        /*<![CDATA[*/
+                        $(document).ready(function () {
+                            addTypeAhead( /*[[${elementSelectorPath+'-typeahead'}]]*/ '#multi-typeahead', /*[[${elementSelectorPath+'-out'}]]*/ '#multi-out', /*[[${ruleId}]]*/, /*[[${maxLevels}]]*/ 5, /*[[${maxTerms}]]*/ 1);
+                        });
+                        /*]]>*/
+                    </script>-->
+            <!--</form>-->
+<!--            <div class="card my-2">
+                <div class="card-header">
+                    <button class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
+                        Metadata Section
+                    </button><span th:if="${#lists.isEmpty(metaDataRows)}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                </div>
+                <div class="card-body collapse" style="overflow:scroll" id="metadataSection">
+                    <div th:if="${#lists.isEmpty(metaDataRows)}" class="alert alert-danger" role="alert">
+                        <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
+                    </div>
+                    <table id="metaDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(metaDataColumnKeys)}">
+                        <thead class="thead-light">
+                            <tr>
+                                <th th:each="dataRowKey : ${metaDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="dataRow : ${metaDataRows}">
+                                <td th:each="dataRowKey : ${metaDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>-->
+        </div>
+    </body>
+</html>

@@ -24,8 +24,12 @@ import de.isas.lipidomics.mztab.validator.webapp.service.storage.StorageExceptio
 import de.isas.mztab2.io.MzTabFileParser;
 import de.isas.mztab2.io.MzTabNonValidatingWriter;
 import de.isas.mztab2.model.CV;
+import de.isas.mztab2.model.ColumnParameterMapping;
+import de.isas.mztab2.model.Contact;
+import de.isas.mztab2.model.Database;
 import de.isas.mztab2.model.Metadata;
 import de.isas.mztab2.model.MzTab;
+import de.isas.mztab2.model.Parameter;
 import de.isas.mztab2.model.SmallMoleculeEvidence;
 import de.isas.mztab2.model.SmallMoleculeFeature;
 import de.isas.mztab2.model.SmallMoleculeSummary;
@@ -38,13 +42,15 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import javax.validation.constraints.NotNull;
+import javax.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -113,10 +119,8 @@ public class MzTabController {
             MZTabErrorList errors = null;
             try {
                 errors = parser.parse(System.out, MZTabErrorType.Level.Info, 100);
-            } catch (RuntimeException ex) {
+            } catch (Error ex) {
                 log.error("Caught exception while trying to parse " + path + "!", ex);
-            } catch (IOException ex) {
-                log.error("Caught IO exception while trying to parse " + path + "!", ex);
             } finally {
                 if (errors != null) {
                     List<ValidationMessage> validationResults = errors.convertToValidationMessages();
@@ -166,19 +170,39 @@ public class MzTabController {
         metadata.title("Please replace with real title");
         metadata.description("Please replace with real description");
         List<CvReference> cvReferences = mappingService.getCvReferences();
-        IntStream.range(0, cvReferences.size())
+        log.debug("CvReferences: {}", cvReferences);
+        IntStream.range(0, cvReferences.size() - 1)
                 .forEach(idx
                         -> {
+                    Integer index = ++idx;
                     CvReference ref = cvReferences.get(idx);
-                    Ontology ontology = mappingService.resolveCv(ref.getCvIdentifier());
-                    log.debug("Retrieved ontology {} for query {}", ontology, ref.getCvIdentifier());
-                    metadata.addCvItem(new CV().id(++idx).
-                            fullName(ontology.getDescription().replaceAll("\t", " ")).
-                            label(ref.getCvIdentifier()).
-                            uri("https://www.ebi.ac.uk/ols/ontologies/" + ref.getCvIdentifier().toLowerCase()).
-                            version(ontology.getVersion()));
+                    Optional<Ontology> ontology = mappingService.resolveCv(ref.getCvIdentifier());
+                    ontology.ifPresent((ont) -> {
+                        log.debug("Retrieved ontology {} for query {}", ontology, ref.getCvIdentifier());
+                        metadata.addCvItem(new CV().id(index).
+                                fullName(ont.getDescription().replaceAll("\t", " ")).
+                                label(ref.getCvIdentifier()).
+                                uri("https://www.ebi.ac.uk/ols/ontologies/" + ref.getCvIdentifier().toLowerCase()).
+                                version(ont.getConfig().getVersion()));
+                    });
                 }
                 );
+//        ColumnParameterMapping m = new ColumnParameterMapping().
+//[MS, MS:1002514, "absolute quantitation analysis", ]
+        metadata.setQuantificationMethod(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002514").name("absolute quantitation analysis"));
+        //[MS, MS:1002887, Progenesis QI normalised abundance, ]
+        metadata.setSmallMoleculeQuantificationUnit(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
+        metadata.setSmallMoleculeFeatureQuantificationUnit(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
+        Database db = new Database().id(1).prefix("null").param(new Parameter().id(1).name("no database").value(null)).version("Unknown").uri(null);
+        metadata.addDatabaseItem(db);
+        Contact c1 = new Contact().id(1).name("Change Me").email("change.me@undefined.com").affiliation("University of Lipid Research");
+        metadata.addContactItem(c1);
+        metadata.addContactItem(new Contact().id(2).name("Contact 2").email("contact2@undefined.com").affiliation("Undefined research institute"));
+        //[MS, MS:1002896, compound identification confidence level, ]
+        metadata.setSmallMoleculeIdentificationReliability(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002896").name("compound identification confidence level"));
+        metadata.colunitSmallMolecule(Collections.emptyList());
+        metadata.colunitSmallMoleculeFeature(Collections.emptyList());
+        metadata.colunitSmallMoleculeEvidence(Collections.emptyList());
         String prop2 = Metadata.class.getSimpleName().toLowerCase() + "." + Metadata.Properties.smallMoleculeFeatureQuantificationUnit.name();
         log.debug("Trying to find rule for property {}", prop2);
         mappingService.getRuleForProperty(prop2).ifPresent((rule) -> {
@@ -190,27 +214,25 @@ public class MzTabController {
 
     @PostMapping(value = "/create/{sessionId:.+}")
     public ModelAndView postCreateMzTab(@PathVariable UUID sessionId,
-            @NotNull MzTab mzTab,
+            @Valid MzTab mzTab,
+            BindingResult bindingResult,
             HttpServletRequest request,
             HttpSession session,
-            RedirectAttributes redirectAttrs, BindingResult bindingResult) {
+            RedirectAttributes redirectAttrs) {
         if (session == null) {
             return utils.redirectToServletRoot(request);
         }
         if (sessionId == null) {
             throw new IllegalArgumentException("Please supply your session-id!");
         }
-//        if (bindingResult.hasErrors()) {
-//            ModelAndView modelAndView = new ModelAndView("mzTab");
-//            modelAndView.addObject("page", createPage("mzTab"));
-//            modelAndView.addObject("sessionId", sessionId);
-//            modelAndView.addObject("mzTab", mzTab);
-//            modelAndView.addObject("metadataProperties", Metadata.Properties.values());
-//            modelAndView.addObject("smlProperties", SmallMoleculeSummary.Properties.values());
-//            modelAndView.addObject("smfProperties", SmallMoleculeFeature.Properties.values());
-//            modelAndView.addObject("smeProperties", SmallMoleculeEvidence.Properties.values());
-//            return modelAndView;
-//        }
+        if (bindingResult.hasErrors()) {
+            ModelAndView modelAndView = new ModelAndView("mzTab");
+            modelAndView.addObject("page", utils.createPage("mzTab"));
+            modelAndView.addObject("sessionId", sessionId);
+            modelAndView.addObject("mzTab", mzTab);
+            addProperties(modelAndView);
+            return modelAndView;
+        }
         MzTabNonValidatingWriter writer = new MzTabNonValidatingWriter();
         UserSessionFile createdFile = null;
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -273,9 +295,6 @@ public class MzTabController {
             switch (prop) {
                 case cv:
                 case database:
-                case smallMoleculeFeatureQuantificationUnit:
-                case smallMoleculeQuantificationUnit:
-                case smallMoleculeIdentificationReliability:
                 case colunitSmallMolecule:
                 case colunitSmallMoleculeFeature:
                 case colunitSmallMoleculeEvidence:

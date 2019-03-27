@@ -1,8 +1,5 @@
 .card-img-right {
-    max-width:50%;
-    max-height: -moz-fill-available;
-    max-height: -webkit-fill-available;
-    max-height: fill-available;
+    width: 100%;
 }
 .no-gutters {
     margin-right: 0;

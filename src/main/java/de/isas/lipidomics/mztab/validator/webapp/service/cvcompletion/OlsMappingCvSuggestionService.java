@@ -42,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 import uk.ac.ebi.pride.utilities.ols.web.service.model.Identifier;
 import uk.ac.ebi.pride.utilities.ols.web.service.model.Ontology;
@@ -77,7 +78,10 @@ public class OlsMappingCvSuggestionService {
             selectorRuleLookup.put(cvMappingRule.getCvElementPath(), cvMappingRule);
         });
         this.cvMapping.getCvReferenceList().getCvReference().stream().forEach((cvRef) -> {
-            ontologyLookup.put(cvRef.getCvIdentifier().toLowerCase(), resolveCv(cvRef.getCvIdentifier()));
+            Optional<Ontology> optOntology = resolveCv(cvRef.getCvIdentifier());
+            if (optOntology.isPresent()) {
+                ontologyLookup.put(cvRef.getCvIdentifier().toLowerCase(), optOntology.get());
+            }
         });
         this.lookupService = lookupService;
     }
@@ -104,10 +108,14 @@ public class OlsMappingCvSuggestionService {
         return this.cvMapping.getCvReferenceList().getCvReference();
     }
 
-    public Ontology resolveCv(String cvName) {
-        return ontologyLookup.computeIfAbsent(cvName.toLowerCase(), (key) -> {
-            return client.getOntology(key);
-        });
+    public Optional<Ontology> resolveCv(String cvName) {
+        if(ontologyLookup.containsKey(cvName.toLowerCase())) {
+            return Optional.of(ontologyLookup.get(cvName.toLowerCase()));
+        } else {
+            Ontology onto = client.getOntology(cvName.toLowerCase());
+            ontologyLookup.put(cvName.toLowerCase(), onto);
+            return Optional.of(ontologyLookup.get(cvName.toLowerCase()));
+        }
     }
 
     public List<Term> suggestParameters(String partialParamName, String parentRuleId, int levels) {

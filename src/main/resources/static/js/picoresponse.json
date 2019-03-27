@@ -1,0 +1,134 @@
+[
+  {
+    "name": "picomolar",
+    "termOBOId": {
+      "identifier": "UO:0000066",
+      "type": "OBO"
+    },
+    "globalId": {
+      "identifier": "UO:0000066",
+      "type": "OBO"
+    },
+    "shortName": {
+      "identifier": "UO_0000066",
+      "type": "OWL"
+    },
+    "iri": {
+      "identifier": "http://purl.obolibrary.org/obo/UO_0000066",
+      "type": "IRI"
+    },
+    "label": "picomolar",
+    "description": [
+      "A unit of molarity which is equal to 10^[-12] M."
+    ],
+    "annotation": null,
+    "synonyms": null,
+    "ontology_name": "uo",
+    "score": "1.0",
+    "ontology_prefix": null,
+    "ontology_iri": "http://purl.obolibrary.org/obo/uo.owl",
+    "is_defining_ontology": true,
+    "has_children": false,
+    "is_root": false,
+    "short_form": {
+      "identifier": "UO_0000066",
+      "type": "OWL"
+    },
+    "obo_id": {
+      "identifier": "UO:0000066",
+      "type": "OBO"
+    },
+    "obo_definition_citation": null,
+    "_links": null,
+    "obo_xref": null,
+    "obo_synonym": {}
+  },
+  {
+    "name": "picomolal",
+    "termOBOId": {
+      "identifier": "UO:0000072",
+      "type": "OBO"
+    },
+    "globalId": {
+      "identifier": "UO:0000072",
+      "type": "OBO"
+    },
+    "shortName": {
+      "identifier": "UO_0000072",
+      "type": "OWL"
+    },
+    "iri": {
+      "identifier": "http://purl.obolibrary.org/obo/UO_0000072",
+      "type": "IRI"
+    },
+    "label": "picomolal",
+    "description": [
+      "A molality unit which is equal to 10^[-12] m."
+    ],
+    "annotation": null,
+    "synonyms": null,
+    "ontology_name": "uo",
+    "score": "1.0",
+    "ontology_prefix": null,
+    "ontology_iri": "http://purl.obolibrary.org/obo/uo.owl",
+    "is_defining_ontology": true,
+    "has_children": false,
+    "is_root": false,
+    "short_form": {
+      "identifier": "UO_0000072",
+      "type": "OWL"
+    },
+    "obo_id": {
+      "identifier": "UO:0000072",
+      "type": "OBO"
+    },
+    "obo_definition_citation": null,
+    "_links": null,
+    "obo_xref": null,
+    "obo_synonym": {}
+  },
+  {
+    "name": "picomole",
+    "termOBOId": {
+      "identifier": "UO:0000042",
+      "type": "OBO"
+    },
+    "globalId": {
+      "identifier": "UO:0000042",
+      "type": "OBO"
+    },
+    "shortName": {
+      "identifier": "UO_0000042",
+      "type": "OWL"
+    },
+    "iri": {
+      "identifier": "http://purl.obolibrary.org/obo/UO_0000042",
+      "type": "IRI"
+    },
+    "label": "picomole",
+    "description": [
+      "A substance unit equal to 10^[-12] mol."
+    ],
+    "annotation": null,
+    "synonyms": null,
+    "ontology_name": "uo",
+    "score": "1.0",
+    "ontology_prefix": null,
+    "ontology_iri": "http://purl.obolibrary.org/obo/uo.owl",
+    "is_defining_ontology": true,
+    "has_children": false,
+    "is_root": false,
+    "short_form": {
+      "identifier": "UO_0000042",
+      "type": "OWL"
+    },
+    "obo_id": {
+      "identifier": "UO:0000042",
+      "type": "OBO"
+    },
+    "obo_definition_citation": null,
+    "_links": null,
+    "obo_xref": null,
+    "obo_synonym": {}
+  }
+]

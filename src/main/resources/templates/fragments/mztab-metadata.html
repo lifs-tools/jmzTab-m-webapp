@@ -1,32 +1,142 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-  <head></head>
-  <body>
-    <div th:fragment="mztab-metadata">
-        <div class="card my-2">
-            <div class="card-header">
-              <button class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
-                Metadata Section
-              </button><span th:if="${#lists.isEmpty(metaDataRows)}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+    <head></head>
+    <body>
+        <div th:fragment="mztab-metadata">
+            <div class="card my-2">
+                <div class="card-header">
+                    <button class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
+                        Metadata Section
+                    </button><span th:if="${#lists.isEmpty(metaDataRows)}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                </div>
+                <div class="card-body collapse" style="overflow:scroll" id="metadataSection">
+                    <div th:if="${#lists.isEmpty(metaDataRows)}" class="alert alert-danger" role="alert">
+                        <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
+                    </div>
+                    <table id="metaDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(metaDataColumnKeys)}">
+                        <thead class="thead-light">
+                            <tr>
+                                <th th:each="dataRowKey : ${metaDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="dataRow : ${metaDataRows}">
+                                <td th:each="dataRowKey : ${metaDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="card-body collapse" style="overflow:scroll" id="metadataSection">
-              <div th:if="${#lists.isEmpty(metaDataRows)}" class="alert alert-danger" role="alert">
-                <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
-              </div>
-               <table id="metaDataRowsTable" class="table table-striped table-hover pt-1 px-0" width="100%" th:unless="${#lists.isEmpty(metaDataColumnKeys)}">
-                <thead class="thead-light">
-                  <tr>
-                    <th th:each="dataRowKey : ${metaDataColumnKeys}" scope="col" th:text="${dataRowKey}"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr th:each="dataRow : ${metaDataRows}">
-                    <td th:each="dataRowKey : ${metaDataColumnKeys}" th:text="${dataRow.get(dataRowKey)}"></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-    </div>
-  </body>
+        </div>
+        <!-- mztab-metadata::cv-form -->
+        <div th:fragment="cv-form (propName, metadata)">
+            <ol th:if="${propName=='cv'}">
+                <li th:each="cvItem, itemStat : *{metadata.cv}">
+                    <!-- label -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${cvItem.label}" class="col-form-label-sm col-sm-2" th:text="label">name</label><input th:id="cvItem.label" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.cv[__${itemStat.index}__].label}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.cv[__${itemStat.index}__].label'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.cv[__${itemStat.index}__].label')}" th:errors="*{metadata.cv[__${itemStat.index}__].label" th:id="error-metadata.metadata.cv[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- uri -->
+                    <div class="form-row col-sm-12">
+                        <uri th:for="${cvItem.uri}" class="col-form-uri-sm col-sm-2" th:text="uri">name</uri><input th:id="cvItem.uri" class="col-sm-10 no-gutters form-control form-control-sm" type="url" th:field="*{metadata.cv[__${itemStat.index}__].uri}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.cv[__${itemStat.index}__].uri'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.cv[__${itemStat.index}__].uri')}" th:errors="*{metadata.cv[__${itemStat.index}__].uri" th:id="error-metadata.metadata.cv[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- version -->
+                    <div class="form-row col-sm-12">
+                        <version th:for="${cvItem.version}" class="col-form-version-sm col-sm-2" th:text="version">name</version><input th:id="cvItem.version" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.cv[__${itemStat.index}__].version}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.cv[__${itemStat.index}__].version'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.cv[__${itemStat.index}__].version')}" th:errors="*{metadata.cv[__${itemStat.index}__].version" th:id="error-metadata.metadata.cv[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- full name -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${cvItem.fullName}" class="col-form-label-sm col-sm-2" th:text="fullName">name</label><textarea form="mzTabEditForm" th:id="cvItem.fullName" class="col-sm-10 no-gutters form-control form-control-sm" th:field="*{metadata.cv[__${itemStat.index}__].fullName}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.cv[__${itemStat.index}__].fullName'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.cv[__${itemStat.index}__].fullName')}" th:errors="*{metadata.cv[__${itemStat.index}__].fullName" th:id="error-metadata.metadata.cv[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                </li>
+            </ol>
+        </div>
+        <!-- mztab-metadata::db-form -->
+        <div th:fragment="db-form (propName, metadata)">
+            <ol th:if="${propName=='database'}">
+                <li th:each="item, itemStat : *{metadata.database}" >
+                    <!-- label -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${item.prefix}" class="col-form-label-sm col-sm-2" th:text="prefix">name</label><input th:id="item.prefix" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].prefix}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].prefix'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].prefix')}" th:errors="*{metadata.database[__${itemStat.index}__].prefix" th:id="error-metadata.metadata.database[__${itemStat.index}__].prefix" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- uri -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${item.uri}" class="col-form-label-sm col-sm-2" th:text="uri">name</label><input th:id="item.uri" class="col-sm-10 no-gutters form-control form-control-sm" type="url" th:field="*{metadata.database[__${itemStat.index}__].uri}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].uri'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].uri')}" th:errors="*{metadata.database[__${itemStat.index}__].uri" th:id="error-metadata.metadata.database[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- version -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${item.version}" class="col-form-label-sm col-sm-2" th:text="version">name</label><input th:id="item.version" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].version}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].version'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].version')}" th:errors="*{metadata.database[__${itemStat.index}__].version" th:id="error-metadata.metadata.database[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- param -->
+                    <div class="form-row col-sm-12">
+                        <!-- id(1).name("no database").value(null)).version("Unknown").uri(null) -->
+                        <label th:for="${item.param}" class="col-form-label-sm col-sm-12" th:text="param">name</label>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.cvLabel}" class="col-form-label-sm col-sm-2" th:text="cvLabel">name</label><input th:id="item.cvLabel" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].param.cvLabel}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].param.cvLabel'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].param.cvLabel')}" th:errors="*{metadata.database[__${itemStat.index}__].param.cvLabel" th:id="error-metadata.metadata.database[__${itemStat.index}__].param.cvLabel" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.cvAccession}" class="col-form-label-sm col-sm-2" th:text="cvAccession">name</label><input th:id="item.cvAccession" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].param.cvAccession}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].param.cvAccession'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].param.cvAccession')}" th:errors="*{metadata.database[__${itemStat.index}__].param.cvAccession" th:id="error-metadata.metadata.database[__${itemStat.index}__].param.cvAccession" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.name}" class="col-form-label-sm col-sm-2" th:text="name">name</label><input th:id="item.name" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].param.name}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].param.name'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].param.name')}" th:errors="*{metadata.database[__${itemStat.index}__].param.name" th:id="error-metadata.metadata.database[__${itemStat.index}__].param.name" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.value}" class="col-form-label-sm col-sm-2" th:text="value">name</label><input th:id="item.value" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.database[__${itemStat.index}__].param.value}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].param.value'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].param.value')}" th:errors="*{metadata.database[__${itemStat.index}__].param.value" th:id="error-metadata.metadata.database[__${itemStat.index}__].param.value" class="help-block invalid-feedback"></span>
+                        </div>
+                        <!--<div th:include="fragments/mztab-param::mztab-param( mtdProp=${metadata.database[__${itemStat.index}__].param}, elementSelectorPath=${metadata.database[__${itemStat.index}__].param}', metadata=${metadata})"></div>-->
+                        <!--mtdProp, elementSelectorPath, param, maxTerms-->
+
+
+                        <!--<label th:for="${item.param}" class="col-form-label-sm col-sm-2" th:text="param">name</label><input type="text" th:id="item.param" class="col-sm-10 no-gutters form-control form-control-sm" th:field="*{metadata.database[__${itemStat.index}__].param}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.database[__${itemStat.index}__].param'))} ? is-invalid"/>-->
+                        <!--<span th:if="${#fields.hasErrors('metadata.database[__${itemStat.index}__].param')}" th:errors="*{metadata.database[__${itemStat.index}__].param" th:id="error-metadata.metadata.database[__${itemStat.index}__].param" class="help-block invalid-feedback"></span>-->
+                    </div>
+                </li>
+            </ol>
+        </div>
+        <!-- mtdProp.name()!='colunitSmallMolecule' && mtdProp.name()!='colunitSmallMoleculeFeature' && mtdProp.name()!='colunitSmallMoleculeEvidence' -->
+        <!-- mztab-metadata::colunit-form -->
+        <div th:fragment="colunit-form (propName, metadata)">
+            <ol th:if="${propName=='colunitSmallMolecule' || propName=='colunitSmallMoleculeFeature' || propName=='colunitSmallMoleculeEvidence'}">
+                <li th:each="item, itemStat : *{metadata.__${propName}__}" >
+                    <!-- label -->
+                    <div class="form-row col-sm-12">
+                        <label th:for="${item.columnName}" class="col-form-label-sm col-sm-2" th:text="columnName">name</label><input th:id="item.prefix" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.${propName}[__${itemStat.index}__].columnName}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.${propName}[__${itemStat.index}__].columnName'))} ? is-invalid"/>
+                        <span th:if="${#fields.hasErrors('metadata.${propName}[__${itemStat.index}__].columnName')}" th:errors="*{metadata.__${propName}__[__${itemStat.index}__].columnName" th:id="error-metadata.metadata.${propName}[__${itemStat.index}__].columnName" class="help-block invalid-feedback"></span>
+                    </div>
+                    <!-- param -->
+                    <div class="form-row col-sm-12">
+                        <!-- id(1).name("no database").value(null)).version("Unknown").uri(null) -->
+                        <label th:for="${item.param}" class="col-form-label-sm col-sm-12" th:text="param">name</label>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.cvLabel}" class="col-form-label-sm col-sm-2" th:text="cvLabel">name</label><input th:id="item.cvLabel" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.${propName}[__${itemStat.index}__].param.cvLabel}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.${propName}[__${itemStat.index}__].param.cvLabel'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.${propName}[__${itemStat.index}__].param.cvLabel')}" th:errors="*{metadata.__${propName}__[__${itemStat.index}__].param.cvLabel" th:id="error-metadata.metadata.${propName}[__${itemStat.index}__].param.cvLabel" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.cvAccession}" class="col-form-label-sm col-sm-2" th:text="cvAccession">name</label><input th:id="item.cvAccession" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.${propName}[__${itemStat.index}__].param.cvAccession}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.${propName}[__${itemStat.index}__].param.cvAccession'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.${propName}[__${itemStat.index}__].param.cvAccession')}" th:errors="*{metadata.__${propName}__[__${itemStat.index}__].param.cvAccession" th:id="error-metadata.metadata.${propName}[__${itemStat.index}__].param.cvAccession" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.name}" class="col-form-label-sm col-sm-2" th:text="name">name</label><input th:id="item.name" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.${propName}[__${itemStat.index}__].param.name}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.${propName}[__${itemStat.index}__].param.name'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.${propName}[__${itemStat.index}__].param.name')}" th:errors="*{metadata.__${propName}__[__${itemStat.index}__].param.name" th:id="error-metadata.metadata.${propName}[__${itemStat.index}__].param.name" class="help-block invalid-feedback"></span>
+                        </div>
+                        <div class="form-row col-sm-12">
+                            <label th:for="${item.param.value}" class="col-form-label-sm col-sm-2" th:text="value">name</label><input th:id="item.value" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.${propName}[__${itemStat.index}__].param.value}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.${propName}[__${itemStat.index}__].param.value'))} ? is-invalid"/>
+                            <span th:if="${#fields.hasErrors('metadata.${propName}[__${itemStat.index}__].param.value')}" th:errors="*{metadata.__${propName}__[__${itemStat.index}__].param.value" th:id="error-metadata.metadata.${propName}[__${itemStat.index}__].param.value" class="help-block invalid-feedback"></span>
+                        </div>
+                    </div>
+                </li>
+            </ol>
+        </div>
+    </body>
 </html>

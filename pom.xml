@@ -46,7 +46,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
         <jmztab.version>3.0.4</jmztab.version>
-        <jmztabm.version>1.0.2</jmztabm.version>
+        <jmztabm.version>1.0.3-SNAPSHOT</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>2.9.2</springfox.version>
         <guava.version>27.0.1-jre</guava.version>

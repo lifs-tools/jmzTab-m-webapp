@@ -16,7 +16,6 @@
 package de.isas.lipidomics.mztab.validator.webapp;
 
 import de.isas.lipidomics.mztab.validator.webapp.domain.AppInfo;
-import de.isas.lipidomics.mztab.validator.webapp.service.ListConverter;
 import de.isas.lipidomics.mztab.validator.webapp.service.ParameterConverter;
 import de.isas.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
@@ -111,15 +110,9 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     public ParameterConverter parameterConverter() {
         return new ParameterConverter();
     }
-
-    @Bean
-    public ListConverter listConverter() {
-        return new ListConverter();
-    }
     
     @Override
     public void addFormatters(FormatterRegistry registry) {
-        registry.addConverter(listConverter());
         registry.addConverter(parameterConverter());
     }
 }
