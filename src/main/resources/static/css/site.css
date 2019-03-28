@@ -1,5 +1,5 @@
 .card-img-right {
-    width: 100%;
+    min-width: min-content;
 }
 .no-gutters {
     margin-right: 0;
