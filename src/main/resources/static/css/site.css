@@ -1,6 +1,6 @@
 .card-img-right {
     min-width: min-content;
-    width: -moz-fit-content;
+    width: -moz-available;
 }
 .no-gutters {
     margin-right: 0;
