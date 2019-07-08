@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.isas.mztab</groupId>
     <artifactId>mztab-validator-webapp</artifactId>
-    <version>1.0.21</version>
+    <version>1.0.22-SNAPSHOT</version>
     <packaging>jar</packaging>
     <description>A web-based validator for mzTab format version 1.0 onwards.</description>
     <name>MzTab validator webapplication.</name>	
