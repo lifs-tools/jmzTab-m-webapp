@@ -18,4 +18,18 @@
 .form-row {
     margin-bottom: 5px;
 }
+/*
+#metaDataRowsTable > tbody:nth-child(2) {
+    background-color: #ebf0f5;
+}
 
+#summaryDataRowsTable > tbody:nth-child(2) {
+    background-color: #ebf6ea;
+}
+#featureDataRowsTable > tbody:nth-child(2) {
+    background-color: #fff5e1;
+}
+#evidenceDataRowsTable > tbody:nth-child(2) {
+    background-color: #ffe9e1;
+}
+*/

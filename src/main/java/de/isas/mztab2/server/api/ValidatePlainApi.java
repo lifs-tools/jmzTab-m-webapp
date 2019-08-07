@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
     date = "2018-01-11T19:50:29.849+01:00")
 
-@Api(value = "validatePlain", description = "the validatePlain API")
+@Api(value = "validatePlain", description = "The validation API for mzTab-m documents in plaintext / tsv format.", tags = {"validatePlain"})
 @RequestMapping(path = "/rest/v2")
 public interface ValidatePlainApi {
     
@@ -179,7 +179,8 @@ public interface ValidatePlainApi {
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validatePlainMzTabFile(
         @ApiParam(value = "mzTab file that should be validated.",
-            required = true, examples = @Example({@ExampleProperty(mediaType = "text/plain", value=GCGCMS_EXAMPLE),@ExampleProperty(mediaType = "text/tab-separated-values", value=GCGCMS_EXAMPLE)})) @Valid @RequestBody String mztabfile,
+            required = true, 
+            examples = @Example(value={@ExampleProperty(mediaType = "text/plain", value=GCGCMS_EXAMPLE),@ExampleProperty(mediaType = "text/tab-separated-values", value=GCGCMS_EXAMPLE)})) @Valid @RequestBody String mztabfile,
         @RequestParam(
             value = "The level of errors that should be reported, one of error, warn, info.",
             defaultValue = "info",

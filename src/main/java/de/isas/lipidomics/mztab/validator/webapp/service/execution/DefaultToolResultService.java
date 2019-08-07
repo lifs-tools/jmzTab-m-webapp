@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DefaultToolResultService implements ToolResultService {
 
-    private ConcurrentHashMap<UUID, ToolResult> sessionToToolResultMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, ToolResult> sessionToToolResultMap = new ConcurrentHashMap<>();
 
     @Override
     public ToolResult getOrCreateResultFor(UUID sessionId) {
@@ -43,14 +43,7 @@ public class DefaultToolResultService implements ToolResultService {
 
     @Override
     public void addResultFor(UUID sessionId, ToolResult result) {
-//        if(sessionToToolResultMap.containsKey(sessionId)) {
-//            sessionToToolResultMap.get(sessionId).setException(result.getException());
-//            sessionToToolResultMap.get(sessionId).setStatus(result.getStatus());
-//            sessionToToolResultMap.get(sessionId).getMessages().addAll(result.getMessages());
-//            sessionToToolResultMap.get(sessionId).getParameters().putAll(result.getParameters());
-//        } else {
         sessionToToolResultMap.put(sessionId, result);
-//        }
     }
 
     @Override

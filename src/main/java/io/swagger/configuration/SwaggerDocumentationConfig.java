@@ -19,12 +19,12 @@ public class SwaggerDocumentationConfig {
     ApiInfo apiInfo() {
         return new ApiInfoBuilder()
             .title("mzTab validation API.")
-            .description("This is an mzTab validation service.")
+            .description("This is the mzTab validation service.")
             .license("Apache 2.0")
             .licenseUrl("http://www.apache.org/licenses/LICENSE-2.0.html")
-            .termsOfServiceUrl("")
+            .termsOfServiceUrl("https://lifs.isas.de/imprint-privacy-policy.html")
             .version("2.0.0")
-            .contact(new Contact("","", "nils.hoffmann@isas.de"))
+            .contact(new Contact("LIFS-Tools jmzTab-m-webapp","https://github.com/lifs-tools/jmzTab-m-webapp", "lifs-support@isas.de"))
             .build();
     }
 

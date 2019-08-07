@@ -6,6 +6,11 @@ image:https://img.shields.io/github/release/lifs-tools/jmzTab-m-webapp.svg["Late
 
 This project provides a validator implementation for the mzTab 1.0 standard and for the current draft 2.0 standard for metabolomics.
 
+== Using the LIFS Web application
+
+The mzTab validator webapplication is hosted https://apps.lifs.isas.de/mztabvalidator[here]. 
+For programmatic usage of the validation service, the REST API description is available https://apps.lifs.isas.de/mztabvalidator/swagger-ui.html[here].
+
 == Building the project from the command-line
 
 In order to build the project and run the unit tests, execute the following command from a terminal:
