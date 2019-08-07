@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
     date = "2018-01-11T19:50:29.849+01:00")
 
-@Api(value = "validate", description = "the validate API")
+@Api(value = "validate", description = "The validation API for mzTab-m documents in JSON or XML format.", tags = {"validate"})
 @RequestMapping(path = "/rest/v2")
 public interface ValidateApi {
 
