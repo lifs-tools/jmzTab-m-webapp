@@ -29,6 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,7 +69,7 @@ public interface ValidateApi {
     }
 
     @ApiOperation(value = "", nickname = "validateMzTabFile",
-        notes = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors.",
+        notes = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors. Requires to set the Accept header in the request: accept: application/json  and the Content-Type header to application/json or application/xml.",
         response = ValidationMessage.class, responseContainer = "List", tags = {
             "validate",})
     @ApiResponses(value = {
@@ -87,19 +88,31 @@ public interface ValidateApi {
         consumes = {"application/json", "application/xml"},
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
-        value = "mzTab file that should be validated.", required = true) @RequestBody MzTab mztabfile,
+        name = "mztabfile", value = "mzTab file that should be validated.", required = true) @RequestBody MzTab mztabfile,
         @RequestParam(
-            value = "The level of errors that should be reported, one of error, warn, info.",
+            name = "level",
             defaultValue = "info",
-            required = false) @Valid String level,
+            required = false) 
+        @ApiParam(
+            name = "level",
+            value = "The level of errors that should be reported, one of error, warn, info.")
+        @Valid String level,
         @RequestParam(
-            value = "The maximum number of errors to return.",
-            defaultValue = "100",
-            required = false) @Valid @Min(0) @Max(500) Integer maxErrors,
+            name = "maxErrors",
+            required = false,
+            defaultValue = "100") 
+        @ApiParam(
+            name = "maxErrors",
+            value = "The maximum number of errors to return.")
+        @Valid @Min(0) @Max(500) Integer maxErrors,
         @RequestParam(
-            value = "Whether a semantic validation against the default rule set should be performed.",
+            name = "semanticValidation",
             defaultValue = "false",
-            required = false) @Valid boolean semanticValidation) {
+            required = false)
+        @ApiParam(
+            name = "semanticValidation",
+            value = "Whether a semantic validation against the default rule set should be performed.") 
+        @Valid boolean semanticValidation) {
         if (getObjectMapper().
             isPresent() && getAcceptHeader().
                 isPresent()) {
@@ -110,8 +123,8 @@ public interface ValidateApi {
                     MzTabNonValidatingWriter writer = new MzTabNonValidatingWriter();
                     ByteArrayOutputStream stringWriter = new ByteArrayOutputStream();
                     writer.
-                        write(new OutputStreamWriter(stringWriter), mztabfile);
-                    String mzTabString = stringWriter.toString("UTF-8");
+                        write(new OutputStreamWriter(stringWriter, StandardCharsets.UTF_8), mztabfile);
+                    String mzTabString = stringWriter.toString(StandardCharsets.UTF_8);
                     UserSessionFile file = getStorageService().
                         get().
                         store(mzTabString, UUID.randomUUID(), SLOT.MZTABFILE);
