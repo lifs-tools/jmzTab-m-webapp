@@ -204,7 +204,7 @@ public interface ValidatePlainApi {
                 UserSessionFile mappingFile = getStorageService().
                         get().
                         store(ValidateApi.class.getResource(
-                            "/static/examples/mzTab-M-mapping.xml"), file.
+                            "/mappings/mzTab-M-mapping.xml"), file.
                                 getSessionId(), StorageService.SLOT.MAPPINGFILE);
                 List<ValidationMessage> messages = getValidationService().
                     get().

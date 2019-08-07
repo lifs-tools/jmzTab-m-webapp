@@ -87,7 +87,7 @@ public interface ValidateApi {
         consumes = {"application/json", "application/xml"},
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
-        value = "mzTab file that should be validated.", required = true) @Valid @RequestBody MzTab mztabfile,
+        value = "mzTab file that should be validated.", required = true) @RequestBody MzTab mztabfile,
         @RequestParam(
             value = "The level of errors that should be reported, one of error, warn, info.",
             defaultValue = "info",
@@ -118,7 +118,7 @@ public interface ValidateApi {
                     UserSessionFile mappingFile = getStorageService().
                         get().
                         store(ValidateApi.class.getResource(
-                            "/static/examples/mzTab-M-mapping.xml"), file.
+                            "/mappings/mzTab-M-mapping.xml"), file.
                                 getSessionId(), SLOT.MAPPINGFILE);
                     List<ValidationMessage> messages = getValidationService().
                         get().
