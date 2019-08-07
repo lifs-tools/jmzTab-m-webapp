@@ -17,12 +17,6 @@
 	
   <suppress>
    <notes><![CDATA[
-   file name: jackson-databind-2.9.9.jar
-   ]]></notes>
-   <cpe>cpe:/a:fasterxml:jackson-databind:2.9.9</cpe>
-  </suppress>
-  <suppress>
-   <notes><![CDATA[
    file name: datatables.min.js
    ]]></notes>
    <cve>CVE-2018-14042</cve>
