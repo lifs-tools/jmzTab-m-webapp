@@ -66,7 +66,6 @@ public class IsasValidator implements WebValidator {
             parser = new MzTabFileParser(filepath.toFile());
             MZTabErrorList errorList = parser.parse(
                     System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
-            errorList.convertToValidationMessages();
         } catch (Exception e) {
             log.error("Caught Exception in IsasValidator:", e);
             ValidationMessage vm = new ValidationMessage();
@@ -79,7 +78,13 @@ public class IsasValidator implements WebValidator {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            vm.setMessage(e.getMessage()!=null?e.getMessage():"Caught an Exception while parsing '"+filepath.getFileName()+"'. Please check your file's tabular structure and inspect further validation messages!" + "\n" +sw.toString());
+            StringBuilder message = new StringBuilder();
+            message.append("Basic validation failed for file '").append(filepath.getFileName()).append("'\n");
+            if (e.getMessage() != null) {
+                message.append(" with message: '").append(e.getMessage()).append("'\n");
+            }
+            message.append("Please check your file's structure and inspect further validation messages!\n");
+            vm.setMessage(message.toString());
             validationResults.add(vm);
         } finally {
             if (parser != null) {
@@ -93,7 +98,7 @@ public class IsasValidator implements WebValidator {
                         List<ValidationMessage> messages = cvValidator.validate(parser.
                                 getMZTabFile());
                         validationResults.addAll(Optional.ofNullable(messages).orElse(Collections.emptyList()));
-                    } catch (JAXBException | IllegalArgumentException iae) {
+                    } catch (Exception iae) {
                         log.error("Caught Exception in IsasValidator, semantic validation:", iae);
                         ValidationMessage vm = new ValidationMessage();
                         vm.setCategory(
@@ -102,7 +107,16 @@ public class IsasValidator implements WebValidator {
                         vm.setLineNumber(-1l);
                         vm.setMessageType(
                                 ValidationMessage.MessageTypeEnum.ERROR);
-                        vm.setMessage(iae.getMessage());
+                        StringWriter sw = new StringWriter();
+                        PrintWriter pw = new PrintWriter(sw);
+                        iae.printStackTrace(pw);
+                        StringBuilder message = new StringBuilder();
+                        message.append("Semantic validation failed for file '").append(filepath.getFileName()).append("'\n");
+                        if (iae.getMessage() != null) {
+                            message.append(" with message: '").append(iae.getMessage()).append("'\n");
+                        }
+                        message.append("Please check your file's structure and inspect further validation messages!\n");
+                        vm.setMessage(message.toString());
                         validationResults.add(vm);
                     }
                 }
