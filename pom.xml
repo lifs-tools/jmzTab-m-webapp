@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.isas.mztab</groupId>
     <artifactId>mztab-validator-webapp</artifactId>
-    <version>1.0.23</version>
+    <version>1.0.24</version>
     <packaging>jar</packaging>
     <description>A web-based validator for mzTab format version 1.0 onwards.</description>
     <name>MzTab validator webapplication.</name>	
@@ -45,12 +45,12 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
-        <jmztab.version>3.0.4</jmztab.version>
+        <jmztab.version>3.0.9</jmztab.version>
         <jmztabm.version>1.0.4</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>2.9.2</springfox.version>
         <guava.version>27.0.1-jre</guava.version>
-        <spring.boot.version>2.1.7.RELEASE</spring.boot.version>
+        <spring.boot.version>2.2.2.RELEASE</spring.boot.version>
         <docker.image.prefix>isas</docker.image.prefix>
         <dockerfile.plugin.version>1.4.10</dockerfile.plugin.version>
         <lombok.version>1.18.4</lombok.version>
@@ -62,8 +62,8 @@
         <junit.platform.version>1.0.3</junit.platform.version>
         <swagger.version>1.5.16</swagger.version>
         <jersey.version>2.22.2</jersey.version>
-        <jackson.version>2.9.9</jackson.version>
-        <jackson.databind.version>2.9.9.2</jackson.databind.version>
+        <jackson.version>2.10.1</jackson.version>
+        <jackson.databind.version>2.10.1</jackson.databind.version>
         <jodatime.version>2.9.9</jodatime.version>
         <hibernate.validator.version>6.0.7.Final</hibernate.validator.version>
         <slf4j.version>1.7.25</slf4j.version>
@@ -269,6 +269,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.jaxrs</groupId>
@@ -687,6 +688,14 @@
             <id>jcenter-releases</id>
             <name>jcenter</name>
             <url>http://jcenter.bintray.com</url>
+        </repository>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>bintray-lifs-maven</id>
+            <name>bintray-lifs</name>
+            <url>https://dl.bintray.com/lifs/maven</url>
         </repository>
         <repository>
             <snapshots>

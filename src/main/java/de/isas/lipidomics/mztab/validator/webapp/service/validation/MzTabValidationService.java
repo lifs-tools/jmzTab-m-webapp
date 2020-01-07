@@ -264,10 +264,13 @@ public class MzTabValidationService implements ValidationService {
             try {
                 List<ValidationMessage> validationResults = new ArrayList<>();
                 status.setStatus(Status.RUNNING);
-                validationResults.addAll(
-                    validate(mzTabVersion, filepath, validationLevel,
-                        maxErrors, checkCvMapping, storageService.load(
-                            mappingFile, StorageService.SLOT.MAPPINGFILE)));
+                Path mappingFilePath = storageService.load(mappingFile, StorageService.SLOT.MAPPINGFILE);
+                if (!mappingFilePath.toFile().exists()) {
+                    throw new IOException("Semantic validation file "+mappingFilePath+" does not exist!");
+                }
+                List<ValidationMessage> messages = validate(mzTabVersion, filepath, validationLevel,
+                        maxErrors, checkCvMapping, mappingFilePath);
+                validationResults.addAll(messages);
                 tracker.stopped(userSessionFile.getSessionId(), "validation",
                     "success");
                 status.setMessages(validationResults);
@@ -287,7 +290,15 @@ public class MzTabValidationService implements ValidationService {
                     status.setMessages(Arrays.asList(mex.getError().
                         toValidationMessage()));
                 } else {
-                    throw new RuntimeException(ex);
+                    ValidationMessage vm = new ValidationMessage();
+                    vm.setCategory(
+                            ValidationMessage.CategoryEnum.CROSS_CHECK);
+                    vm.setCode("");
+                    vm.setLineNumber(-1l);
+                    vm.setMessageType(
+                            ValidationMessage.MessageTypeEnum.ERROR);
+                    vm.setMessage(ex.getMessage());
+                    status.setMessages(Arrays.asList(vm));
                 }
                 resultService.addResultFor(userSessionId, status);
                 tracker.

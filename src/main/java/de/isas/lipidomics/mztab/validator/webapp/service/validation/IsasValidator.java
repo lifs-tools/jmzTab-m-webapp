@@ -24,7 +24,6 @@ import de.isas.mztab2.io.MzTabWriterDefaults;
 import de.isas.mztab2.model.MzTab;
 import de.isas.mztab2.model.ValidationMessage;
 import de.isas.mztab2.validation.CvMappingValidator;
-import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -37,8 +36,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.JAXBException;
 import de.isas.mztab2.io.MzTabFileParser;
+import java.io.PrintWriter;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorOverflowException;
+import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorList;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
@@ -46,6 +48,7 @@ import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
  *
  * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
  */
+@Slf4j
 public class IsasValidator implements WebValidator {
 
     private final CvParameterLookupService lookupService;
@@ -56,51 +59,49 @@ public class IsasValidator implements WebValidator {
 
     @Override
     public List<ValidationMessage> validate(Path filepath,
-        String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException {
+            String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException {
         MzTabFileParser parser = null;
         List<ValidationMessage> validationResults = new ArrayList<>();
         try {
             parser = new MzTabFileParser(filepath.toFile());
-            parser.parse(
-                System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
-        } catch (MZTabErrorOverflowException ex) {
-            Logger.getLogger(IsasValidator.class.getName()).
-                log(Level.SEVERE, null, ex);
+            MZTabErrorList errorList = parser.parse(
+                    System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
+            errorList.convertToValidationMessages();
+        } catch (Exception e) {
+            log.error("Caught Exception in IsasValidator:", e);
             ValidationMessage vm = new ValidationMessage();
-            vm.setCategory(ValidationMessage.CategoryEnum.CROSS_CHECK);
+            vm.setCategory(
+                    ValidationMessage.CategoryEnum.FORMAT);
             vm.setCode("");
             vm.setLineNumber(-1l);
             vm.setMessageType(
-                ValidationMessage.MessageTypeEnum.ERROR);
-            vm.setMessage(ex.getMessage());
+                    ValidationMessage.MessageTypeEnum.ERROR);
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            vm.setMessage(e.getMessage()!=null?e.getMessage():"Caught an Exception while parsing '"+filepath.getFileName()+"'. Please check your file's tabular structure and inspect further validation messages!" + "\n" +sw.toString());
             validationResults.add(vm);
         } finally {
             if (parser != null) {
                 validationResults.addAll(parser.getErrorList().
-                    convertToValidationMessages());
+                        convertToValidationMessages());
                 if (checkCvMapping) {
                     try {
                         CvMappingValidator cvValidator = CvMappingValidator.of(
-//                            IsasValidator.class.getResource(
-//                                "/static/examples/mzTab-M-mapping.xml"),
-                            validationFile.toFile(),
-                            lookupService, checkCvMapping);
-                        validationResults.addAll(cvValidator.validate(parser.
-                            getMZTabFile()));
-                    } catch (JAXBException ex) {
-                        Logger.getLogger(IsasValidator.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                        throw new IOException(ex);
-                    } catch (IllegalArgumentException iae) {
-                        Logger.getLogger(IsasValidator.class.getName()).
-                            log(Level.SEVERE, null, iae);
+                                validationFile.toFile(),
+                                lookupService, checkCvMapping);
+                        List<ValidationMessage> messages = cvValidator.validate(parser.
+                                getMZTabFile());
+                        validationResults.addAll(Optional.ofNullable(messages).orElse(Collections.emptyList()));
+                    } catch (JAXBException | IllegalArgumentException iae) {
+                        log.error("Caught Exception in IsasValidator, semantic validation:", iae);
                         ValidationMessage vm = new ValidationMessage();
                         vm.setCategory(
-                            ValidationMessage.CategoryEnum.CROSS_CHECK);
+                                ValidationMessage.CategoryEnum.FORMAT);
                         vm.setCode("");
                         vm.setLineNumber(-1l);
                         vm.setMessageType(
-                            ValidationMessage.MessageTypeEnum.ERROR);
+                                ValidationMessage.MessageTypeEnum.ERROR);
                         vm.setMessage(iae.getMessage());
                         validationResults.add(vm);
                     }
@@ -112,11 +113,11 @@ public class IsasValidator implements WebValidator {
 
     @Override
     public Map<String, List<Map<String, String>>> parse(Path filepath,
-        String validationLevel, int maxErrors) throws IOException {
+            String validationLevel, int maxErrors) throws IOException {
         MzTabFileParser parser = new MzTabFileParser(filepath.toFile());
         try {
             parser.parse(
-                System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
+                    System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
         } finally {
             MzTab mzTabFile = parser.getMZTabFile();
             if (mzTabFile != null) {
@@ -124,27 +125,27 @@ public class IsasValidator implements WebValidator {
                 CsvMapper mapper = writerDefaults.metadataMapper();
                 CsvSchema schema = writerDefaults.metaDataSchema(mapper);
                 if (mzTabFile.getMetadata().
-                    getMzTabVersion() == null) {
+                        getMzTabVersion() == null) {
                     //set default version if not set
                     mzTabFile.getMetadata().
-                        mzTabVersion(MZTabConstants.VERSION_MZTAB_M);
+                            mzTabVersion(MZTabConstants.VERSION_MZTAB_M);
                 }
                 StringWriter writer = new StringWriter();
                 try {
                     mapper.writer(schema).
-                        writeValue(writer, mzTabFile.getMetadata());
+                            writeValue(writer, mzTabFile.getMetadata());
                 } catch (JsonProcessingException ex) {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                 }
                 Map<String, List<Map<String, String>>> mzTabLines = new LinkedHashMap<>();
                 String[] metaDataLines = writer.toString().
-                    split(MZTabConstants.NEW_LINE);
+                        split(MZTabConstants.NEW_LINE);
                 List<Map<String, String>> metaData = new ArrayList<>();
                 int lineNumber = 1;
                 for (int i = 0; i < metaDataLines.length; i++) {
                     String[] metaDataLine = metaDataLines[i].split(
-                        MZTabConstants.TAB_STRING);
+                            MZTabConstants.TAB_STRING);
                     Map<String, String> lineMap = new LinkedHashMap<>();
                     lineMap.put("LINE_NUMBER", lineNumber + "");
                     lineMap.put("PREFIX", metaDataLine[0]);
@@ -158,29 +159,29 @@ public class IsasValidator implements WebValidator {
                 mapper = writerDefaults.smallMoleculeSummaryMapper();
                 try {
                     schema = writerDefaults.
-                        smallMoleculeSummarySchema(mapper, mzTabFile);
+                            smallMoleculeSummarySchema(mapper, mzTabFile);
                     writer = new StringWriter();
                     mapper.writer(schema).
-                        writeValue(writer, mzTabFile.getSmallMoleculeSummary());
+                            writeValue(writer, mzTabFile.getSmallMoleculeSummary());
                 } catch (JsonProcessingException ex) {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
                     Logger.getLogger(IsasValidator.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }
 
                 String[] summaryDataLines = writer.toString().
-                    split(MZTabConstants.NEW_LINE);
+                        split(MZTabConstants.NEW_LINE);
                 String[] summaryHeader = summaryDataLines[0].split(
-                    MZTabConstants.TAB_STRING);
+                        MZTabConstants.TAB_STRING);
                 List<Map<String, String>> summaryData = new ArrayList<>();
                 //due to the header
                 lineNumber++;
                 for (int i = 1; i < summaryDataLines.length; i++) {
                     String[] dataLine = summaryDataLines[i].split(
-                        MZTabConstants.TAB_STRING);
+                            MZTabConstants.TAB_STRING);
                     Map<String, String> lineMap = new LinkedHashMap<>();
                     lineMap.put("LINE_NUMBER", lineNumber + "");
                     for (int j = 0; j < summaryHeader.length; j++) {
@@ -194,28 +195,28 @@ public class IsasValidator implements WebValidator {
                 mapper = writerDefaults.smallMoleculeFeatureMapper();
                 try {
                     schema = writerDefaults.
-                        smallMoleculeFeatureSchema(mapper, mzTabFile);
+                            smallMoleculeFeatureSchema(mapper, mzTabFile);
                     writer = new StringWriter();
                     mapper.writer(schema).
-                        writeValue(writer, mzTabFile.getSmallMoleculeFeature());
+                            writeValue(writer, mzTabFile.getSmallMoleculeFeature());
                 } catch (JsonProcessingException ex) {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
                     Logger.getLogger(IsasValidator.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }
                 String[] featureDataLines = writer.toString().
-                    split(MZTabConstants.NEW_LINE);
+                        split(MZTabConstants.NEW_LINE);
                 String[] featureHeader = featureDataLines[0].split(
-                    MZTabConstants.TAB_STRING);
+                        MZTabConstants.TAB_STRING);
                 List<Map<String, String>> featureData = new ArrayList<>();
                 //due to the header
                 lineNumber++;
                 for (int i = 1; i < featureDataLines.length; i++) {
                     String[] dataLine = featureDataLines[i].split(
-                        MZTabConstants.TAB_STRING);
+                            MZTabConstants.TAB_STRING);
                     Map<String, String> lineMap = new LinkedHashMap<>();
                     lineMap.put("LINE_NUMBER", lineNumber + "");
                     for (int j = 0; j < featureHeader.length; j++) {
@@ -229,28 +230,28 @@ public class IsasValidator implements WebValidator {
                 mapper = writerDefaults.smallMoleculeEvidenceMapper();
                 try {
                     schema = writerDefaults.smallMoleculeEvidenceSchema(mapper,
-                        mzTabFile);
+                            mzTabFile);
                     writer = new StringWriter();
                     mapper.writer(schema).
-                        writeValue(writer, mzTabFile.getSmallMoleculeEvidence());
+                            writeValue(writer, mzTabFile.getSmallMoleculeEvidence());
                 } catch (JsonProcessingException ex) {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
                     Logger.getLogger(IsasValidator.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                            log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }
                 String[] evidenceDataLines = writer.toString().
-                    split(MZTabConstants.NEW_LINE);
+                        split(MZTabConstants.NEW_LINE);
                 String[] evidenceHeader = evidenceDataLines[0].split(
-                    MZTabConstants.TAB_STRING);
+                        MZTabConstants.TAB_STRING);
                 List<Map<String, String>> evidenceData = new ArrayList<>();
                 //due to the header
                 lineNumber++;
                 for (int i = 1; i < evidenceDataLines.length; i++) {
                     String[] dataLine = evidenceDataLines[i].split(
-                        MZTabConstants.TAB_STRING);
+                            MZTabConstants.TAB_STRING);
                     Map<String, String> lineMap = new LinkedHashMap<>();
                     lineMap.put("LINE_NUMBER", lineNumber + "");
                     for (int j = 0; j < evidenceHeader.length; j++) {
