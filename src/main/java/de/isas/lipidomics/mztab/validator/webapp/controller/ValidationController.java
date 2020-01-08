@@ -389,6 +389,7 @@ public class ValidationController {
     public ModelAndView handleMultipartError(HttpServletRequest req,
         MultipartException exception)
         throws Exception {
+        log.error("Caught exception in controller:", exception);
         ModelAndView mav = new ModelAndView();
         mav.addObject("page", createPage("mzTabValidator"));
         mav.addObject("error", exception);
@@ -402,6 +403,7 @@ public class ValidationController {
     @ExceptionHandler(Exception.class)
     public ModelAndView handleError(HttpServletRequest req, Exception exception)
         throws Exception {
+        log.error("Caught exception in controller:", exception);
         ModelAndView mav = new ModelAndView();
         mav.addObject("page", createPage("mzTabValidator"));
         mav.addObject("error", exception);
