@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.isas.mztab</groupId>
     <artifactId>mztab-validator-webapp</artifactId>
-    <version>1.0.26</version>
+    <version>1.0.27-SNAPSHOT</version>
     <packaging>jar</packaging>
     <description>A web-based validator for mzTab format version 1.0 onwards.</description>
     <name>MzTab validator webapplication.</name>	
@@ -41,16 +41,19 @@
     
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <!--        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>-->
+        <!-- maven compile plugin settings -->
+        <maven.compiler.release>11</maven.compiler.release>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
+        <!-- spring boot specific -->
+        <java.version>11</java.version>
         <jmztab.version>3.0.9</jmztab.version>
-        <jmztabm.version>1.0.5</jmztabm.version>
+        <jmztabm.version>1.0.6-SNAPSHOT</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>2.9.2</springfox.version>
-        <guava.version>27.0.1-jre</guava.version>
-        <spring.boot.version>2.2.4.RELEASE</spring.boot.version>
+        <guava.version>29.0-jre</guava.version>
+        <spring.boot.version>2.2.6.RELEASE</spring.boot.version>
         <docker.image.prefix>isas</docker.image.prefix>
         <dockerfile.plugin.version>1.4.10</dockerfile.plugin.version>
         <lombok.version>1.18.4</lombok.version>
@@ -60,10 +63,10 @@
         <junit.jupiter.version>5.0.3</junit.jupiter.version>
         <junit.vintage.version>4.12.3</junit.vintage.version>
         <junit.platform.version>1.0.3</junit.platform.version>
-        <swagger.version>1.5.16</swagger.version>
+        <swagger.version>1.5.24</swagger.version>
         <jersey.version>2.22.2</jersey.version>
-        <jackson.version>2.10.2</jackson.version>
-        <jackson.databind.version>2.10.2</jackson.databind.version>
+        <jackson.version>2.10.3</jackson.version>
+        <jackson.databind.version>2.10.3</jackson.databind.version>
         <jodatime.version>2.9.9</jodatime.version>
         <hibernate.validator.version>6.0.7.Final</hibernate.validator.version>
         <slf4j.version>1.7.25</slf4j.version>
@@ -76,7 +79,8 @@
         <javax.activation-api.version>1.2.0</javax.activation-api.version>
         <swagger2markup.version>1.3.1</swagger2markup.version>
         <maven-plugin-version>1.0.0</maven-plugin-version>
-        <tomcat.version>9.0.30</tomcat.version>
+        <tomcat.version>9.0.34</tomcat.version>
+        <jacoco.version>0.8.5</jacoco.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
@@ -378,7 +382,7 @@
                 <plugin>
                     <groupId>org.owasp</groupId>
                     <artifactId>dependency-check-maven</artifactId>
-                    <version>5.1.0</version>
+                    <version>5.3.2</version>
                     <configuration>
                         <cveValidForHours>12</cveValidForHours>
                         <failBuildOnCVSS>4</failBuildOnCVSS>
@@ -413,22 +417,22 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
-                    <version>2.5.2</version>
+                    <version>3.0.0-M1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>2.8.2</version>
+                    <version>3.0.0-M1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.1.2</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.2.0</version>
                     <configuration>
                         <archive>
                             <manifest>
@@ -446,12 +450,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.2.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.0.1</version>
+                    <version>3.2.0</version>
                     <executions>
                         <execution>
                             <id>attach-javadocs</id>
@@ -472,15 +476,16 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.8.0</version>
+                    <version>3.8.1</version>
                     <configuration>
-                        <source>${java.version}</source>
-                        <target>${java.version}</target>
+                        <release>${java.version}</release>
+                        <!--                        <source>${java.version}</source>
+                        <target>${java.version}</target>-->
                     </configuration>
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M3</version>
+                    <version>3.0.0-M4</version>
                     <configuration>
                         <redirectTestOutputToFile>true</redirectTestOutputToFile>
                         <parallel>classes</parallel>
@@ -492,12 +497,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.2.1</version>
+                    <version>3.2.3</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>3.0.1</version>
+                    <version>3.2.1</version>
                     <executions>
                         <execution>
                             <id>attach-sources</id>
@@ -543,6 +548,37 @@
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>target/jacoco.exec</jacoco-agent.destfile>
                         </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.0.0-M3</version>
+                    <executions>
+                        <execution>
+                            <id>enforce-maven</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireMavenVersion>
+                                        <version>3.5</version>
+                                    </requireMavenVersion>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.1.0</version>
+                    <configuration>
+                        <delimiters>
+                            <delimiter>@</delimiter>
+                        </delimiters>
+                        <useDefaultDelimiters>false</useDefaultDelimiters>
                     </configuration>
                 </plugin>
             </plugins>
@@ -600,13 +636,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
-                <version>3.1.0</version>
-                <configuration>
-                    <delimiters>
-                        <delimiter>@</delimiter>
-                    </delimiters>
-                    <useDefaultDelimiters>false</useDefaultDelimiters>
-                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
@@ -643,7 +676,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>3.0.1</version>
+                        <version>3.2.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
