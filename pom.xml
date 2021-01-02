@@ -53,7 +53,7 @@
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>2.9.2</springfox.version>
         <guava.version>29.0-jre</guava.version>
-        <spring.boot.version>2.2.12.RELEASE</spring.boot.version>
+        <spring.boot.version>2.3.7.RELEASE</spring.boot.version>
         <docker.image.prefix>isas</docker.image.prefix>
         <dockerfile.plugin.version>1.4.10</dockerfile.plugin.version>
         <lombok.version>1.18.4</lombok.version>
