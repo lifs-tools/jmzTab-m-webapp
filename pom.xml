@@ -745,7 +745,7 @@
                         <executions>
                             <execution>
                                 <id>default</id>
-                                <phase>install</phase>
+                                <phase>package</phase>
                                 <goals>
                                     <goal>build</goal>
                                     <goal>tag</goal>
