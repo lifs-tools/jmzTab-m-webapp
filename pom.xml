@@ -18,9 +18,9 @@
     <developers>
         <developer>
             <name>Nils Hoffmann</name>
-            <email>nils.hoffmann@isas.de</email>
-            <organization>ISAS e.V.</organization>
-            <organizationUrl>https://www.isas.de</organizationUrl>
+            <email>nils.hoffmann@cebitec.uni-bielefelde.de</email>
+            <organization>Center For Biotechnology</organization>
+            <organizationUrl>https://cebitec.uni-bielefeld.de</organizationUrl>
             <roles>
                 <role>developer</role>
             </roles>
@@ -32,12 +32,29 @@
         <developerConnection>scm:git:ssh://github.com:lifs-tools/jmztab-m-webapp.git</developerConnection>
         <url>http://github.com/lifs-tools/jmztab-m-webapp/tree/master</url>
     </scm>
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/lifs-tools/luxscore/issues</url>
+    </issueManagement>
     <organization>
-        <name>Leibniz Institut f&uuml;r Analytische Wissenschaften - ISAS e.V.</name>
-        <url>https://www.isas.de</url>
+        <name>Lipidomics Informatics for Life Sciences</name>
+        <url>https://lifs-tools.org</url>
     </organization>
     
     <inceptionYear>2017</inceptionYear>
+    
+    <distributionManagement>
+        <repository>
+            <id>lifstools-jfrog</id>
+            <name>lifstools-release</name>
+            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-release-local</url>
+        </repository>
+        <snapshotRepository>
+            <id>lifstools-jfrog</id>
+            <name>lifstools-snapshot</name>
+            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-snapshot-local</url>
+        </snapshotRepository>
+    </distributionManagement>
     
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -54,7 +71,7 @@
         <springfox.version>2.9.2</springfox.version>
         <guava.version>29.0-jre</guava.version>
         <spring.boot.version>2.3.7.RELEASE</spring.boot.version>
-        <docker.image.prefix>isas</docker.image.prefix>
+        <docker.image.prefix>lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.10</dockerfile.plugin.version>
         <lombok.version>1.18.4</lombok.version>
         <junit.version>4.13.1</junit.version>
@@ -752,55 +769,20 @@
     </profiles>
     <repositories>
         <repository>
-            <name>Sonatype Snapshot Repository</name>
-            <id>oss-sonatype-snapshots</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>lifs-new-central</id>
+            <name>lifs-libs-release</name>
+            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-release</url>
+        </repository>
+        <repository>
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
-        </repository>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>jcenter-releases</id>
-            <name>jcenter</name>
-            <url>http://jcenter.bintray.com</url>
-        </repository>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>bintray-lifs-maven</id>
-            <name>bintray-lifs</name>
-            <url>https://dl.bintray.com/lifs/maven</url>
-        </repository>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>ebi-releases</id>
-            <name>ebi</name>
-            <url>https://www.ebi.ac.uk/Tools/maven/repos/content/groups/ebi-repo</url>
+            <id>lifs-new-snapshots</id>
+            <name>lifs-libs-snapshot</name>
+            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-snapshot</url>
         </repository>
     </repositories>
-    
-    <pluginRepositories>
-        <pluginRepository>
-            <id>oss-sonatype-snapshots</id>
-            <name>Sonatype Snapshot Repository</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots> 
-        </pluginRepository>
-        <pluginRepository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>jcenter-releases</id>
-            <name>jcenter</name>
-            <url>http://jcenter.bintray.com</url>
-        </pluginRepository>
-    </pluginRepositories>
 </project>
