@@ -1,4 +1,4 @@
-FOM openjdk:11-jre-slim
+FROM openjdk:11-jre-slim
 MAINTAINER Nils Hoffmann &lt;nils.hoffmann@cebitec.uni-bielefeld.de&gt;
 
 EXPOSE 8083
