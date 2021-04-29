@@ -4,12 +4,12 @@ Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 image:https://travis-ci.org/lifs-tools/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/lifs-tools/jmzTab-m-webapp"]
 image:https://img.shields.io/github/release/lifs-tools/jmzTab-m-webapp.svg["Latest Release", link="https://github.com/lifs-tools/jmzTab-m-webapp/releases/latest"] image:https://zenodo.org/badge/120903476.svg["DOI", link="https://zenodo.org/badge/latestdoi/120903476"]
 
-This project provides a validator implementation for the mzTab 1.0 standard and for the current draft 2.0 standard for metabolomics.
+This project provides a validator implementation for the https://github.com/HUPO-PSI/mzTab[mzTab 1.0 standard and for the current mzTab-M 2.0 standard for metabolomics].
 
 == Using the LIFS Web application
 
-The mzTab validator webapplication is hosted https://apps.lifs.isas.de/mztabvalidator[here]. 
-For programmatic usage of the validation service, the REST API description is available https://apps.lifs.isas.de/mztabvalidator/swagger-ui.html[here].
+The mzTab validator webapplication is hosted https://apps.lifs-tools.org/mztabvalidator[here]. 
+For programmatic usage of the validation service, the REST API description is available https://apps.lifs-tools.org/mztabvalidator/swagger-ui.html[here].
 
 == Building the project from the command-line
 
