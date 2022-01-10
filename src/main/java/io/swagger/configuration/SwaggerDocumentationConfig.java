@@ -1,8 +1,9 @@
 package io.swagger.configuration;
 
-import com.google.common.base.Predicates;
+import static java.util.function.Predicate.not;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import springfox.documentation.RequestHandler;
 
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -32,10 +33,10 @@ public class SwaggerDocumentationConfig {
     public Docket customImplementation(){
         return new Docket(DocumentationType.SWAGGER_2)
                 .select()
-                    .apis(Predicates.not(RequestHandlerSelectors.basePackage("org.springframework.boot")))
-                    .apis(Predicates.not(RequestHandlerSelectors.basePackage("org.springframework.cloud")))
-                    .apis(Predicates.not(RequestHandlerSelectors.basePackage("org.springframework.data.rest.webmvc")))
-                    .apis(Predicates.not(RequestHandlerSelectors.basePackage("de.isas.lipidomics.mztab.validator.webapp.controller")))
+                    .apis(not(RequestHandlerSelectors.basePackage("org.springframework.boot")))
+                    .apis(not(RequestHandlerSelectors.basePackage("org.springframework.cloud")))
+                    .apis(not(RequestHandlerSelectors.basePackage("org.springframework.data.rest.webmvc")))
+                    .apis(not(RequestHandlerSelectors.basePackage("org.lifstools.mztab.validator.webapp.controller")))
                     .apis(RequestHandlerSelectors.basePackage("de.isas.mztab2.server.api"))
                     .build()
                 .directModelSubstitute(java.time.LocalDate.class, java.sql.Date.class)
