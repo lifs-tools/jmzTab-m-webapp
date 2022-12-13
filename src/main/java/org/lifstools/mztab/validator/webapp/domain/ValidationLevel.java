@@ -17,7 +17,7 @@ package org.lifstools.mztab.validator.webapp.domain;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 public enum ValidationLevel {
     INFO, WARN, ERROR

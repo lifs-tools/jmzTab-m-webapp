@@ -18,12 +18,15 @@ package org.lifstools.mztab.validator.webapp;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.lifstools.mztab.validator.webapp.domain.AppInfo;
-import de.isas.mztab2.cvmapping.CvParameterLookupService;
+import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
+import org.lifstools.mztab2.server.config.LocalDateConverter;
+import org.lifstools.mztab2.server.config.LocalDateTimeConverter;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.LocaleResolver;
@@ -37,7 +40,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfig;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 @Configuration
 @EnableAsync
@@ -91,6 +94,12 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
         tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors()-1));
         return tpe;
+    }
+    
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addConverter(new LocalDateConverter("yyyy-MM-dd"));
+        registry.addConverter(new LocalDateTimeConverter("yyyy-MM-dd'T'HH:mm:ss.SSS"));
     }
     
     @Bean

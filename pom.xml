@@ -70,21 +70,21 @@
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>3.0.0</springfox.version>
         <guava.version>30.1.1-jre</guava.version>
-        <spring.boot.version>2.3.7.RELEASE</spring.boot.version>
+        <spring.boot.version>2.5.14</spring.boot.version>
         <docker.image.prefix>lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.13</dockerfile.plugin.version>
-        <lombok.version>1.18.22</lombok.version>
+        <lombok.version>1.18.24</lombok.version>
         <junit.version>4.13.2</junit.version>
         <hamcrest.version>1.3</hamcrest.version>
         <javax.validation.version>2.0.0.Final</javax.validation.version>
         <junit.jupiter.version>5.0.3</junit.jupiter.version>
         <junit.vintage.version>4.12.3</junit.vintage.version>
         <junit.platform.version>1.0.3</junit.platform.version>
-        <swagger.version>1.5.24</swagger.version>
+        <swagger.version>1.6.9</swagger.version>
         <jersey.version>2.22.2</jersey.version>
-        <jackson.version>2.10.5</jackson.version>
-        <jackson.databind.version>2.10.5.1</jackson.databind.version>
-        <jodatime.version>2.9.9</jodatime.version>
+        <jackson.version>2.14.1</jackson.version>
+        <jackson.databind.version>2.14.1</jackson.databind.version>
+        <jodatime.version>2.12.1</jodatime.version>
         <hibernate.validator.version>6.0.20.Final</hibernate.validator.version>
         <slf4j.version>1.7.25</slf4j.version>
         <javax.el.version>3.0.1-b09</javax.el.version>
@@ -94,12 +94,11 @@
         <jaxb.version>2.3.5</jaxb.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
         <javax.activation-api.version>1.2.0</javax.activation-api.version>
-        <swagger2markup.version>1.3.3</swagger2markup.version>
+        <swagger2markup.version>1.3.4</swagger2markup.version>
         <maven-plugin-version>1.0.0</maven-plugin-version>
-        <tomcat.version>9.0.37</tomcat.version>
-        <jacoco.version>0.8.7</jacoco.version>
-        <bootstrap.version>4.5.0</bootstrap.version>
-        <jquery.version>3.5.1</jquery.version>
+        <jacoco.version>0.8.8</jacoco.version>
+        <bootstrap.version>4.6.2</bootstrap.version>
+        <jquery.version>3.6.1</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
@@ -251,6 +250,11 @@
             <artifactId>springfox-swagger-ui</artifactId>
             <version>${springfox.version}</version>
         </dependency>
+<!--        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-ui</artifactId>
+            <version>1.6.13</version>
+        </dependency>-->
 
         <!--    <dependency>
           <groupId>com.github.joschi.jackson</groupId>
@@ -295,9 +299,10 @@
             <!-- based on mzTab specification version 1.0 -->
         </dependency>
         <dependency>
-            <groupId>de.isas.mztab</groupId>
+            <groupId>org.lifs-tools</groupId>
             <artifactId>jmztabm-io</artifactId>
             <type>jar</type>
+            <version>${jmztabm.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -318,7 +323,7 @@
         <dependency>
             <groupId>ognl</groupId>
             <artifactId>ognl</artifactId>
-            <version>3.3.0</version>
+            <version>3.3.4</version>
         </dependency>
         <dependency>
             <groupId>javax.ws.rs</groupId>
@@ -368,7 +373,7 @@
         <dependency>
             <groupId>io.swagger</groupId>
             <artifactId>swagger-models</artifactId>
-            <version>1.5.24</version>
+            <version>1.6.9</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
@@ -408,6 +413,12 @@
             <artifactId>bootstrap</artifactId>
             <version>${bootstrap.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.joschi.jackson</groupId>
+            <artifactId>jackson-datatype-threetenbp</artifactId>
+            <version>2.12.5</version>
+            <type>jar</type>
+        </dependency>
     </dependencies>
 
     <build>
@@ -422,7 +433,7 @@
                 <plugin>
                     <groupId>org.owasp</groupId>
                     <artifactId>dependency-check-maven</artifactId>
-                    <version>6.5.2</version>
+                    <version>7.3.2</version>
                     <configuration>
                         <cveValidForHours>12</cveValidForHours>
                         <failBuildOnCVSS>5</failBuildOnCVSS>
@@ -457,7 +468,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
-                    <version>3.0.0-M1</version>
+                    <version>3.1.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -467,12 +478,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>3.3.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.2.1</version>
+                    <version>3.3.0</version>
                     <configuration>
                         <archive>
                             <manifest>
@@ -490,12 +501,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
-                    <version>3.3.0</version>
+                    <version>3.4.2</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.3.1</version>
+                    <version>3.4.1</version>
                     <executions>
                         <execution>
                             <id>attach-javadocs</id>
@@ -516,7 +527,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.8.1</version>
+                    <version>3.10.1</version>
                     <configuration>
                         <release>${java.version}</release>
                         <!--                        <source>${java.version}</source>
@@ -525,7 +536,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M5</version>
+                    <version>3.0.0-M7</version>
                     <configuration>
                         <redirectTestOutputToFile>true</redirectTestOutputToFile>
                         <parallel>classes</parallel>
@@ -537,7 +548,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.2.4</version>
+                    <version>3.4.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -593,7 +604,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
-                    <version>3.0.0</version>
+                    <version>3.1.0</version>
                     <executions>
                         <execution>
                             <id>enforce-maven</id>
@@ -613,7 +624,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>3.3.0</version>
                     <configuration>
                         <delimiters>
                             <delimiter>@</delimiter>

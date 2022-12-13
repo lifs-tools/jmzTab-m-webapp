@@ -19,7 +19,7 @@ import org.lifstools.mztab.validator.webapp.domain.ToolResult;
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.domain.ValidationResult;
-import de.isas.mztab2.model.ValidationMessage;
+import org.lifstools.mztab2.model.ValidationMessage;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,7 +28,7 @@ import org.springframework.scheduling.annotation.Async;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 public interface ValidationService {
     public static enum Status {

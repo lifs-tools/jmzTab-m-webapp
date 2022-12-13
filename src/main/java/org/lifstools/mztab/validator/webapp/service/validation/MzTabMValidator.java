@@ -18,12 +18,12 @@ package org.lifstools.mztab.validator.webapp.service.validation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
-import de.isas.mztab2.cvmapping.CvParameterLookupService;
-import de.isas.mztab2.io.MzTabNonValidatingWriter;
-import de.isas.mztab2.io.MzTabWriterDefaults;
-import de.isas.mztab2.model.MzTab;
-import de.isas.mztab2.model.ValidationMessage;
-import de.isas.mztab2.validation.CvMappingValidator;
+import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
+import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
+import org.lifstools.mztab2.io.MzTabWriterDefaults;
+import org.lifstools.mztab2.model.MzTab;
+import org.lifstools.mztab2.model.ValidationMessage;
+import org.lifstools.mztab2.validation.CvMappingValidator;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.JAXBException;
-import de.isas.mztab2.io.MzTabFileParser;
+import org.lifstools.mztab2.io.MzTabFileParser;
 import java.io.PrintWriter;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -46,14 +46,14 @@ import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 @Slf4j
-public class IsasValidator implements WebValidator {
+public class MzTabMValidator implements WebValidator {
 
     private final CvParameterLookupService lookupService;
 
-    public IsasValidator(CvParameterLookupService lookupService) {
+    public MzTabMValidator(CvParameterLookupService lookupService) {
         this.lookupService = lookupService;
     }
 
@@ -181,7 +181,7 @@ public class IsasValidator implements WebValidator {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                             log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
-                    Logger.getLogger(IsasValidator.class.getName()).
+                    Logger.getLogger(MzTabMValidator.class.getName()).
                             log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }
@@ -217,7 +217,7 @@ public class IsasValidator implements WebValidator {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                             log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
-                    Logger.getLogger(IsasValidator.class.getName()).
+                    Logger.getLogger(MzTabMValidator.class.getName()).
                             log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }
@@ -252,7 +252,7 @@ public class IsasValidator implements WebValidator {
                     Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
                             log(Level.SEVERE, null, ex);
                 } catch (MZTabException ex) {
-                    Logger.getLogger(IsasValidator.class.getName()).
+                    Logger.getLogger(MzTabMValidator.class.getName()).
                             log(Level.SEVERE, null, ex);
                     throw new IOException(ex);
                 }

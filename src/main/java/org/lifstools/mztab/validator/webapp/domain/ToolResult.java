@@ -15,7 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp.domain;
 
-import de.isas.mztab2.model.ValidationMessage;
+import org.lifstools.mztab2.model.ValidationMessage;
 import java.util.ArrayList;
 import java.util.List;
 import org.lifstools.mztab.validator.webapp.service.ValidationService.Status;

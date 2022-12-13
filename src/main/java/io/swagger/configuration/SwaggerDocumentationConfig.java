@@ -37,7 +37,7 @@ public class SwaggerDocumentationConfig {
                     .apis(not(RequestHandlerSelectors.basePackage("org.springframework.cloud")))
                     .apis(not(RequestHandlerSelectors.basePackage("org.springframework.data.rest.webmvc")))
                     .apis(not(RequestHandlerSelectors.basePackage("org.lifstools.mztab.validator.webapp.controller")))
-                    .apis(RequestHandlerSelectors.basePackage("de.isas.mztab2.server.api"))
+                    .apis(RequestHandlerSelectors.basePackage("org.lifstools.mztab2.server.api"))
                     .build()
                 .directModelSubstitute(java.time.LocalDate.class, java.sql.Date.class)
                 .directModelSubstitute(java.time.OffsetDateTime.class, java.util.Date.class)

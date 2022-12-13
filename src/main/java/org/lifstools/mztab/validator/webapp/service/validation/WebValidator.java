@@ -15,7 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp.service.validation;
 
-import de.isas.mztab2.model.ValidationMessage;
+import org.lifstools.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -23,7 +23,7 @@ import java.util.Map;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 public interface WebValidator {
 

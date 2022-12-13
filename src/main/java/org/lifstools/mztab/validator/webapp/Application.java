@@ -26,12 +26,13 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
+//import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 @SpringBootApplication
 @EnableConfigurationProperties(value = {StorageProperties.class,
@@ -39,7 +40,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @EnableSwagger2
 @EnableScheduling
 @ComponentScan(basePackages = {"org.lifstools.mztab2.server.invoker",
-    "org.lifstools.mztab2.server.api", "org.lifstools.mztab", "de.isas.lipidomics.mztab",
+    "org.lifstools.mztab2.server.api", "org.lifstools.mztab", "org.lifstools.mztab2.server.config",
     "io.swagger.configuration"})
 public class Application {
 

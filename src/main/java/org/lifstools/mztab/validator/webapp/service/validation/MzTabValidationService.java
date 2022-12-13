@@ -25,8 +25,8 @@ import org.lifstools.mztab.validator.webapp.service.AnalyticsTracker;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.ToolResultService;
 import org.lifstools.mztab.validator.webapp.service.ValidationService;
-import de.isas.mztab2.cvmapping.CvParameterLookupService;
-import de.isas.mztab2.model.ValidationMessage;
+import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
+import org.lifstools.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  *
- * @author Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
+ * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 @Service
 public class MzTabValidationService implements ValidationService {
@@ -132,7 +132,7 @@ public class MzTabValidationService implements ValidationService {
                     name(),
                     maxErrors);
             case MZTAB_2_0:
-                return new IsasValidator(lookupService).parse(filepath,
+                return new MzTabMValidator(lookupService).parse(filepath,
                     validationLevel.
                         name(),
                     maxErrors);
@@ -166,7 +166,7 @@ public class MzTabValidationService implements ValidationService {
                     name(),
                     maxErrors, checkCvMapping, mappingFile);
             case MZTAB_2_0:
-                return new IsasValidator(lookupService).validate(filepath,
+                return new MzTabMValidator(lookupService).validate(filepath,
                     validationLevel.
                         name(),
                     maxErrors, checkCvMapping, mappingFile);
