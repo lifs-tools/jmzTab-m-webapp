@@ -20,8 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.lifstools.mztab.validator.webapp.domain.AppInfo;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
+import org.lifstools.mztab2.io.serialization.ParameterConverter;
 import org.lifstools.mztab2.server.config.LocalDateConverter;
 import org.lifstools.mztab2.server.config.LocalDateTimeConverter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -115,4 +117,22 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, false);
         return mapper;
     }
+    
+    @Bean
+    public OLSClient olsClient() {
+        OLSWsConfig config = new OLSWsConfig();
+        OLSClient client = new OLSClient(config);
+        return client;
+    }
+
+    @Bean
+    public CvParameterLookupService cvParameterLookupService(@Autowired OLSClient client) {
+        return new CvParameterLookupService(client);
+    }
+
+    @Bean
+    public ParameterConverter parameterConverter() {
+        return new ParameterConverter();
+    }
+
 }

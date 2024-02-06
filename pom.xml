@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lifs-tools</groupId>
     <artifactId>mztab-validator-webapp</artifactId>
-    <version>1.0.29-SNAPSHOT</version>
+    <version>1.0.30-SNAPSHOT</version>
     <packaging>jar</packaging>
     <description>A web-based validator for mzTab format version 1.0 onwards.</description>
     <name>MzTab validator webapplication.</name>	
@@ -47,12 +47,12 @@
         <repository>
             <id>lifstools-jfrog</id>
             <name>lifstools-release</name>
-            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-release-local</url>
+            <url>https://m.lifs-tools.org/artifactory/libs-release-local</url>
         </repository>
         <snapshotRepository>
             <id>lifstools-jfrog</id>
             <name>lifstools-snapshot</name>
-            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-snapshot-local</url>
+            <url>https://m.lifs-tools.org/artifactory/libs-snapshot-local</url>
         </snapshotRepository>
     </distributionManagement>
     
@@ -71,8 +71,10 @@
         <springfox.version>3.0.0</springfox.version>
         <guava.version>30.1.1-jre</guava.version>
         <spring.boot.version>2.5.14</spring.boot.version>
-        <docker.image.prefix>lifs</docker.image.prefix>
+        <docker.image.prefix>docker.lifs-tools.org/lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.13</dockerfile.plugin.version>
+        <docker.base.image>azul/zulu-openjdk-alpine</docker.base.image>
+        <docker.base.image.version>17-jre-headless-latest</docker.base.image.version>
         <lombok.version>1.18.24</lombok.version>
         <junit.version>4.13.2</junit.version>
         <hamcrest.version>1.3</hamcrest.version>
@@ -240,21 +242,21 @@
             <!--<version>${spring.boot.version}</version>-->
         </dependency>
         <!--SpringFox dependencies -->
-        <dependency>
+<!--        <dependency>
             <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger2</artifactId>
+            <artifactId>springfox-boot-starter</artifactId>
             <version>${springfox.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+<!--        <dependency>
             <groupId>io.springfox</groupId>
             <artifactId>springfox-swagger-ui</artifactId>
             <version>${springfox.version}</version>
-        </dependency>
-<!--        <dependency>
+        </dependency>-->
+        <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-ui</artifactId>
-            <version>1.6.13</version>
-        </dependency>-->
+            <version>1.6.14</version>
+        </dependency>
 
         <!--    <dependency>
           <groupId>com.github.joschi.jackson</groupId>
@@ -749,6 +751,36 @@
             <build>
                 <plugins>
                     <plugin>
+                        <groupId>com.google.cloud.tools</groupId>
+                        <artifactId>jib-maven-plugin</artifactId>
+                        <version>3.4.0</version>
+                        <configuration>
+                            <from>
+                                <image>${docker.base.image}:${docker.base.image.version}</image>
+                            </from>
+                            <to>
+                                <image>${docker.image.prefix}/${project.artifactId}</image>
+                                <tags>
+                                    <tag>${project.version}</tag> 
+                                </tags>
+                            </to>
+                            <container>
+                                <jvmFlags>
+                                    <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+                                </jvmFlags>
+                                <ports>
+                                    <port>8083</port>
+                                </ports>
+                                <volumes>
+                                    <volume>/tmp</volume>
+                                </volumes>
+                                <!--<user>1000:1000</user>-->
+                                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                            </container>
+                            <allowInsecureRegistries>false</allowInsecureRegistries>
+                        </configuration>
+                    </plugin>
+<!--                    <plugin>
                         <groupId>com.spotify</groupId>
                         <artifactId>dockerfile-maven-plugin</artifactId>
                         <version>${dockerfile.plugin.version}</version>
@@ -772,7 +804,7 @@
                                 <APP_NAME>${app.name}</APP_NAME>
                             </buildArgs>
                         </configuration>
-                    </plugin>
+                    </plugin>-->
                 </plugins>
             </build>
         </profile>
@@ -782,17 +814,17 @@
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
-            <id>lifs-new-central</id>
-            <name>lifs-libs-release</name>
-            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-release</url>
+            <id>artifactory-releases</id>
+            <name>lifs-release</name>
+            <url>https://m.lifs-tools.org/artifactory/libs-release</url>
         </repository>
         <repository>
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
-            <id>lifs-new-snapshots</id>
-            <name>lifs-libs-snapshot</name>
-            <url>https://lifstools.jfrog.io/artifactory/lifs-libs-snapshot</url>
+            <id>artifactory-snapshots</id>
+            <name>libs-snapshot</name>
+            <url>https://m.lifs-tools.org/artifactory/libs-snapshot</url>
         </repository>
         <repository>
             <snapshots>

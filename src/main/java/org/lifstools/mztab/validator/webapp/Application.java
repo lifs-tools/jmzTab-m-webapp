@@ -26,7 +26,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 //import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
@@ -37,7 +36,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @SpringBootApplication
 @EnableConfigurationProperties(value = {StorageProperties.class,
     ExampleFileConfig.class})
-@EnableSwagger2
+//@EnableSwagger2
 @EnableScheduling
 @ComponentScan(basePackages = {"org.lifstools.mztab2.server.invoker",
     "org.lifstools.mztab2.server.api", "org.lifstools.mztab", "org.lifstools.mztab2.server.config",

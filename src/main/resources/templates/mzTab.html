@@ -1,0 +1,370 @@
+<!DOCTYPE HTML>
+<html html-lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+    <head>
+    <th:block th:include="fragments/html-head :: html-head"></th:block>
+</head>
+<body>
+    <div class="container">
+
+        <div class="row">
+
+            <div class="container">
+                <th:block th:include="fragments/nav :: nav"></th:block>
+                <main role="main" class="my-3">
+                    <form>
+			<h4>Quantification Method (single select)</h4>
+                        <div class="typeahead__container">
+                            <div class="typeahead__field">
+                                <div class="typeahead__query">
+                                    <input id="single-typeahead"
+                                           name="q"
+                                           type="search"
+                                           autocomplete="off">
+                                </div>
+                                <div class="typeahead__button">
+                                    <button type="submit">
+                                        <span class="typeahead__search-icon"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <input id="single-out" type="text"></input>
+                        </div>
+                    </form>
+                    <form>
+			<h4>Quantification Method (multi select)</h4>
+                        <div class="typeahead__container">
+                            <div class="typeahead__field">
+                                <div class="typeahead__query">
+                                    <input id="multi-typeahead"
+                                           name="q"
+                                           type="search"
+                                           autocomplete="off">
+                                </div>
+                                <div class="typeahead__button">
+                                    <button type="submit">
+                                        <span class="typeahead__search-icon"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <input id="multi-out" type="text"></input>
+                        </div>
+                    </form>
+                    <form id="mzTabEditForm" class="needs-validation" method="POST" enctype="multipart/form-data"  action="/mztab" th:action="@{'/mztab/'+${sessionId}}" th:object="${mzTab}"> 
+
+                        <div class="card my-2" th:if="${#fields.hasGlobalErrors() || #fields.hasAnyErrors()}">
+                            <div class="card-header">Validation Errors</div>
+                            <div class="card-body">
+                                <div th:each="e : ${#fields.detailedErrors()}" class="alert alert-danger my-2" role="alert">
+                                    <h4 class="alert-heading" th:text="${e.global}? '*' : ${e.fieldName}">The field name</h4>
+                                    <p th:text="${e.message}">The error message</p>
+                                    <!--<div th:text="${e}"></div>-->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#metadataSection" aria-expanded="true" aria-controls="metadataSection">
+                                    Metadata Section
+                                </button>
+                                <span th:if="${mzTab!=null && mzTab.metadata==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+
+                            <div class="card-body collapse show" style="overflow:scroll" id="metadataSection">
+                                <div th:if="${mzTab!=null && mzTab.metadata==null}" class="alert alert-danger" role="alert">
+                                    <strong>Metadata missing!</strong> Your file does not contain a metadata section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.metadata==null}">
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-general" aria-expanded="true" aria-controls="mtd-general">
+                                                General Information
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse show" style="overflow:scroll" id="mtd-general">
+                                            <div class="form-row" th:each="mtdProp : ${metadataGeneralProperties}">
+                                                <div class="col-sm-2">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-10" th:if="${mtdProp.name()!='prefix' && mtdProp.name()!='contact' && mtdProp.name()!='description'}">
+                                                    <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__'))} ? is-invalid"/>
+                                                    <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}" th:id="error-metadata.__${mtdProp.name()}__" class="help-block invalid-feedback"></span>
+                                                    <!--<input th:type="hidden" th:field="*{metadata?.__${mtdProp.name()}__}" th:value="${metadata?.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                                <div class="col-sm-10" th:if="${mtdProp.name()=='description'}">
+                                                    <textarea th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" form="mzTabEditForm" th:field="*{metadata.__${mtdProp.name()}__}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__'))} ? is-invalid"/>
+                                                    <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}" th:id="error-metadata.__${mtdProp.name()}__" class="help-block invalid-feedback"></span>
+                                                    <!--<input th:type="hidden" th:field="*{metadata?.__${mtdProp.name()}__}" th:value="${metadata?.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                                <ol class="col-sm-10" th:if="${mtdProp.name()=='contact'}">
+                                                    <li th:each="contactItem, itemStat : *{metadata.contact}">
+                                                        <!-- name -->
+                                                        <div class="form-row">
+                                                            <label th:for="${contactItem.name}" class="col-form-label-sm col-sm-2" th:text="name">name</label><input th:id="contactItem.name" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.contact[__${itemStat.index}__].name}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.contact[__${itemStat.index}__].name'))} ? is-invalid"/>
+                                                            <span th:if="${#fields.hasErrors('metadata.contact[__${itemStat.index}__].name')}" th:errors="*{metadata.contact[__${itemStat.index}__].name" th:id="error-metadata.metadata.contact[__${itemStat.index}__].name" class="help-block invalid-feedback"></span>
+                                                        </div>
+                                                        <!-- email -->
+                                                        <div class="form-row">
+                                                            <label th:for="${contactItem.email}" class="col-form-label-sm col-sm-2" th:text="email">email</label><input th:id="contactItem.email" class="col-sm-10 no-gutters form-control form-control-sm" type="email" th:field="*{metadata.contact[__${itemStat.index}__].email}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.contact[__${itemStat.index}__].email'))} ? is-invalid"/>
+                                                            <span th:if="${#fields.hasErrors('metadata.contact[__${itemStat.index}__].email')}" th:errors="*{metadata.contact[__${itemStat.index}__].email" th:id="error-metadata.metadata.contact[__${itemStat.index}__].email" class="help-block invalid-feedback"></span>
+                                                        </div>
+                                                        <!-- Affiliation -->
+                                                        <div class="form-row">
+                                                            <label th:for="${contactItem.affiliation}" class="col-form-label-sm col-sm-2" th:text="affiliation">Affiliation</label><input th:id="contactItem.affiliation" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.contact[__${itemStat.index}__].affiliation}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.contact[__${itemStat.index}__].affiliation'))} ? is-invalid"/>
+                                                            <span th:if="${#fields.hasErrors('metadata.contact[__${itemStat.index}__].affiliation')}" th:errors="*{metadata.contact[__${itemStat.index}__].affiliation" th:id="error-metadata.metadata.contact[__${itemStat.index}__].affiliation" class="help-block invalid-feedback"></span>
+                                                        </div>
+                                                    </li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-study-props" aria-expanded="true" aria-controls="mtd-study-props">
+                                                Study Information
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse" style="overflow:scroll" id="mtd-study-props">
+                                            <div class="form-row" th:each="mtdProp : ${metadataStudyProperties}">
+                                                <div class="col-sm-5">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp.toString()+' (Property: '+mtdProp.name()+')'}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp.name()=='uri'}">
+                                                    <ol class="col-sm-10">
+                                                        <li th:each="uriItem, itemStat : *{metadata.uri}">
+                                                            <!-- name -->
+                                                            <div class="form-row">
+                                                                <label th:for="${'uri'+itemStat.index}" class="col-form-label-sm col-sm-2" th:text="uriItem">name</label>
+                                                                <input th:id="${'uri'+itemStat.index}" class="col-sm-10 no-gutters form-control form-control-sm" type="url" th:field="*{metadata.uri[__${itemStat.index}__]}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.uri[__${itemStat.index}__]'))} ? is-invalid"/>
+                                                                <span th:if="${#fields.hasErrors('metadata.uri[__${itemStat.index}__]')}" th:errors="*{metadata.uri[__${itemStat.index}__]" th:id="error-metadata.metadata.uri[__${itemStat.index}__]" class="help-block invalid-feedback"></span>
+                                                            </div>
+                                                        </li>
+                                                    </ol>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp.name()=='externalStudyUri'}">
+                                                    <ol class="col-sm-10">
+                                                        <li th:each="extUriItem, itemStat : *{metadata.externalStudyUri}">
+                                                            <!-- name -->
+                                                            <div class="form-row">
+                                                                <label th:for="${'external_study_uri'+itemStat.index}" class="col-form-label-sm col-sm-2" th:text="extUriItem">name</label>
+                                                                <input th:id="${'external_study_uri'+itemStat.index}" class="col-sm-10 no-gutters form-control form-control-sm" type="url" th:field="*{metadata.externalStudyUri[__${itemStat.index}__]}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.externalStudyUri[__${itemStat.index}__]'))} ? is-invalid"/>
+                                                                <span th:if="${#fields.hasErrors('metadata.externalStudyUri[__${itemStat.index}__]')}" th:errors="*{metadata.externalStudyUri[__${itemStat.index}__]" th:id="error-metadata.metadata.externalStudyUri[__${itemStat.index}__]" class="help-block invalid-feedback"></span>
+                                                            </div>
+                                                        </li>
+                                                    </ol>
+                                                </div>
+                                                <!-- mtdProp.name()!='smallMoleculeQuantificationUnit' && mtdProp.name()!='smallMoleculeFeatureQuantificationUnit' && mtdProp.name()!='smallMoleculeFeatureIdentificationReliability' -->
+
+                                                <div class="form-row col-sm-7" th:if="${mtdProp.name()=='smallMoleculeQuantificationUnit' || mtdProp.name()=='smallMoleculeFeatureQuantificationUnit' || mtdProp.name()=='smallMoleculeIdentificationReliability'}">
+                                                    <!-- id(1).name("no database").value(null)).version("Unknown").uri(null) -->
+                                                    <div class="form-row col-sm-12">
+                                                        <label th:for="${'metadata.'+mtdProp.name()+'.'+cvLabel}" class="col-form-label-sm col-sm-2" th:text="cvLabel">name</label><input th:id="item.cvLabel" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__.cvLabel}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__.cvLabel'))} ? is-invalid"/>
+                                                        <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__.cvLabel')}" th:errors="*{metadata.__${mtdProp.name()}__.cvLabel}" th:id="error-metadata.metadata.__${mtdProp.name()}__.cvLabel" class="help-block invalid-feedback"></span>
+                                                    </div>
+                                                    <div class="form-row col-sm-12">
+                                                        <label th:for="${'metadata.'+mtdProp.name()+'.'+cvAccession}" class="col-form-label-sm col-sm-2" th:text="cvAccession">name</label><input th:id="item.cvAccession" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__.cvAccession}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__.cvAccession'))} ? is-invalid"/>
+                                                        <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__.cvAccession')}" th:errors="*{metadata.__${mtdProp.name()}__.cvAccession}" th:id="error-metadata.metadata.__${mtdProp.name()}__.cvAccession" class="help-block invalid-feedback"></span>
+                                                    </div>
+                                                    <div class="form-row col-sm-12">
+                                                        <label th:for="${'metadata.'+mtdProp.name()+'.'+name}" class="col-form-label-sm col-sm-2" th:text="name">name</label><input th:id="item.name" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__.name}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__.name'))} ? is-invalid"/>
+                                                        <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__.name')}" th:errors="*{metadata.__${mtdProp.name()}__.name}" th:id="error-metadata.metadata.metadata.__${mtdProp.name()}__.name" class="help-block invalid-feedback"></span>
+                                                    </div>
+                                                    <div class="form-row col-sm-12">
+                                                        <label th:for="${'metadata.'+mtdProp.name()+'.'+value}" class="col-form-label-sm col-sm-2" th:text="value">name</label><input th:id="item.value" class="col-sm-10 no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__.value}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__.value'))} ? is-invalid"/>
+                                                        <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__.value')}" th:errors="*{metadata.__${mtdProp.name()}__.value}" th:id="error-metadata.metadata.metadata.__${mtdProp.name()}__.value" class="help-block invalid-feedback"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-7" th:if="${mtdProp.name()!='prefix' && mtdProp.name()!='uri' && mtdProp.name()!='externalStudyUri' && mtdProp.name()!='smallMoleculeQuantificationUnit' && mtdProp.name()!='smallMoleculeFeatureQuantificationUnit' && mtdProp.name()!='smallMoleculeIdentificationReliability'}">
+                                                    <input th:id="${'metadata.'+mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__'))} ? is-invalid"/>
+                                                    <!--<input th:type="hidden" th:field="*{metadata.__${mtdProp.name()}__}" th:value="${metadata.__${mtdProp.name()}__}"/>-->
+                                                    <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}" th:id="error-metadata.__${mtdProp.name()}__" class="help-block invalid-feedback"></span>
+                                                    <!--<div class="col-sm-12 invalid-feedback" <p th:each="error: ${#fields.errors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}">Field Error</div>-->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card my-2">
+                                        <div class="card-header">
+                                            <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#mtd-definitions-props" aria-expanded="true" aria-controls="mtd-definitions-props">
+                                                Definitions
+                                            </button>
+                                        </div>
+                                        <div class="card-body collapse" style="overflow:scroll" id="mtd-definitions-props">
+                                            <div class="form-row" th:each="mtdProp : ${metadataDefinitionsProperties}">
+                                                <div class="col-sm-3">
+                                                    <label th:for="${mtdProp.name()}" class="col-form-label-sm" th:text="${mtdProp}">mzTab ID</label>
+                                                </div>
+                                                <div class="col-sm-9" th:if="${mtdProp.name()=='cv'}">
+                                                    <div th:include="fragments/mztab-metadata::cv-form (propName=${mtdProp.name()}, metadata=${metadata})"></div>
+                                                </div>
+                                                <div class="col-sm-9" th:if="${mtdProp.name()=='database'}">
+                                                    <div th:include="fragments/mztab-metadata::db-form (propName=${mtdProp.name()}, metadata=${metadata})"></div>
+                                                </div>
+                                                <!-- mtdProp.name()!='colunitSmallMolecule' && mtdProp.name()!='colunitSmallMoleculeFeature' && mtdProp.name()!='colunitSmallMoleculeEvidence' -->
+                                                <div class="col-sm-9" th:if="${mtdProp.name()=='colunitSmallMolecule'}">
+                                                    <div th:include="fragments/mztab-metadata::colunit-form (propName=${mtdProp.name()}, metadata=${metadata})"></div>
+                                                </div>
+                                                <div class="col-sm-9" th:if="${mtdProp.name()!='prefix' && mtdProp.name()!='cv' && mtdProp.name()!='database' && mtdProp.name()!='colunitSmallMolecule' && mtdProp.name()!='colunitSmallMoleculeFeature' && mtdProp.name()!='colunitSmallMoleculeEvidence'}">
+                                                    <input th:id="${mtdProp.name()}" class="no-gutters form-control form-control-sm" type="text" th:field="*{metadata.__${mtdProp.name()}__}" th:classappend="${not #lists.isEmpty(#fields.errors('metadata.__${mtdProp.name()}__'))} ? is-invalid"/>
+                                                    <span th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}" th:id="error-metadata.__${mtdProp.name()}__" class="help-block invalid-feedback"></span>
+                                                    <!--<input th:type="hidden" th:field="*{metadata.__${mtdProp.name()}__}" th:value="${metadata.__${mtdProp.name()}__}"/>-->
+                                                </div>
+                                                <!--<div class="col-sm-12 invalid-feedback" th:if="${#fields.hasErrors('metadata.__${mtdProp.name()}__')}" th:errors="*{metadata.__${mtdProp.name()}__}">Field Error</div>-->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smlSection" aria-expanded="true" aria-controls="smlSection">
+                                    Small Molecule Summary
+                                </button><span th:if="${smallMoleculeSummary==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smlSection">
+                                <div th:if="${smallMoleculeSummary==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Summary missing!</strong> Your file does not contain a SML section or it could not be parsed.
+                                </div>
+                                <div th:unless="${smallMoleculeSummary==null}">
+                                    <table id="smlTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                        <th:block th:each="smlProp : ${smlProperties}">
+                                            <th:block th:switch="${smlProp.propertyName}">
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <th th:each="assay : ${mzTab.metadata.assay}" th:text="|${smlProp.propertyName}[${assay.id}]|" scope="col"></th>
+                                                </th:block>
+                                                <th th:case="'opt'" scope="col" th:text="${smlProp.propertyName}"></th>
+                                                <th th:case="*" scope="col" th:text="${smlProp.propertyName}"></th>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="sml : ${mzTab.smallMoleculeSummary}">
+                                        <th:block th:each="smlProp : ${smlProperties}">
+                                            <th:block th:switch="${smlProp.propertyName}">
+                                                <th:block th:case="'sml_id_refs'" scope="col">
+                                                    <td th:text="${#strings.listJoin(sml.__${smlProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <td th:each="assay : ${sml.abundanceAssay}" th:text="${assay}">ABUNDANCE_ASSAY</td>
+                                                </th:block>
+                                                <td th:case="opt" th:text="${sml.__${smlProp.name()}__}">OPT</td>
+                                                <th:block th:case="'comment'" scope="col">
+                                                    <td th:text="${#strings.listJoin(sml.__${smlProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <td th:case="*" th:text="${sml.__${smlProp.name()}__}">String</td>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smfSection" aria-expanded="true" aria-controls="smfSection">
+                                    Small Molecule Features
+                                </button><span th:if="${mzTab!=null && mzTab.smallMoleculeFeature==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smfSection">
+                                <div th:if="${mzTab!=null && mzTab.smallMoleculeFeature==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Feature missing!</strong> Your file does not contain a SMF section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.smallMoleculeFeature==null}">
+                                    <table id="smfTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                        <th:block th:each="smfProp : ${smfProperties}">
+                                            <th:block th:switch="${smfProp.propertyName}">
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <th th:each="assay : ${mzTab.metadata.assay}" th:text="|${smfProp.propertyName}[${assay.id}]|" scope="col"></th>
+                                                </th:block>
+                                                <th th:case="'opt'" scope="col" th:text="${smfProp.propertyName}"></th>
+                                                <th th:case="*" scope="col" th:text="${smfProp.propertyName}"></th>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="smf : ${mzTab.smallMoleculeFeature}">
+                                        <th:block th:each="smfProp : ${smfProperties}">
+                                            <th:block th:switch="${smfProp.propertyName}">
+                                                <th:block th:case="'smf_id_refs'" scope="col">
+                                                    <td th:text="${#strings.listJoin(smf.__${smfProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <th:block th:case="'abundance_assay'" scope="col">
+                                                    <td th:each="assay : ${smf.abundanceAssay}" th:text="${assay}">ABUNDANCE_ASSAY</td>
+                                                </th:block>
+                                                <td th:case="opt" th:text="${smf.__${smfProp.name()}__}">OPT</td>
+                                                <th:block th:case="'comment'" scope="col">
+                                                    <td th:text="${#strings.listJoin(smf.__${smfProp.name()}__, '|')}" scope="col"></td>
+                                                </th:block>
+                                                <td th:case="*" th:text="${smf.__${smfProp.name()}__}">String</td>
+                                            </th:block>
+                                        </th:block>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-header">
+                                <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#smeSection" aria-expanded="true" aria-controls="smeSection">
+                                    Small Molecule Evidence
+                                </button><span th:if="${mzTab!=null && mzTab.smallMoleculeEvidence==null}" class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                            </div>
+                            <div class="card-body collapse" style="overflow:scroll" id="smeSection">
+                                <div th:if="${mzTab!=null && mzTab.smallMoleculeEvidence==null}" class="alert alert-danger" role="alert">
+                                    <strong>Small Molecule Evidence missing!</strong> Your file does not contain a SME section or it could not be parsed.
+                                </div>
+                                <div th:unless="${mzTab==null || mzTab.smallMoleculeEvidence==null}">
+                                    <table id="smeTable" class="table table-striped table-hover pt-1 px-0" width="100%">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th th:each="smeProp : ${smeProperties}" scope="col" th:text="${smeProp}"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="sme : ${mzTab.smallMoleculeEvidence}">
+                                                <td th:each="smeProp : ${smeProperties}" th:text="${sme.__${smeProp.name()}__}"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card my-2">
+                            <div class="card-body">
+                                <button id="validate-created" type="submit" class="btn btn-primary">Validate</button>
+                                <a class="btn btn-success" th:href="@{'/mztab/'+${sessionId}+'/file'}" href="#">Download</a>
+                            </div>
+                        </div>
+                    </form>
+                    <!--<th:block th:include="fragments/validation-result :: validation-result"></th:block>-->
+                    <!--          <th:block th:if="${validationVersion.name()=='MZTAB_2_0' and status.name() == 'FINISHED' or status.name() =='FAILED'}"> validationVersion=='MZTAB_2_0'
+                                <th:block th:include="fragments/mztab-metadata :: mztab-metadata"></th:block>
+                                <th:block th:include="fragments/mztab-summary :: mztab-summary"></th:block>
+                                <th:block th:include="fragments/mztab-features :: mztab-features"></th:block>
+                                <th:block th:include="fragments/mztab-evidence :: mztab-evidence"></th:block>
+                              </th:block>-->
+                </main>
+
+                <th:block th:include="fragments/footer :: footer"></th:block>
+
+            </div>
+
+        </div>
+
+    </div>
+<th:block th:include="fragments/script-footer :: script-footer"></th:block>
+</body>
+</html>

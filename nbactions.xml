@@ -7,4 +7,21 @@
                 <goal>spring-boot:run</goal>
             </goals>
         </action>
+        <action>
+            <actionName>CUSTOM-Spring Boot Run</actionName>
+            <displayName>Spring Boot Run</displayName>
+            <goals>
+                <goal>spring-boot:run</goal>
+            </goals>
+        </action>
+        <action>
+            <actionName>CUSTOM-Spring Boot Run Dev</actionName>
+            <displayName>Spring Boot Run Dev</displayName>
+            <goals>
+                <goal>spring-boot:run</goal>
+            </goals>
+            <activatedProfiles>
+                <activatedProfile>dev</activatedProfile>
+            </activatedProfiles>
+        </action>
     </actions>

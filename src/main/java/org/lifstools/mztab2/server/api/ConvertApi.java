@@ -6,22 +6,19 @@
 package org.lifstools.mztab2.server.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.*;
+import io.swagger.v3.oas.annotations.*;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.io.IOException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
-import javax.validation.constraints.*;
-import java.util.List;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 import org.lifstools.mztab2.model.MzTab;
@@ -31,8 +28,8 @@ import org.springframework.http.HttpStatus;
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2022-12-02T17:14:56.294Z")
 
 @Validated
-@Api(value = "convert", description = "the convert API")
-@RequestMapping(value = "/mztabvalidator/rest/v2/")
+@io.swagger.v3.oas.annotations.tags.Tag(name="convert", description = "the convert API")
+@RequestMapping(value = "/rest/v2/")
 public interface ConvertApi {
     
     Logger log = LoggerFactory.getLogger(ConvertApi.class);
@@ -51,17 +48,17 @@ public interface ConvertApi {
                 r.getHeader("Accept"));
     }
     
-    @ApiOperation(value = "", nickname = "convertMzTabFile", notes = "Converts an mzTab file in JSON or XML format to the tab-separated representation. If this method returns an error code 422, the provided file did not pass validation. ", response = String.class, tags={ "convert", })
+    @io.swagger.v3.oas.annotations.Operation(summary = "convertMzTabFile", description = "Converts an mzTab file in JSON or XML format to the tab-separated representation. If this method returns an error code 422, the provided file did not pass validation. ", tags={ "convert"})
     @ApiResponses(value = { 
-        @ApiResponse(code = 200, message = "Conversion Okay", response = String.class),
-        @ApiResponse(code = 415, message = "Unsupported content type"),
-        @ApiResponse(code = 422, message = "Invalid input"),
-        @ApiResponse(code = 200, message = "Unexpected error") })
+        @ApiResponse(responseCode = "200", description ="Conversion Okay", content = @Content(schema = @Schema(type = "string"))),
+        @ApiResponse(responseCode = "415", description ="Unsupported content type"),
+        @ApiResponse(responseCode = "422", description ="Invalid input"),
+        @ApiResponse(responseCode = "200", description ="Unexpected error") })
     @RequestMapping(value = "/convert",
         produces = { "application/json" }, 
         consumes = { "text/tab-separated-values", "text/plain" },
         method = RequestMethod.POST)
-    default ResponseEntity<String> convertMzTabFile(@ApiParam(value = "mzTab file that should be validated." ,required=true )  @Valid @RequestBody MzTab mztabfile) {
+    default ResponseEntity<String> convertMzTabFile(@Parameter(description = "mzTab file that should be validated." ,required=true )  @Valid @RequestBody MzTab mztabfile) {
         String accept = getAcceptHeader().get();
         if (accept != null && accept.contains("application/json")) {
             try {

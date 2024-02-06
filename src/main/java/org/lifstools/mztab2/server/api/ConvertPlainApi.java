@@ -6,8 +6,12 @@
 package org.lifstools.mztab2.server.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.lifstools.mztab2.model.MzTab;
-import io.swagger.annotations.*;
 import java.io.IOException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -24,8 +28,8 @@ import org.springframework.http.HttpStatus;
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2022-12-02T17:14:56.294Z")
 
 @Validated
-@Api(value = "convertPlain", description = "the convertPlain API")
-@RequestMapping(value = "/mztabvalidator/rest/v2/")
+@io.swagger.v3.oas.annotations.tags.Tag(name="convert", description = "the convertPlain API")
+@RequestMapping(value = "/rest/v2/")
 public interface ConvertPlainApi {
 
     Logger log = LoggerFactory.getLogger(ConvertPlainApi.class);
@@ -44,17 +48,18 @@ public interface ConvertPlainApi {
                 r.getHeader("Accept"));
     }
     
-    @ApiOperation(value = "", nickname = "convertPlainMzTabFile", notes = "Converts an mzTab file in tab separated format to XML or JSON representation. If this method returns an error code 422, the provided file did not pass validation. ", response = MzTab.class, tags={ "convertPlain", })
+    @io.swagger.v3.oas.annotations.Operation(summary = "convertPlainMzTabFile", description = "Converts an mzTab file in tab separated format to XML or JSON representation. If this method returns an error code 422, the provided file did not pass validation. ", tags={ "convertPlain"})
+//    @ApiOperation(value = "", nickname = "convertPlainMzTabFile", notes = "Converts an mzTab file in tab separated format to XML or JSON representation. If this method returns an error code 422, the provided file did not pass validation. ", response = MzTab.class, tags={ "convertPlain", })
     @ApiResponses(value = { 
-        @ApiResponse(code = 200, message = "Conversion Okay", response = MzTab.class),
-        @ApiResponse(code = 415, message = "Unsupported content type"),
-        @ApiResponse(code = 422, message = "Invalid input"),
-        @ApiResponse(code = 200, message = "Unexpected error") })
+        @ApiResponse(responseCode ="200", description ="Conversion Okay", content = @Content(schema = @Schema(implementation = MzTab.class))),
+        @ApiResponse(responseCode ="415", description ="Unsupported content type"),
+        @ApiResponse(responseCode ="422", description ="Invalid input"),
+        @ApiResponse(responseCode ="200", description ="Unexpected error") })
     @RequestMapping(value = "/convertPlain",
         produces = { "text/tab-separated-values" }, 
         consumes = { "application/json", "application/xml" },
         method = RequestMethod.POST)
-    default ResponseEntity<MzTab> convertPlainMzTabFile(@ApiParam(value = "mzTab file that should be converted." ,required=true )  @Valid @RequestBody String mztabfile) {
+    default ResponseEntity<MzTab> convertPlainMzTabFile(@Parameter(description = "mzTab file that should be converted." ,required=true )  @Valid @RequestBody String mztabfile) {
         String accept = getAcceptHeader().get();
         if (accept != null && accept.contains("")) {
             try {
