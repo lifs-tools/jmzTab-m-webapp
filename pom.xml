@@ -242,12 +242,12 @@
             <!--<version>${spring.boot.version}</version>-->
         </dependency>
         <!--SpringFox dependencies -->
-<!--        <dependency>
+        <!--        <dependency>
             <groupId>io.springfox</groupId>
             <artifactId>springfox-boot-starter</artifactId>
             <version>${springfox.version}</version>
         </dependency>-->
-<!--        <dependency>
+        <!--        <dependency>
             <groupId>io.springfox</groupId>
             <artifactId>springfox-swagger-ui</artifactId>
             <version>${springfox.version}</version>
@@ -393,7 +393,7 @@
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-annotations-api</artifactId>
         </dependency>
-<!--        <dependency>
+        <!--        <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
         </dependency>
@@ -634,6 +634,45 @@
                         <useDefaultDelimiters>false</useDefaultDelimiters>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>build</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <from>
+                            <image>${docker.base.image}:${docker.base.image.version}</image>
+                        </from>
+                        <to>
+                            <image>${docker.image.prefix}/${project.artifactId}</image>
+                            <tags>
+                                <tag>${project.version}</tag> 
+                            </tags>
+                        </to>
+                        <container>
+                            <jvmFlags>
+                                <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+                            </jvmFlags>
+                            <ports>
+                                <port>8083</port>
+                            </ports>
+                            <volumes>
+                                <volume>/tmp</volume>
+                            </volumes>
+                            <!--<user>1000:1000</user>-->
+                            <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                        </container>
+                        <allowInsecureRegistries>false</allowInsecureRegistries>
+                        <skip>true</skip>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -753,34 +792,11 @@
                     <plugin>
                         <groupId>com.google.cloud.tools</groupId>
                         <artifactId>jib-maven-plugin</artifactId>
-                        <version>3.4.0</version>
                         <configuration>
-                            <from>
-                                <image>${docker.base.image}:${docker.base.image.version}</image>
-                            </from>
-                            <to>
-                                <image>${docker.image.prefix}/${project.artifactId}</image>
-                                <tags>
-                                    <tag>${project.version}</tag> 
-                                </tags>
-                            </to>
-                            <container>
-                                <jvmFlags>
-                                    <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
-                                </jvmFlags>
-                                <ports>
-                                    <port>8083</port>
-                                </ports>
-                                <volumes>
-                                    <volume>/tmp</volume>
-                                </volumes>
-                                <!--<user>1000:1000</user>-->
-                                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
-                            </container>
-                            <allowInsecureRegistries>false</allowInsecureRegistries>
+                            <skip>false</skip>
                         </configuration>
                     </plugin>
-<!--                    <plugin>
+                    <!--                    <plugin>
                         <groupId>com.spotify</groupId>
                         <artifactId>dockerfile-maven-plugin</artifactId>
                         <version>${dockerfile.plugin.version}</version>
