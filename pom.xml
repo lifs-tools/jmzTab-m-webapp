@@ -325,7 +325,7 @@
         <dependency>
             <groupId>ognl</groupId>
             <artifactId>ognl</artifactId>
-            <version>3.3.4</version>
+            <version>3.4.3</version>
         </dependency>
         <dependency>
             <groupId>javax.ws.rs</groupId>
