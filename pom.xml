@@ -99,7 +99,7 @@
         <swagger2markup.version>1.3.4</swagger2markup.version>
         <maven-plugin-version>1.0.0</maven-plugin-version>
         <jacoco.version>0.8.8</jacoco.version>
-        <bootstrap.version>4.6.2</bootstrap.version>
+        <bootstrap.version>5.0.0</bootstrap.version>
         <jquery.version>3.6.1</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
