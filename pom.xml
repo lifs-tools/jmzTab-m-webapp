@@ -69,7 +69,7 @@
         <jmztabm.version>1.0.7-SNAPSHOT</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
         <springfox.version>3.0.0</springfox.version>
-        <guava.version>30.1.1-jre</guava.version>
+        <guava.version>32.0.0-android</guava.version>
         <spring.boot.version>2.5.14</spring.boot.version>
         <docker.image.prefix>docker.lifs-tools.org/lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.13</dockerfile.plugin.version>
