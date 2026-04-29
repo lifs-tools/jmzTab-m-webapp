@@ -41,7 +41,7 @@
         <url>https://lifs-tools.org</url>
     </organization>
     
-    <inceptionYear>2017</inceptionYear>
+    <inceptionYear>2021</inceptionYear>
     
     <distributionManagement>
         <repository>
@@ -61,50 +61,35 @@
         <!--        <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>-->
         <!-- maven compile plugin settings -->
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.release>24</maven.compiler.release>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- spring boot specific -->
-        <java.version>17</java.version>
+        <java.version>24</java.version>
         <jmztab.version>3.0.9</jmztab.version>
         <jmztabm.version>1.0.7-SNAPSHOT</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
-        <springfox.version>3.0.0</springfox.version>
-        <guava.version>30.1.1-jre</guava.version>
-        <spring.boot.version>2.5.14</spring.boot.version>
+        <guava.version>33.5.0-jre</guava.version>
+        <spring.boot.version>3.5.14</spring.boot.version>
+        <springdoc.version>2.8.9</springdoc.version>
         <docker.image.prefix>docker.lifs-tools.org/lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.13</dockerfile.plugin.version>
         <docker.base.image>azul/zulu-openjdk-alpine</docker.base.image>
-        <docker.base.image.version>17-jre-headless-latest</docker.base.image.version>
-        <lombok.version>1.18.24</lombok.version>
+        <docker.base.image.version>24-jre-headless-latest</docker.base.image.version>
+        <lombok.version>1.18.46</lombok.version>
         <junit.version>4.13.2</junit.version>
         <hamcrest.version>1.3</hamcrest.version>
-        <javax.validation.version>2.0.0.Final</javax.validation.version>
-        <junit.jupiter.version>5.0.3</junit.jupiter.version>
-        <junit.vintage.version>4.12.3</junit.vintage.version>
-        <junit.platform.version>1.0.3</junit.platform.version>
-        <swagger.version>1.6.15</swagger.version>
-        <jersey.version>2.22.2</jersey.version>
-        <jackson.version>2.14.1</jackson.version>
-        <jackson.databind.version>2.14.1</jackson.databind.version>
-        <jodatime.version>2.14.0</jodatime.version>
-        <hibernate.validator.version>6.0.20.Final</hibernate.validator.version>
-        <slf4j.version>1.7.25</slf4j.version>
-        <javax.el.version>3.0.1-b09</javax.el.version>
-        <migbase.version>2.2</migbase.version>
-        <jaxb.api-version>2.3.1</jaxb.api-version>
-        <jaxb.core-version>2.3.0.1</jaxb.core-version>
-        <jaxb.version>2.3.5</jaxb.version>
-        <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
-        <javax.activation-api.version>1.2.0</javax.activation-api.version>
-        <swagger2markup.version>1.3.4</swagger2markup.version>
-        <maven-plugin-version>1.0.0</maven-plugin-version>
-        <jacoco.version>0.8.8</jacoco.version>
+        <jakarta.xml.bind.version>4.0.4</jakarta.xml.bind.version>
+        <jaxb.runtime.version>4.0.6</jaxb.runtime.version>
+        <jacoco.version>0.8.14</jacoco.version>
         <bootstrap.version>4.6.2</bootstrap.version>
         <jquery.version>3.6.1</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
         <ga.id></ga.id>
+        <ga.url></ga.url>
+        <ga.app.url></ga.app.url>
+        <spring.profiles.active></spring.profiles.active>
         <start-class>org.lifstools.mztab.validator.webapp.Application</start-class>
     </properties>
 
@@ -123,72 +108,6 @@
                 <scope>test</scope>
             </dependency>
             <dependency>
-                <groupId>io.swagger</groupId>
-                <artifactId>swagger-annotations</artifactId>
-                <version>${swagger.version}</version>
-            </dependency>
-
-            <!-- HTTP client: jersey-client -->
-            <dependency>
-                <groupId>org.glassfish.jersey.core</groupId>
-                <artifactId>jersey-client</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.glassfish.jersey.media</groupId>
-                <artifactId>jersey-media-multipart</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.glassfish.jersey.media</groupId>
-                <artifactId>jersey-media-json-jackson</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-
-            <!-- JSON processing: jackson -->
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-                <version>${jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-annotations</artifactId>
-                <version>${jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>${jackson.databind.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.datatype</groupId>
-                <artifactId>jackson-datatype-joda</artifactId>
-                <version>${jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.dataformat</groupId>
-                <artifactId>jackson-dataformat-csv</artifactId>
-                <version>${jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>joda-time</groupId>
-                <artifactId>joda-time</artifactId>
-                <version>${jodatime.version}</version>
-            </dependency>
-
-            <!-- Base64 encoding that works in both JVM and Android -->
-            <dependency>
-                <groupId>com.brsanthu</groupId>
-                <artifactId>migbase64</artifactId>
-                <version>${migbase.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.swagger2markup</groupId>
-                <artifactId>swagger2markup</artifactId>
-                <version>${swagger2markup.version}</version>
-            </dependency>
-            <dependency>
                 <!-- Import dependency management from Spring Boot -->
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -196,41 +115,16 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Jakarta JAXB (replaces javax.xml.bind) -->
             <dependency>
-                <groupId>de.isas.mztab</groupId>
-                <artifactId>jmztabm-io</artifactId>
-                <version>${jmztabm.version}</version>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>${jakarta.xml.bind.version}</version>
             </dependency>
             <dependency>
-                <groupId>de.isas.mztab</groupId>
-                <artifactId>jmztabm-validation</artifactId>
-                <version>${jmztabm.version}</version>
-            </dependency>
-            <!-- packages missing from JDK 11 -->
-            <dependency>
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>${jaxb.api-version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.xml.bind</groupId>
-                <artifactId>jaxb-core</artifactId>
-                <version>${jaxb.core-version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.xml.bind</groupId>
-                <artifactId>jaxb-impl</artifactId>
-                <version>${jaxb.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>javax.annotation</groupId>
-                <artifactId>javax.annotation-api</artifactId>
-                <version>${javax.annotation-api.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.activation</groupId>
-                <artifactId>javax.activation</artifactId>
-                <version>${javax.activation-api.version}</version>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-runtime</artifactId>
+                <version>${jaxb.runtime.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -254,8 +148,8 @@
         </dependency>-->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-ui</artifactId>
-            <version>1.6.14</version>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <!--    <dependency>
@@ -323,14 +217,13 @@
             <artifactId>jackson-module-jaxb-annotations</artifactId>
         </dependency>
         <dependency>
-            <groupId>ognl</groupId>
-            <artifactId>ognl</artifactId>
-            <version>3.4.7</version>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
-            <version>2.1.1</version>
+            <groupId>ognl</groupId>
+            <artifactId>ognl</artifactId>
+            <version>3.5.0-BETA1</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -348,34 +241,18 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.sun.xml.bind</groupId>
-            <artifactId>jaxb-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.sun.xml.bind</groupId>
-            <artifactId>jaxb-impl</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.sun.activation</groupId>
-            <artifactId>javax.activation</artifactId>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-annotations</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-models</artifactId>
-            <version>1.6.15</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
@@ -403,7 +280,7 @@
         </dependency>-->
         <dependency>
             <groupId>org.webjars</groupId>
-            <artifactId>webjars-locator-core</artifactId>
+            <artifactId>webjars-locator-lite</artifactId>
         </dependency>
         <dependency>
             <groupId>org.webjars</groupId>
@@ -414,12 +291,6 @@
             <groupId>org.webjars</groupId>
             <artifactId>bootstrap</artifactId>
             <version>${bootstrap.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.joschi.jackson</groupId>
-            <artifactId>jackson-datatype-threetenbp</artifactId>
-            <version>2.12.5</version>
-            <type>jar</type>
         </dependency>
     </dependencies>
 
@@ -529,16 +400,24 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.10.1</version>
+                    <version>3.14.1</version>
                     <configuration>
                         <release>${java.version}</release>
-                        <!--                        <source>${java.version}</source>
-                        <target>${java.version}</target>-->
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
                     </configuration>
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M7</version>
+                    <version>3.5.4</version>
                     <configuration>
                         <redirectTestOutputToFile>true</redirectTestOutputToFile>
                         <parallel>classes</parallel>
@@ -606,7 +485,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
-                    <version>3.1.0</version>
+                    <version>3.6.2</version>
                     <executions>
                         <execution>
                             <id>enforce-maven</id>
@@ -637,7 +516,7 @@
                 <plugin>
                     <groupId>com.google.cloud.tools</groupId>
                     <artifactId>jib-maven-plugin</artifactId>
-                    <version>3.4.0</version>
+                    <version>3.4.6</version>
                     <executions>
                         <execution>
                             <phase>package</phase>
@@ -697,10 +576,6 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -725,6 +600,7 @@
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
@@ -796,31 +672,6 @@
                             <skip>false</skip>
                         </configuration>
                     </plugin>
-                    <!--                    <plugin>
-                        <groupId>com.spotify</groupId>
-                        <artifactId>dockerfile-maven-plugin</artifactId>
-                        <version>${dockerfile.plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>default</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                    <goal>tag</goal>
-                                </goals>
-                                <configuration>
-                                    <tag>${project.version}</tag>
-                                </configuration>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <repository>${docker.image.prefix}/${project.artifactId}</repository>
-                            <buildArgs>
-                                <JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
-                                <APP_NAME>${app.name}</APP_NAME>
-                            </buildArgs>
-                        </configuration>
-                    </plugin>-->
                 </plugins>
             </build>
         </profile>

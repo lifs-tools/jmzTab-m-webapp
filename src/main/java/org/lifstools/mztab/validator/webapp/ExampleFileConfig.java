@@ -19,15 +19,11 @@ import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 /**
  *
  * @author nilshoffmann
  */
-@Configuration
-@PropertySource(name="props", value="classpath:examples.properties", ignoreResourceNotFound = false)
 @ConfigurationProperties(prefix = "example")
 public class ExampleFileConfig {
     private List<ExampleFile> exampleFile = new ArrayList<>();

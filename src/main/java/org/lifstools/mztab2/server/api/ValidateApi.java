@@ -15,7 +15,11 @@ import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab.validator.webapp.service.ValidationService;
 import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
-import io.swagger.annotations.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.ByteArrayOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,22 +29,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
-    date = "2018-01-11T19:50:29.849+01:00")
-
-@Api(value = "validate", description = "The validation API for mzTab-m documents in JSON or XML format.", tags = {"validate"})
+@Tag(name = "validate", description = "The validation API for mzTab-m documents in JSON or XML format.")
 @RequestMapping(path = "/rest/v2")
 public interface ValidateApi {
 
@@ -68,50 +69,28 @@ public interface ValidateApi {
         return Optional.empty();
     }
 
-    @ApiOperation(value = "", nickname = "validateMzTabFile",
-        notes = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors. Requires to set the Accept header in the request: accept: application/json  and the Content-Type header to application/json or application/xml.",
-        response = ValidationMessage.class, responseContainer = "List", tags = {
-            "validate",})
+    @Operation(summary = "validateMzTabFile",
+        description = "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors.")
     @ApiResponses(value = {
-        @ApiResponse(code = 200, message = "Validation Okay",
-            response = ValidationMessage.class, responseContainer = "List")
-        ,
-        @ApiResponse(code = 415, message = "Unsupported content type")
-        ,
-        @ApiResponse(code = 422, message = "Invalid input",
-            response = ValidationMessage.class, responseContainer = "List")
-        ,
-        @ApiResponse(code = 500, message = "Unexpected error",
-            response = Error.class)})
+        @ApiResponse(responseCode = "200", description = "Validation Okay"),
+        @ApiResponse(responseCode = "415", description = "Unsupported content type"),
+        @ApiResponse(responseCode = "422", description = "Invalid input"),
+        @ApiResponse(responseCode = "500", description = "Unexpected error")})
     @RequestMapping(value = "/validate",
         produces = {"application/json"},
         consumes = {"application/json", "application/xml"},
         method = RequestMethod.POST)
-    default ResponseEntity<List<ValidationMessage>> validateMzTabFile(@ApiParam(
-        name = "mztabfile", value = "mzTab file that should be validated.", required = true) @RequestBody MzTab mztabfile,
-        @RequestParam(
-            name = "level",
-            defaultValue = "info",
-            required = false) 
-        @ApiParam(
-            name = "level",
-            value = "The level of errors that should be reported, one of error, warn, info.")
+    default ResponseEntity<List<ValidationMessage>> validateMzTabFile(
+        @Parameter(description = "mzTab file that should be validated.", required = true)
+        @RequestBody MzTab mztabfile,
+        @RequestParam(name = "level", defaultValue = "info", required = false)
+        @Parameter(name = "level", description = "The level of errors that should be reported, one of error, warn, info.")
         @Valid String level,
-        @RequestParam(
-            name = "maxErrors",
-            required = false,
-            defaultValue = "100") 
-        @ApiParam(
-            name = "maxErrors",
-            value = "The maximum number of errors to return.")
+        @RequestParam(name = "maxErrors", required = false, defaultValue = "100")
+        @Parameter(name = "maxErrors", description = "The maximum number of errors to return.")
         @Valid @Min(0) @Max(500) Integer maxErrors,
-        @RequestParam(
-            name = "semanticValidation",
-            defaultValue = "false",
-            required = false)
-        @ApiParam(
-            name = "semanticValidation",
-            value = "Whether a semantic validation against the default rule set should be performed.") 
+        @RequestParam(name = "semanticValidation", defaultValue = "false", required = false)
+        @Parameter(name = "semanticValidation", description = "Whether a semantic validation against the default rule set should be performed.")
         @Valid boolean semanticValidation) {
         if (getObjectMapper().
             isPresent() && getAcceptHeader().

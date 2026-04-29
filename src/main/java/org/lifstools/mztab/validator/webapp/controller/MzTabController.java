@@ -46,10 +46,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.net.URI;
 import java.util.stream.IntStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.webapp.domain.AppInfo;
 import org.lifstools.mztab.validator.webapp.domain.Page;
@@ -188,24 +189,24 @@ public class MzTabController {
                         metadata.addCvItem(new CV().id(index).
                                 fullName((ont.getDescription()==null?ont.getNamespace():ont.getDescription()).replaceAll("\t", " ")).
                                 label(ref.getCvIdentifier()).
-                                uri("https://www.ebi.ac.uk/ols/ontologies/" + ref.getCvIdentifier().toLowerCase()).
+                                uri(URI.create("https://www.ebi.ac.uk/ols/ontologies/" + ref.getCvIdentifier().toLowerCase())).
                                 version(ont.getConfig().getVersion()));
                     });
                 }
                 );
 //        ColumnParameterMapping m = new ColumnParameterMapping().
 //[MS, MS:1002514, "absolute quantitation analysis", ]
-        metadata.setQuantificationMethod(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002514").name("absolute quantitation analysis"));
+        metadata.setQuantificationMethod(new Parameter().cvLabel("MS").cvAccession("MS:1002514").name("absolute quantitation analysis"));
         //[MS, MS:1002887, Progenesis QI normalised abundance, ]
-        metadata.setSmallMoleculeQuantificationUnit(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
-        metadata.setSmallMoleculeFeatureQuantificationUnit(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
-        Database db = new Database().id(1).prefix("null").param(new Parameter().id(1).name("no database").value(null)).version("Unknown").uri(null);
+        metadata.setSmallMoleculeQuantificationUnit(new Parameter().cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
+        metadata.setSmallMoleculeFeatureQuantificationUnit(new Parameter().cvLabel("MS").cvAccession("MS:1002887").name("Progenesis QI normalised abundance"));
+        Database db = new Database().id(1).prefix("null").param(new Parameter().name("no database").value(null)).version("Unknown").uri(null);
         metadata.addDatabaseItem(db);
         Contact c1 = new Contact().id(1).name("Change Me").email("change.me@undefined.com").affiliation("University of Lipid Research");
         metadata.addContactItem(c1);
         metadata.addContactItem(new Contact().id(2).name("Contact 2").email("contact2@undefined.com").affiliation("Undefined research institute"));
         //[MS, MS:1002896, compound identification confidence level, ]
-        metadata.setSmallMoleculeIdentificationReliability(new Parameter().id(1).cvLabel("MS").cvAccession("MS:1002896").name("compound identification confidence level"));
+        metadata.setSmallMoleculeIdentificationReliability(new Parameter().cvLabel("MS").cvAccession("MS:1002896").name("compound identification confidence level"));
         metadata.colunitSmallMolecule(Collections.emptyList());
         metadata.colunitSmallMoleculeFeature(Collections.emptyList());
         metadata.colunitSmallMoleculeEvidence(Collections.emptyList());

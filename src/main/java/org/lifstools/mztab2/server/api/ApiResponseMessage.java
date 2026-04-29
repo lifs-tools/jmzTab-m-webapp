@@ -15,9 +15,9 @@
  */
 package org.lifstools.mztab2.server.api;
 
-import javax.xml.bind.annotation.XmlTransient;
+import jakarta.xml.bind.annotation.XmlTransient;
 
-@javax.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2018-01-11T19:50:29.849+01:00")
+@jakarta.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen", date = "2018-01-11T19:50:29.849+01:00")
 
 @javax.xml.bind.annotation.XmlRootElement
 public class ApiResponseMessage {

@@ -42,9 +42,9 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import javax.ws.rs.QueryParam;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.web.bind.annotation.RequestParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -157,10 +157,11 @@ public class ValidationController {
     }
 
     @GetMapping(value = "/validate/{sessionId:.+}")
-    public ModelAndView validateFile(@PathVariable UUID sessionId, @QueryParam(
-        "version") ValidationService.MzTabVersion version, @QueryParam(
-        "maxErrors") int maxErrors, @QueryParam("level") ValidationLevel level,
-        @QueryParam("checkCvMapping") boolean checkCvMapping,
+    public ModelAndView validateFile(@PathVariable UUID sessionId,
+        @RequestParam(value = "version", required = false) ValidationService.MzTabVersion version,
+        @RequestParam(value = "maxErrors", defaultValue = "100") int maxErrors,
+        @RequestParam(value = "level", required = false) ValidationLevel level,
+        @RequestParam(value = "checkCvMapping", defaultValue = "false") boolean checkCvMapping,
         HttpServletRequest request,
         HttpSession session) {
         if (session == null) {

@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 import org.lifstools.mztab2.io.MzTabFileParser;
 import java.io.PrintWriter;
 import java.util.Optional;
