@@ -70,6 +70,7 @@
         <application.version.number>${project.version}</application.version.number>
         <guava.version>33.5.0-jre</guava.version>
         <spring.boot.version>3.5.14</spring.boot.version>
+        <spring.cloud.version>2025.0.1</spring.cloud.version>
         <springdoc.version>2.8.9</springdoc.version>
         <docker.image.prefix>docker.lifs-tools.org/lifs</docker.image.prefix>
         <dockerfile.plugin.version>1.4.13</dockerfile.plugin.version>
@@ -112,6 +113,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring.cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -173,6 +181,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
             <!--<version>${spring.boot.version}</version>-->
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
 
         <dependency>
