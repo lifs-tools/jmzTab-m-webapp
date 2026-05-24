@@ -19,6 +19,7 @@ import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.ExitCodeGenerator;
@@ -33,6 +34,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
+@EnableDiscoveryClient
 @SpringBootApplication
 @EnableConfigurationProperties(value = {StorageProperties.class,
     ExampleFileConfig.class})
