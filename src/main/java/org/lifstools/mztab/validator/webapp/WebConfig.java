@@ -41,7 +41,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfig;
 
 @Configuration
 @EnableAsync
-@PropertySource(name = "exampleProps", value = "classpath:examples.properties", ignoreResourceNotFound = false)
+@PropertySource(name = "exampleProps", value = "classpath:examples.properties", ignoreResourceNotFound = true)
 public class WebConfig implements WebMvcConfigurer {
 
     public WebConfig() {
