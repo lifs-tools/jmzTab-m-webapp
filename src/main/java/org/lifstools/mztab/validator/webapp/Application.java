@@ -21,6 +21,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
+import java.util.Map;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
@@ -46,7 +47,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class Application {
 
     public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+        SpringApplication app = new SpringApplication(Application.class);
+        // Must be set before any ApplicationListener fires (BootstrapApplicationListener
+        // runs at HIGHEST_PRECEDENCE+5, before application.properties is loaded at +10).
+        // This prevents spring-cloud-context from creating a Bootstrap context that
+        // corrupts the classloader hierarchy and breaks @PropertySource resolution.
+        app.setDefaultProperties(Map.of("spring.cloud.bootstrap.enabled", "false"));
+        app.run(args);
     }
 
     @Bean
