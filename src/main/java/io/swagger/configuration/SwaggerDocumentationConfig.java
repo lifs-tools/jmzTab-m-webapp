@@ -39,7 +39,7 @@ public class SwaggerDocumentationConfig {
         return GroupedOpenApi.builder()
                 .group("mztab-m-api")
                 .displayName("mzTab validation and conversion API.")
-                .pathsToMatch("/mztabvalidator/rest/v2/**")
+                .pathsToMatch("/rest/v2/**")
                 .packagesToScan("org.lifstools.mztab2.server.api")
                 .build();
     }

@@ -305,6 +305,10 @@
             <artifactId>bootstrap</artifactId>
             <version>${bootstrap.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -560,6 +564,7 @@
                             </volumes>
                             <!--<user>1000:1000</user>-->
                             <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                            <mainClass>org.lifstools.mztab.validator.webapp.Application</mainClass>
                         </container>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <skip>true</skip>
@@ -629,6 +634,12 @@
             <id>dev</id>
             <properties>
                 <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>microservice</id>
+            <properties>
+                <spring.profiles.active>microservice</spring.profiles.active>
             </properties>
         </profile>
    
