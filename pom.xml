@@ -82,7 +82,7 @@
         <jakarta.xml.bind.version>4.0.4</jakarta.xml.bind.version>
         <jaxb.runtime.version>4.0.6</jaxb.runtime.version>
         <jacoco.version>0.8.14</jacoco.version>
-        <bootstrap.version>4.6.2</bootstrap.version>
+        <bootstrap.version>5.3.8</bootstrap.version>
         <jquery.version>3.6.1</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
