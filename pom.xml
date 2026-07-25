@@ -236,7 +236,7 @@
         <dependency>
             <groupId>ognl</groupId>
             <artifactId>ognl</artifactId>
-            <version>3.5.0-BETA1</version>
+            <version>3.5.0-BETA5</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
