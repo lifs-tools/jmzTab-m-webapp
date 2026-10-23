@@ -86,7 +86,12 @@ public class ValidationRunner {
         } finally {
             ValidationRecord last = result != null ? result : running.failed(UNEXPECTED_ERROR, Instant.now());
             // a session deleted while running stays deleted
-            records.update(id, current -> current.status() == ValidationStatus.RUNNING ? last : null);
+            Optional<ValidationRecord> stored = records.update(id,
+                current -> current.status() == ValidationStatus.RUNNING ? last : null);
+            if (stored.isEmpty() && records.read(id).isEmpty()) {
+                // the section writer runs outside the session's lock and may have recreated the files
+                storage.deleteAll(id);
+            }
         }
     }
 

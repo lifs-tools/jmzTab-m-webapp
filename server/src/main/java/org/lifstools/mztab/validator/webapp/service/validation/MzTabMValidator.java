@@ -15,36 +15,28 @@
  */
 package org.lifstools.mztab.validator.webapp.service.validation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.dataformat.csv.CsvMapper;
-import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
-import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
-import org.lifstools.mztab2.io.MzTabWriterDefaults;
 import org.lifstools.mztab2.model.MzTab;
 import org.lifstools.mztab2.model.ValidationMessage;
 import org.lifstools.mztab2.validation.CvMappingValidator;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import jakarta.xml.bind.JAXBException;
 import org.lifstools.mztab2.io.MzTabFileParser;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.webapp.sections.Section;
+import org.lifstools.mztab.validator.webapp.sections.SectionWriter;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
-import uk.ac.ebi.pride.jmztab2.model.MZTabConstants;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  *
@@ -154,6 +146,10 @@ public class MzTabMValidator implements WebValidator {
         }
     }
 
+    /**
+     * Thin adapter over {@link SectionWriter#render} for the result page,
+     * which Task 15 removes.
+     */
     @Override
     public Map<String, List<Map<String, String>>> parse(Path filepath,
             String validationLevel, int maxErrors) throws IOException {
@@ -164,150 +160,47 @@ public class MzTabMValidator implements WebValidator {
         } finally {
             MzTab mzTabFile = parser.getMZTabFile();
             if (mzTabFile != null) {
-                MzTabWriterDefaults writerDefaults = new MzTabWriterDefaults();
-                CsvMapper mapper = writerDefaults.metadataMapper();
-                CsvSchema schema = writerDefaults.metaDataSchema(mapper);
-                if (mzTabFile.getMetadata().
-                        getMzTabVersion() == null) {
-                    //set default version if not set
-                    mzTabFile.getMetadata().
-                            mzTabVersion(MZTabConstants.VERSION_MZTAB_M);
-                }
-                StringWriter writer = new StringWriter();
-                try {
-                    mapper.writer(schema).
-                            writeValue(writer, mzTabFile.getMetadata());
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                }
+                SectionWriter.Rendered rendered = SectionWriter.render(mzTabFile);
                 Map<String, List<Map<String, String>>> mzTabLines = new LinkedHashMap<>();
-                String[] metaDataLines = writer.toString().
-                        split(MZTabConstants.NEW_LINE);
                 List<Map<String, String>> metaData = new ArrayList<>();
                 int lineNumber = 1;
-                for (int i = 0; i < metaDataLines.length; i++) {
-                    String[] metaDataLine = metaDataLines[i].split(
-                            MZTabConstants.TAB_STRING);
+                for (List<String> cells : rendered.metadata()) {
                     Map<String, String> lineMap = new LinkedHashMap<>();
                     lineMap.put("LINE_NUMBER", lineNumber + "");
-                    lineMap.put("PREFIX", metaDataLine[0]);
-                    lineMap.put("KEY", metaDataLine[1]);
-                    lineMap.put("VALUE", metaDataLine[2]);
+                    lineMap.put("PREFIX", cells.get(0));
+                    lineMap.put("KEY", cells.get(1));
+                    lineMap.put("VALUE", cells.get(2));
                     metaData.add(lineMap);
                     lineNumber++;
                 }
                 mzTabLines.put("META", metaData);
-
-                mapper = writerDefaults.smallMoleculeSummaryMapper();
-                try {
-                    schema = writerDefaults.
-                            smallMoleculeSummarySchema(mapper, mzTabFile);
-                    writer = new StringWriter();
-                    mapper.writer(schema).
-                            writeValue(writer, mzTabFile.getSmallMoleculeSummary());
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                } catch (MZTabException ex) {
-                    Logger.getLogger(MzTabMValidator.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                    throw new IOException(ex);
-                }
-
-                String[] summaryDataLines = writer.toString().
-                        split(MZTabConstants.NEW_LINE);
-                String[] summaryHeader = summaryDataLines[0].split(
-                        MZTabConstants.TAB_STRING);
-                List<Map<String, String>> summaryData = new ArrayList<>();
-                //due to the header
-                lineNumber++;
-                for (int i = 1; i < summaryDataLines.length; i++) {
-                    String[] dataLine = summaryDataLines[i].split(
-                            MZTabConstants.TAB_STRING);
-                    Map<String, String> lineMap = new LinkedHashMap<>();
-                    lineMap.put("LINE_NUMBER", lineNumber + "");
-                    for (int j = 0; j < summaryHeader.length; j++) {
-                        lineMap.put(summaryHeader[j], dataLine[j]);
-                    }
-                    summaryData.add(lineMap);
-                    lineNumber++;
-                }
-                mzTabLines.put("SUMMARY", summaryData);
-
-                mapper = writerDefaults.smallMoleculeFeatureMapper();
-                try {
-                    schema = writerDefaults.
-                            smallMoleculeFeatureSchema(mapper, mzTabFile);
-                    writer = new StringWriter();
-                    mapper.writer(schema).
-                            writeValue(writer, mzTabFile.getSmallMoleculeFeature());
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                } catch (MZTabException ex) {
-                    Logger.getLogger(MzTabMValidator.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                    throw new IOException(ex);
-                }
-                String[] featureDataLines = writer.toString().
-                        split(MZTabConstants.NEW_LINE);
-                String[] featureHeader = featureDataLines[0].split(
-                        MZTabConstants.TAB_STRING);
-                List<Map<String, String>> featureData = new ArrayList<>();
-                //due to the header
-                lineNumber++;
-                for (int i = 1; i < featureDataLines.length; i++) {
-                    String[] dataLine = featureDataLines[i].split(
-                            MZTabConstants.TAB_STRING);
-                    Map<String, String> lineMap = new LinkedHashMap<>();
-                    lineMap.put("LINE_NUMBER", lineNumber + "");
-                    for (int j = 0; j < featureHeader.length; j++) {
-                        lineMap.put(featureHeader[j], dataLine[j]);
-                    }
-                    featureData.add(lineMap);
-                    lineNumber++;
-                }
-                mzTabLines.put("FEATURE", featureData);
-
-                mapper = writerDefaults.smallMoleculeEvidenceMapper();
-                try {
-                    schema = writerDefaults.smallMoleculeEvidenceSchema(mapper,
-                            mzTabFile);
-                    writer = new StringWriter();
-                    mapper.writer(schema).
-                            writeValue(writer, mzTabFile.getSmallMoleculeEvidence());
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(MzTabNonValidatingWriter.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                } catch (MZTabException ex) {
-                    Logger.getLogger(MzTabMValidator.class.getName()).
-                            log(Level.SEVERE, null, ex);
-                    throw new IOException(ex);
-                }
-                String[] evidenceDataLines = writer.toString().
-                        split(MZTabConstants.NEW_LINE);
-                String[] evidenceHeader = evidenceDataLines[0].split(
-                        MZTabConstants.TAB_STRING);
-                List<Map<String, String>> evidenceData = new ArrayList<>();
-                //due to the header
-                lineNumber++;
-                for (int i = 1; i < evidenceDataLines.length; i++) {
-                    String[] dataLine = evidenceDataLines[i].split(
-                            MZTabConstants.TAB_STRING);
-                    Map<String, String> lineMap = new LinkedHashMap<>();
-                    lineMap.put("LINE_NUMBER", lineNumber + "");
-                    for (int j = 0; j < evidenceHeader.length; j++) {
-                        lineMap.put(evidenceHeader[j], dataLine[j]);
-                    }
-                    evidenceData.add(lineMap);
-                    lineNumber++;
-                }
-                mzTabLines.put("EVIDENCE", evidenceData);
-
+                lineNumber = addTable(mzTabLines, "SUMMARY", rendered.tables().get(Section.SML), lineNumber);
+                lineNumber = addTable(mzTabLines, "FEATURE", rendered.tables().get(Section.SMF), lineNumber);
+                addTable(mzTabLines, "EVIDENCE", rendered.tables().get(Section.SME), lineNumber);
                 return mzTabLines;
             }
             return Collections.emptyMap();
         }
+    }
+
+    private static int addTable(Map<String, List<Map<String, String>>> target, String name,
+            List<List<String>> table, int lineNumber) {
+        List<Map<String, String>> data = new ArrayList<>();
+        if (table != null) {
+            List<String> header = table.get(0);
+            // due to the header
+            lineNumber++;
+            for (List<String> row : table.subList(1, table.size())) {
+                Map<String, String> lineMap = new LinkedHashMap<>();
+                lineMap.put("LINE_NUMBER", lineNumber + "");
+                for (int j = 0; j < header.size(); j++) {
+                    lineMap.put(header.get(j), row.get(j));
+                }
+                data.add(lineMap);
+                lineNumber++;
+            }
+        }
+        target.put(name, data);
+        return lineNumber;
     }
 }
