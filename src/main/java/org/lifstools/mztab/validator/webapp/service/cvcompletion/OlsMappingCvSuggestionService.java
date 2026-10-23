@@ -15,6 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp.service.cvcompletion;
 
+import org.lifstools.mztab.validator.webapp.service.validation.SafeCvMappingLoader;
 import org.lifstools.mztab2.cvmapping.CvMappingUtils;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import org.lifstools.mztab2.cvmapping.ParameterComparisonResult;
@@ -25,6 +26,7 @@ import info.psidev.cvmapping.CvMapping;
 import info.psidev.cvmapping.CvMappingRule;
 import info.psidev.cvmapping.CvReference;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -33,9 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import jakarta.xml.bind.JAXBContext;
-import jakarta.xml.bind.JAXBException;
-import jakarta.xml.bind.Unmarshaller;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -63,12 +62,12 @@ public class OlsMappingCvSuggestionService {
     private final Map<String, Ontology> ontologyLookup = new ConcurrentHashMap<>();
 
     @Autowired
-    public OlsMappingCvSuggestionService(OLSClient client, CvParameterLookupService lookupService) throws JAXBException, IOException {
+    public OlsMappingCvSuggestionService(OLSClient client, CvParameterLookupService lookupService) throws IOException {
         this.client = client;
-        JAXBContext jaxbContext = JAXBContext.newInstance(CvMapping.class);
-        Unmarshaller u = jaxbContext.createUnmarshaller();
         Resource res = new DefaultResourceLoader().getResource("mappings/mzTab-M-mapping.xml");
-        this.cvMapping = (CvMapping) u.unmarshal(res.getInputStream());
+        try (InputStream in = res.getInputStream()) {
+            this.cvMapping = SafeCvMappingLoader.load(in);
+        }
         this.cvMapping.getCvMappingRuleList().getCvMappingRule().stream().forEach((cvMappingRule) -> {
             ruleIdLookup.put(cvMappingRule.getId(), cvMappingRule);
             if (selectorRuleLookup.containsKey(cvMappingRule.getCvElementPath())) {
