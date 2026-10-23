@@ -23,65 +23,48 @@ import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
-import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Answers errors of the REST API as JSON {@link ErrorResponse} bodies.
+ * Answers errors of the validations endpoints as JSON {@link ErrorResponse} bodies. It is scoped to
+ * {@link ValidationsApiController}, so the older validate endpoints keep their behaviour. Standard Spring MVC
+ * exceptions keep their status codes.
  */
-@RestControllerAdvice(basePackages = "org.lifstools.mztab2.server.api")
-public class RestErrorAdvice {
+@RestControllerAdvice(assignableTypes = ValidationsApiController.class)
+public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);
+
+    static final String TOO_LARGE = "The uploaded file is too large.";
 
     @ExceptionHandler(UnknownValidationException.class)
     public ResponseEntity<ErrorResponse> notFound(UnknownValidationException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, e.getMessage(), request);
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class,
-        MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class,
-        MissingServletRequestPartException.class})
+    @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> badRequest(Exception e, HttpServletRequest request) {
         return respond(HttpStatus.BAD_REQUEST, e.getMessage(), request);
-    }
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ErrorResponse> status(ResponseStatusException e, HttpServletRequest request) {
-        HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
-        return respond(status, e.getReason() == null ? status.getReasonPhrase() : e.getReason(), request);
-    }
-
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> methodNotAllowed(Exception e, HttpServletRequest request) {
-        return respond(HttpStatus.METHOD_NOT_ALLOWED, e.getMessage(), request);
-    }
-
-    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> unsupportedMediaType(Exception e, HttpServletRequest request) {
-        return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage(), request);
-    }
-
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> tooLarge(Exception e, HttpServletRequest request) {
-        return respond(HttpStatus.PAYLOAD_TOO_LARGE, TOO_LARGE, request);
     }
 
     @ExceptionHandler(StorageFullException.class)
@@ -89,13 +72,29 @@ public class RestErrorAdvice {
         return respond(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), request);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> unexpected(Exception e, HttpServletRequest request) {
-        log.error("Unexpected error in REST API", e);
-        return respond(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error.", request);
+    /** Keeps the status of standard exceptions; the body is the common JSON shape with a short message. */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, @Nullable Object body, HttpHeaders headers,
+        HttpStatusCode statusCode, WebRequest request) {
+        HttpStatus status = HttpStatus.valueOf(statusCode.value());
+        String message;
+        if (ex instanceof MaxUploadSizeExceededException) {
+            message = TOO_LARGE;
+        } else if (ex instanceof TypeMismatchException tm) {
+            message = "Invalid value for parameter '" + tm.getPropertyName() + "'.";
+        } else if (ex instanceof ResponseStatusException rse && rse.getReason() != null) {
+            message = rse.getReason();
+        } else if (ex instanceof MissingServletRequestPartException || ex instanceof MissingServletRequestParameterException) {
+            message = ex.getMessage();
+        } else {
+            message = status.getReasonPhrase();
+        }
+        String path = request instanceof ServletWebRequest swr ? swr.getRequest().getRequestURI() : null;
+        HttpHeaders out = new HttpHeaders();
+        out.putAll(headers);
+        out.setContentType(MediaType.APPLICATION_JSON);
+        return new ResponseEntity<>(new ErrorResponse(status, status.getReasonPhrase(), message, path), out, status);
     }
-
-    static final String TOO_LARGE = "The uploaded file is too large.";
 
     static ResponseEntity<ErrorResponse> respond(HttpStatus status, @Nullable String message,
         HttpServletRequest request) {
@@ -104,8 +103,8 @@ public class RestErrorAdvice {
     }
 
     /**
-     * Multipart parsing fails before a handler is chosen, so the package-restricted advice above never sees an
-     * oversized upload. This resolver answers it for {@code /rest/**} only; other paths keep their behaviour.
+     * Multipart parsing fails before a handler is chosen, so the advice above never sees an oversized upload.
+     * This resolver answers it for {@code /rest/**} only; other paths keep their behaviour.
      */
     @Component
     @Order(Ordered.HIGHEST_PRECEDENCE)

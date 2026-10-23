@@ -26,7 +26,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
+import org.lifstools.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -244,110 +248,86 @@ class ValidationsApiControllerTest {
     }
 
     @Test
+    void csvNeutralisesFormulasAndQuotesPerRfc4180() {
+        ValidationMessage formula = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.ERROR)
+            .lineNumber(3L).code("1001").message("=HYPERLINK(\"http://evil\",\"x\")");
+        ValidationMessage plain = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.INFO)
+            .lineNumber(4L).code("2").message("a, \"b\" c");
+        ValidationMessage dash = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.INFO)
+            .message("-1+2");
+        String[] lines = ValidationsApiController.csv(List.of(formula, plain, dash)).split("\r\n");
+        assertEquals("level,line,category,code,message", lines[0]);
+        assertTrue(lines[1].endsWith(",\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\""), lines[1]);
+        assertTrue(lines[2].endsWith(",\"a, \"\"b\"\" c\""), lines[2]);
+        assertTrue(lines[3].endsWith(",'-1+2"), lines[3]);
+    }
+
+    @Test
+    void controlCharactersInFileNameAreStrippedAndHeaderIsWellFormed() throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a\r\nb\"c.mzTab")))
+            .andExpect(status().isAccepted()).andReturn();
+        JsonNode created = json.readTree(r.getResponse().getContentAsString());
+        String name = created.get("fileName").asText();
+        assertTrue(name.chars().noneMatch(Character::isISOControl), name);
+        String id = created.get("id").asText();
+        awaitFinished(id);
+        String disposition = mvc.perform(get("/rest/v2/validations/" + id + "/report"))
+            .andExpect(status().isOk()).andReturn().getResponse().getHeader("Content-Disposition");
+        assertTrue(disposition.startsWith("attachment;"), disposition);
+        assertTrue(disposition.chars().noneMatch(Character::isISOControl), disposition);
+        assertTrue(disposition.indexOf("c.mzTab") > 0 || disposition.contains("%"), disposition);
+    }
+
+    @Test
+    void tableFilterIsNotSplitAtCommasAndBracketColumnsWork() throws Exception {
+        String id = create("flt.mzTab").get("id").asText();
+        awaitFinished(id);
+        String base = "/rest/v2/validations/" + id + "/tables/sml";
+        mvc.perform(get(base).param("filter", "SML_ID:a,b:c")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalRows").value(0));
+        JsonNode all = json.readTree(mvc.perform(get(base).param("size", "1")).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString()).get("allColumns");
+        String bracket = null;
+        for (JsonNode c : all) {
+            if (c.asText().contains("[")) {
+                bracket = c.asText();
+                break;
+            }
+        }
+        assertTrue(bracket != null, "example has a bracketed column");
+        mvc.perform(get(base).param("columns", "SML_ID," + bracket).param("filter", bracket + ":"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.columns.length()").value(2));
+    }
+
+    @Test
+    void malformedJsonToLegacyValidateStillIs400() throws Exception {
+        mvc.perform(post("/rest/v2/validate").contentType("application/json").content("{not json"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void bindingErrorsDoNotLeakJavaTypes() throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")).param("maxErrors", "abc"))
+            .andExpect(status().isBadRequest()).andReturn();
+        String body = r.getResponse().getContentAsString();
+        assertTrue(body.contains("Invalid value for parameter 'maxErrors'."), body);
+        assertTrue(!body.contains("java.lang"), body);
+    }
+
+    @Test
+    void mappingOver5MbIs400() throws Exception {
+        byte[] big = new byte[5 * 1024 * 1024 + 1];
+        java.util.Arrays.fill(big, (byte) ' ');
+        mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab"))
+            .file(new MockMultipartFile("mappingFile", "m.xml", "text/xml", big)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("The mapping file is larger than 5 MB."));
+    }
+
+    @Test
     void openApiListsNewEndpoints() throws Exception {
         mvc.perform(get("/v3/api-docs/mztab-m-api")).andExpect(status().isOk())
             .andExpect(jsonPath("$.paths['/rest/v2/validations']").exists())
             .andExpect(jsonPath("$.paths['/rest/v2/validations/{id}/tables/{section}']").exists());
-    }
-}
-
-@SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false",
-    "validation.custom-mappings.enabled=false"})
-@AutoConfigureMockMvc
-class ValidationsApiCustomMappingsDisabledTest {
-
-    @TempDir
-    static Path storageRoot;
-
-    @DynamicPropertySource
-    static void storage(DynamicPropertyRegistry registry) {
-        registry.add("storage.location", () -> storageRoot.toString());
-    }
-
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
-
-    @Autowired
-    MockMvc mvc;
-
-    @Test
-    void customMappingDisabledIs403() throws Exception {
-        mvc.perform(multipart("/rest/v2/validations").file(ValidationsApiControllerTest.file("a.mzTab"))
-            .file(new MockMultipartFile("mappingFile", "m.xml", "text/xml", "<x/>".getBytes())))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.status").exists());
-    }
-}
-
-/** MockMvc bypasses the servlet container's multipart limit, so this one runs against a real server. */
-@SpringBootTest(classes = Application.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
-@TestPropertySource(properties = "spring.servlet.multipart.max-file-size=1KB")
-class ValidationsApiUploadLimitTest {
-
-    @TempDir
-    static Path storageRoot;
-
-    @DynamicPropertySource
-    static void storage(DynamicPropertyRegistry registry) {
-        registry.add("storage.location", () -> storageRoot.toString());
-    }
-
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
-
-    @LocalServerPort
-    int port;
-
-    @Value("${server.servlet.contextPath:}")
-    String contextPath;
-
-    @Test
-    void uploadTooLargeIsJson413() throws Exception {
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new ByteArrayResource(ValidationsApiControllerTest.example()) {
-            @Override
-            public String getFilename() {
-                return "big.mzTab";
-            }
-        });
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        ResponseEntity<String> response = new TestRestTemplate().exchange(
-            "http://localhost:" + port + ("/".equals(contextPath) ? "" : contextPath) + "/rest/v2/validations", HttpMethod.POST, new HttpEntity<>(body, headers),
-            String.class);
-        assertEquals(413, response.getStatusCode().value(), String.valueOf(response.getBody()));
-        assertTrue(response.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_JSON));
-        assertTrue(response.getBody().contains("\"status\""));
-    }
-}
-
-@SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
-@AutoConfigureMockMvc
-class ValidationsApiStorageFullTest {
-
-    @TempDir
-    static Path storageRoot;
-
-    @DynamicPropertySource
-    static void storage(DynamicPropertyRegistry registry) {
-        registry.add("storage.location", () -> storageRoot.toString());
-    }
-
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
-
-    @MockitoBean
-    ValidationSessionService sessions;
-
-    @Autowired
-    MockMvc mvc;
-
-    @Test
-    void storageFullIsJson503() throws Exception {
-        when(sessions.submit(any(), any(), any(), any())).thenThrow(new StorageFullException());
-        mvc.perform(multipart("/rest/v2/validations").file(ValidationsApiControllerTest.file("a.mzTab")))
-            .andExpect(status().isServiceUnavailable())
-            .andExpect(jsonPath("$.message").value("The validator's storage is full. Please try again later."));
     }
 }

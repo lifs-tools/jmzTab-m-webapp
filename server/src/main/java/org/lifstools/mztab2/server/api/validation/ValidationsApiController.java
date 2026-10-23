@@ -16,6 +16,11 @@
 package org.lifstools.mztab2.server.api.validation;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.servlet.http.HttpServletRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +43,7 @@ import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
 import org.lifstools.mztab2.model.ValidationMessage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -131,8 +137,10 @@ public class ValidationsApiController {
             throw new IllegalArgumentException("format must be csv or json.");
         }
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.CONTENT_DISPOSITION,
-            "attachment; filename=\"" + record.fileName().replace("\"", "") + "-validation." + f + "\"");
+        String download = record.fileName() + "-validation." + f;
+        boolean ascii = StandardCharsets.US_ASCII.newEncoder().canEncode(download);
+        headers.setContentDisposition(ContentDisposition.attachment()
+            .filename(download, ascii ? null : StandardCharsets.UTF_8).build());
         if (f.equals("json")) {
             return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_JSON)
                 .body(record.messages());
@@ -157,6 +165,9 @@ public class ValidationsApiController {
         return sections.metadata(uuid, group, page, size).orElseThrow(() -> new UnknownValidationException("No such metadata group."));
     }
 
+    @Parameter(name = "filter", in = ParameterIn.QUERY,
+        description = "COLUMN:text, repeatable; the text is not split at commas",
+        array = @ArraySchema(schema = @Schema(type = "string")))
     @Operation(operationId = "getTablePage", summary = "Returns one page of the SML, SMF or SME table")
     @GetMapping(value = "/validations/{id}/tables/{section}", produces = MediaType.APPLICATION_JSON_VALUE)
     public TablePage getTablePage(@PathVariable("id") String id, @PathVariable("section") String section,
@@ -164,8 +175,10 @@ public class ValidationsApiController {
         @RequestParam(value = "size", defaultValue = "50") int size,
         @RequestParam(value = "sort", required = false) @Nullable String sort,
         @RequestParam(value = "descending", defaultValue = "false") boolean descending,
-        @RequestParam(value = "filter", required = false) @Nullable List<String> filter,
-        @RequestParam(value = "columns", required = false) @Nullable List<String> columns) {
+        @RequestParam(value = "columns", required = false) @Nullable List<String> columns,
+        @Parameter(hidden = true) HttpServletRequest request) {
+        // read raw: binding to a List would split a single value at commas
+        String[] filter = request.getParameterValues("filter");
         UUID uuid = record(id).id();
         Section s;
         try {
@@ -205,7 +218,7 @@ public class ValidationsApiController {
             return "upload.mzTab";
         }
         String n = name.replace('\\', '/');
-        n = n.substring(n.lastIndexOf('/') + 1).strip();
+        n = n.substring(n.lastIndexOf('/') + 1).replaceAll("\\p{Cntrl}", "").strip();
         if (n.isEmpty() || n.equals(".") || n.equals("..")) {
             return "upload.mzTab";
         }
@@ -230,8 +243,12 @@ public class ValidationsApiController {
     }
 
     private static String field(@Nullable String value) {
-        if (value == null) {
+        if (value == null || value.isEmpty()) {
             return "";
+        }
+        // spreadsheet formula injection: the text comes from the uploaded file
+        if ("=+-@\t\r".indexOf(value.charAt(0)) >= 0) {
+            value = "'" + value;
         }
         if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
             return '"' + value.replace("\"", "\"\"") + '"';
