@@ -16,8 +16,10 @@
 package org.lifstools.mztab.validator.webapp.service;
 
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.core.io.Resource;
@@ -29,7 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public interface StorageService {
     
-    public static enum SLOT {MZTABFILE, MAPPINGFILE};
+    public static enum SLOT {MZTABFILE, MAPPINGFILE, RECORD, SECTIONS};
 
     void init();
 
@@ -53,5 +55,29 @@ public interface StorageService {
     void deleteAll(UUID sessionId);
 
     void deleteAll();
+
+    /**
+     * Stores {@code content} as {@code name} in the slot of a session,
+     * replacing an existing file atomically: readers see either the old or the
+     * new content, never a partial file.
+     *
+     * @throws IllegalArgumentException if {@code name} does not match
+     * {@code [A-Za-z0-9._-]{1,64}} or is {@code .} or {@code ..}
+     */
+    void write(UUID sessionId, SLOT slot, String name, InputStream content);
+
+    /**
+     * Opens a stored file; the caller closes the stream.
+     *
+     * @return empty if the file does not exist
+     * @throws IllegalArgumentException for an unsafe name, as in {@link #write}
+     */
+    Optional<InputStream> read(UUID sessionId, SLOT slot, String name);
+
+    /** The ids of all sessions currently in storage. */
+    Stream<UUID> sessions();
+
+    /** The total size in bytes of all stored files. */
+    long totalBytes();
 
 }

@@ -49,6 +49,8 @@ import org.xml.sax.XMLReader;
 public final class SafeCvMappingLoader {
 
     private static final JAXBContext CONTEXT = createContext();
+    private static final String XSD = "/schema/CvMapping.xsd";
+    private static volatile Schema schema;
 
     private SafeCvMappingLoader() {
     }
@@ -88,12 +90,7 @@ public final class SafeCvMappingLoader {
             });
             reader.parse(new InputSource(new ByteArrayInputStream(xml)));
 
-            SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-            Schema schema = schemaFactory.newSchema(
-                new StreamSource(SafeCvMappingLoader.class.getResourceAsStream("/schema/CvMapping.xsd")));
-            Validator validator = schema.newValidator();
+            Validator validator = schema().newValidator();
             validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
             validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             validator.validate(new StreamSource(new ByteArrayInputStream(xml)));
@@ -101,6 +98,35 @@ public final class SafeCvMappingLoader {
             throw new InvalidMappingFileException("Mapping file rejected: " + e.getMessage(), e);
         } catch (ParserConfigurationException e) {
             throw new IllegalStateException("Could not configure a secure XML parser", e);
+        }
+    }
+
+    /** The compiled XSD; {@link Schema} is immutable and thread-safe, so it is compiled once. */
+    private static Schema schema() {
+        Schema s = schema;
+        if (s == null) {
+            synchronized (SafeCvMappingLoader.class) {
+                s = schema;
+                if (s == null) {
+                    s = compileSchema();
+                    schema = s;
+                }
+            }
+        }
+        return s;
+    }
+
+    private static Schema compileSchema() {
+        try (InputStream xsd = SafeCvMappingLoader.class.getResourceAsStream(XSD)) {
+            if (xsd == null) {
+                throw new IllegalStateException(XSD + " is missing from the classpath");
+            }
+            SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            return schemaFactory.newSchema(new StreamSource(xsd));
+        } catch (SAXException | IOException e) {
+            throw new IllegalStateException("Could not compile " + XSD, e);
         }
     }
 

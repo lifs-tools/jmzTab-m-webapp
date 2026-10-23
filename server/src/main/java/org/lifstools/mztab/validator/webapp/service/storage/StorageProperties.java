@@ -30,12 +30,26 @@ public class StorageProperties {
      */
     private String location = "upload-dir";
 
+    /**
+     * New validations are refused while the stored files take up at least
+     * this many bytes.
+     */
+    private long maxTotalBytes = 10_737_418_240L;
+
     public String getLocation() {
         return location;
     }
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public long getMaxTotalBytes() {
+        return maxTotalBytes;
+    }
+
+    public void setMaxTotalBytes(long maxTotalBytes) {
+        this.maxTotalBytes = maxTotalBytes;
     }
 
 }

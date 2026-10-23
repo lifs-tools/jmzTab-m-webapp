@@ -23,16 +23,26 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -55,6 +65,8 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 @Service
 public class FileSystemStorageService implements StorageService {
+
+    private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9._-]{1,64}");
 
     private final Path rootLocation;
 
@@ -281,6 +293,106 @@ public class FileSystemStorageService implements StorageService {
     @Override
     public void deleteAll() {
         FileSystemUtils.deleteRecursively(this.rootLocation.toFile());
+    }
+
+    @Override
+    public void write(UUID sessionId, SLOT slot, String name, InputStream content) {
+        Path target = slotFile(sessionId, slot, name);
+        Path dir = target.getParent();
+        Path tmp = null;
+        try {
+            Files.createDirectories(dir);
+            tmp = Files.createTempFile(dir, ".write-", ".tmp");
+            Files.copy(content, tmp, StandardCopyOption.REPLACE_EXISTING);
+            try {
+                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new StorageException("Failed to store " + slot + "/" + name
+                + " for session " + sessionId, e);
+        } finally {
+            if (tmp != null) {
+                try {
+                    Files.deleteIfExists(tmp);
+                } catch (IOException e) {
+                    log.warn("Could not delete temporary file {}", tmp, e);
+                }
+            }
+        }
+    }
+
+    @Override
+    public Optional<InputStream> read(UUID sessionId, SLOT slot, String name) {
+        Path file = slotFile(sessionId, slot, name);
+        try {
+            return Optional.of(Files.newInputStream(file));
+        } catch (NoSuchFileException e) {
+            return Optional.empty();
+        } catch (IOException e) {
+            throw new StorageException("Failed to read " + slot + "/" + name
+                + " for session " + sessionId, e);
+        }
+    }
+
+    @Override
+    public Stream<UUID> sessions() {
+        if (!Files.isDirectory(rootLocation)) {
+            return Stream.empty();
+        }
+        List<UUID> ids = new ArrayList<>();
+        try (DirectoryStream<Path> dirs = Files.newDirectoryStream(rootLocation, Files::isDirectory)) {
+            for (Path dir : dirs) {
+                parseUuid(dir.getFileName().toString()).ifPresent(ids::add);
+            }
+        } catch (IOException e) {
+            throw new StorageException("Failed to list sessions", e);
+        }
+        return ids.stream();
+    }
+
+    @Override
+    public long totalBytes() {
+        if (!Files.isDirectory(rootLocation)) {
+            return 0;
+        }
+        long[] total = {0};
+        try {
+            Files.walkFileTree(rootLocation, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    total[0] += attrs.size();
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    // deleted while walking, e.g. by a concurrent delete
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw new StorageException("Failed to measure storage", e);
+        }
+        return total[0];
+    }
+
+    private Path slotFile(UUID sessionId, SLOT slot, String name) {
+        if (name == null || !SAFE_NAME.matcher(name).matches() || name.equals(".") || name.equals("..")) {
+            throw new IllegalArgumentException("Unsafe storage file name: " + name);
+        }
+        return buildSessionPath(sessionId).resolve(slot.name()).resolve(name);
+    }
+
+    private static Optional<UUID> parseUuid(String name) {
+        try {
+            UUID id = UUID.fromString(name);
+            return id.toString().equals(name) ? Optional.of(id) : Optional.empty();
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
