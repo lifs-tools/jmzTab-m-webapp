@@ -48,29 +48,29 @@ public class SectionReader {
 
     static final int MAX_PAGE_SIZE = 200;
     static final int DEFAULT_COLUMNS = 50;
+    /** Hard cap on cached tables, besides the byte budget. */
+    static final int MAX_CACHED_TABLES = 16;
 
     private record CacheKey(UUID id, Section section) {
 
     }
 
-    private record Table(List<String> header, List<String[]> rows) {
+    /** @param bytes the estimated heap size, at least 1 */
+    private record Table(List<String> header, List<String[]> rows, long bytes) {
 
-        long cells() {
-            return (long) (rows.size() + 1) * header.size();
-        }
     }
 
     private final StorageService storage;
     private final ObjectMapper json = new ObjectMapper();
-    private final long maxCells;
+    private final long maxBytes;
     // access-ordered, so iteration starts at the least recently used table; guarded by itself
     private final LinkedHashMap<CacheKey, Table> cache = new LinkedHashMap<>(8, 0.75f, true);
-    private long cachedCells;
+    private long cachedBytes;
 
     @Autowired
-    public SectionReader(StorageService storage, @Value("${sections.cache.max-cells:4000000}") long maxCells) {
+    public SectionReader(StorageService storage, @Value("${sections.cache.max-bytes:268435456}") long maxBytes) {
         this.storage = storage;
-        this.maxCells = maxCells;
+        this.maxBytes = maxBytes;
     }
 
     /** The number of cached tables. */
@@ -80,30 +80,30 @@ public class SectionReader {
         }
     }
 
-    /** The number of cells held by the cached tables. */
-    long cachedCells() {
+    /** The estimated bytes held by the cached tables. */
+    long cachedBytes() {
         synchronized (cache) {
-            return cachedCells;
+            return cachedBytes;
         }
     }
 
     private void cache(CacheKey key, Table table) {
-        if (table.cells() > maxCells) {
+        if (table.bytes() > maxBytes) {
             return;
         }
         synchronized (cache) {
             Table old = cache.put(key, table);
             if (old != null) {
-                cachedCells -= old.cells();
+                cachedBytes -= old.bytes();
             }
-            cachedCells += table.cells();
+            cachedBytes += table.bytes();
             var it = cache.entrySet().iterator();
-            while (cachedCells > maxCells && it.hasNext()) {
+            while ((cachedBytes > maxBytes || cache.size() > MAX_CACHED_TABLES) && it.hasNext()) {
                 var eldest = it.next();
                 if (eldest.getKey().equals(key)) {
                     continue;
                 }
-                cachedCells -= eldest.getValue().cells();
+                cachedBytes -= eldest.getValue().bytes();
                 it.remove();
             }
         }
@@ -300,11 +300,16 @@ public class SectionReader {
         }
     }
 
-    private static String[] canonical(String[] cells, Map<String, String> canonical) {
+    /** Shares equal cells; {@code bytes[0]} grows by the estimated size of each new distinct string. */
+    private static String[] canonical(String[] cells, Map<String, String> canonical, long[] bytes) {
+        // row: array header plus references
+        bytes[0] += 16 + 8L * cells.length;
         for (int i = 0; i < cells.length; i++) {
             String shared = canonical.putIfAbsent(cells[i], cells[i]);
             if (shared != null) {
                 cells[i] = shared;
+            } else {
+                bytes[0] += 2L * cells[i].length() + 40;
             }
         }
         return cells;
@@ -315,11 +320,13 @@ public class SectionReader {
         BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
         // repeated cells ("null", "", ...) share one String per table
         Map<String, String> canonical = new HashMap<>();
-        List<String> header = Arrays.asList(canonical(json.readValue(lines.readLine(), String[].class), canonical));
+        long[] bytes = new long[1];
+        List<String> header = Arrays.asList(canonical(json.readValue(lines.readLine(), String[].class), canonical,
+            bytes));
         List<String[]> rows = new ArrayList<>();
         for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-            rows.add(canonical(json.readValue(line, String[].class), canonical));
+            rows.add(canonical(json.readValue(line, String[].class), canonical, bytes));
         }
-        return new Table(header, rows);
+        return new Table(header, rows, Math.max(1, bytes[0]));
     }
 }
