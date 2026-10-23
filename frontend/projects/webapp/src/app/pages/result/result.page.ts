@@ -26,6 +26,7 @@ type TabId = 'messages' | 'metadata' | 'summary' | 'features' | 'evidence';
 
 const POLL_MS = 2000;
 const MAX_FAILURES = 3;
+const DELETE_ERROR = 'The result could not be deleted. Please try again.';
 
 const inProgress = (r: ValidationRecord) => r.status === 'QUEUED' || r.status === 'RUNNING';
 const isNotFound = (p: Poll) => p.kind === 'error' && p.err instanceof HttpErrorResponse && p.err.status === 404;
@@ -85,6 +86,8 @@ export class ResultPage {
   });
 
   private confirmHandled = false;
+  private dialogPending = false;
+  protected readonly deleting = signal(false);
 
   constructor() {
     this.route.paramMap
@@ -130,7 +133,11 @@ export class ResultPage {
     if (!this.confirmHandled && p.record.status !== undefined && !inProgress(p.record)) {
       this.confirmHandled = true;
       if (this.route.snapshot.queryParamMap.get('confirmDelete') === 'true') {
-        this.router.navigate([], { queryParams: { confirmDelete: null }, replaceUrl: true });
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { confirmDelete: null },
+          replaceUrl: true,
+        });
         void this.askDelete();
       }
     }
@@ -138,28 +145,45 @@ export class ResultPage {
 
   /** The dialog stack is loaded on demand to keep it out of the initial bundle. */
   protected async askDelete(): Promise<void> {
-    const [{ MatDialog }, { DeleteConfirmDialogComponent }] = await Promise.all([
-      import('@angular/material/dialog'),
-      import('./delete-confirm-dialog.component'),
-    ]);
-    const ref = this.injector.get(MatDialog).open(DeleteConfirmDialogComponent, {
-      width: '440px',
-      maxWidth: 'calc(100vw - 32px)',
-    });
-    ref.afterClosed().subscribe((confirmed) => {
-      if (confirmed === true) this.delete();
-    });
+    if (this.deleting() || this.dialogPending) return;
+    this.dialogPending = true;
+    this.deleteError.set(null);
+    try {
+      const [{ MatDialog }, { DeleteConfirmDialogComponent }] = await Promise.all([
+        import('@angular/material/dialog'),
+        import('./delete-confirm-dialog.component'),
+      ]);
+      const ref = this.injector.get(MatDialog).open(DeleteConfirmDialogComponent, {
+        id: 'delete-result-dialog',
+        width: '440px',
+        maxWidth: 'calc(100vw - 32px)',
+      });
+      ref.afterClosed().subscribe((confirmed) => {
+        this.dialogPending = false;
+        if (confirmed === true) this.delete();
+      });
+    } catch {
+      this.dialogPending = false;
+      this.deleteError.set(DELETE_ERROR);
+    }
   }
 
   private delete(): void {
     const id = this.record()?.id;
-    if (!id) return;
+    if (!id || this.deleting()) return;
     this.deleteError.set(null);
+    this.deleting.set(true);
     this.api.deleteValidation({ id }).subscribe({
-      next: () => {
-        this.router.navigate(['/']);
+      // 404: the result is already gone, which is what the user wanted.
+      next: () => void this.router.navigate(['/']),
+      error: (err: unknown) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          void this.router.navigate(['/']);
+          return;
+        }
+        this.deleting.set(false);
+        this.deleteError.set(DELETE_ERROR);
       },
-      error: () => this.deleteError.set('The result could not be deleted. Please try again.'),
     });
   }
 

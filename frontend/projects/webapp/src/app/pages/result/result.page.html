@@ -25,7 +25,7 @@
     }
     @case ('ready') {
       @if (record(); as rec) {
-        <app-result-header [record]="rec" (deleteRequested)="askDelete()" />
+        <app-result-header [record]="rec" [deleting]="deleting()" (deleteRequested)="askDelete()" />
 
         @if (deleteError(); as msg) {
           <div class="lifs-callout lifs-callout--error" role="alert"><div>{{ msg }}</div></div>

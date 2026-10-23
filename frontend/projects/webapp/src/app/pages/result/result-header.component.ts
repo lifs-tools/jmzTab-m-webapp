@@ -17,6 +17,7 @@ const LEVELS = { INFO: 'Info', WARN: 'Warning', ERROR: 'Error' } as const;
 })
 export class ResultHeaderComponent {
   readonly record = input.required<ValidationRecord>();
+  readonly deleting = input(false);
   readonly deleteRequested = output<void>();
 
   protected readonly profileBadge = computed(() => {

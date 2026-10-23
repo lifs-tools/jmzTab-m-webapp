@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 import { ValidationRecord } from '../../api/models/validation-record';
 import { ResultPage } from './result.page';
@@ -25,7 +25,10 @@ const BASE: ValidationRecord = {
 describe('ResultPage', () => {
   let http: HttpTestingController;
 
+  let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+
   async function render(query: Record<string, string> = {}) {
+    params = new BehaviorSubject(convertToParamMap({ id: 'abc' }));
     await TestBed.configureTestingModule({
       imports: [ResultPage],
       providers: [
@@ -34,7 +37,7 @@ describe('ResultPage', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(convertToParamMap({ id: 'abc' })),
+            paramMap: params,
             snapshot: { queryParamMap: convertToParamMap(query) },
           },
         },
@@ -197,7 +200,7 @@ describe('ResultPage', () => {
       return d;
     });
     expect(dialog.textContent).toContain('Delete this result now?');
-    expect(navigate).toHaveBeenCalledWith([], { queryParams: { confirmDelete: null }, replaceUrl: true });
+    expect(navigate).toHaveBeenCalledWith([], { relativeTo: expect.anything(), queryParams: { confirmDelete: null }, replaceUrl: true });
     Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Cancel')!.click();
   });
 
@@ -208,5 +211,118 @@ describe('ResultPage', () => {
     fixture.detectChanges();
     expect(el.textContent).toContain('This result does not exist or has expired. Results are kept for 7 days.');
     expect(el.querySelector('a[href="/"]')).toBeTruthy();
+  });
+
+  const dialogEl = () => document.querySelector<HTMLElement>('mat-dialog-container');
+  const openDialog = () =>
+    vi.waitFor(() => {
+      const d = dialogEl();
+      if (!d) throw new Error('dialog not open yet');
+      return d;
+    });
+  const button = (root: ParentNode, text: string) =>
+    Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text)!;
+
+  describe('delete edge cases', () => {
+    it('Cancel sends no DELETE', async () => {
+      const { fixture, el, navigate } = await render();
+      await flushRecord(fixture, BASE);
+      button(el, 'Delete now').click();
+      button(await openDialog(), 'Cancel').click();
+      await vi.waitFor(() => expect(dialogEl()).toBeNull());
+      http.expectNone((r) => r.method === 'DELETE');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('DELETE 404 counts as success', async () => {
+      const { fixture, el, navigate } = await render();
+      await flushRecord(fixture, BASE);
+      button(el, 'Delete now').click();
+      button(await openDialog(), 'Delete').click();
+      (await vi.waitFor(() => http.expectOne((r) => r.method === 'DELETE'))).flush(null, { status: 404, statusText: 'Not Found' });
+      await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(['/']));
+    });
+
+    it('DELETE 500 shows the error and stays', async () => {
+      const { fixture, el, navigate } = await render();
+      await flushRecord(fixture, BASE);
+      button(el, 'Delete now').click();
+      button(await openDialog(), 'Delete').click();
+      (await vi.waitFor(() => http.expectOne((r) => r.method === 'DELETE'))).flush(null, { status: 500, statusText: 'err' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el.textContent).toContain('The result could not be deleted. Please try again.');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(button(el, 'Delete now').disabled).toBe(false);
+    });
+
+    it('a double click opens one dialog and sends one DELETE', async () => {
+      const { fixture, el } = await render();
+      await flushRecord(fixture, BASE);
+      const del = button(el, 'Delete now');
+      del.click();
+      del.click();
+      await openDialog();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.querySelectorAll('mat-dialog-container').length).toBe(1);
+      button(dialogEl()!, 'Delete').click();
+      const req = await vi.waitFor(() => http.expectOne((r) => r.method === 'DELETE'));
+      fixture.detectChanges();
+      expect(button(el, 'Delete now').disabled).toBe(true);
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
+  describe('polling edge cases', () => {
+    it('resets the failure counter after a success', async () => {
+      vi.useFakeTimers();
+      const { fixture, el } = await render();
+      const fail = async () => {
+        (await nextGet()).flush('x', { status: 500, statusText: 'err' });
+        await vi.advanceTimersByTimeAsync(2000);
+      };
+      await fail();
+      await fail();
+      (await nextGet()).flush({ ...BASE, status: 'RUNNING', outcome: undefined });
+      await vi.advanceTimersByTimeAsync(2000);
+      await fail();
+      await fail();
+      // Two failures since the success: still polling, no error state.
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain('Something went wrong');
+      (await nextGet()).flush(BASE);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(el.textContent).toContain('Validation passed');
+    });
+
+    it('a route param change cancels the old poll and starts the new one', async () => {
+      vi.useFakeTimers();
+      const { fixture, el } = await render();
+      (await nextGet()).flush({ ...BASE, status: 'RUNNING', outcome: undefined });
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(el.querySelector('mat-progress-bar')).toBeTruthy();
+      params.next(convertToParamMap({ id: 'xyz' }));
+      fixture.detectChanges();
+      expect(el.querySelector('mat-progress-bar')).toBeNull();
+      await vi.advanceTimersByTimeAsync(0);
+      const req = http.expectOne((r) => r.url.endsWith('rest/v2/validations/xyz'));
+      req.flush({ ...BASE, id: 'xyz', fileName: 'other.mzTab' });
+      await vi.advanceTimersByTimeAsync(10000);
+      http.expectNone(() => true);
+      fixture.detectChanges();
+      expect(el.textContent).toContain('other.mzTab');
+    });
+
+    it('destroying the component stops polling', async () => {
+      vi.useFakeTimers();
+      const { fixture } = await render();
+      (await nextGet()).flush({ ...BASE, status: 'RUNNING', outcome: undefined });
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.destroy();
+      await vi.advanceTimersByTimeAsync(10000);
+      http.expectNone(() => true);
+    });
   });
 });

@@ -25,7 +25,7 @@
         <a mat-menu-item [attr.href]="reportBase() + '?format=json'">JSON</a>
       </mat-menu>
     }
-    <button mat-stroked-button type="button" class="danger" (click)="deleteRequested.emit()">
+    <button mat-stroked-button type="button" class="danger" [disabled]="deleting()" (click)="deleteRequested.emit()">
       Delete now
     </button>
   </div>
