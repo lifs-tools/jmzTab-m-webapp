@@ -39,6 +39,13 @@ describe('AboutPage', () => {
     expect(el.querySelector('a[href="https://github.com/lifs-tools/jmzTab-m"]')).toBeTruthy();
   });
 
+  it('puts every link in the page body into prose, so it is underlined', async () => {
+    const el = await render();
+    const links = Array.from(el.querySelectorAll('.page a'));
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((a) => a.closest('.lifs-prose') !== null)).toBe(true);
+  });
+
   it('never mentions ISAS', async () => {
     const el = await render();
     expect(el.textContent).not.toMatch(/isas/i);

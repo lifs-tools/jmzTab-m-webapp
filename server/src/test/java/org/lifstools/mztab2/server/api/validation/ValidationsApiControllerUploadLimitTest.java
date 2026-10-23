@@ -66,7 +66,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 @SpringBootTest(classes = Application.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @TestPropertySource(properties = "spring.servlet.multipart.max-file-size=1KB")
-class ValidationsApiControllerTestUploadLimit {
+class ValidationsApiControllerUploadLimitTest {
 
     @TempDir
     static Path storageRoot;

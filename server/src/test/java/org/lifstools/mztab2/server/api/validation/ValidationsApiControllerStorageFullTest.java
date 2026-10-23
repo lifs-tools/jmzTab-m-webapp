@@ -62,10 +62,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
-@SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false",
-    "validation.custom-mappings.enabled=false"})
+@SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @AutoConfigureMockMvc
-class ValidationsApiControllerTestCustomMappingsDisabled {
+class ValidationsApiControllerStorageFullTest {
 
     @TempDir
     static Path storageRoot;
@@ -78,14 +77,17 @@ class ValidationsApiControllerTestCustomMappingsDisabled {
     @MockitoBean(answers = Answers.RETURNS_MOCKS)
     OLSClient olsClient;
 
+    @MockitoBean
+    ValidationSessionService sessions;
+
     @Autowired
     MockMvc mvc;
 
     @Test
-    void customMappingDisabledIs403() throws Exception {
-        mvc.perform(multipart("/rest/v2/validations").file(ValidationsApiControllerTest.file("a.mzTab"))
-            .file(new MockMultipartFile("mappingFile", "m.xml", "text/xml", "<x/>".getBytes())))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.status").exists());
+    void storageFullIsJson503() throws Exception {
+        when(sessions.submit(any(), any(), any(), any())).thenThrow(new StorageFullException());
+        mvc.perform(multipart("/rest/v2/validations").file(ValidationsApiControllerTest.file("a.mzTab")))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.message").value("The validator's storage is full. Please try again later."));
     }
 }

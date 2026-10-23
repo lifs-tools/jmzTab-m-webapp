@@ -16,6 +16,8 @@
 package org.lifstools.mztab.validator.webapp.spa;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -75,6 +77,9 @@ class SpaControllerTest {
 
     @Autowired
     ObjectMapper json;
+
+    @Autowired
+    SpaController controller;
 
     static MockHttpServletRequestBuilder ctxGet(String path) {
         return get(CTX + path).contextPath(CTX);
@@ -211,7 +216,53 @@ class SpaControllerTest {
     @ValueSource(strings = {"//evil.example", "/a//b", "/a%2F..", "/évil"})
     void prefixesTheFirewallRejectsNeverReachThePage(String prefix) throws Exception {
         mvc.perform(get("/").header("X-Forwarded-Prefix", prefix))
+            .andExpect(status().isBadRequest())
             .andExpect(content().string(not(containsString("<base href=\"" + prefix))));
+    }
+
+    @Test
+    void serverContextPathKeepsItsCacheSlot() throws Exception {
+        for (int i = 0; i < 20; i++) {
+            mvc.perform(get("/").header("X-Forwarded-Prefix", "/junk" + i)).andExpect(status().isOk());
+        }
+        // MockMvc's servlet context has the root context path
+        assertTrue(controller.cachedContextPaths().contains(""), "cached: " + controller.cachedContextPaths());
+        assertTrue(controller.cachedContextPaths().size() <= 16, "cached: " + controller.cachedContextPaths());
+    }
+
+    @Test
+    void rejectedPrefixesAreLoggedSafely() {
+        assertEquals("a?b?c", SpaController.printable("a\nb\u0000c"));
+        assertEquals(65, SpaController.printable("x".repeat(500)).length());
+        assertEquals("null", SpaController.printable(null));
+    }
+
+    @Test
+    void hashedBundlesAreImmutable() throws Exception {
+        mvc.perform(ctxGet("/chunk-TEST1234.js"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+    }
+
+    @Test
+    void hashedMediaAreImmutable() throws Exception {
+        mvc.perform(ctxGet("/media/test-font-ABCD1234.woff2"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+    }
+
+    @Test
+    void unhashedPublicFilesAreCachedForADay() throws Exception {
+        mvc.perform(ctxGet("/brand/test-logo.svg"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "max-age=86400, public"));
+    }
+
+    @Test
+    void restResponsesKeepNoStore() throws Exception {
+        mvc.perform(ctxGet("/rest/v2/app-info"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", containsString("no-store")));
     }
 
     private String createValidation() throws Exception {

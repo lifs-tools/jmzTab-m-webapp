@@ -50,6 +50,12 @@ a {
   }
 }
 
+// Links inside running text must be recognisable without colour (WCAG 1.4.1).
+.lifs-prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 h1,
 h2,
 h3 {

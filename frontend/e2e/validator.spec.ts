@@ -123,9 +123,9 @@ test('footer shows Forschungszentrum Jülich', async ({ page }) => {
 });
 
 /**
- * Known contrast shortfalls of the approved LIFS colours, waiting for a decision by the project lead:
- * white on the lifs-tools.org nav blue #3D84A8 (4.14:1, ruling R21; the app bar's "LIFS Tools" line #D8E6EE
- * reaches 3.25:1) and the button colour site-blue #5897BF with white (3.18:1, filled and outlined buttons).
+ * Known contrast shortfalls of the approved LIFS colours (ruling R28, waiting for a decision by the project lead):
+ * the lifs-tools.org brand bar, white on nav blue #3D84A8 (4.14:1, R21) including its "LIFS Tools" subtitle
+ * #D8E6EE (3.25:1), and the button colour site-blue #5897BF with white (3.18:1, filled and outlined buttons).
  * Only these exact colour pairs are tolerated; any other serious or critical violation fails the test.
  * Remove an entry once its colours change.
  */
@@ -142,7 +142,7 @@ function isKnownShortfall(ruleId: string, data: unknown): boolean {
   return KNOWN_CONTRAST_SHORTFALLS.some((k) => k.fg === fgColor?.toLowerCase() && k.bg === bgColor?.toLowerCase());
 }
 
-test('landing and result pages have no serious accessibility violations', async ({ page, request }) => {
+test('landing, result, about and examples pages have no serious accessibility violations', async ({ page, request }) => {
   const seriousViolations = async () => {
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     return results.violations
@@ -167,4 +167,13 @@ test('landing and result pages have no serious accessibility violations', async 
   await awaitBanner(page);
   expect(await seriousViolations(), 'result page').toEqual([]);
   await request.delete(`rest/v2/validations/${id}`);
+
+  await page.goto('about');
+  await expect(page.getByRole('heading', { level: 2, name: 'How to cite' })).toBeVisible();
+  expect(await seriousViolations(), 'about page').toEqual([]);
+
+  await page.goto('examples');
+  await expect(page.getByRole('heading', { level: 1, name: 'Examples' })).toBeVisible();
+  await expect(page.locator('.item').first()).toBeVisible();
+  expect(await seriousViolations(), 'examples page').toEqual([]);
 });

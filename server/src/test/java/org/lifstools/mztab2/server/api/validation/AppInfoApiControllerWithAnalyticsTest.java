@@ -35,7 +35,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false", "ga.id=42"})
 @AutoConfigureMockMvc
-class AppInfoApiControllerTestWithAnalytics {
+class AppInfoApiControllerWithAnalyticsTest {
 
     @TempDir
     static Path storageRoot;

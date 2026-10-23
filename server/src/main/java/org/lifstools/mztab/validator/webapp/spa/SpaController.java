@@ -15,12 +15,14 @@
  */
 package org.lifstools.mztab.validator.webapp.spa;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,8 +68,18 @@ public class SpaController {
     private final Map<String, String> pages = new ConcurrentHashMap<>();
     private volatile @Nullable String template;
 
-    public SpaController(ResourceLoader resources) {
+    public SpaController(ResourceLoader resources, ServletContext servletContext) {
         this.resources = resources;
+        // the server's own context path always has a cache slot, whatever prefixes arrive first
+        String own = servletContext.getContextPath();
+        if (own != null && SAFE_CONTEXT_PATH.matcher(own).matches()) {
+            page(own);
+        }
+    }
+
+    /** The context paths with a cached page, for tests. */
+    Set<String> cachedContextPaths() {
+        return Set.copyOf(pages.keySet());
     }
 
     @GetMapping({"/", "/index.html"})
@@ -107,9 +119,23 @@ public class SpaController {
         if (contextPath != null && SAFE_CONTEXT_PATH.matcher(contextPath).matches()) {
             return contextPath;
         }
-        log.warn("Ignoring unsafe context path {}", contextPath);
+        if (log.isDebugEnabled()) {
+            log.debug("Ignoring unsafe context path '{}'", printable(contextPath));
+        }
         String own = request.getServletContext().getContextPath();
         return own != null && SAFE_CONTEXT_PATH.matcher(own).matches() ? own : "";
+    }
+
+    /** A client-supplied value made safe for a log line: no control characters, at most 64 characters. */
+    static String printable(@Nullable String value) {
+        if (value == null) {
+            return "null";
+        }
+        String clean = value.codePoints()
+            .map(c -> Character.isISOControl(c) || Character.getType(c) == Character.FORMAT ? '?' : c)
+            .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+            .toString();
+        return clean.length() > 64 ? clean.substring(0, 64) + "…" : clean;
     }
 
     @Nullable
