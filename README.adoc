@@ -19,13 +19,14 @@ In order to build the project and run the unit tests, execute the following comm
 
 == Running the Web Application for Development
 
-  ./mvnw spring-boot:run
+  ./mvnw install
+  ./mvnw -pl server spring-boot:run
 
 == Running the Web Application for Validation
 The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
-The `target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
+The build is a Maven reactor with two modules: `server` (the Spring Boot web application) and `frontend` (the Angular single-page application, currently a placeholder). The `server/target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
 
-  ./mztab-validator-webapp-<VERSION>.jar
+  ./server/target/mztab-validator-webapp-<VERSION>.jar
 
 This will start the application with a default configuration, running on http port 8083. 
 The application can then be accessed from your web browser at
@@ -41,14 +42,14 @@ This will build a Docker container for the webapplication and will make it local
 
   docker image ls
   REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-  isas/mztab-validator-webapp   1.0.8-SNAPSHOT      b87d4683db50        About an hour ago   472MB
+  lifs/mztab-validator-webapp   1.0.8-SNAPSHOT      b87d4683db50        About an hour ago   472MB
 
-Please note that the base image we use is quite large (for details, see `web/Dockerfile`), but also includes monitoring utilities and automatic scaling and limiting of the 
+Please note that the base image we use is quite large (for details, see `server/Dockerfile`), but also includes monitoring utilities and automatic scaling and limiting of the 
 internal JVMs memory based on the amount of memory allocated for the container by Docker.
 
 To run the web application as a Docker container, type in the following (replacing <VERSION> with the current project version, i.e. the TAG version displayed by `docker image ls`):
 
-  docker run -it --rm --name mztabvalidator -p 8080:8083 -m 150M isas/mztab-validator-webapp:<VERSION>
+  docker run -it --rm --name mztabvalidator -p 8080:8083 -m 150M lifs/mztab-validator-webapp:<VERSION>
 
 == References
 

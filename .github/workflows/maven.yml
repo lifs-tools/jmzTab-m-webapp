@@ -5,9 +5,11 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, feat/validator-spa ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, feat/validator-spa ]
+  # Manual runs publish the integration branch image (version tag only, never latest).
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,9 +35,10 @@ jobs:
       uses: whelk-io/maven-settings-xml-action@v22
       with:
         servers: '[{ "id": "lifstools-jfrog", "username": "${env.ARTIFACTORY_USERNAME_REF}", "password": "${env.ARTIFACTORY_TOKEN_REF}" }]'        
-    # Pull requests only build and test; images are published from master only.
+    # Pull requests and pushes to the integration branch only build and test;
+    # images are published from master (and by manual dispatch on the integration branch).
     - name: Build and test with Maven
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/master')
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +46,7 @@ jobs:
     # The version goes through a file because on a fresh runner ./mvnw prints
     # its Maven download progress to stdout.
     - name: Set Release version env variable
-      if: github.event_name == 'push'
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa')
       run: |
         ./mvnw -B -q help:evaluate -Dexpression=project.version -Doutput="$RUNNER_TEMP/version.txt" > /dev/null
         version=$(cat "$RUNNER_TEMP/version.txt")
@@ -52,16 +55,23 @@ jobs:
     # Jib pushes to the registry during package and reads the credentials
     # written by docker/login-action, so the login has to come first.
     - name: Login to LIFS Tools registry
-      if: github.event_name == 'push'
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa')
       uses: docker/login-action@v4
       with:
         registry: docker.lifs-tools.org
         username: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_USER }}
         password: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_PW }}
     - name: Build and push docker image with Maven
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
 
+    # Integration branch: pushes only the version tag (2.0.0-SNAPSHOT), never latest.
+    - name: Build and push integration branch docker image with Maven
+      if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa'
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
