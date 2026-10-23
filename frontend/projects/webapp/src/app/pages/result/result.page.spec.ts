@@ -6,7 +6,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, map } from 'rxjs';
 
 import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
@@ -64,7 +64,8 @@ const NOT_PARSED: ValidationRecord = {
 
 describe('ResultPage', () => {
   let http: HttpTestingController;
-  let wideScreen = false;
+  /** What the BreakpointObserver stub reports for '(min-width: 1100px)'; tests may change it at any time. */
+  let screen: BehaviorSubject<boolean>;
 
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
@@ -75,7 +76,10 @@ describe('ResultPage', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: BreakpointObserver, useValue: { observe: () => of({ matches: wideScreen, breakpoints: {} }) } },
+        {
+          provide: BreakpointObserver,
+          useValue: { observe: () => screen.pipe(map((matches) => ({ matches, breakpoints: {} }))) },
+        },
         // Dialogs close only after their exit animation; without animations the
         // close (and the DELETE it triggers) does not depend on runner speed.
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
@@ -114,7 +118,7 @@ describe('ResultPage', () => {
     fixture.detectChanges();
   };
 
-  beforeEach(() => (wideScreen = false));
+  beforeEach(() => (screen = new BehaviorSubject(false)));
 
   afterEach(() => {
     vi.useRealTimers();
@@ -385,7 +389,7 @@ describe('ResultPage', () => {
     let fixture: ComponentFixture<ResultPage>;
     let root: HTMLElement;
 
-    const wide = (on: boolean) => (wideScreen = on);
+    const wide = (on: boolean) => screen.next(on);
     const el = (sel: string) => root.querySelector<HTMLElement>(sel);
     const els = (sel: string) => Array.from(root.querySelectorAll<HTMLElement>(sel));
     const label = (tab: Element) => tab.querySelector('.tab-label')?.textContent?.trim() ?? '';
@@ -555,6 +559,104 @@ describe('ResultPage', () => {
       await click('.chip');
       expect(tableHighlight()).toEqual(first);
       expect(tableHighlight()).not.toBe(first);
+    });
+
+    /** Presses a key on the selected tab, as a keyboard user would. */
+    async function key(k: string) {
+      el('[role="tab"][aria-selected="true"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+      await serve();
+    }
+
+    it('a manual tab change consumes the jump: coming back neither replays it nor takes the focus', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      expect(tableHighlight()).not.toBeNull();
+      await key('ArrowLeft');
+      expect(selectedTab()).toBe('Metadata');
+      expect(metadataHighlight()).toBeNull();
+      await key('ArrowRight');
+      expect(selectedTab()).toBe('Summary');
+      expect(tableHighlight()).toBeNull();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement).toBe(el('#tab-summary'));
+    });
+
+    it('a layout switch consumes the jump', async () => {
+      await renderFinished(LINKED);
+      await click('.chip');
+      expect(selectedTab()).toBe('Summary');
+      expect(tableHighlight()).not.toBeNull();
+      wide(true);
+      await serve();
+      expect(el('.split')).toBeTruthy();
+      expect(selectedTab()).toBe('Summary');
+      expect(tableHighlight()).toBeNull();
+      wide(false);
+      await serve();
+      expect(el('.split')).toBeNull();
+      expect(tableHighlight()).toBeNull();
+    });
+
+    it('shows the stepper only on the tab of the shown occurrence; a step there is a new jump', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      await click('#tab-features');
+      expect(el('.stepper')).toBeNull();
+      await click('#tab-summary');
+      expect(el('.stepper')!.textContent).toContain('1 of 3');
+      expect(tableHighlight()).toBeNull();
+      await click('.stepper button[aria-label="Next occurrence"]');
+      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false });
+    });
+
+    it('shows the back bar only on the tab of the shown occurrence', async () => {
+      await renderFinished(LINKED);
+      await click('.chip');
+      await click('#tab-features');
+      expect(el('.back-bar')).toBeNull();
+      await click('#tab-summary');
+      expect(el('.back-bar')!.textContent).toContain('1 of 3');
+    });
+
+    it('renders no link for a message whose tab is absent', async () => {
+      const toEvidence: ValidationMessage = {
+        ...cellError(0),
+        code: '[Error-2011] line 40: bad evidence\r\n',
+        suggestion: 'Fix the evidence row.',
+        location: { section: 'sme', row_index: 0 },
+      };
+      wide(true);
+      await renderFinished({
+        ...LINKED,
+        sections: { ...BASE.sections!, sme: undefined },
+        messages: [...LINKED.messages!, toEvidence],
+      });
+      const card = els('.grp').find((g) => g.textContent?.includes('Fix the evidence row'))!;
+      expect(card.querySelector('.chip')).toBeNull();
+      expect(card.querySelector('.act-first')).toBeNull();
+      expect(els('.chip').length).toBeGreaterThan(0);
+    });
+
+    it('moves through the document tabs with the keyboard, skipping disabled ones', async () => {
+      wide(true);
+      await renderFinished({ ...LINKED, sections: { ...BASE.sections!, smf: undefined } });
+      const visit: [string, string][] = [
+        ['ArrowRight', 'Summary'],
+        ['ArrowRight', 'Evidence'],
+        ['ArrowRight', 'Metadata'],
+        ['ArrowLeft', 'Evidence'],
+        ['Home', 'Metadata'],
+        ['End', 'Evidence'],
+      ];
+      for (const [k, tab] of visit) {
+        await key(k);
+        expect(selectedTab()).toBe(tab);
+        expect(label(document.activeElement!)).toBe(tab);
+        expect(el('[role="tab"][aria-selected="true"]')!.getAttribute('tabindex')).toBe('0');
+      }
+      expect(els('[role="tab"][tabindex="0"]').length).toBe(1);
     });
 
     it('stays single-column for unparsed files even when wide, without links', async () => {

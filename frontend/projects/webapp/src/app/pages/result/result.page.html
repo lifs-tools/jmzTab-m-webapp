@@ -113,11 +113,13 @@
                     [ngTemplateOutlet]="tablist"
                     [ngTemplateOutletContext]="{ $implicit: docTabs(), label: 'Document sections' }"
                   />
-                  @if (focus(); as f) {
-                    <div class="stepper">
-                      <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
-                      <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
-                    </div>
+                  @if (showStepper()) {
+                    @if (focus(); as f) {
+                      <div class="stepper">
+                        <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
+                        <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
+                      </div>
+                    }
                   }
                   <div
                     role="tabpanel"

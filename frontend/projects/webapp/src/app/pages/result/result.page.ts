@@ -9,6 +9,7 @@ import {
   afterNextRender,
   computed,
   inject,
+  linkedSignal,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -120,11 +121,33 @@ export class ResultPage {
   protected readonly docTabs = computed(() => this.tabs().filter((t) => t.id !== 'messages'));
   protected readonly docTab = signal<DocTab>('metadata');
   protected readonly focus = signal<Focus | null>(null);
-  /** Unparsed files have no document to link to, so their messages carry no locations. */
+  /**
+   * Whether the current jump is still to be played. A new focus (chip click, ‹ ›) makes it live; a manual
+   * tab change or a layout switch consumes it, since both re-create the document tab, which would replay
+   * the jump (reset the table, re-open the panel, take the focus).
+   */
+  private readonly jumpLive = linkedSignal<{ focus: Focus | null; split: boolean }, boolean>({
+    source: () => ({ focus: this.focus(), split: this.split() }),
+    computation: (src, prev) => {
+      if (!prev || src.focus !== prev.source.focus) return src.focus !== null;
+      return prev.value && src.split === prev.source.split;
+    },
+  });
+  private readonly enabledTabs = computed(
+    () => new Set(this.tabs().filter((t) => !t.disabled).map((t) => t.id)),
+  );
+  /**
+   * A message whose target tab is disabled or absent (e.g. any target of an unparsed file) has nothing
+   * to link to, so it loses its location and renders no chip.
+   */
   protected readonly messages = computed<readonly ValidationMessage[]>(() => {
-    const r = this.record();
-    const ms = r?.messages ?? [];
-    return r?.outcome === 'NOT_PARSED' ? ms.map(({ location: _, ...m }) => m) : ms;
+    const enabled = this.enabledTabs();
+    return (this.record()?.messages ?? []).map((m) => {
+      const t = targetOf(m);
+      if (!t || enabled.has(t.tab)) return m;
+      const { location: _, ...rest } = m;
+      return rest;
+    });
   });
   protected readonly profileLabel = computed(() => {
     const p = this.record()?.validationProfile;
@@ -134,7 +157,7 @@ export class ResultPage {
   });
 
   /** Derived from `focus` only, so a new highlight object (a new jump) exists exactly when the focus changes. */
-  protected readonly metadataHighlight = computed<MetadataHighlight | null>(() => {
+  private readonly metadataJump = computed<MetadataHighlight | null>(() => {
     const f = this.focus();
     const t = f?.targets[f.index];
     if (!f || !t || t.tab !== 'metadata' || !t.group) return null;
@@ -159,12 +182,20 @@ export class ResultPage {
       highlight: { rows, focusRow: t.rowIndex ?? null, column: t.column ?? null, header: !!t.header },
     };
   });
-  /** For the table of `docTab`; switching tabs back and forth returns the same object, not a new jump. */
+  /** The live jump's metadata highlight; null once the jump is consumed. */
+  protected readonly metadataHighlight = computed(() => (this.jumpLive() ? this.metadataJump() : null));
+  /** The live jump's highlight for the table of `docTab`; null once the jump is consumed. */
   protected readonly tableHighlight = computed<TableHighlight | null>(() => {
     const j = this.tableJump();
-    return j && j.tab === this.docTab() ? j.highlight : null;
+    return j && this.jumpLive() && j.tab === this.docTab() ? j.highlight : null;
   });
-  protected readonly showBackBar = computed(() => !!this.focus() && !this.split() && this.active() !== 'messages');
+  /** The tab on screen is the one holding the shown occurrence: the back bar / stepper apply to it. */
+  private readonly onTarget = computed(() => {
+    const f = this.focus();
+    return !!f && this.current() === f.targets[f.index].tab;
+  });
+  protected readonly showBackBar = computed(() => this.onTarget() && !this.split());
+  protected readonly showStepper = computed(() => this.onTarget() && this.split());
 
   private tabHandled = false;
   private confirmHandled = false;
@@ -283,8 +314,12 @@ export class ResultPage {
   /** The selected tab of the tablist on screen: the right pane's in layout B, else the single one. */
   protected readonly current = computed<TabId>(() => (this.split() ? this.docTab() : this.active()));
 
-  /** Selects a tab; a document tab is also what the right pane shows when the layout widens. */
+  /**
+   * Selects a tab; a document tab is also what the right pane shows when the layout widens.
+   * Changing the tab on screen consumes the jump: the document tab shown later must not replay it.
+   */
   protected select(id: TabId): void {
+    if (id !== this.current()) this.jumpLive.set(false);
     this.active.set(id);
     if (id !== 'messages') this.docTab.set(id);
   }
@@ -307,7 +342,8 @@ export class ResultPage {
 
   /** Shows an occurrence of a group: in the right pane (layout B) or by jumping to its tab (layout A). */
   protected onShow(req: ShowRequest): void {
-    const enabled = new Set(this.tabs().filter((t) => !t.disabled).map((t) => t.id));
+    // A safety net: `messages()` already drops the locations of messages without an enabled tab.
+    const enabled = this.enabledTabs();
     const linked = (m: ValidationMessage) => {
       const t = targetOf(m);
       return t && enabled.has(t.tab) ? t : null;
@@ -337,7 +373,7 @@ export class ResultPage {
 
   /** Layout A: back to the Messages tab, with focus on the shown group's card. */
   protected backToMessage(): void {
-    this.active.set('messages');
+    this.select('messages');
     afterNextRender(
       () => this.host.nativeElement.querySelector<HTMLElement>('.grp[aria-current="true"] button')?.focus(),
       { injector: this.injector },
