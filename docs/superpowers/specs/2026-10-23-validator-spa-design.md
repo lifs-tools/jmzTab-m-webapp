@@ -1,7 +1,7 @@
 # mzTab-M Validator SPA — Milestone 1 Design
 
 **Date:** 2026-10-23
-**Status:** Builder-checked; open questions answered (2026-10-23). Awaiting approval.
+**Status:** Approved by the project lead on 2026-10-23.
 **Parent design:** `lipidcompass/docs/design/mztabm-editor/specs/standalone-editor-design.md` (2026-10-19, "the standalone design" below). This document changes its milestone order and specifies the new milestone 1 in detail. Everything in the standalone design that this document does not override still applies.
 
 Decisions are tagged **[decided]** where the project lead decided them and **[my call]** where the author decided and the project lead can still correct it.
