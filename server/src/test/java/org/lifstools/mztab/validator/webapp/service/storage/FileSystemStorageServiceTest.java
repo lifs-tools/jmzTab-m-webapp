@@ -75,6 +75,22 @@ class FileSystemStorageServiceTest {
     }
 
     @Test
+    void deleteRemovesOneSlotOnly() throws IOException {
+        UUID id = UUID.randomUUID();
+        storage.write(id, SLOT.SECTIONS, "metadata.jsonl", stream("a"));
+        storage.write(id, SLOT.SECTIONS, "sml.jsonl", stream("b"));
+        storage.write(id, SLOT.RECORD, "record.json", stream("c"));
+
+        storage.delete(id, SLOT.SECTIONS);
+        storage.delete(id, SLOT.SECTIONS);
+        storage.delete(UUID.randomUUID(), SLOT.SECTIONS);
+
+        assertTrue(storage.read(id, SLOT.SECTIONS, "metadata.jsonl").isEmpty());
+        assertTrue(storage.read(id, SLOT.SECTIONS, "sml.jsonl").isEmpty());
+        assertEquals("c", read(id, SLOT.RECORD, "record.json"));
+    }
+
+    @Test
     void rejectsUnsafeNames() throws IOException {
         UUID id = UUID.randomUUID();
         for (String name : List.of("../x", "..", ".", "", "a/b", "a\\b", "x".repeat(65))) {

@@ -48,6 +48,7 @@ public class SectionReader {
 
     static final int MAX_PAGE_SIZE = 200;
     static final int DEFAULT_COLUMNS = 50;
+    static final int MAX_COLUMNS = 200;
     /** Hard cap on cached tables, besides the byte budget. */
     static final int MAX_CACHED_TABLES = 16;
 
@@ -138,10 +139,14 @@ public class SectionReader {
 
     /**
      * @return empty if the session has no such section
-     * @throws IllegalArgumentException for an unknown column or invalid paging
+     * @throws IllegalArgumentException for an unknown column, more than
+     * {@value #MAX_COLUMNS} requested columns or invalid paging
      */
     public Optional<TablePage> table(UUID id, Section section, TableQuery query) {
         checkPaging(query.page(), query.size());
+        if (query.columns().size() > MAX_COLUMNS) {
+            throw new IllegalArgumentException("At most " + MAX_COLUMNS + " columns can be requested.");
+        }
         Optional<Table> loaded = load(id, section);
         if (loaded.isEmpty()) {
             return Optional.empty();

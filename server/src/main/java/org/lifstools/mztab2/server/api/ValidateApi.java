@@ -98,6 +98,7 @@ public interface ValidateApi {
             if (getAcceptHeader().
                 get().
                 contains("application/json")) {
+                UUID sessionId = UUID.randomUUID();
                 try {
                     MzTabNonValidatingWriter writer = new MzTabNonValidatingWriter();
                     ByteArrayOutputStream stringWriter = new ByteArrayOutputStream();
@@ -106,12 +107,11 @@ public interface ValidateApi {
                     String mzTabString = stringWriter.toString(StandardCharsets.UTF_8);
                     UserSessionFile file = getStorageService().
                         get().
-                        store(mzTabString, UUID.randomUUID(), SLOT.MZTABFILE);
+                        store(mzTabString, sessionId, SLOT.MZTABFILE);
                     UserSessionFile mappingFile = getStorageService().
                         get().
                         store(ValidateApi.class.getResource(
-                            "/mappings/mzTab-M-mapping.xml"), file.
-                                getSessionId(), SLOT.MAPPINGFILE);
+                            "/mappings/mzTab-M-mapping.xml"), sessionId, SLOT.MAPPINGFILE);
                     List<ValidationMessage> messages = getValidationService().
                         get().
                         validate(file,
@@ -130,6 +130,9 @@ public interface ValidateApi {
                         "Couldn't serialize response for content type application/json",
                         e);
                     return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+                } finally {
+                    // the validation is synchronous: nothing of it is kept
+                    getStorageService().get().deleteAll(sessionId);
                 }
             }
         } else {

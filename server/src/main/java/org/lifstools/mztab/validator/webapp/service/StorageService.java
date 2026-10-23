@@ -57,6 +57,12 @@ public interface StorageService {
     void deleteAll();
 
     /**
+     * Deletes all files of one slot of a session; nothing happens if the slot
+     * holds no files.
+     */
+    void delete(UUID sessionId, SLOT slot);
+
+    /**
      * Stores {@code content} as {@code name} in the slot of a session,
      * replacing an existing file atomically: readers see either the old or the
      * new content, never a partial file.

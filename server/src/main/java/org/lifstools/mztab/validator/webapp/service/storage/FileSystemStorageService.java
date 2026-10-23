@@ -291,6 +291,16 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
+    public void delete(UUID sessionId, SLOT slot) {
+        Path slotPath = buildSessionPath(sessionId).resolve(slot.name());
+        try {
+            FileSystemUtils.deleteRecursively(slotPath);
+        } catch (IOException e) {
+            throw new StorageException("Failed to delete " + slot + " of session " + sessionId, e);
+        }
+    }
+
+    @Override
     public void deleteAll() {
         FileSystemUtils.deleteRecursively(this.rootLocation.toFile());
     }

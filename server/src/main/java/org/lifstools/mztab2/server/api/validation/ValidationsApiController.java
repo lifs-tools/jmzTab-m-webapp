@@ -232,7 +232,7 @@ public class ValidationsApiController {
     static String csv(List<ValidationMessage> messages) {
         StringBuilder sb = new StringBuilder("level,line,category,code,message\r\n");
         for (ValidationMessage m : messages) {
-            sb.append(field(m.getMessageType() == null ? "" : m.getMessageType().getValue())).append(',')
+            sb.append(field(m.getMessageType() == null ? "" : m.getMessageType().name())).append(',')
                 .append(m.getLineNumber() == null ? "" : m.getLineNumber().toString()).append(',')
                 .append(field(m.getCategory() == null ? "" : m.getCategory().name())).append(',')
                 .append(m.getCode() == null ? "" : m.getCode().toString()).append(',')

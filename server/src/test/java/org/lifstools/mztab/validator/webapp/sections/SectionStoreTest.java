@@ -250,6 +250,19 @@ class SectionStoreTest {
     }
 
     @Test
+    void requestedColumnsAreBounded() throws Exception {
+        UUID id = finished(LIPIDOMICS).id();
+        List<String> max = java.util.Collections.nCopies(200, "SML_ID");
+        List<String> tooMany = java.util.Collections.nCopies(201, "SML_ID");
+
+        assertEquals(200, reader.table(id, Section.SML,
+            new TableQuery(0, 1, null, false, List.of(), max)).orElseThrow().columns().size());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> reader.table(id,
+            Section.SML, new TableQuery(0, 1, null, false, List.of(), tooMany)));
+        assertEquals("At most 200 columns can be requested.", e.getMessage());
+    }
+
+    @Test
     void pageSizeIsBounded() throws Exception {
         UUID id = finished(LIPIDOMICS).id();
 

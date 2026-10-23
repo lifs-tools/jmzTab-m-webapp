@@ -86,7 +86,7 @@ public class MzTabMValidator implements WebValidator {
             parser.parse(System.out, MZTabErrorType.findLevel(level.name()), maxErrors);
             parsed = true;
         } catch (Exception e) {
-            log.error("Caught Exception in IsasValidator:", e);
+            log.error("Caught Exception in MzTabMValidator:", e);
             ValidationMessage vm = new ValidationMessage();
             vm.setCategory(
                     ValidationMessage.CategoryEnum.FORMAT);
@@ -123,7 +123,7 @@ public class MzTabMValidator implements WebValidator {
             List<ValidationMessage> messages = cvValidator.validate(mzTab);
             return Optional.ofNullable(messages).orElse(Collections.emptyList());
         } catch (Exception iae) {
-            log.error("Caught Exception in IsasValidator, semantic validation:", iae);
+            log.error("Caught Exception in MzTabMValidator, semantic validation:", iae);
             ValidationMessage vm = new ValidationMessage();
             vm.setCategory(
                     ValidationMessage.CategoryEnum.FORMAT);

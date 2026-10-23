@@ -185,27 +185,32 @@ public interface ValidatePlainApi {
             if (getAcceptHeader().
                 get().
                 contains("application/json")) {
-                UserSessionFile file = getStorageService().
-                    get().
-                    store(mztabfile, UUID.randomUUID(), StorageService.SLOT.MZTABFILE);
-                UserSessionFile mappingFile = getStorageService().
+                UUID sessionId = UUID.randomUUID();
+                try {
+                    UserSessionFile file = getStorageService().
                         get().
-                        store(ValidateApi.class.getResource(
-                            "/mappings/mzTab-M-mapping.xml"), file.
-                                getSessionId(), StorageService.SLOT.MAPPINGFILE);
-                List<ValidationMessage> messages = getValidationService().
-                    get().
-                    validate(file,
-                        maxErrors,
-                        ValidationLevel.valueOf(level == null ? "INFO" : level.
-                            toUpperCase()), semanticValidation, mappingFile);
-                messages = messages.subList(0, Math.min(messages.size(),
-                    maxErrors));
-                HttpStatus status = HttpStatus.OK;
-                if (messages.size() > 0) {
-                    status = HttpStatus.UNPROCESSABLE_ENTITY;
+                        store(mztabfile, sessionId, StorageService.SLOT.MZTABFILE);
+                    UserSessionFile mappingFile = getStorageService().
+                            get().
+                            store(ValidateApi.class.getResource(
+                                "/mappings/mzTab-M-mapping.xml"), sessionId, StorageService.SLOT.MAPPINGFILE);
+                    List<ValidationMessage> messages = getValidationService().
+                        get().
+                        validate(file,
+                            maxErrors,
+                            ValidationLevel.valueOf(level == null ? "INFO" : level.
+                                toUpperCase()), semanticValidation, mappingFile);
+                    messages = messages.subList(0, Math.min(messages.size(),
+                        maxErrors));
+                    HttpStatus status = HttpStatus.OK;
+                    if (messages.size() > 0) {
+                        status = HttpStatus.UNPROCESSABLE_ENTITY;
+                    }
+                    return new ResponseEntity<>(messages, status);
+                } finally {
+                    // the validation is synchronous: nothing of it is kept
+                    getStorageService().get().deleteAll(sessionId);
                 }
-                return new ResponseEntity<>(messages, status);
             }
         } else {
             log.warn(

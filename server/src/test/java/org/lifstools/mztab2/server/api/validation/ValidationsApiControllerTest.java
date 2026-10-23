@@ -235,6 +235,16 @@ class ValidationsApiControllerTest {
     }
 
     @Test
+    void tooManyRequestedColumnsAre400() throws Exception {
+        String id = create("cols.mzTab").get("id").asText();
+        awaitFinished(id);
+        String tooMany = String.join(",", java.util.Collections.nCopies(201, "SML_ID"));
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("columns", tooMany))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("At most 200 columns can be requested."));
+    }
+
+    @Test
     void absentTableIs404() throws Exception {
         mvc.perform(get("/rest/v2/validations/" + UUID.randomUUID() + "/tables/sml"))
             .andExpect(status().isNotFound());
@@ -250,6 +260,7 @@ class ValidationsApiControllerTest {
     @Test
     void csvNeutralisesFormulasAndQuotesPerRfc4180() {
         ValidationMessage formula = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.ERROR)
+            .category(ValidationMessage.CategoryEnum.FORMAT)
             .lineNumber(3L).code("1001").message("=HYPERLINK(\"http://evil\",\"x\")");
         ValidationMessage plain = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.INFO)
             .lineNumber(4L).code("2").message("a, \"b\" c");
@@ -257,6 +268,9 @@ class ValidationsApiControllerTest {
             .message("-1+2");
         String[] lines = ValidationsApiController.csv(List.of(formula, plain, dash)).split("\r\n");
         assertEquals("level,line,category,code,message", lines[0]);
+        // level and category are both upper-case enum names
+        assertTrue(lines[1].startsWith("ERROR,3,FORMAT,1001,"), lines[1]);
+        assertTrue(lines[2].startsWith("INFO,4,FORMAT,2,"), lines[2]);
         assertTrue(lines[1].endsWith(",\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\""), lines[1]);
         assertTrue(lines[2].endsWith(",\"a, \"\"b\"\" c\""), lines[2]);
         assertTrue(lines[3].endsWith(",'-1+2"), lines[3]);
