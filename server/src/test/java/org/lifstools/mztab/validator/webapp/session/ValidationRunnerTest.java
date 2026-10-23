@@ -140,17 +140,28 @@ class ValidationRunnerTest {
     void malformedJsonIsNotParsed() throws Exception {
         ValidationRecord record = run("{\"metadata\": {\"mzTab-version\": \"2.0.0-M\",".getBytes(StandardCharsets.UTF_8));
 
+        assertEquals(ValidationStatus.FINISHED, record.status());
         assertEquals(ValidationOutcome.NOT_PARSED, record.outcome());
-        assertTrue(record.status() == ValidationStatus.FINISHED || record.status() == ValidationStatus.FAILED);
         assertEquals(1, record.messages().size(), "messages: " + record.messages());
         ValidationMessage message = record.messages().get(0);
         assertEquals(ValidationMessage.MessageTypeEnum.ERROR, message.getMessageType());
         assertTrue(message.getMessage().startsWith("The JSON file could not be read: "), message.getMessage());
+        assertTrue(message.getMessage().endsWith("(line 1, column 42)"), message.getMessage());
         assertFalse(message.getMessage().contains("\tat "), "no stack trace: " + message.getMessage());
         assertTrue(message.getMessage().length() <= 600, message.getMessage());
         assertNull(record.sections());
         assertEquals(1, record.counts().get(ValidationLevel.ERROR));
         verify(validator, never()).validateAndParse(any(), any(), anyInt(), any());
+    }
+
+    @Test
+    void parserMessageKeepsNoSourceExcerpt() throws Exception {
+        // an unclosed object: Jackson names the start marker's location, with a redacted source
+        ValidationRecord record = run("{\"metadata\": {".getBytes(StandardCharsets.UTF_8));
+
+        String message = record.messages().get(0).getMessage();
+        assertFalse(message.contains("Source:"), message);
+        assertTrue(message.contains("[line: 1, column: "), message);
     }
 
     @Test

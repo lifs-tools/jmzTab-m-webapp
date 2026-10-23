@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.webapp.sections.SectionWriter;
 import org.lifstools.mztab.validator.webapp.service.AnalyticsTracker;
@@ -64,6 +65,7 @@ public class ValidationRunner {
     static final String JSON_NOT_CONVERTED = "The JSON file could not be converted to mzTab-M: ";
     /** Longest parser message kept after {@link #JSON_NOT_READ}. */
     private static final int MAX_PARSER_MESSAGE = 500;
+    private static final Pattern SOURCE_LOCATION = Pattern.compile("\\[Source: [^;\\]]*; (line: \\d+, column: \\d+)\\]");
 
     private final ValidationRecordStore records;
     private final StorageService storage;
@@ -225,7 +227,8 @@ public class ValidationRunner {
     /** The parser's own message and its position, without the source excerpt or a stack trace. */
     private static String jsonDetail(JsonProcessingException e) {
         String detail = e.getOriginalMessage() == null ? e.getClass().getSimpleName() : e.getOriginalMessage();
-        detail = shorten(detail);
+        // nested locations, e.g. of a start marker, name a redacted source: keep line and column only
+        detail = shorten(SOURCE_LOCATION.matcher(detail).replaceAll("[$1]"));
         if (e.getLocation() != null && e.getLocation().getLineNr() > 0) {
             detail += " (line " + e.getLocation().getLineNr() + ", column " + e.getLocation().getColumnNr() + ")";
         }
