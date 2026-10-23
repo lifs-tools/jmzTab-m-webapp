@@ -1,0 +1,66 @@
+<div class="filters">
+  <label class="field field--text">
+    <span class="field__label">Filter messages</span>
+    <input class="f-text" type="search" [value]="text()" (input)="onText($event)" />
+  </label>
+  <label class="field">
+    <span class="field__label">Level</span>
+    <select class="f-level" [value]="level()" (change)="onLevel($event)">
+      <option value="ALL">All</option>
+      <option value="ERROR">Error</option>
+      <option value="WARN">Warning</option>
+      <option value="INFO">Info</option>
+    </select>
+  </label>
+  <label class="field">
+    <span class="field__label">Category</span>
+    <select class="f-category" [value]="category()" (change)="onCategory($event)">
+      <option value="ALL">All</option>
+      @for (c of categories; track c.value) {
+        <option [value]="c.value">{{ c.label }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+@if (rows().length) {
+  <div class="table-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th scope="col" class="c-level">Level</th>
+          <th scope="col" class="c-line">Line</th>
+          <th scope="col" class="c-cat">Category</th>
+          <th scope="col">Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track $index) {
+          <tr>
+            <td>
+              <span [class]="'lifs-lvl lifs-lvl--' + row.cls">{{ row.level }}</span>
+            </td>
+            <td class="mono">{{ row.line }}</td>
+            <td>{{ row.category }}</td>
+            <td class="msg">{{ row.message }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <p class="lifs-note empty">No messages{{ messages().length ? ' match the filters' : '' }}.</p>
+}
+
+<div class="pager">
+  <span aria-live="polite">{{ range() }}</span>
+  <button type="button" aria-label="Previous page" [disabled]="pageIndex() === 0" (click)="go(-1)">‹</button>
+  <button
+    type="button"
+    aria-label="Next page"
+    [disabled]="pageIndex() >= pageCount() - 1"
+    (click)="go(1)"
+  >
+    ›
+  </button>
+</div>

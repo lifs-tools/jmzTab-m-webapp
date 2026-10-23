@@ -1,0 +1,120 @@
+:host {
+  display: block;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+.field {
+  position: relative;
+  display: block;
+  flex: 1 1 150px;
+  border: 1px solid #9aaab8;
+  background: #fff;
+  padding: 17px 11px 7px;
+  font-size: 14px;
+  color: var(--lifs-ink);
+
+  &:focus-within {
+    border: 2px solid var(--lifs-primary);
+    padding: 16px 10px 6px;
+  }
+  &--text {
+    flex: 3 1 240px;
+  }
+  input,
+  select {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    padding: 0;
+  }
+}
+.field__label {
+  position: absolute;
+  top: 5px;
+  left: 11px;
+  font-size: 10.5px;
+  color: var(--lifs-grey);
+}
+.field:focus-within .field__label {
+  color: var(--lifs-primary);
+  left: 10px;
+  top: 4px;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.t {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+th {
+  text-align: left;
+  font-family: var(--lifs-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lifs-grey);
+  font-weight: 400;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--lifs-line);
+  background: var(--lifs-paper);
+}
+td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eaf0f4;
+  vertical-align: top;
+}
+td.mono {
+  font-family: var(--lifs-mono);
+  font-size: 12px;
+  color: var(--lifs-slate);
+}
+.msg {
+  overflow-wrap: anywhere;
+}
+.c-level {
+  width: 80px;
+}
+.c-line {
+  width: 60px;
+}
+.c-cat {
+  width: 100px;
+}
+.empty {
+  padding: 18px 2px;
+}
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  align-items: center;
+  font-family: var(--lifs-mono);
+  font-size: 11px;
+  color: var(--lifs-grey);
+  padding: 8px 2px;
+
+  button {
+    border: 0;
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--lifs-primary);
+    cursor: pointer;
+    padding: 4px 8px;
+
+    &:disabled {
+      color: #9aaab8;
+      cursor: default;
+    }
+  }
+}

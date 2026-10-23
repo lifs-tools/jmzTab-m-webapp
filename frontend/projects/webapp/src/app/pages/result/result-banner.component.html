@@ -1,0 +1,18 @@
+<div
+  [class]="'lifs-callout lifs-callout--' + view().tone"
+  [attr.role]="view().tone === 'error' ? 'alert' : 'status'"
+>
+  <div>
+    <b class="title">{{ view().title }}</b>
+    @if (record().failureReason) {
+      <p class="lifs-note reason">{{ record().failureReason }}</p>
+    }
+    @if (chips().length) {
+      <div class="chips">
+        @for (chip of chips(); track chip.cls) {
+          <span [class]="'lifs-lvl lifs-lvl--' + chip.cls">{{ chip.text }}</span>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,32 @@
+<div class="head">
+  <div class="head__text">
+    <p class="lifs-eyebrow">
+      {{ done() ? 'Result' : 'Validating' }}
+      @if (record().expiresAt) {
+        · kept until {{ record().expiresAt | date: 'd MMM y' : undefined : 'en' }}
+      }
+    </p>
+    <h1>{{ record().fileName }}</h1>
+    <div class="badges">
+      @if (record().mzTabVersion) {
+        <span class="lifs-badge">mzTab-M {{ record().mzTabVersion }}</span>
+      }
+      <span class="lifs-badge lifs-badge--plain">{{ profileBadge() }}</span>
+      <span class="lifs-badge lifs-badge--plain">{{ levelBadge() }}</span>
+    </div>
+  </div>
+  <div class="head__actions">
+    @if (record().status === 'FINISHED') {
+      <button mat-stroked-button type="button" [matMenuTriggerFor]="reportMenu">
+        Download report
+      </button>
+      <mat-menu #reportMenu="matMenu">
+        <a mat-menu-item [attr.href]="reportBase() + '?format=csv'">CSV</a>
+        <a mat-menu-item [attr.href]="reportBase() + '?format=json'">JSON</a>
+      </mat-menu>
+    }
+    <button mat-stroked-button type="button" class="danger" (click)="deleteRequested.emit()">
+      Delete now
+    </button>
+  </div>
+</div>

@@ -1,0 +1,85 @@
+<div class="page">
+  @switch (view()) {
+    @case ('loading') {
+      <p class="lifs-note" role="status">Loading result…</p>
+    }
+    @case ('notFound') {
+      <div class="lifs-callout lifs-callout--info" role="status">
+        <div>
+          <b class="state-title">Result not found</b>
+          <p class="lifs-note">
+            This result does not exist or has expired.{{ retentionDays() ? ' Results are kept for ' + retentionDays() + ' days.' : '' }}
+          </p>
+          <p class="lifs-note"><a routerLink="/">Validate a file</a></p>
+        </div>
+      </div>
+    }
+    @case ('error') {
+      <div class="lifs-callout lifs-callout--error" role="alert">
+        <div>
+          <b class="state-title">Something went wrong</b>
+          <p class="lifs-note">The result could not be loaded. Please try again later.</p>
+          <p class="lifs-note"><a routerLink="/">Back to the validator</a></p>
+        </div>
+      </div>
+    }
+    @case ('ready') {
+      @if (record(); as rec) {
+        <app-result-header [record]="rec" (deleteRequested)="askDelete()" />
+
+        @if (deleteError(); as msg) {
+          <div class="lifs-callout lifs-callout--error" role="alert"><div>{{ msg }}</div></div>
+        }
+
+        @if (running()) {
+          <section class="progress" role="status" aria-live="polite">
+            <p class="lifs-note">
+              {{ rec.status === 'QUEUED' ? 'Waiting to start…' : 'Validating…' }}
+            </p>
+            <mat-progress-bar mode="indeterminate" [attr.aria-label]="'Validating ' + rec.fileName" />
+          </section>
+        } @else {
+          <app-result-banner [record]="rec" />
+
+          @if (tabs().length) {
+            <div>
+              <div class="tabs" role="tablist" aria-label="Result sections" (keydown)="onTabKey($event)">
+                @for (tab of tabs(); track tab.id) {
+                  <button
+                    type="button"
+                    role="tab"
+                    class="tab"
+                    [id]="'tab-' + tab.id"
+                    [attr.aria-controls]="'panel-' + tab.id"
+                    [attr.aria-selected]="active() === tab.id"
+                    [attr.tabindex]="active() === tab.id ? 0 : -1"
+                    [class.tab--on]="active() === tab.id"
+                    [disabled]="tab.disabled"
+                    (click)="select(tab.id)"
+                  >
+                    {{ tab.label }}
+                    <span class="count">{{ tab.count }}</span>
+                  </button>
+                }
+              </div>
+              <div
+                role="tabpanel"
+                class="panel"
+                [id]="'panel-' + active()"
+                [attr.aria-labelledby]="'tab-' + active()"
+                tabindex="0"
+              >
+                @if (active() === 'messages') {
+                  <app-messages-tab [messages]="rec.messages ?? []" />
+                } @else {
+                  <!-- Task 13 replaces this placeholder with the section views. -->
+                  <p class="lifs-note">Section view coming next.</p>
+                }
+              </div>
+            </div>
+          }
+        }
+      }
+    }
+  }
+</div>

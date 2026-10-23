@@ -10,7 +10,10 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./pages/landing/landing.page').then((m) => m.LandingPage),
   },
-  { path: 'result/:id', component: PendingPage },
+  {
+    path: 'result/:id',
+    loadComponent: () => import('./pages/result/result.page').then((m) => m.ResultPage),
+  },
   { path: 'about', component: PendingPage },
   { path: 'examples', component: PendingPage },
   { path: '**', component: PendingPage },
