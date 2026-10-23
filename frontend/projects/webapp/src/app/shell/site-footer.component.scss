@@ -78,8 +78,11 @@
     padding: 0;
     cursor: pointer;
 
-    &:hover {
+    &:hover,
+    &:focus-visible {
       color: var(--lifs-footer-hover);
+      text-decoration: underline;
+      text-underline-offset: 3px;
     }
   }
 }
@@ -111,8 +114,10 @@
   padding: 0;
   cursor: pointer;
 
-  &:hover {
-    color: rgba(255, 255, 255, 0.8);
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   &:focus-visible {
     outline-color: #fff;

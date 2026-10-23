@@ -32,6 +32,7 @@ describe('MatomoService', () => {
         provideRouter([
           { path: 'about', component: Blank },
           { path: 'result/:id', component: Blank },
+          { path: '**', component: Blank },
         ]),
       ],
     });
@@ -121,6 +122,30 @@ describe('MatomoService', () => {
     } finally {
       base.remove();
     }
+  });
+
+  it('tracks unknown routes as a fixed /not-found page', async () => {
+    const id = '0B6F3C2E-7D41-4A8E-9F0A-2C5D8E1B4A77';
+    const router = TestBed.inject(Router);
+    TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
+    win._paq!.length = 0;
+    await router.navigateByUrl(`/Result/${id}`);
+    await router.navigateByUrl(`/results/${id.toLowerCase()}/delete?x=1`);
+    const paq = win._paq ?? [];
+    expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/not-found`]);
+    expect(paq).toContainEqual(['setDocumentTitle', 'mzTab-M Validator · Not found']);
+    expect(paq.filter((c) => c[0] === 'setCustomUrl')).toEqual([
+      ['setCustomUrl', `${location.origin}/not-found`],
+      ['setCustomUrl', `${location.origin}/not-found`],
+    ]);
+    expect(JSON.stringify(paq).toLowerCase()).not.toContain(id.toLowerCase());
+  });
+
+  it('redactUrl replaces UUID-shaped segments anywhere, in any case', () => {
+    expect(redactUrl('https://h/x/0B6F3C2E-7D41-4A8E-9F0A-2C5D8E1B4A77/y')).toBe(
+      'https://h/x/:id/y',
+    );
+    expect(redactUrl('/Result/0b6f3c2e-7d41-4a8e-9f0a-2c5d8e1b4a77')).toBe('/Result/:id');
   });
 
   it('redactUrl replaces id segments and drops queries and fragments', () => {

@@ -66,12 +66,17 @@ button:focus-visible {
   text-transform: uppercase;
   color: var(--lifs-nav-text);
   text-decoration: none;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
   white-space: nowrap;
 
+  // White on #3D84A8 is the site's colour pair; state is shown by a 2px underline, not by
+  // colour alone, and the text stays full white for contrast.
   &:hover,
+  &:focus-visible,
   &--active {
-    color: var(--lifs-nav-text-hover);
-    text-decoration: none;
+    color: var(--lifs-nav-text);
+    text-decoration-line: underline;
   }
 }
 

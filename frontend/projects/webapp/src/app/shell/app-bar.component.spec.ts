@@ -1,17 +1,39 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { AppBarComponent } from './app-bar.component';
 
+@Component({ template: '' })
+class Blank {}
+
 describe('AppBarComponent', () => {
-  async function render(): Promise<HTMLElement> {
+  async function render(url = '/'): Promise<HTMLElement> {
     await TestBed.configureTestingModule({
       imports: [AppBarComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([
+          { path: '', component: Blank },
+          { path: 'about', component: Blank },
+        ]),
+      ],
     }).compileComponents();
     const fixture = TestBed.createComponent(AppBarComponent);
+    await TestBed.inject(Router).navigateByUrl(url);
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
+
+  it('marks only the active nav item, with a non-colour cue', async () => {
+    const el = await render('/about');
+    const active = Array.from(el.querySelectorAll('.nav__item--active'));
+    expect(active.map((a) => a.textContent?.trim())).toEqual(['About']);
+    expect(active[0].getAttribute('aria-current')).toBe('page');
+    const validate = Array.from(el.querySelectorAll('.nav__item')).find(
+      (a) => a.textContent?.trim() === 'Validate',
+    );
+    expect(validate?.classList).not.toContain('nav__item--active');
+    expect(validate?.hasAttribute('aria-current')).toBe(false);
+  });
 
   it('shows the five nav items in order', async () => {
     const el = await render();

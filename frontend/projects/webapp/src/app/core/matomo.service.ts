@@ -12,11 +12,18 @@ const CONSENT_KEY = 'mztabm-validator.analytics-consent';
 
 /**
  * Result ids are capability URLs (anyone holding one can view or delete the result), so they
- * must never reach analytics: id segments are replaced, query strings and fragments dropped.
+ * must never reach analytics: query strings and fragments are dropped, the segment after
+ * `/result/` or `/validate/` and any UUID-shaped segment (in any case) become `:id`.
  */
 export function redactUrl(url: string): string {
-  return url.replace(/[?#].*$/s, '').replace(/\/(result|validate)\/[^/]+/g, '/$1/:id');
+  return url
+    .replace(/[?#].*$/s, '')
+    .replace(/\/(result|validate)\/[^/]+/gi, '/$1/:id')
+    .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$)/gi, '/:id');
 }
+
+/** Unknown routes are tracked under one fixed path: a mistyped link may hold an id. */
+const NOT_FOUND_PATH = '/not-found';
 
 /** Fixed page titles per route; never the document title (it may name a file). */
 function pageTitle(path: string): string {
@@ -102,7 +109,7 @@ export class MatomoService {
   }
 
   private trackPageView(routerUrl: string): void {
-    const path = redactUrl(routerUrl) || '/';
+    const path = this.isWildcardRoute() ? NOT_FOUND_PATH : redactUrl(routerUrl) || '/';
     const url = redactUrl(this.appBase() + path);
     // First view: the browser referrer, redacted (it may be an old result link).
     const referrer = this.lastTrackedUrl ?? redactUrl(this.document.referrer ?? '');
@@ -111,6 +118,15 @@ export class MatomoService {
     this.push(['setDocumentTitle', pageTitle(path)]);
     this.push(['trackPageView']);
     this.lastTrackedUrl = url;
+  }
+
+  /** Whether the current navigation ended on the `**` route. */
+  private isWildcardRoute(): boolean {
+    let route = this.router.routerState.snapshot.root;
+    while (route.firstChild) {
+      route = route.firstChild;
+    }
+    return route.routeConfig?.path === '**';
   }
 
   /** Origin plus the <base href> path without its trailing slash, e.g. https://h/mztabvalidator. */
