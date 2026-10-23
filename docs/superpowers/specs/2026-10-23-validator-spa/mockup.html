@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Validator SPA mockup</title>
+<!-- Approved mockup for docs/superpowers/specs/2026-10-23-validator-spa-design.md (section 5.6).
+     Reference only: the SPA self-hosts its fonts; this file loads them from Google Fonts for convenience. -->
+<style>body{margin:0;padding:24px;background:#fff}</style>
+</head>
+<body>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+.lx{
+  /* content tokens — verbatim from lifs-tools.org lifs-landing.css */
+  --lifs-primary:#16628F; --lifs-sky:#3C9BD6; --lifs-rose:#98457A; --lifs-sky-ink:#1F6FA5;
+  --lifs-ink:#16304A; --lifs-slate:#46596B; --lifs-grey:#5A6C7D;
+  --lifs-paper:#FAFCFD; --lifs-mist:#EDF3F8; --lifs-tint:#E4EFF7; --lifs-line:#D6E2EA;
+  --lifs-site-blue:#5897BF; --lifs-site-blue-dark:#468BB7;
+  /* chrome tokens — lifs-tools.org Bostan theme (nav bar, footer, copyright band) */
+  --lifs-nav:#3D84A8; --lifs-nav-text:#FFFFFF; --lifs-nav-text-hover:rgba(255,255,255,.8);
+  --lifs-footer-text:#677180; --lifs-footer-hover:#3D84A8; --lifs-copyright:#414856;
+  /* fonts — the site loads exactly these four */
+  --lifs-chrome:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --lifs-display:"Space Grotesk","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --lifs-sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --lifs-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  /* corners — most surfaces square; small boxes mildly rounded, as on the site */
+  --lifs-radius-none:0; --lifs-radius-sm:2px; --lifs-radius-md:3px;
+  /* status — new for validation results (approved) */
+  --lifs-error:#B42318; --lifs-error-bg:#FCEDEB; --lifs-warn:#8A5A00; --lifs-warn-bg:#FFF4DC;
+  --lifs-ok:#1F7A4D; --lifs-ok-bg:#E6F4EC; --lifs-info:var(--lifs-primary); --lifs-info-bg:var(--lifs-tint);
+  font-family:var(--lifs-sans); color:var(--lifs-ink); -webkit-font-smoothing:antialiased; background:#fff; font-size:14px;
+}
+.lx *{box-sizing:border-box}
+.lx a{color:var(--lifs-primary);text-decoration:none}
+.lx .eyebrow{font-family:var(--lifs-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--lifs-rose);margin:0}
+.lx .label{font-family:var(--lifs-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--lifs-grey);margin:0}
+.lx .h1{font-family:var(--lifs-display);font-size:40px;line-height:1.05;font-weight:600;letter-spacing:-.03em;margin:0}
+.lx .h2{font-family:var(--lifs-display);font-size:24px;line-height:1.15;font-weight:600;margin:0}
+.lx .h3{font-family:var(--lifs-display);font-size:18px;line-height:1.2;font-weight:600;margin:0}
+.lx .lead{font-size:15px;line-height:1.65;color:#33475C;margin:0}
+.lx .note{font-size:13px;line-height:1.6;color:var(--lifs-slate);margin:0}
+.lx .mono{font-family:var(--lifs-mono)}
+.lx .sheet{padding:22px 24px;display:flex;flex-direction:column;gap:22px;border:1px solid var(--lifs-line)}
+.lx .grid{display:flex;flex-wrap:wrap;gap:10px}
+.lx .sw{width:118px;border:1px solid var(--lifs-line);background:#fff}
+.lx .sw i{display:block;height:42px}
+.lx .sw div{padding:6px 8px;font-family:var(--lifs-mono);font-size:10px;line-height:1.45;color:var(--lifs-grey)}
+.lx .sw b{display:block;font-family:var(--lifs-sans);font-size:12px;color:var(--lifs-ink);font-weight:500}
+.lx .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.lx .cols{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+/* buttons: square, 14px/38px — the site's chips and "Read more" buttons */
+.lx .btn{display:inline-block;font-family:var(--lifs-sans);font-size:14px;line-height:38px;padding:0 18px;border:1px solid var(--lifs-site-blue);border-radius:var(--lifs-radius-none);white-space:nowrap;cursor:pointer}
+.lx .btn--fill{background:var(--lifs-site-blue);color:#fff}
+.lx .btn--outline{background:transparent;color:var(--lifs-site-blue)}
+.lx .btn--text{border-color:transparent;color:var(--lifs-primary);padding:0 8px}
+.lx .btn--danger{background:transparent;border-color:var(--lifs-error);color:var(--lifs-error)}
+.lx .badge{font-family:var(--lifs-mono);font-size:10px;padding:2px 6px;background:var(--lifs-tint);color:var(--lifs-primary);border-radius:var(--lifs-radius-sm)}
+.lx .badge--plain{background:none;border:1px solid var(--lifs-line);color:var(--lifs-grey)}
+.lx .lvl{font-family:var(--lifs-mono);font-size:10.5px;padding:2px 7px;border-radius:var(--lifs-radius-sm);white-space:nowrap}
+.lx .lvl--error{background:var(--lifs-error-bg);color:var(--lifs-error)} .lx .lvl--warn{background:var(--lifs-warn-bg);color:var(--lifs-warn)}
+.lx .lvl--info{background:var(--lifs-info-bg);color:var(--lifs-info)} .lx .lvl--ok{background:var(--lifs-ok-bg);color:var(--lifs-ok)}
+.lx .field{position:relative;border:1px solid #9AAAB8;border-radius:var(--lifs-radius-none);background:#fff;padding:17px 11px 7px;min-width:150px;flex:1;font-size:14px;color:var(--lifs-ink)}
+.lx .field small{position:absolute;top:5px;left:11px;font-size:10.5px;color:var(--lifs-grey)}
+.lx .field--focus{border:2px solid var(--lifs-primary);padding:16px 10px 6px} .lx .field--focus small{color:var(--lifs-primary)}
+.lx .card{border:1px solid var(--lifs-line);border-radius:var(--lifs-radius-none);background:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:11px}
+.lx .card--accent{background:var(--lifs-paper)}
+.lx .card__title{font-family:var(--lifs-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--lifs-grey);margin:0}
+.lx .tile{border:1px solid var(--lifs-line);border-radius:var(--lifs-radius-md);background:var(--lifs-paper);padding:8px 10px;display:flex;flex-direction:column;gap:2px;min-width:120px}
+.lx .tile b{font-family:var(--lifs-sans);font-size:13px;font-weight:500}
+.lx .tile span{font-family:var(--lifs-mono);font-size:10px;color:var(--lifs-grey)}
+.lx .kv{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;line-height:1.45}
+.lx .kv dt{color:var(--lifs-grey)} .lx .kv dd{margin:0;color:var(--lifs-ink)}
+.lx .drop{border:1px dashed var(--lifs-site-blue);background:var(--lifs-paper);padding:22px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.lx .tabs{display:flex;border-bottom:1px solid var(--lifs-line);gap:4px;flex-wrap:wrap}
+.lx .tab{padding:10px 14px;font-size:13.5px;color:var(--lifs-slate);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:7px;align-items:center}
+.lx .tab--on{color:var(--lifs-primary);border-bottom-color:var(--lifs-primary);font-weight:500}
+.lx .tab .count{font-family:var(--lifs-mono);font-size:10.5px;color:var(--lifs-grey)} .lx .tab--off{color:#9AAAB8}
+.lx table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+.lx .t th{text-align:left;font-family:var(--lifs-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--lifs-grey);font-weight:400;padding:8px 10px;border-bottom:1px solid var(--lifs-line);background:var(--lifs-paper)}
+.lx .t td{padding:8px 10px;border-bottom:1px solid #EAF0F4;vertical-align:top} .lx .t td.mono{font-size:12px;color:var(--lifs-slate)}
+.lx .pager{display:flex;justify-content:flex-end;gap:14px;align-items:center;font-family:var(--lifs-mono);font-size:11px;color:var(--lifs-grey);padding:8px 2px}
+.lx .callout{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:1px solid;border-left-width:4px;border-radius:var(--lifs-radius-none)}
+.lx .callout--error{border-color:#F2C5BF;border-left-color:var(--lifs-error);background:var(--lifs-error-bg)}
+.lx .callout b{font-family:var(--lifs-display);font-size:17px;font-weight:600}
+/* chrome: the site's nav bar */
+.lx .nav{background:var(--lifs-nav);height:72px;display:flex;align-items:center;gap:28px;padding:0 32px;font-family:var(--lifs-chrome)}
+.lx .nav img{height:46px}
+.lx .nav .app{font-family:var(--lifs-chrome);font-weight:500;font-size:17px;color:#fff;letter-spacing:.01em;margin-right:auto;display:flex;flex-direction:column;line-height:1.15}
+.lx .nav .app small{font-size:11px;font-weight:400;opacity:.8;letter-spacing:.06em;text-transform:uppercase}
+.lx .nav a.item{font-family:var(--lifs-chrome);font-size:16px;text-transform:uppercase;color:var(--lifs-nav-text);font-weight:400}
+.lx .nav a.item.on{color:var(--lifs-nav-text-hover)}
+.lx .nav .gh{width:18px;height:18px;border-radius:50%;background:#fff;opacity:.95}
+/* chrome: the site's footer */
+.lx .footer{font-family:var(--lifs-chrome);background:#fff;border-top:1px solid var(--lifs-line)}
+.lx .footer__logos{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px 30px;padding:26px 32px 10px}
+.lx .footer__partners{display:flex;flex-wrap:wrap;gap:22px;align-items:center}
+.lx .footer__partners img{height:34px;width:auto}
+.lx .footer__funding{display:flex;flex-direction:column;gap:4px}
+.lx .footer__funding small{font-family:Georgia,serif;font-size:9px;color:#222}
+.lx .footer__funding div{display:flex;gap:16px;align-items:center} .lx .footer__funding img{height:40px;width:auto}
+.lx .footer__links{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;padding:18px 32px 24px;font-size:14px}
+.lx .footer__links a{color:var(--lifs-footer-text)}
+.lx .copyright{background:var(--lifs-copyright);color:#fff;display:flex;align-items:center;gap:40px;padding:14px 32px;font-family:var(--lifs-chrome);font-size:14px}
+.lx .copyright img{height:30px;opacity:.9}
+.lx .copyright span:last-child{margin-left:auto;font-size:13px}
+.lx .page{padding:26px 32px 30px;display:flex;flex-direction:column;gap:20px;background:#fff}
+.lx .hero{padding:34px 32px 26px;display:flex;flex-wrap:wrap;gap:12px 56px;align-items:flex-end;border-bottom:1px solid var(--lifs-line)}
+.lx .frame{border:1px solid var(--lifs-line);overflow:hidden}
+.lx .sec-note{font-size:13px;color:var(--lifs-slate);margin:4px 0 0}
+.lx .chg{border-left:3px solid var(--lifs-rose);padding:4px 0 4px 12px;font-size:13px;color:var(--lifs-slate)}
+</style>
+
+
+
+<div class="lx">
+
+<div class="sheet">
+  <div><p class="eyebrow">1 · Foundations</p><p class="h2" style="margin-top:6px">Tokens, type and components</p></div>
+  <div class="cols">
+    <div style="flex:1 1 520px">
+      <p class="label" style="margin-bottom:8px">Content colours (lifs-landing.css)</p>
+      <div class="grid">
+        <div class="sw"><i style="background:#16628F"></i><div><b>primary</b>#16628F</div></div>
+        <div class="sw"><i style="background:#5897BF"></i><div><b>site-blue</b>#5897BF buttons</div></div>
+        <div class="sw"><i style="background:#3C9BD6"></i><div><b>sky</b>#3C9BD6 hover</div></div>
+        <div class="sw"><i style="background:#98457A"></i><div><b>rose</b>#98457A accent</div></div>
+        <div class="sw"><i style="background:#16304A"></i><div><b>ink</b>#16304A</div></div>
+        <div class="sw"><i style="background:#46596B"></i><div><b>slate</b>#46596B</div></div>
+        <div class="sw"><i style="background:#EDF3F8"></i><div><b>mist</b>#EDF3F8</div></div>
+        <div class="sw"><i style="background:#D6E2EA"></i><div><b>line</b>#D6E2EA</div></div>
+      </div>
+    </div>
+    <div style="flex:1 1 260px">
+      <p class="label" style="margin-bottom:8px">Chrome (Bostan theme)</p>
+      <div class="grid">
+        <div class="sw"><i style="background:#3D84A8"></i><div><b>nav</b>#3D84A8</div></div>
+        <div class="sw"><i style="background:#677180"></i><div><b>footer text</b>#677180</div></div>
+        <div class="sw"><i style="background:#414856"></i><div><b>copyright</b>#414856</div></div>
+      </div>
+    </div>
+    <div style="flex:1 1 520px">
+      <p class="label" style="margin-bottom:8px">Status (approved)</p>
+      <div class="grid">
+        <div class="sw"><i style="background:#B42318"></i><div><b>error</b>on #FCEDEB</div></div>
+        <div class="sw"><i style="background:#8A5A00"></i><div><b>warn</b>on #FFF4DC</div></div>
+        <div class="sw"><i style="background:#16628F"></i><div><b>info</b>on tint</div></div>
+        <div class="sw"><i style="background:#1F7A4D"></i><div><b>ok</b>on #E6F4EC</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cols">
+    <div style="flex:1 1 360px;display:flex;flex-direction:column;gap:8px">
+      <p class="label">Type — four families, as loaded by the site</p>
+      <p style="font-family:var(--lifs-chrome);font-size:15px;text-transform:uppercase;margin:0;color:var(--lifs-nav)">Inter · nav bar and footer only</p>
+      <p class="eyebrow">IBM Plex Mono · eyebrows, labels, codes</p>
+      <p class="h1" style="font-size:32px">Space Grotesk · headings</p>
+      <p class="lead">IBM Plex Sans · body and form text. Upload a file, pick a validation profile, get structural and semantic checks from jmzTab-m.</p>
+    </div>
+    <div style="flex:1 1 400px;display:flex;flex-direction:column;gap:12px">
+      <p class="label">Components · corners</p>
+      <div class="row"><span class="btn btn--fill">Validate</span><span class="btn btn--outline">Download report</span><span class="btn btn--text">Cancel</span><span class="btn btn--danger">Delete</span><span class="note">0 px</span></div>
+      <div class="row"><div class="field"><small>Validation level</small>Info ▾</div><div class="field field--focus"><small>Max. messages</small>100</div><span class="note">0 px</span></div>
+      <div class="row"><span class="lvl lvl--error">ERROR</span><span class="lvl lvl--warn">WARN</span><span class="lvl lvl--info">INFO</span><span class="lvl lvl--ok">PASSED</span><span class="badge">mzTab-M 2.0</span><span class="note">2 px</span></div>
+      <div class="row"><div class="tile"><b>Summary</b><span>846 rows × 1,990 cols</span></div><div class="tile"><b>Metadata</b><span>5,540 lines</span></div><span class="note">3 px · small boxes, like the workflow map</span></div>
+    </div>
+  </div>
+</div>
+
+<p class="eyebrow" style="margin:26px 0 6px">2 · Applied</p>
+<p class="h2" style="margin:0 0 12px">Landing page and results (layout A)</p>
+
+<div class="frame" style="margin-bottom:22px">
+  <div class="nav">
+    <img src="lifs-bildmarke.png" alt="">
+    <div class="app">mzTab-M Validator<small>LIFS Tools</small></div>
+    <a class="item on">Validate</a><a class="item">Examples</a><a class="item">REST API</a><a class="item">About</a><a class="item">LIFS Tools ↗</a><span class="gh"></span>
+  </div>
+  <div class="hero">
+    <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:10px"><p class="eyebrow">LIFS Tools · Report &amp; share</p><p class="h1">Validate your mzTab-M files</p></div>
+    <div style="flex:1 1 320px;display:flex;flex-direction:column;gap:10px"><p class="lead">Structural and semantic validation with jmzTab-m, the mzTab-M reference implementation.</p><p class="note">Results are kept for 7 days, then deleted.</p></div>
+  </div>
+  <div class="page">
+    <div class="cols">
+      <div class="card" style="flex:2 1 440px;gap:14px">
+        <p class="card__title">Validate a file</p>
+        <div class="drop"><span class="btn btn--fill">Browse files</span><span class="note">or drop an <span class="mono">.mzTab</span> / <span class="mono">.json</span> file here · up to 64 MB</span></div>
+        <div class="row"><div class="field"><small>Validation level</small>Info ▾</div><div class="field"><small>Max. messages</small>100</div></div>
+        <div class="row"><div class="field" style="flex:2"><small>Validation profile</small>mzTab-M 2.0 default ▾</div><div class="field"><small>…or your own mapping file</small><span style="color:var(--lifs-primary)">Upload XML</span></div></div>
+        <div class="row"><span class="btn btn--fill">Validate</span><span class="note">Semantic checks look up CV terms in EBI OLS.</span></div>
+      </div>
+      <div style="flex:1 1 250px;display:flex;flex-direction:column;gap:14px">
+        <div class="card card--accent"><p class="card__title">Example files</p>
+          <dl class="kv"><dt>Lipidomics</dt><dd><a>lipidomics-example.mzTab</a></dd><dt>Features</dt><dd><a>MTBLS263.mztab</a></dd><dt>More</dt><dd><a>HUPO-PSI/mzTab examples ↗</a></dd></dl></div>
+        <div class="card"><p class="card__title">For scripts</p><div class="note"><a>REST API</a> · <a>pymzTab-m</a> · <a>rmzTab-m</a></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="footer__logos">
+      <div class="footer__partners">
+        <img src="Uni_Wien_Logo_2016.png" alt="Uni Wien"><img src="mpi-logo.png" alt="MPI-CBG"><img src="FZB_NeuesLogo_2017_Englisch_transparent.png" alt="FZ Borstel"><img src="320px-Logo_des_Forschungszentrums_Julich_seit_2018.svg.png" alt="Forschungszentrum Jülich">
+      </div>
+      <div class="footer__funding"><small>With funding from the:</small><div><img src="BMFTR_en_Web_RGB_gef_durch.png" alt="BMFTR"><img src="Logo_BMBWF.png" alt="BMBWF"></div></div>
+    </div>
+    <div class="footer__links"><a>Imprint &amp; Privacy Policy</a><a>Impressum &amp; Datenschutzerklärung</a><a>Terms of Service</a><a>Analytics opt-out</a></div>
+    <div class="copyright"><img src="lifs-signet.png" alt=""><span>© 2016 - 2026 LIFS Tools Consortium</span><span>Top ▲</span></div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="nav">
+    <img src="lifs-bildmarke.png" alt="">
+    <div class="app">mzTab-M Validator<small>LIFS Tools</small></div>
+    <a class="item on">Validate</a><a class="item">Examples</a><a class="item">REST API</a><a class="item">About</a><a class="item">LIFS Tools ↗</a><span class="gh"></span>
+  </div>
+  <div class="page">
+    <div class="row" style="justify-content:space-between">
+      <div style="display:flex;flex-direction:column;gap:6px"><p class="eyebrow">Result · kept until 30 Oct 2026</p><p class="h2">LCS-00050_summary.mzTab</p>
+        <div class="row" style="gap:8px"><span class="badge">mzTab-M 2.0</span><span class="badge badge--plain">lipidcompass-summary-2.0 · v3</span><span class="badge badge--plain">level Info · max 100</span></div></div>
+      <div class="row"><span class="btn btn--outline">Download report</span><span class="btn btn--danger">Delete now</span></div>
+    </div>
+    <div class="callout callout--error"><div><b>Validation failed</b><div class="note" style="margin-top:3px"><span class="lvl lvl--error">3 ERRORS</span> <span class="lvl lvl--warn">12 WARNINGS</span> <span class="lvl lvl--info">40 INFO</span> — fix the errors below; warnings and info are suggestions.</div></div></div>
+    <div>
+      <div class="tabs"><div class="tab tab--on">Messages <span class="count">55</span></div><div class="tab">Metadata <span class="count">5,540 lines</span></div><div class="tab">Summary <span class="count">846 × 1,990</span></div><div class="tab tab--off">Features <span class="count">—</span></div><div class="tab tab--off">Evidence <span class="count">—</span></div></div>
+      <div class="row" style="padding:12px 0"><div class="field" style="flex:3"><small>Filter messages</small>abundance</div><div class="field"><small>Level</small>All ▾</div><div class="field"><small>Category</small>All ▾</div></div>
+      <table class="t">
+        <tr><th style="width:80px">Level</th><th style="width:60px">Line</th><th style="width:100px">Category</th><th>Message</th></tr>
+        <tr><td><span class="lvl lvl--error">ERROR</span></td><td class="mono">42</td><td>Format</td><td>Column <span class="mono">abundance_assay[3]</span> is missing in the small molecule summary header.</td></tr>
+        <tr><td><span class="lvl lvl--warn">WARN</span></td><td class="mono">7</td><td>Cross-check</td><td>CV term <span class="mono">MS:1000040</span> is not allowed for <span class="mono">sample_processing[1]</span> by rule <span class="mono">sample_processing_may</span>.</td></tr>
+        <tr><td><span class="lvl lvl--info">INFO</span></td><td class="mono">—</td><td>Logical</td><td>Optional element <span class="mono">sample[1]-species</span> is not reported.</td></tr>
+      </table>
+      <div class="pager">1–25 of 55 <span>‹</span><span>›</span></div>
+    </div>
+  </div>
+  <div class="footer"><div class="copyright"><img src="lifs-signet.png" alt=""><span>© 2016 - 2026 LIFS Tools Consortium</span><span>Top ▲</span></div></div>
+</div>
+</div>
+
+</body>
+</html>
