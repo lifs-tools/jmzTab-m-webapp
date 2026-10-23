@@ -15,6 +15,7 @@ import { Observable, catchError, exhaustMap, filter, map, of, scan, switchMap, t
 
 import { ValidationRecord } from '../../api/models/validation-record';
 import { ValidationsService } from '../../api/services/validations.service';
+import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
 import { MessagesTabComponent } from './messages-tab.component';
 import { MetadataTabComponent } from './metadata-tab.component';
@@ -113,7 +114,7 @@ export class ResultPage {
   private poll(id: string): Observable<Poll> {
     return timer(0, POLL_MS).pipe(
       exhaustMap(() =>
-        this.api.getValidation({ id }).pipe(
+        this.api.getValidation({ id }, quietRequest()).pipe(
           map((record): Poll => ({ kind: 'record', record })),
           catchError((err: unknown) => of<Poll>({ kind: 'error', err })),
         ),

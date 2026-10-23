@@ -6,6 +6,7 @@ import { Observable, Subject, catchError, debounceTime, filter, map, of, switchM
 
 import { TablePage } from '../../api/models/table-page';
 import { ValidationsService } from '../../api/services/validations.service';
+import { quietRequest } from '../../core/http-error.interceptor';
 import { ColumnPickerComponent, MAX_COLUMNS } from './column-picker.component';
 
 /** The user-controlled state, restored when a request fails so the controls match the rows still shown. */
@@ -125,7 +126,7 @@ export class TableTabComponent {
               // one comma-joined value: the server splits it, and the URL stays short
               ...(q.columns ? { columns: [q.columns.join(',')] } : {}),
               ...(q.filter.length ? { filter: q.filter } : {}),
-            })
+            }, quietRequest())
             .pipe(
               map((page): Outcome => ({ page, snapshot, key })),
               catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),

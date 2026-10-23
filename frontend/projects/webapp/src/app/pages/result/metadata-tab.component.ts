@@ -7,6 +7,7 @@ import { catchError, of, switchMap } from 'rxjs';
 import { MetadataGroup } from '../../api/models/metadata-group';
 import { MetadataPage } from '../../api/models/metadata-page';
 import { ValidationsService } from '../../api/services/validations.service';
+import { quietRequest } from '../../core/http-error.interceptor';
 
 const PAGE_SIZE = 50;
 
@@ -64,7 +65,7 @@ export class MetadataGroupComponent {
         switchMap((q) => {
           this.loading.set(true);
           this.error.set(false);
-          return this.api.getMetadataPage({ ...q, size: PAGE_SIZE }).pipe(
+          return this.api.getMetadataPage({ ...q, size: PAGE_SIZE }, quietRequest()).pipe(
             catchError(() => {
               this.error.set(true);
               return of(undefined);
@@ -98,6 +99,6 @@ export class MetadataTabComponent {
 
   protected readonly groups = rxResource<MetadataGroup[], string>({
     params: () => this.validationId(),
-    stream: ({ params }) => this.api.listMetadataGroups({ id: params }),
+    stream: ({ params }) => this.api.listMetadataGroups({ id: params }, quietRequest()),
   });
 }

@@ -26,7 +26,7 @@ export function redactUrl(url: string): string {
 const NOT_FOUND_PATH = '/not-found';
 
 /** Fixed page titles per route; never the document title (it may name a file). */
-function pageTitle(path: string): string {
+export function pageTitle(path: string): string {
   const routes: Record<string, string> = {
     '/': 'Validate',
     '/examples': 'Examples',

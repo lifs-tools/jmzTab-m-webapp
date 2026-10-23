@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,6 +14,7 @@ import { ExamplesService } from '../../api/services/examples.service';
 import { ValidationProfilesService } from '../../api/services/validation-profiles.service';
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
+import { validationErrorMessage } from '../../core/validation-error';
 
 type Level = 'INFO' | 'WARN' | 'ERROR';
 
@@ -171,17 +171,7 @@ export class ValidatorFormComponent {
   }
 
   private messageFor(err: unknown): string {
-    const generic = 'Something went wrong. Please try again.';
-    if (!(err instanceof HttpErrorResponse)) return generic;
-    if (err.status === 413) {
-      const mb = this.maxUploadMb();
-      return mb ? `The file is larger than ${mb} MB.` : 'The file is too large.';
-    }
-    if ([400, 403, 503].includes(err.status)) {
-      const message = typeof err.error === 'object' && err.error ? err.error.message : undefined;
-      if (typeof message === 'string' && message) return message;
-    }
-    return generic;
+    return validationErrorMessage(err, this.maxUploadMb() ?? undefined);
   }
 
   protected size(file: File): string {
