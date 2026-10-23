@@ -142,6 +142,25 @@ describe('TableTabComponent', () => {
     http.expectNone((r) => r.url.includes('/tables/sml'));
   });
 
+  it('lets a failed shift be repeated', async () => {
+    const { el, next, settle } = render();
+    next().flush(page());
+    await settle();
+    const nextCols = () => el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!;
+    nextCols().click();
+    await settle();
+    next().flush({}, { status: 500, statusText: 'Server Error' });
+    await settle();
+    nextCols().click();
+    await settle();
+    const again = next();
+    expect(again.request.params.get('columns')).toBe([ALL[0], ...ALL.slice(50, 100)].join(','));
+    again.flush(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
+    await settle();
+    expect(el.querySelector('[role="alert"]')).toBeNull();
+    expect(el.querySelector('.window')?.textContent).toContain('Columns 51–100 of 120');
+  });
+
   it('offers a retry when the first load fails', async () => {
     const { el, next, settle } = render();
     next().flush({}, { status: 500, statusText: 'Server Error' });

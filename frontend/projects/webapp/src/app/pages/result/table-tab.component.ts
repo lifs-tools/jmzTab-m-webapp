@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Observable, Subject, catchError, debounceTime, distinctUntilChanged, filter, map, of, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, debounceTime, filter, map, of, switchMap } from 'rxjs';
 
 import { TablePage } from '../../api/models/table-page';
 import { ValidationsService } from '../../api/services/validations.service';
@@ -20,7 +20,7 @@ interface Snapshot {
   picked: string[] | null;
 }
 
-type Outcome = { page: TablePage; snapshot: Snapshot } | { error: string };
+type Outcome = { page: TablePage; snapshot: Snapshot; key: string } | { error: string };
 
 const FILTER_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat('en');
@@ -80,7 +80,8 @@ export class TableTabComponent {
   private readonly filterEdits = new Subject<void>();
   private readonly retryNonce = signal(0);
   private lastGood: Snapshot | undefined;
-  private rollingBack = false;
+  private shownKey: string | undefined;
+  private inFlightKey: string | undefined;
 
   /** The columns to request: nothing for the first window (the server default), otherwise explicit. */
   private readonly columnsParam = computed(() => {
@@ -107,15 +108,12 @@ export class TableTabComponent {
   constructor() {
     toObservable(this.query)
       .pipe(
-        // restoring the last good state re-emits its query; the rows for it are already shown
-        filter(() => {
-          const skip = this.rollingBack;
-          this.rollingBack = false;
-          return !skip;
-        }),
-        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+        // Skip a query equal to the one in flight, or else to the last shown one (including a restored state).
+        filter((q) => JSON.stringify(q) !== (this.inFlightKey ?? this.shownKey)),
         switchMap((q): Observable<Outcome> => {
           this.loading.set(true);
+          const key = JSON.stringify(q);
+          this.inFlightKey = key;
           const snapshot = this.snapshot();
           return this.api
             .getTablePage({
@@ -129,7 +127,7 @@ export class TableTabComponent {
               ...(q.filter.length ? { filter: q.filter } : {}),
             })
             .pipe(
-              map((page): Outcome => ({ page, snapshot })),
+              map((page): Outcome => ({ page, snapshot, key })),
               catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),
             );
         }),
@@ -137,14 +135,15 @@ export class TableTabComponent {
       )
       .subscribe((o) => {
         this.loading.set(false);
+        this.inFlightKey = undefined;
         if ('page' in o) {
           this.error.set(null);
           this.lastGood = o.snapshot;
+          this.shownKey = o.key;
           this.data.set(o.page);
         } else {
           this.error.set(o.error);
           if (this.lastGood) {
-            this.rollingBack = true;
             this.restore(this.lastGood);
           }
         }

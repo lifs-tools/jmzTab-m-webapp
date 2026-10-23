@@ -165,7 +165,7 @@ public class ValidationsApiController {
     }
 
     @Parameter(name = "filter", in = ParameterIn.QUERY,
-        description = "COLUMN:text, repeatable; the text is not split at commas",
+        description = "COLUMN:text, repeatable; the column is the first ':'-prefix that is an exact column name, the rest is the text (not split at commas)",
         array = @ArraySchema(schema = @Schema(type = "string")))
     @Operation(operationId = "getTablePage", summary = "Returns one page of the SML, SMF or SME table")
     @GetMapping(value = "/validations/{id}/tables/{section}", produces = MediaType.APPLICATION_JSON_VALUE)

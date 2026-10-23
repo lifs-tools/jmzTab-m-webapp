@@ -2040,7 +2040,7 @@
             "type" : [ "array", "null" ]
           }
         }, {
-          "description" : "COLUMN:text, repeatable; the text is not split at commas",
+          "description" : "COLUMN:text, repeatable; the column is the first ':'-prefix that is an exact column name, the rest is the text (not split at commas)",
           "in" : "query",
           "name" : "filter",
           "schema" : {
