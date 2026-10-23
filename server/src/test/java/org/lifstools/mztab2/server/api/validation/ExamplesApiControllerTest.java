@@ -15,6 +15,7 @@
  */
 package org.lifstools.mztab2.server.api.validation;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,13 +24,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
+import java.nio.file.Files;
 import java.net.URI;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
+import org.lifstools.mztab.validator.webapp.session.StorageFullException;
+import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
 import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -38,6 +40,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
@@ -59,6 +62,9 @@ class ExamplesApiControllerTest {
     @MockitoBean
     ExampleFetcher fetcher;
 
+    @MockitoSpyBean
+    ValidationSessionService sessions;
+
     @Autowired
     MockMvc mvc;
 
@@ -73,19 +79,25 @@ class ExamplesApiControllerTest {
 
     @Test
     void validatesExampleById() throws Exception {
-        when(fetcher.fetch(any())).thenReturn(
-            ExamplesApiControllerTest.class.getResourceAsStream("/metabolomics/lipidomics-example.mzTab"));
+        Path tmp = Files.createTempFile("ex", ".tmp");
+        try (var in = ExamplesApiControllerTest.class.getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
+            Files.write(tmp, in.readAllBytes());
+        }
+        when(fetcher.download(any())).thenReturn(tmp);
         mvc.perform(post("/rest/v2/examples/" + ID + "/validations").contentType(MediaType.APPLICATION_JSON)
             .content("{\"level\":\"INFO\",\"maxErrors\":10}"))
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.fileName").value(ID));
-        verify(fetcher).fetch(URI.create(
+        verify(fetcher).download(URI.create(
             "https://raw.githubusercontent.com/HUPO-PSI/mzTab/master/examples/2_0-Metabolomics_Release/lipidomics-example.mzTab"));
+        assertFalse(Files.exists(tmp));
     }
 
     @Test
     void emptyBodyUsesDefaults() throws Exception {
-        when(fetcher.fetch(any())).thenReturn(new ByteArrayInputStream("MTD\tmzTab-version\t2.0.0-M\n".getBytes()));
+        Path tmp = Files.createTempFile("ex", ".tmp");
+        Files.writeString(tmp, "MTD\tmzTab-version\t2.0.0-M\n");
+        when(fetcher.download(any())).thenReturn(tmp);
         mvc.perform(post("/rest/v2/examples/" + ID + "/validations").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isAccepted()).andExpect(jsonPath("$.maxErrors").value(100));
     }
@@ -98,10 +110,25 @@ class ExamplesApiControllerTest {
 
     @Test
     void fetchFailureIs502() throws Exception {
-        when(fetcher.fetch(any())).thenThrow(new IOException("boom"));
+        when(fetcher.download(any())).thenThrow(new ExampleFetcher.ExampleFetchException("boom"));
         mvc.perform(post("/rest/v2/examples/" + ID + "/validations").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isBadGateway())
             .andExpect(jsonPath("$.message").value("The example file could not be downloaded."));
+    }
+
+    @Test
+    void storageFullIs503() throws Exception {
+        Path tmp = Files.createTempFile("ex", ".tmp");
+        when(fetcher.download(any())).thenReturn(tmp);
+        org.mockito.Mockito.doThrow(new StorageFullException()).when(sessions).submit(any(), any(), any(), any());
+        try {
+            mvc.perform(post("/rest/v2/examples/" + ID + "/validations").contentType(MediaType.APPLICATION_JSON)
+                .content("{}")).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.message").value("The validator's storage is full. Please try again later."));
+        } finally {
+            org.mockito.Mockito.reset(sessions);
+        }
+        assertFalse(Files.exists(tmp));
     }
 
     @Test

@@ -20,6 +20,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.lifstools.mztab.validator.webapp.ExampleFileConfig;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
@@ -94,41 +96,22 @@ public class ExamplesApiController {
         ValidationOptions options = new ValidationOptions(req.level() == null ? ValidationLevel.INFO : req.level(),
             maxErrors, blankToNull(req.validationProfile()), blankToNull(req.validationProfileVersion()));
         ValidationRecord record;
-        try (InputStream content = fetch(example.uri())) {
+        // downloaded completely first: submit holds a global lock while it copies the content
+        Path file;
+        try {
+            file = fetcher.download(example.uri());
+        } catch (IOException | RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, FETCH_FAILED, e);
+        }
+        try (InputStream content = Files.newInputStream(file)) {
             // the file name is the example's own, never client-supplied
             record = sessions.submit(example.name(), content, options, null);
-        } catch (RuntimeException e) {
-            if (causedByFetch(e)) {
-                throw fetchFailed(e);
-            }
-            throw e;
-        } catch (ExampleFetcher.ExampleFetchException e) {
-            throw fetchFailed(e);
+        } finally {
+            Files.deleteIfExists(file);
         }
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath().path("/rest/v2/validations/{id}")
             .buildAndExpand(record.id()).toUri();
         return ResponseEntity.accepted().location(location).body(record);
-    }
-
-    private InputStream fetch(URI uri) {
-        try {
-            return fetcher.fetch(uri);
-        } catch (IOException | RuntimeException e) {
-            throw fetchFailed(e);
-        }
-    }
-
-    private static boolean causedByFetch(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof ExampleFetcher.ExampleFetchException) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static ResponseStatusException fetchFailed(Throwable cause) {
-        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, FETCH_FAILED, cause);
     }
 
     private static ExampleDto dto(ExampleFile f) {
