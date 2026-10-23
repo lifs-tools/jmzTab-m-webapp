@@ -33,27 +33,30 @@ jobs:
       uses: whelk-io/maven-settings-xml-action@v22
       with:
         servers: '[{ "id": "lifstools-jfrog", "username": "${env.ARTIFACTORY_USERNAME_REF}", "password": "${env.ARTIFACTORY_TOKEN_REF}" }]'        
+    # Pull requests only build and test; images are published from master only.
+    - name: Build and test with Maven
+      if: github.event_name == 'pull_request'
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: ./mvnw -B verify --file pom.xml
     - name: Set Release version env variable
-      env:
-        USERNAME: ${{ github.actor }}
-        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      if: github.event_name == 'push'
       run: |
-        echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV  
-    - name: Build with Maven
-      env:
-        USERNAME: ${{ github.actor }}
-        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-      run: ./mvnw -B package -Pdocker --file pom.xml
+        echo "RELEASE_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+    # Jib pushes to the registry during package and reads the credentials
+    # written by docker/login-action, so the login has to come first.
     - name: Login to LIFS Tools registry
+      if: github.event_name == 'push'
       uses: docker/login-action@v4
       with:
         registry: docker.lifs-tools.org
         username: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_USER }}
         password: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_PW }}
-    - name: Tag and Push docker image
-      run: |
-        docker tag lifs/mztab-validator-webapp:${{ env.RELEASE_VERSION }} docker.lifs-tools.org/lifs/mztab-validator-webapp:${{ env.RELEASE_VERSION }} && \
-        docker tag docker.lifs-tools.org/lifs/mztab-validator-webapp:${{ env.RELEASE_VERSION }} docker.lifs-tools.org/lifs/mztab-validator-webapp:latest && \
-        docker push docker.lifs-tools.org/lifs/mztab-validator-webapp:${{ env.RELEASE_VERSION }} && \
-        docker push docker.lifs-tools.org/lifs/mztab-validator-webapp:latest
+    - name: Build and push docker image with Maven
+      if: github.event_name == 'push'
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
 
