@@ -17,21 +17,20 @@ package org.lifstools.mztab.validator.webapp.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
- * Security configuration for microservice deployment behind an upstream proxy
- * (Spring Cloud Gateway). CORS and CSRF are disabled because the gateway is
- * responsible for both; no OAuth2 resource server is configured since the
- * validator does not require authentication.
+ * Security configuration for all profiles. The validator UI and REST API are
+ * public, so every request is permitted. Without this chain, Spring Boot's
+ * default would require a login with a generated password. CORS and CSRF are
+ * disabled: behind Spring Cloud Gateway (microservice profile) the gateway is
+ * responsible for both, and standalone the REST API must accept POSTs from
+ * non-browser clients.
  */
 @Configuration
 @EnableWebSecurity
-@Profile("microservice")
 public class WebSecurityConfig {
 
     @Bean
@@ -40,7 +39,7 @@ public class WebSecurityConfig {
             .cors(cors -> cors.disable())
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(requests ->
-                requests.requestMatchers(new AntPathRequestMatcher("/**")).permitAll()
+                requests.anyRequest().permitAll()
             );
         return http.build();
     }
