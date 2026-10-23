@@ -118,3 +118,113 @@ td.mono {
     }
   }
 }
+.view-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px 8px;
+}
+.view-toggle,
+.act button,
+.more {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--lifs-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.c-loc {
+  width: 200px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.grp {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--lifs-line);
+  border-left: 4px solid var(--lifs-line);
+
+  &--error {
+    border-left-color: var(--lifs-error);
+  }
+  &--warn {
+    border-left-color: var(--lifs-warn);
+  }
+  &--info {
+    border-left-color: var(--lifs-site-blue);
+  }
+  &--sel {
+    box-shadow: 0 0 0 2px var(--lifs-sky);
+  }
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.fix {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--lifs-ink);
+  overflow-wrap: anywhere;
+}
+.count {
+  margin-left: auto;
+  font-family: var(--lifs-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--lifs-mist);
+  color: var(--lifs-slate);
+}
+.why {
+  font-size: 12.5px;
+  color: var(--lifs-slate);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--lifs-grey);
+}
+.meta .mono {
+  font-family: var(--lifs-mono);
+}
+.occ {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.chip {
+  font-family: var(--lifs-mono);
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 1px solid var(--lifs-line);
+  border-radius: 2px;
+  background: var(--lifs-paper);
+  color: var(--lifs-primary);
+  cursor: pointer;
+}
+.act {
+  display: flex;
+  gap: 14px;
+}
