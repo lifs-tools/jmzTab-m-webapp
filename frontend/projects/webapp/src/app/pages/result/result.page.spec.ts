@@ -1,13 +1,18 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 
+import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
+import { MetadataTabComponent } from './metadata-tab.component';
 import { ResultPage } from './result.page';
+import { TableTabComponent } from './table-tab.component';
 
 const BASE: ValidationRecord = {
   id: 'abc',
@@ -24,8 +29,42 @@ const BASE: ValidationRecord = {
   sections: { metadataLines: 5540, sml: { rows: 846, columns: 1990 }, smf: { rows: 1, columns: 2 }, sme: { rows: 3, columns: 4 } },
 };
 
+/** An SML cell error at a 0-based row; three of them form one group with three targets. */
+const cellError = (row: number): ValidationMessage => ({
+  category: 'format',
+  code: `[Error-2010] line ${20 + row}: not a number\r\n`,
+  message: `"abundance_assay[3]" in SML row ${row + 1} is not a number`,
+  message_type: 'error',
+  line_number: 20 + row,
+  suggestion: 'Enter a number or "null".',
+  location: { section: 'sml', row_index: row, column: 'abundance_assay[3]' },
+});
+const termWarning: ValidationMessage = {
+  category: 'cross_check',
+  code: '[Warn-1003] Term MS:1000040 is not allowed\r\n',
+  message: 'Term MS:1000040 is not allowed on assay[3]-separation',
+  message_type: 'warn',
+  rule_id: 'assay_separation_rule',
+  suggestion: 'Replace the separation term with a chromatography term.',
+  location: { section: 'mtd', metadata_key: 'assay[3]-separation', metadata_group: 'assay' },
+};
+const LINKED: ValidationRecord = {
+  ...BASE,
+  outcome: 'FAILED',
+  counts: { ERROR: 3, WARN: 1, INFO: 0 },
+  messages: [cellError(1), cellError(3), cellError(60), termWarning],
+};
+const NOT_PARSED: ValidationRecord = {
+  ...BASE,
+  outcome: 'NOT_PARSED',
+  sections: undefined,
+  failureReason: 'Bad header',
+  messages: [{ ...cellError(1), location: { section: 'sml', row_index: 1 } }],
+};
+
 describe('ResultPage', () => {
   let http: HttpTestingController;
+  let wideScreen = false;
 
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
@@ -36,6 +75,7 @@ describe('ResultPage', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: BreakpointObserver, useValue: { observe: () => of({ matches: wideScreen, breakpoints: {} }) } },
         // Dialogs close only after their exit animation; without animations the
         // close (and the DELETE it triggers) does not depend on runner speed.
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
@@ -73,6 +113,8 @@ describe('ResultPage', () => {
     else await fixture.whenStable();
     fixture.detectChanges();
   };
+
+  beforeEach(() => (wideScreen = false));
 
   afterEach(() => {
     vi.useRealTimers();
@@ -336,6 +378,192 @@ describe('ResultPage', () => {
       fixture.destroy();
       await vi.advanceTimersByTimeAsync(10000);
       http.expectNone(() => true);
+    });
+  });
+
+  describe('linked messages', () => {
+    let fixture: ComponentFixture<ResultPage>;
+    let root: HTMLElement;
+
+    const wide = (on: boolean) => (wideScreen = on);
+    const el = (sel: string) => root.querySelector<HTMLElement>(sel);
+    const els = (sel: string) => Array.from(root.querySelectorAll<HTMLElement>(sel));
+    const label = (tab: Element) => tab.querySelector('.tab-label')?.textContent?.trim() ?? '';
+    const roleNames = (role: string) => els(`[role="${role}"]`).map(label);
+    const selectedTab = () => label(el('[role="tab"][aria-selected="true"]')!);
+    const tableHighlight = () =>
+      fixture.debugElement.query(By.directive(TableTabComponent))?.componentInstance.highlight();
+    const metadataHighlight = () =>
+      fixture.debugElement.query(By.directive(MetadataTabComponent))?.componentInstance.highlight();
+
+    /** A macrotask and a change detection pass; `whenStable` would wait for the open requests themselves. */
+    const settle = async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    };
+    const docRequests = () => http.match((r) => /\/validations\/abc\/(metadata|tables)/.test(r.url));
+
+    /** Answers every metadata and table request the document pane makes, until it stops asking. */
+    async function serve() {
+      for (let round = 0; round < 10; round++) {
+        await settle();
+        let reqs = docRequests();
+        if (!reqs.length) {
+          await settle();
+          reqs = docRequests();
+          if (!reqs.length) return;
+        }
+        for (const r of reqs) {
+          const url = r.request.url;
+          if (url.includes('/tables/')) {
+            const page = Number(r.request.params.get('page') ?? 0);
+            r.flush({
+              section: 'SML',
+              page,
+              size: 50,
+              totalRows: 100,
+              allColumns: ['SML_ID', 'abundance_assay[3]'],
+              columns: ['SML_ID', 'abundance_assay[3]'],
+              rows: [1, 3, 60]
+                .filter((i) => Math.floor(i / 50) === page)
+                .map((i) => ({ index: i, cells: [String(i + 1), 'x'] })),
+            });
+          } else if (url.endsWith('/metadata')) {
+            r.flush([{ name: 'assay', count: 2 }]);
+          } else {
+            r.flush({
+              group: 'assay',
+              page: 0,
+              size: 50,
+              total: 2,
+              entries: [
+                { key: 'assay[3]-name', value: 'a3', lineNumber: 7 },
+                { key: 'assay[3]-separation', value: '[MS, MS:1000040, m/z, ]', lineNumber: 8 },
+              ],
+            });
+          }
+        }
+      }
+      throw new Error('the document pane keeps requesting');
+    }
+
+    async function renderFinished(rec: ValidationRecord) {
+      const r = await render();
+      fixture = r.fixture;
+      root = r.el;
+      (await nextGet()).flush(rec);
+      await serve();
+    }
+
+    async function click(sel: string) {
+      el(sel)!.click();
+      await serve();
+    }
+
+    it('shows messages and the document side by side on wide screens', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      expect(el('.split .messages app-messages-tab')).toBeTruthy();
+      expect(roleNames('tab')).toEqual(['Metadata', 'Summary', 'Features', 'Evidence']);
+      expect(selectedTab()).toBe('Metadata');
+    });
+
+    it('a chip click on a wide screen changes only the right pane', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip'); // SML row 2 (row_index 1)
+      expect(selectedTab()).toBe('Summary');
+      expect(el('.split .messages app-messages-tab')).toBeTruthy();
+      expect(el('.grp[aria-current="true"]')!.textContent).toContain('Enter a number');
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 1 of 3');
+      expect(tableHighlight()).toEqual({ rows: [1], focusRow: 1, column: 'abundance_assay[3]', header: false });
+      expect(el('.back-bar')).toBeNull();
+      expect(el('.split .stepper')!.textContent).toContain('1 of 3');
+    });
+
+    it('opens the metadata entry a semantic message names, with the profile on its card', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      const card = els('.grp').find((g) => g.textContent?.includes('Replace the separation term'))!;
+      expect(card.textContent).toContain('lipidcompass-summary-2.0 v3');
+      card.querySelector<HTMLElement>('.chip')!.click();
+      fixture.detectChanges();
+      await serve();
+      expect(selectedTab()).toBe('Metadata');
+      expect(metadataHighlight()).toEqual({
+        group: 'assay',
+        keys: ['assay[3]-separation'],
+        focusKey: 'assay[3]-separation',
+      });
+      expect(el('.entry--hl')!.textContent).toContain('assay[3]-separation');
+    });
+
+    it('falls back to jumping on narrow screens and offers the way back', async () => {
+      wide(false);
+      await renderFinished(LINKED);
+      expect(el('.split')).toBeNull();
+      await click('.chip');
+      expect(selectedTab()).toBe('Summary');
+      expect(el('.back-bar')!.textContent).toContain('Back to message');
+      expect(el('.back-bar')!.textContent).toContain('Enter a number');
+      expect(el('.back-bar')!.textContent).toContain('1 of 3');
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 1 of 3');
+      await click('.back-bar .back');
+      expect(selectedTab()).toMatch(/^Messages/);
+      expect(el('.back-bar')).toBeNull();
+      await vi.waitFor(() => expect(document.activeElement).toBe(el('.grp[aria-current="true"] button')));
+    });
+
+    it('steps through occurrences', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      const prev = () => el('.stepper button[aria-label="Previous occurrence"]') as HTMLButtonElement;
+      const next = () => el('.stepper button[aria-label="Next occurrence"]') as HTMLButtonElement;
+      expect(prev().disabled).toBe(true);
+      const first = tableHighlight();
+      await click('.stepper button[aria-label="Next occurrence"]');
+      await click('.stepper button[aria-label="Next occurrence"]');
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 3 of 3');
+      expect(next().disabled).toBe(true);
+      expect(prev().disabled).toBe(false);
+      expect(tableHighlight()).toEqual({ rows: [60], focusRow: 60, column: 'abundance_assay[3]', header: false });
+      expect(tableHighlight()).not.toBe(first);
+    });
+
+    it('steps on narrow screens from the back bar', async () => {
+      await renderFinished(LINKED);
+      await click('.chip');
+      await click('.back-bar button[aria-label="Next occurrence"]');
+      expect(el('.back-bar')!.textContent).toContain('2 of 3');
+      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false });
+    });
+
+    it('highlights every occurrence of a group with "Highlight all"', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.act-all');
+      expect(selectedTab()).toBe('Summary');
+      expect(tableHighlight()).toEqual({ rows: [1, 3, 60], focusRow: 1, column: 'abundance_assay[3]', header: false });
+    });
+
+    it('a second click on the same chip is a new jump', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      const first = tableHighlight();
+      await click('.chip');
+      expect(tableHighlight()).toEqual(first);
+      expect(tableHighlight()).not.toBe(first);
+    });
+
+    it('stays single-column for unparsed files even when wide, without links', async () => {
+      wide(true);
+      await renderFinished({ ...NOT_PARSED });
+      expect(el('.split')).toBeNull();
+      expect(roleNames('tab')).toEqual(['Messages']);
+      expect(el('.chip')).toBeNull();
+      expect(el('.grp')!.textContent).toContain('Enter a number');
     });
   });
 });
