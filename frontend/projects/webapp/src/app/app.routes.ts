@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { pageTitle } from './core/matomo.service';
+import { pageTitle } from './core/page-titles';
 
 export const routes: Routes = [
   {

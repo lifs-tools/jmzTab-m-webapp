@@ -14,13 +14,13 @@ import { ExamplesService } from '../../api/services/examples.service';
 import { ValidationProfilesService } from '../../api/services/validation-profiles.service';
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
+import { DEFAULT_VALIDATION_PROFILE } from '../../core/validation-defaults';
 import { validationErrorMessage } from '../../core/validation-error';
 
 type Level = 'INFO' | 'WARN' | 'ERROR';
 
 const NONE = 'none';
 const CUSTOM = '__custom__';
-const DEFAULT_PROFILE = 'mztab-m-2.0-default';
 
 /** Human-readable size, e.g. "1.2 MB". */
 export function formatBytes(bytes: number): string {
@@ -61,7 +61,7 @@ export class ValidatorFormComponent {
   readonly file = signal<File | null>(null);
   readonly level = signal<Level>('INFO');
   readonly maxErrors = signal<number | null>(100);
-  readonly validationProfile = signal<string | null>(DEFAULT_PROFILE);
+  readonly validationProfile = signal<string | null>(DEFAULT_VALIDATION_PROFILE);
   readonly mappingFile = signal<File | null>(null);
 
   protected readonly dragging = signal(false);

@@ -4,6 +4,7 @@ import { catchError, of } from 'rxjs';
 
 import { AppInfoDto } from '../api/models/app-info-dto';
 import { AppInfoService } from '../api/services/app-info.service';
+import { quietRequest } from './http-error.interceptor';
 
 /**
  * Version, limits and analytics settings from `GET rest/v2/app-info`, loaded once.
@@ -15,6 +16,6 @@ export class AppInfoStore {
   private readonly api = inject(AppInfoService);
 
   readonly info: Signal<AppInfoDto | undefined> = toSignal(
-    this.api.getAppInfo().pipe(catchError(() => of(undefined))),
+    this.api.getAppInfo(undefined, quietRequest()).pipe(catchError(() => of(undefined))),
   );
 }

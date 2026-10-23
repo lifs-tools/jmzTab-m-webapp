@@ -1,9 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, provideRouter } from '@angular/router';
 
 import { ExampleDto } from '../../api/models/example-dto';
+import { httpErrorInterceptor } from '../../core/http-error.interceptor';
 import { ExamplesPage } from './examples.page';
 
 const EXAMPLES: ExampleDto[] = [
@@ -50,7 +52,10 @@ describe('ExamplesPage', () => {
     expect(el.textContent).toContain('Lipidomics');
     expect(el.textContent).toContain('Jane');
     expect(el.textContent).toContain('2.0.0');
-    expect(el.querySelector('a[href="https://example.org/map.xml"]')).toBeTruthy();
+    const map = el.querySelector<HTMLAnchorElement>('a[href="https://example.org/map.xml"]')!;
+    expect(map.hasAttribute('download')).toBe(true);
+    expect(map.target).toBe('_blank');
+    expect(map.rel).toContain('noopener');
     const buttons = Array.from(el.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Validate');
     expect(buttons.length).toBe(1);
   });
@@ -73,5 +78,26 @@ describe('ExamplesPage', () => {
       .flush('x', { status: 500, statusText: 'err' });
     await fixture.whenStable();
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Something went wrong. Please try again.');
+  });
+
+  it('a failing examples list shows the inline message and no snackbar', async () => {
+    const open = vi.fn();
+    await TestBed.configureTestingModule({
+      imports: [ExamplesPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(withInterceptors([httpErrorInterceptor])),
+        provideHttpClientTesting(),
+        { provide: MatSnackBar, useValue: { open } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ExamplesPage);
+    TestBed.inject(HttpTestingController)
+      .expectOne((r) => r.url.endsWith('rest/v2/examples'))
+      .flush('x', { status: 500, statusText: 'err' });
+    await fixture.whenStable();
+    await import('@angular/material/snack-bar');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('could not be loaded');
+    expect(open).not.toHaveBeenCalled();
   });
 });

@@ -7,10 +7,12 @@ import { catchError, of } from 'rxjs';
 
 import { ExampleDto } from '../../api/models/example-dto';
 import { ExamplesService } from '../../api/services/examples.service';
+import { quietRequest } from '../../core/http-error.interceptor';
+import { DEFAULT_VALIDATION_PROFILE } from '../../core/validation-defaults';
 import { validationErrorMessage } from '../../core/validation-error';
 
 /** Same defaults as the landing page's example action. */
-const DEFAULTS = { level: 'INFO', maxErrors: 100, validationProfile: 'mztab-m-2.0-default' } as const;
+const DEFAULTS = { level: 'INFO', maxErrors: 100, validationProfile: DEFAULT_VALIDATION_PROFILE } as const;
 
 /** All example files and example mapping files from `rest/v2/examples`. */
 @Component({
@@ -25,7 +27,7 @@ export class ExamplesPage {
   private readonly router = inject(Router);
 
   private readonly loaded = toSignal(
-    this.api.listExamples().pipe(catchError(() => of(null))),
+    this.api.listExamples(undefined, quietRequest()).pipe(catchError(() => of(null))),
     { initialValue: undefined },
   );
 

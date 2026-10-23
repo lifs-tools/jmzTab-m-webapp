@@ -74,7 +74,7 @@ public class PiwikTracker implements AnalyticsTracker {
     public void started(UUID uuid, String event, String type) {
         if (enabled) {
             try {
-                callUri(uuid, event + "-started", type);
+                callUri(event + "-started", type);
             } catch (URISyntaxException ex) {
                 log.error("Exception in started() method of PiwikTracker", ex);
             }
@@ -85,7 +85,7 @@ public class PiwikTracker implements AnalyticsTracker {
     public void stopped(UUID uuid, String event, String type) {
         if (enabled) {
             try {
-                callUri(uuid, event + "-stopped", type);
+                callUri(event + "-stopped", type);
             } catch (URISyntaxException ex) {
                 log.error("Exception in started() method of PiwikTracker", ex);
             }
@@ -96,25 +96,33 @@ public class PiwikTracker implements AnalyticsTracker {
     public void count(UUID uuid, String event, String type) {
         if (enabled) {
             try {
-                callUri(uuid, event, type);
+                callUri(event, type);
             } catch (URISyntaxException ex) {
                 log.error("Exception in count() method of PiwikTracker", ex);
             }
         }
     }
 
-    private void callUri(UUID uuid, String event, String type) throws URISyntaxException {
+    /**
+     * Builds the tracking call. Events are anonymous counts: no identifier (session id, file name)
+     * is ever sent.
+     */
+    UriComponents buildUri(String event, String type) throws URISyntaxException {
         UriComponentsBuilder builder = UriComponentsBuilder.newInstance().
             uri(this.piwikServerUrl.toURI());
         UriComponents uriComponents = builder.queryParam("rec", 1).
             queryParam("idsite", gaId).
             queryParam("url", this.appUrl.toURI().
                 toASCIIString()).
-            queryParam("uid", uuid.toString()).
             queryParam("action_name", event).
             queryParam("e_a", type).
             queryParam("send_image", 0).
             build();
+        return uriComponents;
+    }
+
+    private void callUri(String event, String type) throws URISyntaxException {
+        UriComponents uriComponents = buildUri(event, type);
         RestTemplate template = new RestTemplate();
         ResponseEntity<Integer> response = template.getForEntity(uriComponents.
             toUri(), Integer.class);

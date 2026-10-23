@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
 import { AnalyticsDto } from '../api/models/analytics-dto';
+import { pageTitle } from './page-titles';
 
 type MatomoCommand = unknown[];
 type MatomoWindow = Window & { _paq?: MatomoCommand[] };
@@ -24,19 +25,6 @@ export function redactUrl(url: string): string {
 
 /** Unknown routes are tracked under one fixed path: a mistyped link may hold an id. */
 const NOT_FOUND_PATH = '/not-found';
-
-/** Fixed page titles per route; never the document title (it may name a file). */
-export function pageTitle(path: string): string {
-  const routes: Record<string, string> = {
-    '/': 'Validate',
-    '/examples': 'Examples',
-    '/about': 'About',
-  };
-  if (path.startsWith('/result/') || path.startsWith('/validate/')) {
-    return 'mzTab-M Validator · Result';
-  }
-  return `mzTab-M Validator · ${routes[path] ?? 'Not found'}`;
-}
 
 /**
  * Client-side Matomo with consent required (spec §5.4). Nothing is loaded unless the server

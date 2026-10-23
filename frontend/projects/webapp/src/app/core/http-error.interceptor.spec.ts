@@ -26,19 +26,20 @@ describe('httpErrorInterceptor', () => {
     ctrl = TestBed.inject(HttpTestingController);
   });
 
+  /** Lets the lazy snackbar import resolve, for the negative assertions. */
+  const settle = () => import('@angular/material/snack-bar').then(() => undefined);
+
   async function fail(method: string, status: number, context?: HttpContext, url = '/x') {
     let error: unknown;
     http.request(method, url, { context }).subscribe({ error: (e) => (error = e) });
     ctrl.expectOne(url).flush('boom', { status, statusText: 'err' });
-    // the snackbar is loaded lazily
-    await new Promise((r) => setTimeout(r, 20));
     return error as { status: number };
   }
 
   it('shows one snackbar for a GET 500 and rethrows the error unchanged', async () => {
     const err = await fail('GET', 500);
     expect(err.status).toBe(500);
-    expect(open).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
     expect(open).toHaveBeenCalledWith('Something went wrong. Please try again.', 'Dismiss', {
       duration: 6000,
     });
@@ -46,16 +47,18 @@ describe('httpErrorInterceptor', () => {
 
   it('shows one for a network error (status 0)', async () => {
     await fail('GET', 0);
-    expect(open).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
   });
 
   it('does not stack: no second snackbar while one is open, but again after it closed', async () => {
     await fail('GET', 500, undefined, '/a');
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
     await fail('GET', 502, undefined, '/b');
+    await settle();
     expect(open).toHaveBeenCalledTimes(1);
     dismissed.next();
     await fail('GET', 500, undefined, '/c');
-    expect(open).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(2));
   });
 
   it('ignores GET 503, 4xx, POST 500 and DELETE 500', async () => {
@@ -63,11 +66,13 @@ describe('httpErrorInterceptor', () => {
     await fail('GET', 404);
     await fail('POST', 500);
     await fail('DELETE', 500);
+    await settle();
     expect(open).not.toHaveBeenCalled();
   });
 
   it('honours the opt-out token', async () => {
     await fail('GET', 500, new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true));
+    await settle();
     expect(open).not.toHaveBeenCalled();
   });
 });

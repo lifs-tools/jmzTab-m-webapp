@@ -44,7 +44,10 @@ describe('LandingPage', () => {
     const link = el.querySelector<HTMLAnchorElement>('a[href="https://example.org/lip.mzTab"]')!;
     expect(link.target).toBe('_blank');
     expect(link.rel).toContain('noopener');
-    expect(el.querySelector('a[href="https://example.org/map.xml"]')).toBeTruthy();
+    const map = el.querySelector<HTMLAnchorElement>('a[href="https://example.org/map.xml"]')!;
+    expect(map.hasAttribute('download')).toBe(true);
+    expect(map.target).toBe('_blank');
+    expect(map.rel).toContain('noopener');
     const validateButtons = Array.from(el.querySelectorAll('app-examples-card button')).filter(
       (b) => b.textContent?.trim() === 'Validate',
     );

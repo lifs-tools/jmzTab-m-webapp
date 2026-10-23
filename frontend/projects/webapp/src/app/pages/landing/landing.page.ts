@@ -4,6 +4,7 @@ import { catchError, of } from 'rxjs';
 
 import { ExampleDto } from '../../api/models/example-dto';
 import { ExamplesService } from '../../api/services/examples.service';
+import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
 import { ExamplesCardComponent } from './examples-card.component';
 import { ValidatorFormComponent } from './validator-form.component';
@@ -23,7 +24,7 @@ export class LandingPage {
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
   protected readonly examples = toSignal(
     inject(ExamplesService)
-      .listExamples()
+      .listExamples(undefined, quietRequest())
       .pipe(catchError(() => of([] as ExampleDto[]))),
     { initialValue: [] as ExampleDto[] },
   );
