@@ -30,7 +30,14 @@
 </div>
 
 @if (error(); as msg) {
-  <div class="lifs-callout lifs-callout--error" role="alert"><div>{{ msg }}</div></div>
+  <div class="lifs-callout lifs-callout--error" role="alert">
+    <div>
+      {{ msg }}
+      @if (!data()) {
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      }
+    </div>
+  </div>
 }
 
 @if (data()) {

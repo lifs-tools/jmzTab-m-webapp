@@ -212,6 +212,32 @@ class SectionStoreTest {
     }
 
     @Test
+    void rawFilterSplitsAtTheFirstPrefixThatNamesAColumn() {
+        List<String> header = List.of("SML_ID", "opt_global_cv_MS:1002217_x", "opt_global");
+
+        ColumnFilter colonColumn = SectionReader.resolveFilter(header, "opt_global_cv_MS:1002217_x:a:b,c");
+        assertEquals("opt_global_cv_MS:1002217_x", colonColumn.column());
+        assertEquals("a:b,c", colonColumn.contains());
+        ColumnFilter plain = SectionReader.resolveFilter(header, "SML_ID:1:2");
+        assertEquals("SML_ID", plain.column());
+        assertEquals("1:2", plain.contains());
+        assertThrows(IllegalArgumentException.class, () -> SectionReader.resolveFilter(header, "opt_global_cv_MS:x"));
+    }
+
+    @Test
+    void rawFiltersFilterRows() throws Exception {
+        UUID id = finished(MOUSE_LIVER).id();
+        TableQuery viaRaw = new TableQuery(0, 200, null, false, List.of(), List.of("SML_ID"), List.of("SML_ID:1"));
+        TableQuery viaResolved = new TableQuery(0, 200, null, false, List.of(new ColumnFilter("SML_ID", "1")),
+            List.of("SML_ID"));
+
+        assertEquals(reader.table(id, Section.SML, viaResolved).orElseThrow().totalRows(),
+            reader.table(id, Section.SML, viaRaw).orElseThrow().totalRows());
+        assertThrows(IllegalArgumentException.class, () -> reader.table(id, Section.SML,
+            new TableQuery(0, 10, null, false, List.of(), List.of(), List.of("nope:x"))));
+    }
+
+    @Test
     void unknownColumnIsRejected() throws Exception {
         UUID id = finished(LIPIDOMICS).id();
 

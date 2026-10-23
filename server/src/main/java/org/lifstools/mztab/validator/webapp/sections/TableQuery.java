@@ -26,12 +26,21 @@ import org.springframework.lang.Nullable;
  * @param sort the column to sort by, or {@code null} for file order
  * @param filters all must match; applied before paging
  * @param columns the columns to return, in this order; empty means the first 50
+ * @param rawFilters unresolved {@code COLUMN:text} filters; the column is the
+ * first prefix, split at a {@code :}, that exactly names a column of the
+ * table (column names may contain {@code :}), also applied
  */
 public record TableQuery(int page, int size, @Nullable String sort, boolean descending,
-    List<ColumnFilter> filters, List<String> columns) {
+    List<ColumnFilter> filters, List<String> columns, List<String> rawFilters) {
 
     public TableQuery {
         filters = filters == null ? List.of() : filters;
         columns = columns == null ? List.of() : columns;
+        rawFilters = rawFilters == null ? List.of() : rawFilters;
+    }
+
+    public TableQuery(int page, int size, @Nullable String sort, boolean descending,
+        List<ColumnFilter> filters, List<String> columns) {
+        this(page, size, sort, descending, filters, columns, List.of());
     }
 }

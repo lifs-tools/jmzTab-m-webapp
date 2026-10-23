@@ -108,6 +108,22 @@ describe('TableTabComponent', () => {
     r.flush(page());
   });
 
+  it('encodes plus signs, spaces and percent in filters', async () => {
+    const { el, next, settle } = render();
+    next().flush(page());
+    await settle();
+    vi.useFakeTimers();
+    const input = el.querySelectorAll<HTMLInputElement>('thead input')[1];
+    input.value = '[M+H]+ 5%';
+    input.dispatchEvent(new Event('input'));
+    vi.advanceTimersByTime(301);
+    vi.useRealTimers();
+    await settle();
+    const r = next();
+    expect(r.request.urlWithParams).toContain('filter=col%5B1%5D%3A%5BM%2BH%5D%2B%205%25');
+    r.flush(page());
+  });
+
   it('shows an inline error on 400', async () => {
     const { el, next, settle } = render();
     next().flush(page());
@@ -118,6 +134,39 @@ describe('TableTabComponent', () => {
     await settle();
     expect(el.querySelector('[role="alert"]')).toBeTruthy();
     expect(el.querySelectorAll('tbody tr').length).toBe(1);
+    // the controls still describe the columns that are shown
+    expect(el.querySelector('.window')?.textContent).toContain('Columns 1–50 of 120');
+    expect(el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!.disabled).toBe(false);
+    expect(el.querySelector<HTMLButtonElement>('button[aria-label="Previous columns"]')!.disabled).toBe(true);
+    expect(el.querySelectorAll('thead tr:first-child th').length).toBe(50);
+    http.expectNone((r) => r.url.includes('/tables/sml'));
+  });
+
+  it('offers a retry when the first load fails', async () => {
+    const { el, next, settle } = render();
+    next().flush({}, { status: 500, statusText: 'Server Error' });
+    await settle();
+    el.querySelector<HTMLButtonElement>('.retry')!.click();
+    await settle();
+    next().flush(page());
+    await settle();
+    expect(el.querySelectorAll('tbody tr').length).toBe(1);
+    expect(el.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('does not refetch an equal query', async () => {
+    const { el, next, settle } = render();
+    next().flush(page());
+    await settle();
+    el.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]')!.click();
+    vi.useFakeTimers();
+    const input = el.querySelectorAll<HTMLInputElement>('thead input')[1];
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    vi.advanceTimersByTime(301);
+    vi.useRealTimers();
+    await settle();
+    http.expectNone((r) => r.url.includes('/tables/sml'));
   });
 
   it('picker caps the selection at 50 and keeps the first column', async () => {

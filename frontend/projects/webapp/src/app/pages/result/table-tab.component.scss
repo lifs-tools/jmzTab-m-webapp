@@ -17,7 +17,8 @@
   font-size: 11px;
   color: var(--lifs-grey);
 }
-button.pick-open {
+button.pick-open,
+button.retry {
   border: 1px solid var(--lifs-primary);
   background: #fff;
   color: var(--lifs-primary);

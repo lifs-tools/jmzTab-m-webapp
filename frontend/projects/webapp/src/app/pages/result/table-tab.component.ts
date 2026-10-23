@@ -2,13 +2,25 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Observable, Subject, catchError, debounceTime, map, of, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, debounceTime, distinctUntilChanged, filter, map, of, switchMap } from 'rxjs';
 
 import { TablePage } from '../../api/models/table-page';
 import { ValidationsService } from '../../api/services/validations.service';
 import { ColumnPickerComponent, MAX_COLUMNS } from './column-picker.component';
 
-type Outcome = { page: TablePage } | { error: string };
+/** The user-controlled state, restored when a request fails so the controls match the rows still shown. */
+interface Snapshot {
+  page: number;
+  size: number;
+  sort: string | null;
+  descending: boolean;
+  draft: Record<string, string>;
+  filters: Record<string, string>;
+  windowStart: number;
+  picked: string[] | null;
+}
+
+type Outcome = { page: TablePage; snapshot: Snapshot } | { error: string };
 
 const FILTER_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat('en');
@@ -66,6 +78,9 @@ export class TableTabComponent {
   protected readonly hasNext = computed(() => (this.pageIndex() + 1) * this.size() < this.total());
 
   private readonly filterEdits = new Subject<void>();
+  private readonly retryNonce = signal(0);
+  private lastGood: Snapshot | undefined;
+  private rollingBack = false;
 
   /** The columns to request: nothing for the first window (the server default), otherwise explicit. */
   private readonly columnsParam = computed(() => {
@@ -86,13 +101,22 @@ export class TableTabComponent {
     descending: this.descending(),
     columns: this.columnsParam(),
     filter: Object.entries(this.filters()).map(([col, text]) => `${col}:${text}`),
+    retry: this.retryNonce(),
   }));
 
   constructor() {
     toObservable(this.query)
       .pipe(
+        // restoring the last good state re-emits its query; the rows for it are already shown
+        filter(() => {
+          const skip = this.rollingBack;
+          this.rollingBack = false;
+          return !skip;
+        }),
+        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
         switchMap((q): Observable<Outcome> => {
           this.loading.set(true);
+          const snapshot = this.snapshot();
           return this.api
             .getTablePage({
               id: q.id,
@@ -105,7 +129,7 @@ export class TableTabComponent {
               ...(q.filter.length ? { filter: q.filter } : {}),
             })
             .pipe(
-              map((page): Outcome => ({ page })),
+              map((page): Outcome => ({ page, snapshot })),
               catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),
             );
         }),
@@ -115,9 +139,14 @@ export class TableTabComponent {
         this.loading.set(false);
         if ('page' in o) {
           this.error.set(null);
+          this.lastGood = o.snapshot;
           this.data.set(o.page);
         } else {
           this.error.set(o.error);
+          if (this.lastGood) {
+            this.rollingBack = true;
+            this.restore(this.lastGood);
+          }
         }
       });
 
@@ -129,6 +158,34 @@ export class TableTabComponent {
         this.filters.set(next);
         this.pageIndex.set(0);
       });
+  }
+
+  private snapshot(): Snapshot {
+    return {
+      page: this.pageIndex(),
+      size: this.size(),
+      sort: this.sort(),
+      descending: this.descending(),
+      draft: this.draftFilters(),
+      filters: this.filters(),
+      windowStart: this.windowStart(),
+      picked: this.picked(),
+    };
+  }
+
+  private restore(s: Snapshot): void {
+    this.pageIndex.set(s.page);
+    this.size.set(s.size);
+    this.sort.set(s.sort);
+    this.descending.set(s.descending);
+    this.draftFilters.set(s.draft);
+    this.filters.set(s.filters);
+    this.windowStart.set(s.windowStart);
+    this.picked.set(s.picked);
+  }
+
+  protected retry(): void {
+    this.retryNonce.update((n) => n + 1);
   }
 
   private describe(err: unknown): string {

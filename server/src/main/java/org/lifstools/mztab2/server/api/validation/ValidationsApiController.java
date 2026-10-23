@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.sections.ColumnFilter;
 import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
@@ -186,18 +185,18 @@ public class ValidationsApiController {
         } catch (IllegalArgumentException e) {
             throw new UnknownValidationException("Unknown table section.");
         }
-        List<ColumnFilter> filters = new ArrayList<>();
+        List<String> rawFilters = new ArrayList<>();
         if (filter != null) {
             for (String raw : filter) {
-                int colon = raw.indexOf(':');
-                if (colon < 1) {
+                if (raw.indexOf(':') < 1) {
                     throw new IllegalArgumentException("filter must have the form COLUMN:text.");
                 }
-                filters.add(new ColumnFilter(raw.substring(0, colon), raw.substring(colon + 1)));
+                rawFilters.add(raw);
             }
         }
-        TableQuery query = new TableQuery(page, size, blankToNull(sort), descending, filters,
-            columns == null ? List.of() : columns);
+        // the column is resolved against the table header: its name may itself contain ':'
+        TableQuery query = new TableQuery(page, size, blankToNull(sort), descending, List.of(),
+            columns == null ? List.of() : columns, rawFilters);
         return sections.table(uuid, s, query).orElseThrow(() -> new UnknownValidationException("No such table."));
     }
 

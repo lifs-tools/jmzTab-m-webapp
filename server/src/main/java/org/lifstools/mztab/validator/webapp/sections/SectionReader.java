@@ -152,8 +152,10 @@ public class SectionReader {
             ? java.util.stream.IntStream.range(0, Math.min(DEFAULT_COLUMNS, header.size())).toArray()
             : query.columns().stream().mapToInt(c -> columnIndex(header, c)).toArray();
         int sortColumn = query.sort() == null ? -1 : columnIndex(header, query.sort());
-        int[] filterColumns = query.filters().stream().mapToInt(f -> columnIndex(header, f.column())).toArray();
-        String[] needles = query.filters().stream()
+        List<ColumnFilter> allFilters = new ArrayList<>(query.filters());
+        query.rawFilters().forEach(raw -> allFilters.add(resolveFilter(header, raw)));
+        int[] filterColumns = allFilters.stream().mapToInt(f -> columnIndex(header, f.column())).toArray();
+        String[] needles = allFilters.stream()
             .map(f -> f.contains() == null ? "" : f.contains().toLowerCase(Locale.ROOT)).toArray(String[]::new);
 
         List<String[]> rows = table.rows();
@@ -180,6 +182,17 @@ public class SectionReader {
         List<String> returned = Arrays.stream(columns).mapToObj(header::get).toList();
         return Optional.of(new TablePage(section, query.page(), query.size(), matching.size(), header, returned,
             page));
+    }
+
+    /** Splits at the first {@code :} whose prefix is an exact column name; column names may contain {@code :}. */
+    static ColumnFilter resolveFilter(List<String> header, String raw) {
+        for (int colon = raw.indexOf(':'); colon >= 0; colon = raw.indexOf(':', colon + 1)) {
+            if (colon > 0 && header.contains(raw.substring(0, colon))) {
+                return new ColumnFilter(raw.substring(0, colon), raw.substring(colon + 1));
+            }
+        }
+        int first = raw.indexOf(':');
+        throw new IllegalArgumentException("Unknown column '" + (first < 0 ? raw : raw.substring(0, first)) + "'");
     }
 
     private static boolean matches(String[] row, int[] filterColumns, String[] needles) {
