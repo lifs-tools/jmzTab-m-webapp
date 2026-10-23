@@ -1,0 +1,29 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto;
+  min-width: 0;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 10;
+  padding: 8px 14px;
+  background: #fff;
+  color: var(--lifs-primary);
+  font-family: var(--lifs-chrome);
+
+  &:focus {
+    top: 12px;
+  }
+}

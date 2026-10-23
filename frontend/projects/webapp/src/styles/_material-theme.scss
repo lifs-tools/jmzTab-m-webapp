@@ -1,0 +1,123 @@
+// Angular Material M3 theme for the LIFS design system (spec §5.6).
+// Palettes are generated from primary #16628F (ng generate @angular/material:theme-color);
+// the --lifs-* tokens are the source and the --mat-sys-* values below are derived from them.
+@use '@angular/material' as mat;
+@use './theme-colors' as colors;
+
+@mixin theme {
+  html {
+    color-scheme: light;
+
+    @include mat.theme(
+      (
+        color: (
+          primary: colors.$primary-palette,
+          tertiary: colors.$tertiary-palette,
+          theme-type: light,
+        ),
+        typography: (
+          brand-family: var(--lifs-display),
+          plain-family: var(--lifs-sans),
+          bold-weight: 600,
+          medium-weight: 500,
+          regular-weight: 400,
+        ),
+        density: 0,
+      )
+    );
+
+    // --lifs-* -> --mat-sys-*: colours.
+    @include mat.theme-overrides(
+      (
+        primary: var(--lifs-primary),
+        on-primary: #fff,
+        primary-container: var(--lifs-tint),
+        on-primary-container: var(--lifs-primary),
+        secondary-container: var(--lifs-tint),
+        on-secondary-container: var(--lifs-ink),
+        surface: #fff,
+        background: #fff,
+        on-surface: var(--lifs-ink),
+        on-background: var(--lifs-ink),
+        on-surface-variant: var(--lifs-slate),
+        surface-container-lowest: #fff,
+        surface-container-low: var(--lifs-paper),
+        surface-container: #fff,
+        surface-container-high: #fff,
+        surface-container-highest: var(--lifs-mist),
+        outline: #9aaab8,
+        outline-variant: var(--lifs-line),
+        error: var(--lifs-error),
+        on-error: #fff,
+        error-container: var(--lifs-error-bg),
+        on-error-container: var(--lifs-error),
+      )
+    );
+
+    // Shape: square everywhere. Badges and level chips (2px) and small tiles (3px)
+    // are LIFS components that use --lifs-radius-sm / --lifs-radius-md directly.
+    @include mat.theme-overrides(
+      (
+        corner-none: var(--lifs-radius-none),
+        corner-extra-small: var(--lifs-radius-none),
+        corner-extra-small-top: var(--lifs-radius-none),
+        corner-small: var(--lifs-radius-none),
+        corner-medium: var(--lifs-radius-none),
+        corner-large: var(--lifs-radius-none),
+        corner-large-end: var(--lifs-radius-none),
+        corner-large-start: var(--lifs-radius-none),
+        corner-large-top: var(--lifs-radius-none),
+        corner-extra-large: var(--lifs-radius-none),
+        corner-extra-large-top: var(--lifs-radius-none),
+        corner-full: var(--lifs-radius-none),
+      )
+    );
+
+    // Buttons: square, 14px text on a 38px line, 18px side padding, site-blue.
+    @include mat.button-overrides(
+      (
+        filled-container-color: var(--lifs-site-blue),
+        filled-label-text-color: #fff,
+        filled-container-height: 38px,
+        filled-horizontal-padding: 18px,
+        filled-label-text-font: var(--lifs-sans),
+        filled-label-text-size: 14px,
+        filled-label-text-weight: 400,
+        filled-label-text-tracking: normal,
+        outlined-outline-color: var(--lifs-site-blue),
+        outlined-label-text-color: var(--lifs-site-blue),
+        outlined-container-height: 38px,
+        outlined-horizontal-padding: 18px,
+        outlined-label-text-font: var(--lifs-sans),
+        outlined-label-text-size: 14px,
+        outlined-label-text-weight: 400,
+        outlined-label-text-tracking: normal,
+        text-label-text-color: var(--lifs-primary),
+        text-container-height: 38px,
+        text-horizontal-padding: 8px,
+        text-label-text-font: var(--lifs-sans),
+        text-label-text-size: 14px,
+        text-label-text-weight: 400,
+        text-label-text-tracking: normal,
+      )
+    );
+  }
+
+  // Hover states from the site: filled darkens, outlined fills.
+  .mat-mdc-unelevated-button:not(:disabled):hover {
+    background-color: var(--lifs-site-blue-dark);
+  }
+  .mat-mdc-outlined-button:not(:disabled):hover {
+    background-color: var(--lifs-site-blue);
+    color: #fff;
+  }
+  // Danger outline (e.g. "Delete now"): the error colour, never rose.
+  .mat-mdc-outlined-button.lifs-danger:not(:disabled) {
+    border-color: var(--lifs-error);
+    color: var(--lifs-error);
+    &:hover {
+      background-color: var(--lifs-error);
+      color: #fff;
+    }
+  }
+}

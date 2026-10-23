@@ -1,0 +1,51 @@
+// LIFS design tokens (spec §5.6, approved mockup). These are the source of truth;
+// Material's --mat-sys-* values are derived from them in _material-theme.scss.
+@mixin tokens {
+  // Hex values kept verbatim (uppercase) as in spec §5.6.
+  // prettier-ignore
+  :root {
+    /* content tokens — verbatim from lifs-tools.org lifs-landing.css */
+    --lifs-primary: #16628F;
+    --lifs-sky: #3C9BD6;
+    --lifs-rose: #98457A; /* eyebrow accent only, never for errors */
+    --lifs-sky-ink: #1F6FA5;
+    --lifs-ink: #16304A;
+    --lifs-slate: #46596B;
+    --lifs-grey: #5A6C7D;
+    --lifs-paper: #FAFCFD;
+    --lifs-mist: #EDF3F8;
+    --lifs-tint: #E4EFF7;
+    --lifs-line: #D6E2EA;
+    --lifs-site-blue: #5897BF;
+    --lifs-site-blue-dark: #468BB7;
+
+    /* chrome tokens — lifs-tools.org Bostan theme (nav bar, footer, copyright band) */
+    --lifs-nav: #3D84A8;
+    --lifs-nav-text: #FFFFFF;
+    --lifs-nav-text-hover: rgba(255, 255, 255, 0.8);
+    --lifs-footer-text: #677180;
+    --lifs-footer-hover: #3D84A8;
+    --lifs-copyright: #414856;
+
+    /* fonts — the site loads exactly these four */
+    --lifs-chrome: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --lifs-display: 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --lifs-sans: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --lifs-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+
+    /* corners — most surfaces square; small boxes mildly rounded, as on the site */
+    --lifs-radius-none: 0;
+    --lifs-radius-sm: 2px; /* badges, level chips */
+    --lifs-radius-md: 3px; /* small tiles */
+
+    /* status — new for validation results (approved) */
+    --lifs-error: #B42318;
+    --lifs-error-bg: #FCEDEB;
+    --lifs-warn: #8A5A00;
+    --lifs-warn-bg: #FFF4DC;
+    --lifs-ok: #1F7A4D;
+    --lifs-ok-bg: #E6F4EC;
+    --lifs-info: var(--lifs-primary);
+    --lifs-info-bg: var(--lifs-tint);
+  }
+}

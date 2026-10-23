@@ -1,1 +1,6 @@
-<router-outlet />
+<a id="top" class="skip-link" href="#main" (click)="skipToMain($event)">Skip to main content</a>
+<app-bar />
+<main id="main" tabindex="-1">
+  <router-outlet />
+</main>
+<app-site-footer />

@@ -1,0 +1,138 @@
+// The lifs-tools.org footer (Bostan theme): Inter, #677180 links, #414856 copyright band.
+:host {
+  display: block;
+}
+
+.footer {
+  font-family: var(--lifs-chrome);
+  background: #fff;
+  border-top: 1px solid var(--lifs-line);
+}
+
+.footer__logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 30px;
+  padding: 26px 32px 10px;
+}
+
+.footer__partners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  a {
+    display: block;
+  }
+  img {
+    display: block;
+    height: 34px;
+    width: auto;
+    max-width: 100%;
+  }
+}
+
+.footer__funding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  small {
+    font-family: Georgia, serif;
+    font-size: 9px;
+    color: #222;
+  }
+  div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+  }
+  img {
+    height: 40px;
+    width: auto;
+  }
+}
+
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 28px;
+  padding: 18px 32px 24px;
+  font-size: 14px;
+
+  a,
+  button {
+    color: var(--lifs-footer-text);
+    text-decoration: none;
+    font: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--lifs-footer-hover);
+    }
+  }
+}
+
+.copyright {
+  background: var(--lifs-copyright);
+  color: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 40px;
+  padding: 14px 32px;
+  font-size: 14px;
+
+  img {
+    height: 30px;
+    width: auto;
+    opacity: 0.9;
+  }
+}
+
+.copyright__top {
+  margin-left: auto;
+  font: inherit;
+  font-size: 13px;
+  color: #fff;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  &:focus-visible {
+    outline-color: #fff;
+  }
+}
+
+@media (max-width: 599.98px) {
+  .footer__logos,
+  .footer__links,
+  .copyright {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .footer__partners img {
+    height: 28px;
+  }
+  .footer__funding img {
+    height: 34px;
+  }
+  .copyright {
+    gap: 12px 20px;
+  }
+}

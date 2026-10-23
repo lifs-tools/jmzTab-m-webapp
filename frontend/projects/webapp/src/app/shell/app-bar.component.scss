@@ -1,0 +1,133 @@
+// The lifs-tools.org nav bar (Bostan theme): #3D84A8, ~72px, uppercase Inter items.
+:host {
+  display: block;
+}
+
+.bar {
+  background: var(--lifs-nav);
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 32px;
+  font-family: var(--lifs-chrome);
+  color: var(--lifs-nav-text);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-right: auto;
+  min-width: 0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.brand__logo {
+  display: block;
+  height: 46px;
+  max-height: 50px;
+  width: auto;
+}
+
+.brand__name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+
+  small {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.8;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.nav__item {
+  font-size: 16px;
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--lifs-nav-text);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover,
+  &--active {
+    color: var(--lifs-nav-text-hover);
+    text-decoration: none;
+  }
+}
+
+.github {
+  display: inline-flex;
+  color: #fff;
+  opacity: 0.95;
+
+  &:hover {
+    color: var(--lifs-nav-text-hover);
+  }
+}
+
+.menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+@media (max-width: 1099.98px) {
+  .bar,
+  .nav {
+    gap: 18px;
+  }
+  .bar {
+    padding: 0 24px;
+  }
+  .nav__item {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 899.98px) {
+  .bar {
+    gap: 16px;
+    padding: 0 16px;
+  }
+  .brand {
+    gap: 14px;
+  }
+  .nav {
+    display: none;
+  }
+  .menu-button {
+    display: inline-flex;
+  }
+}
