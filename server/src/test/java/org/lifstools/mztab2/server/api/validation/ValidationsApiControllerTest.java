@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
+import org.lifstools.mztab2.model.ValidationLocation;
 import org.lifstools.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
@@ -191,7 +192,7 @@ class ValidationsApiControllerTest {
             .andExpect(header().string("Content-Disposition", "attachment; filename=\"rep.mzTab-validation.csv\""))
             .andReturn();
         String body = r.getResponse().getContentAsString(StandardCharsets.UTF_8);
-        assertEquals("level,line,category,code,message", body.lines().findFirst().orElseThrow());
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", body.lines().findFirst().orElseThrow());
         mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "json"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Disposition", "attachment; filename=\"rep.mzTab-validation.json\""))
@@ -267,13 +268,45 @@ class ValidationsApiControllerTest {
         ValidationMessage dash = new ValidationMessage().messageType(ValidationMessage.MessageTypeEnum.INFO)
             .message("-1+2");
         String[] lines = ValidationsApiController.csv(List.of(formula, plain, dash)).split("\r\n");
-        assertEquals("level,line,category,code,message", lines[0]);
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", lines[0]);
         // level and category are both upper-case enum names
         assertTrue(lines[1].startsWith("ERROR,3,FORMAT,1001,"), lines[1]);
         assertTrue(lines[2].startsWith("INFO,4,FORMAT,2,"), lines[2]);
-        assertTrue(lines[1].endsWith(",\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\""), lines[1]);
-        assertTrue(lines[2].endsWith(",\"a, \"\"b\"\" c\""), lines[2]);
-        assertTrue(lines[3].endsWith(",'-1+2"), lines[3]);
+        assertTrue(lines[1].endsWith(",\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\",,,,,,,"), lines[1]);
+        assertTrue(lines[2].endsWith(",\"a, \"\"b\"\" c\",,,,,,,"), lines[2]);
+        assertTrue(lines[3].endsWith(",'-1+2,,,,,,,"), lines[3]);
+    }
+
+    @Test
+    void csvHasLocationColumnsAndEscapesCode() {
+        ValidationMessage m = new ValidationMessage().code("[Error-2009] line 5: \"x\", y")
+            .category(ValidationMessage.CategoryEnum.LOGICAL).messageType(ValidationMessage.MessageTypeEnum.ERROR)
+            .message("m").lineNumber(5L).suggestion("Add the column.").ruleId(null)
+            .location(new ValidationLocation().section(ValidationLocation.SectionEnum.SML).rowIndex(1).column("reliability"));
+        String[] lines = ValidationsApiController.csv(List.of(m)).split("\r\n");
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", lines[0]);
+        assertEquals("ERROR,5,LOGICAL,\"[Error-2009] line 5: \"\"x\"\", y\",m,Add the column.,,sml,2,reliability,,", lines[1]);
+    }
+
+    @Test
+    void csvWithoutLocationLeavesColumnsEmpty() {
+        ValidationMessage m = new ValidationMessage().code("1001").message("m");
+        String[] lines = ValidationsApiController.csv(List.of(m)).split("\r\n");
+        assertTrue(lines[1].endsWith(",1001,m,,,,,,,"), lines[1]);
+        assertEquals(12, lines[1].split(",", -1).length);
+    }
+
+    @Test
+    void metadataPageAcceptsKey() throws Exception {
+        String id = create("key.mzTab").get("id").asText();
+        awaitFinished(id);
+        String base = "/rest/v2/validations/" + id + "/metadata/assay";
+        JsonNode all = json.readTree(mvc.perform(get(base).param("size", "200")).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString()).get("entries");
+        String key = all.get(2).get("key").asText();
+        mvc.perform(get(base).param("size", "1").param("key", key))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.page").value(2))
+            .andExpect(jsonPath("$.entries[0].key").value(key));
     }
 
     @Test

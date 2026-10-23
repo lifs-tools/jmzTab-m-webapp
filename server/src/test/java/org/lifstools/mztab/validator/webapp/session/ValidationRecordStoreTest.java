@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -33,6 +34,8 @@ import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.storage.FileSystemStorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
+import org.lifstools.mztab2.model.ValidationLocation;
+import org.lifstools.mztab2.model.ValidationMessage;
 import org.lifstools.mztab2.server.config.JacksonConfiguration;
 
 class ValidationRecordStoreTest {
@@ -88,6 +91,23 @@ class ValidationRecordStoreTest {
         assertTrue(first.get().isPresent(), "the first update starts the run");
         assertTrue(second.get().isEmpty(), "the second update must see RUNNING and change nothing");
         assertEquals(ValidationStatus.RUNNING, store.read(id).orElseThrow().status());
+    }
+
+    @Test
+    void keepsSuggestionRuleIdAndLocation() throws Exception {
+        Instant now = Instant.now();
+        UUID id = UUID.randomUUID();
+        ValidationMessage message = new ValidationMessage().code("2009").message("m").lineNumber(5L)
+            .messageType(ValidationMessage.MessageTypeEnum.ERROR).category(ValidationMessage.CategoryEnum.LOGICAL)
+            .suggestion("Add the column.").ruleId("rule-1")
+            .location(new ValidationLocation().section(ValidationLocation.SectionEnum.SML).rowIndex(3).column("reliability")
+                .metadataKey("sample[3]-species[1]").metadataGroup("sample").elementPath("/a/b"));
+        store.write(ValidationRecord.queued(id, "a.mzTab", ValidationLevel.INFO, 100, ProfileRef.none(), now,
+            now.plus(Duration.ofDays(7))).running(now).finished(ValidationOutcome.FAILED, "2.0.0-M", List.of(message), null, now));
+
+        ValidationMessage loaded = store.read(id).orElseThrow().messages().get(0);
+
+        assertEquals(message, loaded);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

@@ -40,6 +40,7 @@ import org.lifstools.mztab.validator.webapp.sections.TableQuery;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
+import org.lifstools.mztab2.model.ValidationLocation;
 import org.lifstools.mztab2.model.ValidationMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
@@ -159,9 +160,11 @@ public class ValidationsApiController {
     @GetMapping(value = "/validations/{id}/metadata/{group}", produces = MediaType.APPLICATION_JSON_VALUE)
     public MetadataPage getMetadataPage(@PathVariable("id") String id, @PathVariable("group") String group,
         @RequestParam(value = "page", defaultValue = "0") int page,
-        @RequestParam(value = "size", defaultValue = "50") int size) {
+        @RequestParam(value = "size", defaultValue = "50") int size,
+        @Parameter(description = "A metadata key of the group; the page that holds it is returned and page is ignored")
+        @RequestParam(value = "key", required = false) @Nullable String key) {
         UUID uuid = record(id).id();
-        return sections.metadata(uuid, group, page, size).orElseThrow(() -> new UnknownValidationException("No such metadata group."));
+        return sections.metadata(uuid, group, page, size, key).orElseThrow(() -> new UnknownValidationException("No such metadata group."));
     }
 
     @Parameter(name = "filter", in = ParameterIn.QUERY,
@@ -230,13 +233,21 @@ public class ValidationsApiController {
     }
 
     static String csv(List<ValidationMessage> messages) {
-        StringBuilder sb = new StringBuilder("level,line,category,code,message\r\n");
+        StringBuilder sb = new StringBuilder("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group\r\n");
         for (ValidationMessage m : messages) {
+            ValidationLocation l = m.getLocation();
             sb.append(field(m.getMessageType() == null ? "" : m.getMessageType().name())).append(',')
                 .append(m.getLineNumber() == null ? "" : m.getLineNumber().toString()).append(',')
                 .append(field(m.getCategory() == null ? "" : m.getCategory().name())).append(',')
-                .append(m.getCode() == null ? "" : m.getCode().toString()).append(',')
-                .append(field(m.getMessage())).append("\r\n");
+                .append(field(m.getCode())).append(',')
+                .append(field(m.getMessage())).append(',')
+                .append(field(m.getSuggestion())).append(',')
+                .append(field(m.getRuleId())).append(',')
+                .append(field(l == null || l.getSection() == null ? null : l.getSection().getValue())).append(',')
+                .append(l == null || l.getRowIndex() == null ? "" : Integer.toString(l.getRowIndex() + 1)).append(',')
+                .append(field(l == null ? null : l.getColumn())).append(',')
+                .append(field(l == null ? null : l.getMetadataKey())).append(',')
+                .append(field(l == null ? null : l.getMetadataGroup())).append("\r\n");
         }
         return sb.toString();
     }
