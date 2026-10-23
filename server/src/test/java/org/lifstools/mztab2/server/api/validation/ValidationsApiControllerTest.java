@@ -289,6 +289,15 @@ class ValidationsApiControllerTest {
     }
 
     @Test
+    void csvStripsTheTrailingLineBreakOfTheCode() {
+        ValidationMessage m = new ValidationMessage().code("[Error-2009] line 5: \"x\", y\r\n").message("m");
+        String csv = ValidationsApiController.csv(List.of(m));
+        String[] lines = csv.split("\r\n");
+        assertEquals(2, lines.length, csv);
+        assertTrue(lines[1].contains(",\"[Error-2009] line 5: \"\"x\"\", y\",m,"), lines[1]);
+    }
+
+    @Test
     void csvWithoutLocationLeavesColumnsEmpty() {
         ValidationMessage m = new ValidationMessage().code("1001").message("m");
         String[] lines = ValidationsApiController.csv(List.of(m)).split("\r\n");

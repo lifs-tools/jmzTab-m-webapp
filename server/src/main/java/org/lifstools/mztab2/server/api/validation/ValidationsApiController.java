@@ -239,7 +239,7 @@ public class ValidationsApiController {
             sb.append(field(m.getMessageType() == null ? "" : m.getMessageType().name())).append(',')
                 .append(m.getLineNumber() == null ? "" : m.getLineNumber().toString()).append(',')
                 .append(field(m.getCategory() == null ? "" : m.getCategory().name())).append(',')
-                .append(field(m.getCode())).append(',')
+                .append(field(m.getCode() == null ? null : m.getCode().stripTrailing())).append(',')
                 .append(field(m.getMessage())).append(',')
                 .append(field(m.getSuggestion())).append(',')
                 .append(field(m.getRuleId())).append(',')
