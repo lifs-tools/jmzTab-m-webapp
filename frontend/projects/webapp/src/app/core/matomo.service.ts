@@ -11,6 +11,27 @@ type MatomoWindow = Window & { _paq?: MatomoCommand[] };
 const CONSENT_KEY = 'mztabm-validator.analytics-consent';
 
 /**
+ * Result ids are capability URLs (anyone holding one can view or delete the result), so they
+ * must never reach analytics: id segments are replaced, query strings and fragments dropped.
+ */
+export function redactUrl(url: string): string {
+  return url.replace(/[?#].*$/s, '').replace(/\/(result|validate)\/[^/]+/g, '/$1/:id');
+}
+
+/** Fixed page titles per route; never the document title (it may name a file). */
+function pageTitle(path: string): string {
+  const routes: Record<string, string> = {
+    '/': 'Validate',
+    '/examples': 'Examples',
+    '/about': 'About',
+  };
+  if (path.startsWith('/result/') || path.startsWith('/validate/')) {
+    return 'mzTab-M Validator · Result';
+  }
+  return `mzTab-M Validator · ${routes[path] ?? 'Not found'}`;
+}
+
+/**
  * Client-side Matomo with consent required (spec §5.4). Nothing is loaded unless the server
  * configures analytics; nothing is tracked until the visitor gives consent.
  */
@@ -21,6 +42,8 @@ export class MatomoService {
   private readonly destroyRef = inject(DestroyRef);
 
   private initialised = false;
+  /** The previous tracked (already redacted) URL, used as the referrer of the next view. */
+  private lastTrackedUrl: string | null = null;
   private readonly consent = signal(this.readStoredConsent());
 
   init(analytics: AnalyticsDto | null | undefined): void {
@@ -78,10 +101,24 @@ export class MatomoService {
     return this.consent();
   }
 
-  private trackPageView(url: string): void {
+  private trackPageView(routerUrl: string): void {
+    const path = redactUrl(routerUrl) || '/';
+    const url = redactUrl(this.appBase() + path);
+    // First view: the browser referrer, redacted (it may be an old result link).
+    const referrer = this.lastTrackedUrl ?? redactUrl(this.document.referrer ?? '');
+    this.push(['setReferrerUrl', referrer]);
     this.push(['setCustomUrl', url]);
-    this.push(['setDocumentTitle', this.document.title]);
+    this.push(['setDocumentTitle', pageTitle(path)]);
     this.push(['trackPageView']);
+    this.lastTrackedUrl = url;
+  }
+
+  /** Origin plus the <base href> path without its trailing slash, e.g. https://h/mztabvalidator. */
+  private appBase(): string {
+    const origin = this.window()?.location.origin ?? '';
+    const href = this.document.querySelector('base')?.getAttribute('href') ?? '/';
+    const basePath = new URL(href, origin || 'http://localhost').pathname.replace(/\/$/, '');
+    return origin + basePath;
   }
 
   private push(command: MatomoCommand): void {

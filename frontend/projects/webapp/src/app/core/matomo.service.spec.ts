@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { Component } from '@angular/core';
-import { MatomoService } from './matomo.service';
+import { MatomoService, redactUrl } from './matomo.service';
 
 @Component({ template: '' })
 class Blank {}
@@ -28,7 +28,12 @@ describe('MatomoService', () => {
     };
     Object.defineProperty(window, 'localStorage', { value: storage, configurable: true });
     TestBed.configureTestingModule({
-      providers: [provideRouter([{ path: 'about', component: Blank }])],
+      providers: [
+        provideRouter([
+          { path: 'about', component: Blank },
+          { path: 'result/:id', component: Blank },
+        ]),
+      ],
     });
   });
 
@@ -63,7 +68,7 @@ describe('MatomoService', () => {
     await TestBed.inject(Router).navigateByUrl('/about');
     TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
     const paq = win._paq ?? [];
-    expect(paq).toContainEqual(['setCustomUrl', '/about']);
+    expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/about`]);
     const trackAt = paq.findIndex((c) => c[0] === 'trackPageView');
     expect(trackAt).toBeGreaterThan(paq.findIndex((c) => c[0] === 'requireConsent'));
     expect(paq.filter((c) => c[0] === 'trackPageView').length).toBe(1);
@@ -80,8 +85,48 @@ describe('MatomoService', () => {
     TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
     win._paq!.length = 0;
     await TestBed.inject(Router).navigateByUrl('/about');
-    expect(win._paq).toContainEqual(['setCustomUrl', '/about']);
+    expect(win._paq).toContainEqual(['setCustomUrl', `${location.origin}/about`]);
     expect(win._paq).toContainEqual(['trackPageView']);
+  });
+
+  it('never sends result ids, queries or fragments to analytics', async () => {
+    const id = '0b6f3c2e-7d41-4a8e-9f0a-2c5d8e1b4a77';
+    const router = TestBed.inject(Router);
+    TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
+    win._paq!.length = 0;
+    await router.navigateByUrl(`/result/${id}?confirmDelete=true#x`);
+    await router.navigateByUrl('/about');
+    const paq = win._paq ?? [];
+    expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/result/:id`]);
+    expect(paq).toContainEqual(['setDocumentTitle', 'mzTab-M Validator · Result']);
+    expect(paq).toContainEqual(['setReferrerUrl', `${location.origin}/result/:id`]);
+    const sent = JSON.stringify(paq);
+    expect(sent).not.toContain(id);
+    expect(sent).not.toContain('confirmDelete');
+    expect(sent).not.toContain('#x');
+  });
+
+  it('redacts ids under the base href path', async () => {
+    const base = document.createElement('base');
+    base.href = '/mztabvalidator/';
+    document.head.prepend(base);
+    try {
+      TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
+      await TestBed.inject(Router).navigateByUrl('/result/abc-123');
+      expect(win._paq).toContainEqual([
+        'setCustomUrl',
+        `${location.origin}/mztabvalidator/result/:id`,
+      ]);
+      expect(JSON.stringify(win._paq)).not.toContain('abc-123');
+    } finally {
+      base.remove();
+    }
+  });
+
+  it('redactUrl replaces id segments and drops queries and fragments', () => {
+    expect(redactUrl('https://h/ctx/result/abc?x=1#y')).toBe('https://h/ctx/result/:id');
+    expect(redactUrl('/validate/abc/delete')).toBe('/validate/:id/delete');
+    expect(redactUrl('/about?q=1')).toBe('/about');
   });
 
   it('remembers and forgets consent', () => {
