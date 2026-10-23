@@ -1,4 +1,4 @@
-FROM eclipse-temurin:24-jre-slim
+FROM eclipse-temurin:25-jre
 LABEL maintainer="Nils Hoffmann <nils.hoffmann@cebitec.uni-bielefeld.de>"
 
 EXPOSE 8083
