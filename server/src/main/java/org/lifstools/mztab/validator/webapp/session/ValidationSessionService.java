@@ -16,6 +16,7 @@
 package org.lifstools.mztab.validator.webapp.session;
 
 import java.io.ByteArrayInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -52,6 +53,7 @@ public class ValidationSessionService {
     private final ValidationRecordStore records;
     private final ValidationRunner runner;
     private final long retentionDays;
+    private final Object capacityLock = new Object();
 
     public ValidationSessionService(StorageService storage, StorageProperties storageProperties,
         ValidationProfileCatalog catalog, ValidationRecordStore records, ValidationRunner runner,
@@ -75,29 +77,38 @@ public class ValidationSessionService {
      * @throws IllegalArgumentException for an unknown profile, a profile
      * together with a custom mapping, or a custom mapping that is larger than
      * 5 MB or rejected by {@link SafeCvMappingLoader}
-     * @throws StorageFullException if the storage cap is reached
+     * @throws StorageFullException if the storage cap is reached or the
+     * upload and mapping would exceed it
      */
     public ValidationRecord submit(String fileName, InputStream content, ValidationOptions options,
         @Nullable InputStream customMapping) {
         ProfileRef profile = resolveProfile(options, customMapping != null);
         byte[] mapping = customMapping == null ? null : readMapping(customMapping);
-        if (storage.totalBytes() >= storageProperties.getMaxTotalBytes()) {
-            throw new StorageFullException();
-        }
 
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
         ValidationRecord record = ValidationRecord.queued(id, fileName, options.level(), options.maxErrors(),
             profile, now, now.plus(Duration.ofDays(retentionDays)));
-        try {
-            storage.write(id, SLOT.MZTABFILE, UPLOAD, content);
-            if (mapping != null) {
-                storage.write(id, SLOT.MAPPINGFILE, CUSTOM_MAPPING, new ByteArrayInputStream(mapping));
+        // check and allocate under one lock, so concurrent submits cannot overshoot the cap together
+        synchronized (capacityLock) {
+            long remaining = storageProperties.getMaxTotalBytes() - storage.totalBytes();
+            if (remaining <= 0) {
+                throw new StorageFullException();
             }
-            records.write(record);
-        } catch (RuntimeException e) {
-            storage.deleteAll(id);
-            throw e;
+            try {
+                CappedInputStream upload = new CappedInputStream(content, remaining);
+                storage.write(id, SLOT.MZTABFILE, UPLOAD, upload);
+                if (mapping != null) {
+                    if (mapping.length > remaining - upload.count()) {
+                        throw new StorageFullException();
+                    }
+                    storage.write(id, SLOT.MAPPINGFILE, CUSTOM_MAPPING, new ByteArrayInputStream(mapping));
+                }
+                records.write(record);
+            } catch (RuntimeException e) {
+                storage.deleteAll(id);
+                throw e;
+            }
         }
         runner.run(id);
         return record;
@@ -146,5 +157,59 @@ public class ValidationSessionService {
         }
         SafeCvMappingLoader.validateAgainstSchema(bytes);
         return bytes;
+    }
+
+    /**
+     * Passes at most {@code limit} bytes through and refuses the rest, so an
+     * upload of unknown length cannot exceed the storage cap.
+     */
+    private static final class CappedInputStream extends FilterInputStream {
+
+        private final long limit;
+        private long count;
+
+        CappedInputStream(InputStream in, long limit) {
+            super(in);
+            this.limit = limit;
+        }
+
+        long count() {
+            return count;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int b = super.read();
+            if (b >= 0) {
+                add(1);
+            }
+            return b;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int n = super.read(b, off, len);
+            if (n > 0) {
+                add(n);
+            }
+            return n;
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            throw new IOException("skip is not supported");
+        }
+
+        @Override
+        public boolean markSupported() {
+            return false;
+        }
+
+        private void add(int n) {
+            count += n;
+            if (count > limit) {
+                throw new StorageFullException();
+            }
+        }
     }
 }

@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -41,7 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -63,6 +66,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.AopTestUtils;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
@@ -233,19 +237,41 @@ class ValidationSessionServiceTest {
 
     @Test
     void submitRunsValidationExactlyOnce() throws Exception {
-        UUID id = submit("/metabolomics/lipidomics-example.mzTab", STRUCTURAL, null).id();
+        UUID id = UUID.randomUUID();
+        try (InputStream in = getClass().getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
+            storageService.write(id, SLOT.MZTABFILE, "upload.mztab", in);
+        }
+        writeRecord(record(id, ValidationStatus.QUEUED, Instant.now()));
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            entered.countDown();
+            release.await(30, TimeUnit.SECONDS);
+            return invocation.callRealMethod();
+        }).when(validator).validateAndParse(any(), any(), anyInt(), any());
+        // the target, not the @Async proxy: both calls run on the test threads and contend for the record
+        ValidationRunner target = AopTestUtils.getTargetObject(runner);
         CountDownLatch start = new CountDownLatch(1);
-        List<Thread> threads = List.of(new Thread(() -> runAfter(start, id)), new Thread(() -> runAfter(start, id)));
+        List<Thread> threads = List.of(new Thread(() -> runAfter(start, target, id)),
+            new Thread(() -> runAfter(start, target, id)));
         threads.forEach(Thread::start);
-        start.countDown();
-        for (Thread t : threads) {
-            t.join();
+        try {
+            start.countDown();
+            assertTrue(entered.await(30, TimeUnit.SECONDS), "one run must reach the validator");
+            // the other run must give up while the first is still inside the validator
+            Instant deadline = Instant.now().plus(Duration.ofSeconds(30));
+            while (threads.stream().allMatch(Thread::isAlive)) {
+                assertTrue(Instant.now().isBefore(deadline), "the second run did not return");
+                Thread.sleep(10);
+            }
+        } finally {
+            release.countDown();
+            for (Thread t : threads) {
+                t.join();
+            }
         }
 
-        ValidationRecord record = awaitFinal(id);
-        Thread.sleep(500);
-
-        assertEquals(ValidationStatus.FINISHED, record.status());
+        assertEquals(ValidationStatus.FINISHED, sessions.find(id).orElseThrow().status());
         verify(validator, times(1)).validateAndParse(any(), any(), anyInt(), any());
     }
 
@@ -264,8 +290,9 @@ class ValidationSessionServiceTest {
     void interruptedRunIsFailedOnStartup() throws Exception {
         UUID running = UUID.randomUUID();
         UUID queued = UUID.randomUUID();
-        writeRecord(record(running, ValidationStatus.RUNNING));
-        writeRecord(record(queued, ValidationStatus.QUEUED));
+        Instant beforeBoot = Instant.now().minus(Duration.ofHours(1));
+        writeRecord(record(running, ValidationStatus.RUNNING, beforeBoot));
+        writeRecord(record(queued, ValidationStatus.QUEUED, beforeBoot));
 
         recovery.run(new DefaultApplicationArguments());
 
@@ -275,6 +302,21 @@ class ValidationSessionServiceTest {
             assertEquals(RESTART_TEXT, record.failureReason());
             assertNotNull(record.finishedAt());
         }
+    }
+
+    @Test
+    void recoveryLeavesValidationsOfThisProcessAlone() throws Exception {
+        ValidationRecord running = record(UUID.randomUUID(), ValidationStatus.RUNNING, Instant.now());
+        ValidationRecord queued = record(UUID.randomUUID(), ValidationStatus.QUEUED, Instant.now());
+        writeRecord(running);
+        writeRecord(queued);
+
+        recovery.run(new DefaultApplicationArguments());
+
+        assertEquals(running, sessions.find(running.id()).orElseThrow());
+        assertEquals(queued, sessions.find(queued.id()).orElseThrow());
+        storageService.deleteAll(running.id());
+        storageService.deleteAll(queued.id());
     }
 
     @Test
@@ -296,6 +338,54 @@ class ValidationSessionServiceTest {
     }
 
     @Test
+    void storageCapHoldsForTheUpload() throws Exception {
+        byte[] upload = resourceBytes("/metabolomics/lipidomics-example.mzTab");
+        Set<UUID> before = allSessions();
+        storageProperties.setMaxTotalBytes(storageService.totalBytes() + upload.length / 2);
+        try {
+            StorageFullException e = assertThrows(StorageFullException.class, () -> sessions.submit(
+                "lipidomics-example.mzTab", new ByteArrayInputStream(upload), STRUCTURAL, null));
+            assertEquals("The validator's storage is full. Please try again later.", e.getMessage());
+            assertEquals(before, allSessions(), "nothing may be left on disk");
+        } finally {
+            storageProperties.setMaxTotalBytes(10_737_418_240L);
+        }
+    }
+
+    @Test
+    void concurrentSubmitsCannotOvershootTheCap() throws Exception {
+        byte[] upload = resourceBytes("/metabolomics/lipidomics-example.mzTab");
+        storageProperties.setMaxTotalBytes(storageService.totalBytes() + upload.length + upload.length / 2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<ValidationRecord> accepted = new CopyOnWriteArrayList<>();
+        List<Throwable> refused = new CopyOnWriteArrayList<>();
+        Runnable submitOne = () -> {
+            try {
+                start.await();
+                accepted.add(sessions.submit("lipidomics-example.mzTab", new ByteArrayInputStream(upload),
+                    STRUCTURAL, null));
+            } catch (Throwable t) {
+                refused.add(t);
+            }
+        };
+        List<Thread> threads = List.of(new Thread(submitOne), new Thread(submitOne));
+        try {
+            threads.forEach(Thread::start);
+            start.countDown();
+            for (Thread t : threads) {
+                t.join();
+            }
+        } finally {
+            storageProperties.setMaxTotalBytes(10_737_418_240L);
+        }
+
+        assertEquals(1, accepted.size(), "exactly one submit fits under the cap; refused: " + refused);
+        assertEquals(1, refused.size());
+        assertTrue(refused.get(0) instanceof StorageFullException, refused.get(0).toString());
+        awaitFinal(accepted.get(0).id());
+    }
+
+    @Test
     void deleteRemovesEverything() throws Exception {
         UUID id = awaitFinal(submit("/metabolomics/lipidomics-example.mzTab", STRUCTURAL, null).id()).id();
 
@@ -314,7 +404,7 @@ class ValidationSessionServiceTest {
 
     @Test
     void recordRoundTripsThroughJson() throws Exception {
-        ValidationRecord record = record(UUID.randomUUID(), ValidationStatus.QUEUED);
+        ValidationRecord record = record(UUID.randomUUID(), ValidationStatus.QUEUED, Instant.now());
         writeRecord(record);
 
         ValidationRecord read = sessions.find(record.id()).orElseThrow();
@@ -324,10 +414,10 @@ class ValidationSessionServiceTest {
         sessions.delete(record.id());
     }
 
-    private void runAfter(CountDownLatch start, UUID id) {
+    private static void runAfter(CountDownLatch start, ValidationRunner target, UUID id) {
         try {
             start.await();
-            runner.run(id);
+            target.run(id);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -342,9 +432,13 @@ class ValidationSessionServiceTest {
     }
 
     private String resource(String name) throws IOException {
+        return new String(resourceBytes(name), StandardCharsets.UTF_8);
+    }
+
+    private byte[] resourceBytes(String name) throws IOException {
         try (InputStream in = getClass().getResourceAsStream(name)) {
             assertNotNull(in, name);
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return in.readAllBytes();
         }
     }
 
@@ -369,8 +463,7 @@ class ValidationSessionServiceTest {
             new ByteArrayInputStream(objectMapper.writeValueAsBytes(record)));
     }
 
-    private static ValidationRecord record(UUID id, ValidationStatus status) {
-        Instant now = Instant.now();
+    private static ValidationRecord record(UUID id, ValidationStatus status, Instant now) {
         Map<ValidationLevel, Integer> counts = new EnumMap<>(ValidationLevel.class);
         for (ValidationLevel level : ValidationLevel.values()) {
             counts.put(level, 0);

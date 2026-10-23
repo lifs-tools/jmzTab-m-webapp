@@ -25,7 +25,8 @@ import org.springframework.stereotype.Component;
 /**
  * On startup, fails every validation that was queued or running when the
  * server stopped. With a single replica per instance, nothing else can be
- * running them.
+ * running them. Validations created by this process are left alone: the web
+ * server accepts requests before application runners run.
  */
 @Slf4j
 @Component
@@ -36,6 +37,8 @@ public class SessionRecovery implements ApplicationRunner {
 
     private final StorageService storage;
     private final ValidationRecordStore records;
+    /** Taken before the web server starts, so every validation of this process is created later. */
+    private final Instant bootTime = Instant.now();
 
     public SessionRecovery(StorageService storage, ValidationRecordStore records) {
         this.storage = storage;
@@ -47,12 +50,16 @@ public class SessionRecovery implements ApplicationRunner {
         Instant now = Instant.now();
         storage.sessions().forEach(id -> {
             try {
-                records.update(id, r -> r.status() == ValidationStatus.QUEUED
-                    || r.status() == ValidationStatus.RUNNING ? r.failed(INTERRUPTED, now) : null)
+                records.update(id, r -> isInterrupted(r) ? r.failed(INTERRUPTED, now) : null)
                     .ifPresent(r -> log.info("Validation {} was interrupted by a restart", id));
             } catch (RuntimeException e) {
                 log.warn("Could not recover validation {}", id, e);
             }
         });
+    }
+
+    private boolean isInterrupted(ValidationRecord r) {
+        return (r.status() == ValidationStatus.QUEUED || r.status() == ValidationStatus.RUNNING)
+            && (r.createdAt() == null || r.createdAt().isBefore(bootTime));
     }
 }
