@@ -15,7 +15,12 @@ import { ValidationProfilesService } from '../../api/services/validation-profile
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
 import { DEFAULT_VALIDATION_PROFILE } from '../../core/validation-defaults';
-import { validationErrorMessage } from '../../core/validation-error';
+import {
+  MAPPING_TOO_LARGE,
+  MAX_MAPPING_BYTES,
+  fileTooLargeMessage,
+  validationErrorMessage,
+} from '../../core/validation-error';
 
 type Level = 'INFO' | 'WARN' | 'ERROR';
 
@@ -96,7 +101,7 @@ export class ValidatorFormComponent {
 
   protected onMappingInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.mappingFile.set(input.files?.[0] ?? null);
+    this.setMappingFile(input.files?.[0] ?? null);
     input.value = '';
   }
 
@@ -111,9 +116,34 @@ export class ValidatorFormComponent {
     this.setFile(event.dataTransfer?.files?.[0] ?? null);
   }
 
+  /**
+   * Files over the limit are refused here: the server would close the
+   * connection on a body far over the limit, and the upload would fail
+   * without a useful message.
+   */
   protected setFile(file: File | null): void {
+    if (file && this.overUploadLimit(file)) {
+      this.file.set(null);
+      this.error.set(fileTooLargeMessage(this.maxUploadMb() ?? undefined));
+      return;
+    }
     this.file.set(file);
     this.error.set(null);
+  }
+
+  private setMappingFile(file: File | null): void {
+    if (file && file.size > MAX_MAPPING_BYTES) {
+      this.mappingFile.set(null);
+      this.error.set(MAPPING_TOO_LARGE);
+      return;
+    }
+    this.mappingFile.set(file);
+    this.error.set(null);
+  }
+
+  private overUploadLimit(file: File): boolean {
+    const max = this.info()?.maxUploadBytes;
+    return !!max && file.size > max;
   }
 
   protected onMaxErrors(event: Event): void {
@@ -129,6 +159,15 @@ export class ValidatorFormComponent {
     const file = this.file();
     if (!file || !this.canSubmit()) return;
     const mapping = this.mappingFile();
+    // the limit may have arrived after the file was chosen
+    if (this.overUploadLimit(file)) {
+      this.error.set(fileTooLargeMessage(this.maxUploadMb() ?? undefined));
+      return;
+    }
+    if (mapping && mapping.size > MAX_MAPPING_BYTES) {
+      this.error.set(MAPPING_TOO_LARGE);
+      return;
+    }
     const body: { file: Blob; mappingFile?: Blob } = { file };
     if (mapping) body.mappingFile = mapping;
     this.run(

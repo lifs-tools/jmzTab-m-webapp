@@ -129,6 +129,75 @@ describe('ValidatorFormComponent', () => {
     expect(submitButton().disabled).toBe(false);
   });
 
+  describe('size limits', () => {
+    const ONE_MB = { customMappingsEnabled: true, maxUploadBytes: 1048576, retentionDays: 7 };
+    const bytes = (n: number, name: string) => new File([new Uint8Array(n)], name);
+    const alertText = () => el.querySelector('[role=alert]')?.textContent ?? '';
+    const noUpload = () => http.expectNone((r) => r.url.endsWith('rest/v2/validations') && r.method === 'POST');
+
+    it('rejects a chosen file over the upload limit without uploading', async () => {
+      await render(ONE_MB);
+      await choose('input[data-testid=file-input]', bytes(1048577, 'big.mzTab'));
+      expect(alertText()).toContain('The file is larger than 1 MB.');
+      expect(el.querySelector('.drop__name')).toBeNull();
+      expect(submitButton().disabled).toBe(true);
+      submitButton().click();
+      await fixture.whenStable();
+      noUpload();
+    });
+
+    it('rejects a dropped file over the upload limit', async () => {
+      await render(ONE_MB);
+      const drop = Object.assign(new Event('drop', { cancelable: true }), {
+        dataTransfer: { files: [bytes(1048577, 'big.mzTab')] },
+      });
+      el.querySelector('.drop')!.dispatchEvent(drop);
+      fixture.detectChanges();
+      expect(alertText()).toContain('The file is larger than 1 MB.');
+      expect(fixture.componentInstance.file()).toBeNull();
+    });
+
+    it('accepts a file of exactly the upload limit', async () => {
+      await render(ONE_MB);
+      await choose('input[data-testid=file-input]', bytes(1048576, 'ok.mzTab'));
+      expect(alertText()).toBe('');
+      const req = await submit();
+      req.flush({ id: 'x' }, { status: 202, statusText: 'Accepted' });
+    });
+
+    it('checks the upload limit again on submit', async () => {
+      await render(ONE_MB);
+      fixture.componentInstance.file.set(bytes(1048577, 'big.mzTab'));
+      fixture.detectChanges();
+      submitButton().click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      noUpload();
+      expect(alertText()).toContain('The file is larger than 1 MB.');
+    });
+
+    it('rejects a mapping file over 5 MB without uploading', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      await choose('input[data-testid=mapping-input]', bytes(5 * 1048576 + 1, 'big.xml'));
+      expect(alertText()).toContain('The mapping file is larger than 5 MB.');
+      expect(select().getAttribute('aria-disabled')).toBe('false');
+      expect(fixture.componentInstance.mappingFile()).toBeNull();
+    });
+
+    it('checks the mapping size again on submit', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      fixture.componentInstance.mappingFile.set(bytes(5 * 1048576 + 1, 'big.xml'));
+      fixture.detectChanges();
+      submitButton().click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      noUpload();
+      expect(alertText()).toContain('The mapping file is larger than 5 MB.');
+    });
+  });
+
   it('shows the server message on 400 and a generic one on a non-JSON 500', async () => {
     await render();
     await choose('input[data-testid=file-input]', mzTab());
