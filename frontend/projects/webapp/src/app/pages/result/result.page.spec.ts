@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
@@ -175,12 +176,23 @@ describe('ResultPage', () => {
     http.expectOne((r) => r.url.endsWith('/validations/abc/metadata')).flush([]);
   });
 
-  async function deleteViaDialog(fixture: ComponentFixture<ResultPage>, el: HTMLElement) {
+  /**
+   * The dialog's DOM exists before its first change detection, but `[mat-dialog-close]="true"`
+   * is only bound by that pass; a click in between closes the dialog with `undefined`.
+   * Run change detection before handing the dialog to a test.
+   */
+  async function renderedDialog(): Promise<HTMLElement> {
     const dialog = await vi.waitFor(() => {
       const d = document.querySelector<HTMLElement>('mat-dialog-container');
       if (!d) throw new Error('dialog not open yet');
       return d;
     });
+    TestBed.inject(ApplicationRef).tick();
+    return dialog;
+  }
+
+  async function deleteViaDialog(fixture: ComponentFixture<ResultPage>, el: HTMLElement) {
+    const dialog = await renderedDialog();
     expect(dialog.textContent).toContain('Delete this result now?');
     expect(dialog.textContent).toContain('This cannot be undone.');
     return dialog;
@@ -204,11 +216,7 @@ describe('ResultPage', () => {
   it('confirmDelete=true opens the dialog and drops the parameter', async () => {
     const { fixture, navigate } = await render({ confirmDelete: 'true' });
     await flushRecord(fixture, BASE);
-    const dialog = await vi.waitFor(() => {
-      const d = document.querySelector<HTMLElement>('mat-dialog-container');
-      if (!d) throw new Error('dialog not open yet');
-      return d;
-    });
+    const dialog = await renderedDialog();
     expect(dialog.textContent).toContain('Delete this result now?');
     expect(navigate).toHaveBeenCalledWith([], { relativeTo: expect.anything(), queryParams: { confirmDelete: null }, replaceUrl: true });
     Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Cancel')!.click();
@@ -224,12 +232,7 @@ describe('ResultPage', () => {
   });
 
   const dialogEl = () => document.querySelector<HTMLElement>('mat-dialog-container');
-  const openDialog = () =>
-    vi.waitFor(() => {
-      const d = dialogEl();
-      if (!d) throw new Error('dialog not open yet');
-      return d;
-    });
+  const openDialog = renderedDialog;
   const button = (root: ParentNode, text: string) =>
     Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text)!;
 
