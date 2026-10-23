@@ -18,7 +18,14 @@ package org.lifstools.mztab.validator.webapp.service.validation;
 import info.psidev.cvmapping.CvMapping;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,6 +66,40 @@ public final class SafeCvMappingLoader {
         } catch (JAXBException e) {
             throw new InvalidMappingFileException("Mapping file rejected: " + describe(e), e);
         } catch (SAXException | ParserConfigurationException e) {
+            throw new IllegalStateException("Could not configure a secure XML parser", e);
+        }
+    }
+
+    /**
+     * Checks a mapping file against the CvMapping XSD, after the hardened SAX
+     * pass has rejected DOCTYPEs and external entities.
+     *
+     * @throws InvalidMappingFileException if the document is not well-formed or not schema-valid
+     */
+    public static void validateAgainstSchema(byte[] xml) {
+        try {
+            XMLReader reader = hardenedReader();
+            reader.setContentHandler(new DefaultHandler());
+            reader.setErrorHandler(new DefaultHandler() {
+                @Override
+                public void fatalError(SAXParseException e) throws SAXException {
+                    throw e;
+                }
+            });
+            reader.parse(new InputSource(new ByteArrayInputStream(xml)));
+
+            SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            schemaFactory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            Schema schema = schemaFactory.newSchema(
+                new StreamSource(SafeCvMappingLoader.class.getResourceAsStream("/schema/CvMapping.xsd")));
+            Validator validator = schema.newValidator();
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            validator.validate(new StreamSource(new ByteArrayInputStream(xml)));
+        } catch (SAXException | IOException e) {
+            throw new InvalidMappingFileException("Mapping file rejected: " + e.getMessage(), e);
+        } catch (ParserConfigurationException e) {
             throw new IllegalStateException("Could not configure a secure XML parser", e);
         }
     }
