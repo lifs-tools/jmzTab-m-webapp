@@ -5,12 +5,18 @@
 } @else {
   <mat-accordion multi>
     @for (g of groups.value() ?? []; track g.name; let first = $first) {
-      <mat-expansion-panel [expanded]="first">
+      <mat-expansion-panel
+        [expanded]="first || g.name === highlight()?.group"
+        [class.panel--hl]="g.name === highlight()?.group && !highlight()?.keys?.length"
+      >
         <mat-expansion-panel-header>
           <mat-panel-title>{{ g.name }} ({{ g.count }})</mat-panel-title>
         </mat-expansion-panel-header>
         <ng-template matExpansionPanelContent>
-          <app-metadata-group [validationId]="validationId()" [group]="g.name ?? ''" [count]="g.count ?? 0" />
+          <app-metadata-group [validationId]="validationId()" [group]="g.name ?? ''" [count]="g.count ?? 0"
+            [highlightKeys]="g.name === highlight()?.group ? (highlight()?.keys ?? []) : []"
+            [focusKey]="g.name === highlight()?.group ? (highlight()?.focusKey ?? null) : null"
+          />
         </ng-template>
       </mat-expansion-panel>
     } @empty {

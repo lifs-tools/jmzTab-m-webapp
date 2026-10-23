@@ -11,6 +11,9 @@
     --lifs-sky-ink: #1F6FA5;
     --lifs-ink: #16304A;
     --lifs-slate: #46596B;
+    /* highlight for entries a validation message names; --lifs-ink on --lifs-highlight is 11.91:1 (WCAG AA text needs 4.5:1); the border is decoration only */
+    --lifs-highlight: #FFF1B8;
+    --lifs-highlight-border: #E0B400;
     --lifs-grey: #5A6C7D;
     --lifs-paper: #FAFCFD;
     --lifs-mist: #EDF3F8;
