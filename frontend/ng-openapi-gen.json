@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/ng-openapi-gen/ng-openapi-gen-schema.json",
+  "input": "openapi/mztab-m-api.json",
+  "output": "projects/webapp/src/app/api",
+  "services": true,
+  "ignoreUnusedModels": false
+}

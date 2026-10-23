@@ -1,0 +1,43 @@
+{
+  "name": "mztab-validator-frontend",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "generate:api": "ng-openapi-gen",
+    "prebuild": "npm run generate:api",
+    "pretest": "npm run generate:api",
+    "build": "ng build webapp --configuration production",
+    "watch": "ng build webapp --watch --configuration development",
+    "test": "ng test webapp --no-watch"
+  },
+  "private": true,
+  "packageManager": "npm@11.17.0",
+  "dependencies": {
+    "@angular/cdk": "21.2.14",
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/core": "21.2.25",
+    "@angular/forms": "21.2.25",
+    "@angular/material": "21.2.14",
+    "@angular/platform-browser": "21.2.25",
+    "@angular/router": "21.2.25",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/space-grotesk": "5.3.0",
+    "material-symbols": "0.48.1",
+    "rxjs": "7.8.2",
+    "tslib": "2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "21.2.28",
+    "@angular/cli": "21.2.28",
+    "@angular/compiler-cli": "21.2.25",
+    "jsdom": "28.1.0",
+    "ng-openapi-gen": "1.1.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
