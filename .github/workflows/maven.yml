@@ -40,10 +40,15 @@ jobs:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       run: ./mvnw -B verify --file pom.xml
+    # The version goes through a file because on a fresh runner ./mvnw prints
+    # its Maven download progress to stdout.
     - name: Set Release version env variable
       if: github.event_name == 'push'
       run: |
-        echo "RELEASE_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+        ./mvnw -B -q help:evaluate -Dexpression=project.version -Doutput="$RUNNER_TEMP/version.txt" > /dev/null
+        version=$(cat "$RUNNER_TEMP/version.txt")
+        [[ "$version" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "Unexpected project version: '$version'" >&2; exit 1; }
+        echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
     # Jib pushes to the registry during package and reads the credentials
     # written by docker/login-action, so the login has to come first.
     - name: Login to LIFS Tools registry
