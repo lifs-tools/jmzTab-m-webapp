@@ -13,3 +13,6 @@ buildNumber.properties
 /nbproject/
 # Brainstorming companion session files
 .superpowers/
+
+# Claude Code worktrees
+.claude/worktrees/
