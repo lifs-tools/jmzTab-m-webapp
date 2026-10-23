@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -45,7 +48,6 @@ public class SectionReader {
 
     static final int MAX_PAGE_SIZE = 200;
     static final int DEFAULT_COLUMNS = 50;
-    private static final int CACHE_SIZE = 4;
 
     private record CacheKey(UUID id, Section section) {
 
@@ -53,20 +55,58 @@ public class SectionReader {
 
     private record Table(List<String> header, List<String[]> rows) {
 
+        long cells() {
+            return (long) (rows.size() + 1) * header.size();
+        }
     }
 
     private final StorageService storage;
     private final ObjectMapper json = new ObjectMapper();
-    // access-ordered, so the eldest entry is the least recently used one
-    private final Map<CacheKey, Table> cache = new LinkedHashMap<>(8, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<CacheKey, Table> eldest) {
-            return size() > CACHE_SIZE;
-        }
-    };
+    private final long maxCells;
+    // access-ordered, so iteration starts at the least recently used table; guarded by itself
+    private final LinkedHashMap<CacheKey, Table> cache = new LinkedHashMap<>(8, 0.75f, true);
+    private long cachedCells;
 
-    public SectionReader(StorageService storage) {
+    @Autowired
+    public SectionReader(StorageService storage, @Value("${sections.cache.max-cells:4000000}") long maxCells) {
         this.storage = storage;
+        this.maxCells = maxCells;
+    }
+
+    /** The number of cached tables. */
+    int cachedTables() {
+        synchronized (cache) {
+            return cache.size();
+        }
+    }
+
+    /** The number of cells held by the cached tables. */
+    long cachedCells() {
+        synchronized (cache) {
+            return cachedCells;
+        }
+    }
+
+    private void cache(CacheKey key, Table table) {
+        if (table.cells() > maxCells) {
+            return;
+        }
+        synchronized (cache) {
+            Table old = cache.put(key, table);
+            if (old != null) {
+                cachedCells -= old.cells();
+            }
+            cachedCells += table.cells();
+            var it = cache.entrySet().iterator();
+            while (cachedCells > maxCells && it.hasNext()) {
+                var eldest = it.next();
+                if (eldest.getKey().equals(key)) {
+                    continue;
+                }
+                cachedCells -= eldest.getValue().cells();
+                it.remove();
+            }
+        }
     }
 
     /** The metadata groups in file order; empty if the session has no metadata. */
@@ -253,22 +293,32 @@ public class SectionReader {
                 }
             }
             Table table = parse(in);
-            synchronized (cache) {
-                cache.put(key, table);
-            }
+            cache(key, table);
             return Optional.of(table);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read the " + section + " of validation " + id, e);
         }
     }
 
+    private static String[] canonical(String[] cells, Map<String, String> canonical) {
+        for (int i = 0; i < cells.length; i++) {
+            String shared = canonical.putIfAbsent(cells[i], cells[i]);
+            if (shared != null) {
+                cells[i] = shared;
+            }
+        }
+        return cells;
+    }
+
     private Table parse(InputStream in) throws IOException {
         // one JSON array per line; a MappingIterator would unwrap a root-level array
         BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-        List<String> header = Arrays.asList(json.readValue(lines.readLine(), String[].class));
+        // repeated cells ("null", "", ...) share one String per table
+        Map<String, String> canonical = new HashMap<>();
+        List<String> header = Arrays.asList(canonical(json.readValue(lines.readLine(), String[].class), canonical));
         List<String[]> rows = new ArrayList<>();
         for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-            rows.add(json.readValue(line, String[].class));
+            rows.add(canonical(json.readValue(line, String[].class), canonical));
         }
         return new Table(header, rows);
     }
