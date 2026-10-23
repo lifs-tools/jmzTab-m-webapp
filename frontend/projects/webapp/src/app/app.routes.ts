@@ -6,7 +6,10 @@ import { Routes } from '@angular/router';
 class PendingPage {}
 
 export const routes: Routes = [
-  { path: '', component: PendingPage },
+  {
+    path: '',
+    loadComponent: () => import('./pages/landing/landing.page').then((m) => m.LandingPage),
+  },
   { path: 'result/:id', component: PendingPage },
   { path: 'about', component: PendingPage },
   { path: 'examples', component: PendingPage },
