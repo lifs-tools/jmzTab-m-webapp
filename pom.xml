@@ -194,6 +194,12 @@
             <scope>test</scope>
             <!--<version>${spring.boot.version}</version>-->
         </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jmztabm-test-utils</artifactId>
+            <version>${jmztabm.version}</version>
+            <scope>test</scope>
+        </dependency>
         
         <dependency>
             <groupId>uk.ac.ebi.pride</groupId>

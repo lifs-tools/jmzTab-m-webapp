@@ -93,7 +93,7 @@ public class MzTabMValidator implements WebValidator {
                 if (checkCvMapping) {
                     try {
                         CvMappingValidator cvValidator = CvMappingValidator.of(
-                                validationFile.toFile(),
+                                SafeCvMappingLoader.load(validationFile),
                                 lookupService, checkCvMapping);
                         List<ValidationMessage> messages = cvValidator.validate(parser.
                                 getMZTabFile());
