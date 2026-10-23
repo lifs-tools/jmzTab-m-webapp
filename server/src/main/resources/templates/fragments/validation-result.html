@@ -23,7 +23,7 @@
             <strong>Validation in state <span th:text="${status.name()}">NN</span>!</strong> <span th:if="${refresh}">This page will reload automatically every <span th:text="${refresh}"></span> seconds.</span>
           </div>
           <hr />
-          <h4 class="card-title">Validation of <span th:text="${validationFile}"/> against <span th:text="#{${validationVersion}}"/> on level <span th:text="${validationLevel}"></span>.</h4>
+          <h4 class="card-title">Validation of <span th:text="${validationFile}"/> against mzTab 2.0-M on level <span th:text="${validationLevel}"></span>.</h4>
           <div th:if="${status.name() == 'FINISHED' and #lists.isEmpty(validationResults)}" class="alert alert-success" role="alert">
             <strong>Validation passed!</strong> Your file complies with the mzTab standard.
           </div>

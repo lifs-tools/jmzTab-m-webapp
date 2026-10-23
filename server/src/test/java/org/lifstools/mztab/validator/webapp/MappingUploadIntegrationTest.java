@@ -89,7 +89,6 @@ class MappingUploadIntegrationTest {
         String validateUrl = mvc.perform(multipart("/")
                 .file(mzTabFile())
                 .file(mapping)
-                .param("mzTabVersion", "MZTAB_2_0")
                 .param("level", "INFO")
                 .param("maxErrors", "100")
                 .param("checkCvMapping", "true")

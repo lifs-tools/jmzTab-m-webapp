@@ -15,7 +15,6 @@
  */
 package org.lifstools.mztab.validator.webapp.domain;
 
-import org.lifstools.mztab.validator.webapp.service.ValidationService;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -29,26 +28,22 @@ public class ValidationForm {
 
     private MultipartFile file = null;
     private MultipartFile mappingFile = null;
-    private ValidationService.MzTabVersion mzTabVersion = ValidationService.MzTabVersion.MZTAB_2_0;
     private Integer maxErrors = 100;
     private ValidationLevel level = ValidationLevel.INFO;
     private Boolean checkCvMapping = false;
     private final List<ValidationLevel> allLevels = Arrays.asList(
         ValidationLevel.values());
-    private final List<ValidationService.MzTabVersion> allVersions = Arrays.
-        asList(ValidationService.MzTabVersion.values());
 
     public ValidationForm() {
-        this(null, null, ValidationService.MzTabVersion.MZTAB_2_0, 100,
+        this(null, null, 100,
             ValidationLevel.INFO, false);
     }
 
     public ValidationForm(MultipartFile file, MultipartFile mappingFile,
-        ValidationService.MzTabVersion mzTabVersion, Integer maxErrors,
+        Integer maxErrors,
         ValidationLevel level, Boolean checkCvMapping) {
         this.file = file;
         this.mappingFile = mappingFile;
-        this.mzTabVersion = mzTabVersion;
         this.maxErrors = maxErrors;
         this.level = level;
         this.checkCvMapping = checkCvMapping;
@@ -70,14 +65,6 @@ public class ValidationForm {
         this.mappingFile = mappingFile;
     }
 
-    public ValidationService.MzTabVersion getMzTabVersion() {
-        return mzTabVersion;
-    }
-
-    public void setMzTabVersion(ValidationService.MzTabVersion mzTabVersion) {
-        this.mzTabVersion = mzTabVersion;
-    }
-
     public Integer getMaxErrors() {
         return maxErrors;
     }
@@ -92,10 +79,6 @@ public class ValidationForm {
 
     public void setLevel(ValidationLevel level) {
         this.level = level;
-    }
-
-    public List<ValidationService.MzTabVersion> getAllVersions() {
-        return this.allVersions;
     }
 
     public List<ValidationLevel> getAllLevels() {
@@ -115,11 +98,9 @@ public class ValidationForm {
         int hash = 5;
         hash = 59 * hash + Objects.hashCode(this.file);
         hash = 59 * hash + Objects.hashCode(this.mappingFile);
-        hash = 59 * hash + Objects.hashCode(this.mzTabVersion);
         hash = 59 * hash + Objects.hashCode(this.maxErrors);
         hash = 59 * hash + Objects.hashCode(this.level);
         hash = 59 * hash + Objects.hashCode(this.allLevels);
-        hash = 59 * hash + Objects.hashCode(this.allVersions);
         hash = 59 * hash + Objects.hashCode(this.checkCvMapping);
         return hash;
     }
@@ -142,9 +123,6 @@ public class ValidationForm {
         if (!Objects.equals(this.mappingFile, other.mappingFile)) {
             return false;
         }
-        if (this.mzTabVersion != other.mzTabVersion) {
-            return false;
-        }
         if (!Objects.equals(this.maxErrors, other.maxErrors)) {
             return false;
         }
@@ -152,9 +130,6 @@ public class ValidationForm {
             return false;
         }
         if (!Objects.equals(this.allLevels, other.allLevels)) {
-            return false;
-        }
-        if (!Objects.equals(this.allVersions, other.allVersions)) {
             return false;
         }
         if (!Objects.equals(this.checkCvMapping, other.checkCvMapping)) {
@@ -165,7 +140,7 @@ public class ValidationForm {
 
     @Override
     public String toString() {
-        return "ValidationForm{" + "file=" + file + ", mappingFile=" + mappingFile + ", mzTabVersion=" + mzTabVersion + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", allVersions=" + allVersions + ", checkCvMapping=" + checkCvMapping + '}';
+        return "ValidationForm{" + "file=" + file + ", mappingFile=" + mappingFile + ", maxErrors=" + maxErrors + ", level=" + level + ", allLevels=" + allLevels + ", checkCvMapping=" + checkCvMapping + '}';
     }
 
 }

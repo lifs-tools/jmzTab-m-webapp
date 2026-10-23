@@ -54,22 +54,6 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="col-sm-5">  
-                                <label for="version" class="col-form-label">mzTab specification version to validate against</label>
-                            </div>
-                            <div class="col-sm-7">
-                                <select class="no-gutters form-control" th:field="*{validationForm.mzTabVersion}">
-                                    <option th:each="version : *{validationForm.allVersions}" 
-                                            th:value="${version}" 
-                                            th:text="#{${version}}">MZTab2_0</option>
-                                </select>
-                            </div><div class="col-sm-12">
-                                <small id="versionHelpBlock" class="form-text text-muted">
-                                    The mzTab specification version to use for validation. mzTab 1.0 files will not pass the 2.0 validation and vice-versa.
-                                </small>
-                            </div>
-                        </div>
-                        <div class="form-row">
                             <div class="col-sm-5">
                                 <label for="checkCvMapping" class="col-form-label">Perform semantic validation with a mapping file</label>
                             </div>

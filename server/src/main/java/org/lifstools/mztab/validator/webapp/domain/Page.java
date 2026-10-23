@@ -27,7 +27,6 @@ public class Page {
     private String title;
     private String appVersion;
     private String gaId;
-    private String jmztabVersion;
     private String jmztabmVersion;
     private String buildDate;
     private String scmCommitId;
@@ -41,7 +40,6 @@ public class Page {
             gaId = (gaId.isEmpty() ? null : gaId);
         }
         this.gaId = gaId;
-        this.jmztabVersion = appInfo.getJmztabVersionNumber();
         this.jmztabmVersion = appInfo.getJmztabmVersionNumber();
         this.buildDate = appInfo.getBuildDate();
         this.scmCommitId = appInfo.getScmCommitId();

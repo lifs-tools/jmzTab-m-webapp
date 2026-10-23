@@ -67,7 +67,7 @@ public class MzTabValidationService implements ValidationService {
     }
 
     @Override
-    public List<ValidationMessage> validate(MzTabVersion mzTabVersion,
+    public List<ValidationMessage> validate(
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel, boolean checkCvMapping,
         UserSessionFile mappingFile) {
@@ -78,7 +78,7 @@ public class MzTabValidationService implements ValidationService {
         try {
             List<ValidationMessage> validationResults = new ArrayList<>();
             validationResults.addAll(
-                validate(mzTabVersion, filepath, validationLevel,
+                validate(filepath, validationLevel,
                     maxErrors, checkCvMapping, storageService.load(
                         mappingFile, StorageService.SLOT.MAPPINGFILE)));
             tracker.stopped(userSessionFile.getSessionId(), "validation",
@@ -101,7 +101,6 @@ public class MzTabValidationService implements ValidationService {
 
     @Override
     public Map<String, List<Map<String, String>>> parse(
-        MzTabVersion mzTabVersion,
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel) {
         tracker.started(userSessionFile.getSessionId(), "parse", "init");
@@ -109,7 +108,7 @@ public class MzTabValidationService implements ValidationService {
             StorageService.SLOT.MZTABFILE);
 
         try {
-            Map<String, List<Map<String, String>>> lines = parse(mzTabVersion,
+            Map<String, List<Map<String, String>>> lines = parse(
                 filepath, validationLevel,
                 maxErrors);
             tracker.stopped(userSessionFile.getSessionId(), "parse", "success");
@@ -123,57 +122,36 @@ public class MzTabValidationService implements ValidationService {
     }
 
     private Map<String, List<Map<String, String>>> parse(
-        MzTabVersion mzTabVersion,
         Path filepath,
         ValidationLevel validationLevel, int maxErrors) throws IllegalStateException, IOException {
-        switch (mzTabVersion) {
-            case MZTAB_1_0:
-                return new EbiValidator().parse(filepath, validationLevel.
-                    name(),
-                    maxErrors);
-            case MZTAB_2_0:
-                return new MzTabMValidator(lookupService).parse(filepath,
+        return new MzTabMValidator(lookupService).parse(filepath,
                     validationLevel.
                         name(),
                     maxErrors);
-            default:
-                throw new IllegalStateException(
-                    "Unsupported mzTab version: " + mzTabVersion.toString());
-        }
     }
 
-    private List<ValidationMessage> validate(MzTabVersion mzTabVersion,
+    private List<ValidationMessage> validate(
         Path filepath,
         ValidationLevel validationLevel, int maxErrors, boolean checkCvMapping,
         Path mappingFile) throws IllegalStateException, IOException {
         if (checkCvMapping) {
             Logger.getLogger(MzTabValidationService.class.getName()).
                 log(java.util.logging.Level.INFO,
-                    "Running validation on file {0} for mzTab version={1}, validationLevel={2}, maxErrors={3}, and mapping file={4}",
-                    new Object[]{filepath, mzTabVersion, validationLevel,
+                    "Running validation on file {0} with validationLevel={1}, maxErrors={2}, and mapping file={3}",
+                    new Object[]{filepath, validationLevel,
                         maxErrors, mappingFile});
 
         } else {
             Logger.getLogger(MzTabValidationService.class.getName()).
                 log(java.util.logging.Level.INFO,
-                    "Running validation on file {0} for mzTab version={1}, validationLevel={2}, maxErrors={3}",
-                    new Object[]{filepath, mzTabVersion, validationLevel,
+                    "Running validation on file {0} with validationLevel={1}, maxErrors={2}",
+                    new Object[]{filepath, validationLevel,
                         maxErrors});
         }
-        switch (mzTabVersion) {
-            case MZTAB_1_0:
-                return new EbiValidator().validate(filepath, validationLevel.
-                    name(),
-                    maxErrors, checkCvMapping, mappingFile);
-            case MZTAB_2_0:
-                return new MzTabMValidator(lookupService).validate(filepath,
+        return new MzTabMValidator(lookupService).validate(filepath,
                     validationLevel.
                         name(),
                     maxErrors, checkCvMapping, mappingFile);
-            default:
-                throw new IllegalStateException(
-                    "Unsupported mzTab version: " + mzTabVersion.toString());
-        }
 
     }
 
@@ -244,7 +222,7 @@ public class MzTabValidationService implements ValidationService {
 
     @Async("toolThreadPoolTaskExecutor")
     @Override
-    public CompletableFuture<ToolResult> runValidation(MzTabVersion mzTabVersion,
+    public CompletableFuture<ToolResult> runValidation(
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel, boolean checkCvMapping,
         UserSessionFile mappingFile) {
@@ -268,7 +246,7 @@ public class MzTabValidationService implements ValidationService {
                 if (!mappingFilePath.toFile().exists()) {
                     throw new IOException("Semantic validation file "+mappingFilePath+" does not exist!");
                 }
-                List<ValidationMessage> messages = validate(mzTabVersion, filepath, validationLevel,
+                List<ValidationMessage> messages = validate(filepath, validationLevel,
                         maxErrors, checkCvMapping, mappingFilePath);
                 validationResults.addAll(messages);
                 tracker.stopped(userSessionFile.getSessionId(), "validation",

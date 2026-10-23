@@ -61,7 +61,6 @@ class DefaultProfileAccessIntegrationTest {
     void formUploadIsAcceptedAnonymously() throws Exception {
         mvc.perform(multipart("/")
                 .file(mzTabFile("file"))
-                .param("mzTabVersion", "MZTAB_2_0")
                 .param("level", "INFO")
                 .param("maxErrors", "100"))
             .andExpect(status().is3xxRedirection())

@@ -146,7 +146,6 @@ public class ValidationController {
             .fromServletMapping(request).
             pathSegment("validate", usf.getSessionId().
                 toString()).
-            queryParam("version", validationForm.getMzTabVersion()).
             queryParam("maxErrors", Math.max(1, validationForm.getMaxErrors())).
             queryParam("level", validationForm.getLevel()).
             queryParam("checkCvMapping", validationForm.getCheckCvMapping()).
@@ -158,7 +157,6 @@ public class ValidationController {
 
     @GetMapping(value = "/validate/{sessionId:.+}")
     public ModelAndView validateFile(@PathVariable UUID sessionId,
-        @RequestParam(value = "version", required = false) ValidationService.MzTabVersion version,
         @RequestParam(value = "maxErrors", defaultValue = "100") int maxErrors,
         @RequestParam(value = "level", required = false) ValidationLevel level,
         @RequestParam(value = "checkCvMapping", defaultValue = "false") boolean checkCvMapping,
@@ -181,8 +179,6 @@ public class ValidationController {
                 sessionId);
             Map<ToolResult.Keys, String> parameters = new EnumMap(
                 ToolResult.Keys.class);
-            parameters.putIfAbsent(ToolResult.Keys.MZTABVERSION, version.
-                name());
             parameters.putIfAbsent(ToolResult.Keys.MAXERRORS, maxErrors + "");
             parameters.putIfAbsent(ToolResult.Keys.VALIDATIONLEVEL,
                 level.name());
@@ -190,7 +186,7 @@ public class ValidationController {
                 toString(checkCvMapping));
             toolResult.setParameters(parameters);
             resultService.addResultFor(sessionId, toolResult);
-            validationService.runValidation(version, usf, maxErrors,
+            validationService.runValidation(usf, maxErrors,
                 level, checkCvMapping, mappingFile);
         }
         UriComponents uri = ServletUriComponentsBuilder
@@ -229,17 +225,6 @@ public class ValidationController {
             addObject("page", createPage(validatedFile.getFilename()));
         modelAndView.addObject("validationFile", validatedFile.getFilename());
         modelAndView.addObject("sessionId", sessionId);
-        log.debug("Retrieving mztab version");
-        ValidationService.MzTabVersion validationVersion = ValidationService.MzTabVersion.
-            valueOf(result.getParameters().
-                get(ToolResult.Keys.MZTABVERSION));
-        if (validationVersion != null) {
-            modelAndView.addObject("validationVersion", validationVersion);
-        } else {
-            validationVersion = ValidationService.MzTabVersion.MZTAB_2_0;
-            modelAndView.addObject("validationVersion", validationVersion);
-        }
-        log.debug("Validation version is {}", validationVersion);
         Integer maxErrors = Integer.parseInt(result.getParameters().
             getOrDefault(Keys.MAXERRORS, "100"));
         if (maxErrors >= 0) {
@@ -271,7 +256,7 @@ public class ValidationController {
                 modelAndView.addObject("messageLevel", "alert-danger");
                 addValidationResults(modelAndView, validationService.
                     asValidationResults(result.getMessages()), level, maxErrors,
-                    validationVersion, validatedFile, validationLevel);
+                    validatedFile, validationLevel);
                 break;
             case PREPARING:
                 modelAndView.addObject("progress", 10);
@@ -289,7 +274,7 @@ public class ValidationController {
                 modelAndView.addObject("progress", 100);
                 addValidationResults(modelAndView, validationService.
                     asValidationResults(result.getMessages()), level, maxErrors,
-                    validationVersion, validatedFile, validationLevel);
+                    validatedFile, validationLevel);
                 break;
             default:
                 modelAndView.addObject("progress", 0);
@@ -300,7 +285,7 @@ public class ValidationController {
 
     protected void addValidationResults(ModelAndView modelAndView,
         List<ValidationResult> validationResults, ValidationLevel level,
-        Integer maxErrors1, ValidationService.MzTabVersion validationVersion,
+        Integer maxErrors1,
         UserSessionFile usf, ValidationLevel validationLevel) {
         ValidationStatistics vs = new ValidationStatistics(
             validationResults);
@@ -312,19 +297,12 @@ public class ValidationController {
                 subList(0,
                     Math.min(validationResults.size(), maxErrors1)));
         Map<String, List<Map<String, String>>> mzTabContents = validationService.
-            parse(validationVersion,
+            parse(
                 usf, maxErrors1, validationLevel);
-        if (validationVersion == ValidationService.MzTabVersion.MZTAB_2_0) {
             addDataRowsFor(modelAndView, mzTabContents, "META");
             addDataRowsFor(modelAndView, mzTabContents, "SUMMARY");
             addDataRowsFor(modelAndView, mzTabContents, "FEATURE");
             addDataRowsFor(modelAndView, mzTabContents, "EVIDENCE");
-        } else {
-            addDataRowsFor(modelAndView, mzTabContents, "META");
-            addDataRowsFor(modelAndView, mzTabContents, "PROTEINS");
-            addDataRowsFor(modelAndView, mzTabContents, "PEPTIDES");
-            addDataRowsFor(modelAndView, mzTabContents, "PSMS");
-        }
     }
 
     protected void addDataRowsFor(ModelAndView modelAndView,

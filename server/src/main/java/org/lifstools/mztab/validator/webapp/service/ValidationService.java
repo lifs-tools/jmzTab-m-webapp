@@ -36,16 +36,15 @@ public interface ValidationService {
     };
 
     @Async
-    CompletableFuture<ToolResult> runValidation(MzTabVersion mzTabVersion,
+    CompletableFuture<ToolResult> runValidation(
         UserSessionFile userSessionFile, int maxErrors,
         ValidationLevel validationLevel, boolean checkCvMapping, UserSessionFile validationFile);
 
     ToolResult getStatus(UUID userSessionId);
     
-    static enum MzTabVersion{MZTAB_1_0, MZTAB_2_0};
-    List<ValidationMessage> validate(MzTabVersion version, UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel, boolean checkCvMapping, UserSessionFile validationFile);
+    List<ValidationMessage> validate(UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel, boolean checkCvMapping, UserSessionFile validationFile);
     
-    public Map<String, List<Map<String, String>>> parse(MzTabVersion mzTabVersion,
+    public Map<String, List<Map<String, String>>> parse(
         UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
     
     List<ValidationResult> asValidationResults(List<ValidationMessage> validationMessage);

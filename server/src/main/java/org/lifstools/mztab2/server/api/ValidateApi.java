@@ -114,7 +114,7 @@ public interface ValidateApi {
                                 getSessionId(), SLOT.MAPPINGFILE);
                     List<ValidationMessage> messages = getValidationService().
                         get().
-                        validate(ValidationService.MzTabVersion.MZTAB_2_0, file,
+                        validate(file,
                             maxErrors, ValidationLevel.valueOf(
                                 level == null ? "INFO" : level.toUpperCase()),
                             semanticValidation, mappingFile);

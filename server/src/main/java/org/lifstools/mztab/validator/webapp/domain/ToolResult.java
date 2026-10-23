@@ -32,7 +32,7 @@ import lombok.Data;
 public class ToolResult {
 
     public static enum Keys {
-        MZTABVERSION, MAXERRORS, VALIDATIONLEVEL, CHECKCVMAPPING
+        MAXERRORS, VALIDATIONLEVEL, CHECKCVMAPPING
     };
 
     private List<ValidationMessage> messages = new ArrayList<>();

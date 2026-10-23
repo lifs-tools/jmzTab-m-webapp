@@ -77,18 +77,6 @@
         </dependency>
         
         <dependency>
-            <groupId>uk.ac.ebi.pride</groupId>
-            <artifactId>jmztab-modular-model</artifactId>
-            <version>${jmztab.version}</version>
-            <!-- based on mzTab specification version 1.0 -->
-        </dependency>
-        <dependency>
-            <groupId>uk.ac.ebi.pride</groupId>
-            <artifactId>jmztab-modular-util</artifactId>
-            <version>${jmztab.version}</version>
-            <!-- based on mzTab specification version 1.0 -->
-        </dependency>
-        <dependency>
             <groupId>org.lifs-tools</groupId>
             <artifactId>jmztabm-io</artifactId>
             <type>jar</type>

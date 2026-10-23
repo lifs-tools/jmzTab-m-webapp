@@ -69,7 +69,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- spring boot specific -->
         <java.version>24</java.version>
-        <jmztab.version>3.0.9</jmztab.version>
         <jmztabm.version>1.0.7-SNAPSHOT</jmztabm.version>
         <application.version.number>${project.version}</application.version.number>
         <guava.version>33.7.2-jre</guava.version>
