@@ -1,32 +1,30 @@
 package org.lifstools.mztab.validator.webapp;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.lifstools.mztab.validator.webapp.domain.ToolResult;
-import org.lifstools.mztab.validator.webapp.service.ToolResultService;
-import org.lifstools.mztab.validator.webapp.service.ValidationService.Status;
 import org.lifstools.mztab.validator.webapp.service.validation.MappingFixtures;
-import org.lifstools.mztab2.model.ValidationMessage;
 import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockHttpSession;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -36,9 +34,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
- * End-to-end through the Thymeleaf upload form: an uploaded mapping file that
- * declares a DOCTYPE must be rejected, and the bundled default mapping must
- * still work. OLS is mocked, so the test needs no network. Runs with the
+ * End-to-end through the validations API: an uploaded mapping file that declares a DOCTYPE must be rejected, and
+ * the bundled default validation profile must still work. OLS is mocked, so the test needs no network. Runs with the
  * production security setup (microservice profile), without Eureka.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
@@ -61,55 +58,51 @@ class MappingUploadIntegrationTest {
     MockMvc mvc;
 
     @Autowired
-    ToolResultService resultService;
+    ObjectMapper json;
 
     @Test
     void uploadedMappingWithDoctypeIsRejected() throws Exception {
         MockMultipartFile mapping = new MockMultipartFile("mappingFile", "mapping.xml", "application/xml",
             MappingFixtures.MAPPING_WITH_DOCTYPE.getBytes(StandardCharsets.UTF_8));
 
-        List<ValidationMessage> messages = validateViaForm(mapping);
-
-        assertTrue(messages.stream().anyMatch(m -> m.getMessage().contains("Mapping file rejected")),
-            "expected a rejection message, got: " + messages);
-    }
-
-    @Test
-    void defaultMappingIsUsedWhenNoneIsUploaded() throws Exception {
-        MockMultipartFile noMapping = new MockMultipartFile("mappingFile", "", "application/xml", new byte[0]);
-
-        List<ValidationMessage> messages = validateViaForm(noMapping);
-
-        assertFalse(messages.stream().anyMatch(m -> m.getMessage().contains("Mapping file rejected")),
-            "default mapping must load, got: " + messages);
-    }
-
-    private List<ValidationMessage> validateViaForm(MockMultipartFile mapping) throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        String validateUrl = mvc.perform(multipart("/")
+        mvc.perform(multipart("/rest/v2/validations")
                 .file(mzTabFile())
                 .file(mapping)
                 .param("level", "INFO")
-                .param("maxErrors", "100")
-                .param("checkCvMapping", "true")
-                .session(session))
-            .andExpect(status().is3xxRedirection())
-            .andReturn().getResponse().getRedirectedUrl();
-
-        URI validate = URI.create(validateUrl);
-        mvc.perform(get(validate.getPath() + "?" + validate.getRawQuery()).session(session))
-            .andExpect(status().is3xxRedirection());
-
-        UUID sessionId = UUID.fromString(validate.getPath().substring(validate.getPath().lastIndexOf('/') + 1));
-        return awaitMessages(sessionId);
+                .param("maxErrors", "100"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.message", containsString("Mapping file rejected")));
     }
 
-    private List<ValidationMessage> awaitMessages(UUID sessionId) throws InterruptedException {
+    @Test
+    void defaultProfileWorks() throws Exception {
+        String body = mvc.perform(multipart("/rest/v2/validations")
+                .file(mzTabFile())
+                .param("level", "INFO")
+                .param("maxErrors", "100")
+                .param("validationProfile", "mztab-m-2.0-default"))
+            .andExpect(status().isAccepted())
+            .andReturn().getResponse().getContentAsString();
+
+        JsonNode done = awaitFinished(json.readTree(body).get("id").asText());
+
+        assertEquals("FINISHED", done.get("status").asText(), "status: " + done);
+        assertEquals("mztab-m-2.0-default", done.at("/validationProfile/id").asText(), "profile: " + done);
+        assertFalse(done.get("messages").toString().contains("Mapping file rejected"),
+            "default mapping must load, got: " + done.get("messages"));
+        assertFalse(done.get("messages").toString().contains("Semantic validation failed"),
+            "default mapping must load, got: " + done.get("messages"));
+    }
+
+    private JsonNode awaitFinished(String id) throws Exception {
         Instant deadline = Instant.now().plus(Duration.ofSeconds(30));
         while (Instant.now().isBefore(deadline)) {
-            ToolResult result = resultService.getOrCreateResultFor(sessionId);
-            if (result.getStatus() == Status.FINISHED || result.getStatus() == Status.FAILED) {
-                return result.getMessages();
+            JsonNode n = json.readTree(mvc.perform(get("/rest/v2/validations/" + id))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String status = n.get("status").asText();
+            if ("FINISHED".equals(status) || "FAILED".equals(status)) {
+                return n;
             }
             Thread.sleep(100);
         }

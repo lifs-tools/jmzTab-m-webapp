@@ -23,8 +23,8 @@ In order to build the project and run the unit tests, execute the following comm
   ./mvnw -pl server spring-boot:run
 
 == Running the Web Application for Validation
-The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
-The build is a Maven reactor with two modules: `server` (the Spring Boot web application) and `frontend` (the Angular single-page application, currently a placeholder). The `server/target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
+The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot] and an https://angular.dev/[Angular] single-page application with https://material.angular.dev/[Angular Material].
+The build is a Maven reactor with two modules: `server` (the Spring Boot web application) and `frontend` (the Angular single-page application, served by `server`). The `server/target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
 
   ./server/target/mztab-validator-webapp-<VERSION>.jar
 

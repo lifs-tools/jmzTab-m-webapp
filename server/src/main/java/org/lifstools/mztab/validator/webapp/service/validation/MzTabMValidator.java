@@ -23,17 +23,13 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import jakarta.xml.bind.JAXBException;
 import org.lifstools.mztab2.io.MzTabFileParser;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.sections.Section;
-import org.lifstools.mztab.validator.webapp.sections.SectionWriter;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
@@ -144,63 +140,5 @@ public class MzTabMValidator implements WebValidator {
             vm.setMessage(message.toString());
             return List.of(vm);
         }
-    }
-
-    /**
-     * Thin adapter over {@link SectionWriter#render} for the result page,
-     * which Task 15 removes.
-     */
-    @Override
-    public Map<String, List<Map<String, String>>> parse(Path filepath,
-            String validationLevel, int maxErrors) throws IOException {
-        MzTabFileParser parser = new MzTabFileParser(filepath.toFile());
-        try {
-            parser.parse(
-                    System.out, MZTabErrorType.findLevel(validationLevel), maxErrors);
-        } finally {
-            MzTab mzTabFile = parser.getMZTabFile();
-            if (mzTabFile != null) {
-                SectionWriter.Rendered rendered = SectionWriter.render(mzTabFile);
-                Map<String, List<Map<String, String>>> mzTabLines = new LinkedHashMap<>();
-                List<Map<String, String>> metaData = new ArrayList<>();
-                int lineNumber = 1;
-                for (List<String> cells : rendered.metadata()) {
-                    Map<String, String> lineMap = new LinkedHashMap<>();
-                    lineMap.put("LINE_NUMBER", lineNumber + "");
-                    lineMap.put("PREFIX", cells.get(0));
-                    lineMap.put("KEY", cells.get(1));
-                    lineMap.put("VALUE", cells.get(2));
-                    metaData.add(lineMap);
-                    lineNumber++;
-                }
-                mzTabLines.put("META", metaData);
-                lineNumber = addTable(mzTabLines, "SUMMARY", rendered.tables().get(Section.SML), lineNumber);
-                lineNumber = addTable(mzTabLines, "FEATURE", rendered.tables().get(Section.SMF), lineNumber);
-                addTable(mzTabLines, "EVIDENCE", rendered.tables().get(Section.SME), lineNumber);
-                return mzTabLines;
-            }
-            return Collections.emptyMap();
-        }
-    }
-
-    private static int addTable(Map<String, List<Map<String, String>>> target, String name,
-            List<List<String>> table, int lineNumber) {
-        List<Map<String, String>> data = new ArrayList<>();
-        if (table != null) {
-            List<String> header = table.get(0);
-            // due to the header
-            lineNumber++;
-            for (List<String> row : table.subList(1, table.size())) {
-                Map<String, String> lineMap = new LinkedHashMap<>();
-                lineMap.put("LINE_NUMBER", lineNumber + "");
-                for (int j = 0; j < header.size(); j++) {
-                    lineMap.put(header.get(j), row.get(j));
-                }
-                data.add(lineMap);
-                lineNumber++;
-            }
-        }
-        target.put(name, data);
-        return lineNumber;
     }
 }

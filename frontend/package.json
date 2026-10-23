@@ -9,7 +9,8 @@
     "pretest": "npm run generate:api",
     "build": "ng build webapp --configuration production",
     "watch": "ng build webapp --watch --configuration development",
-    "test": "ng test webapp --no-watch"
+    "test": "ng test webapp --no-watch",
+    "e2e": "playwright test"
   },
   "private": true,
   "dependencies": {
@@ -33,6 +34,8 @@
     "@angular/build": "21.2.28",
     "@angular/cli": "21.2.28",
     "@angular/compiler-cli": "21.2.25",
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
     "jsdom": "28.1.0",
     "ng-openapi-gen": "1.1.0",
     "prettier": "3.9.10",

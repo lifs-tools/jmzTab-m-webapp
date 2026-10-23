@@ -15,39 +15,17 @@
  */
 package org.lifstools.mztab.validator.webapp.service;
 
-import org.lifstools.mztab.validator.webapp.domain.ToolResult;
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.domain.ValidationResult;
 import org.lifstools.mztab2.model.ValidationMessage;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.springframework.scheduling.annotation.Async;
 
 /**
+ * Synchronous validation used by the {@code /rest/v2/validate} and {@code /rest/v2/validatePlain} endpoints.
  *
  * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
  */
 public interface ValidationService {
-    public static enum Status {
-        UNINITIALIZED, PREPARING, STARTED, RUNNING, FINISHED, FAILED
-    };
 
-    @Async
-    CompletableFuture<ToolResult> runValidation(
-        UserSessionFile userSessionFile, int maxErrors,
-        ValidationLevel validationLevel, boolean checkCvMapping, UserSessionFile validationFile);
-
-    ToolResult getStatus(UUID userSessionId);
-    
     List<ValidationMessage> validate(UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel, boolean checkCvMapping, UserSessionFile validationFile);
-    
-    public Map<String, List<Map<String, String>>> parse(
-        UserSessionFile userSessionFile, int maxErrors, ValidationLevel validationLevel);
-    
-    List<ValidationResult> asValidationResults(List<ValidationMessage> validationMessage);
-    
-    List<ValidationResult> filterByLevel(List<ValidationResult> validationResults, ValidationLevel level);
 }

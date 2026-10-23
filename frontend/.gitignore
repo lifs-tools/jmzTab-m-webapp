@@ -49,3 +49,9 @@ Thumbs.db
 /.angular/
 /node_modules/
 /projects/webapp/src/app/api/
+
+# Playwright end-to-end output
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/

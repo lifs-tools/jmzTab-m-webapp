@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.oneOf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,8 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
- * Without the microservice profile, the validation UI and REST API must be
- * usable anonymously and must not redirect to a login page.
+ * Without the microservice profile, the single-page app and the REST API must
+ * be usable anonymously and must not redirect to a login page.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -49,22 +50,24 @@ class DefaultProfileAccessIntegrationTest {
 
     @Test
     void startPageIsPublic() throws Exception {
-        mvc.perform(get("/")).andExpect(status().isOk());
+        mvc.perform(get("/")).andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
     }
 
     @Test
     void aboutPageIsPublic() throws Exception {
-        mvc.perform(get("/about")).andExpect(status().isOk());
+        mvc.perform(get("/about")).andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
     }
 
     @Test
-    void formUploadIsAcceptedAnonymously() throws Exception {
-        mvc.perform(multipart("/")
+    void validationUploadIsAcceptedAnonymously() throws Exception {
+        mvc.perform(multipart("/rest/v2/validations")
                 .file(mzTabFile("file"))
                 .param("level", "INFO")
                 .param("maxErrors", "100"))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(header().string("Location", containsString("/validate/")));
+            .andExpect(status().isAccepted())
+            .andExpect(header().string("Location", containsString("/rest/v2/validations/")));
     }
 
     @Test

@@ -19,7 +19,6 @@ import org.lifstools.mztab2.model.ValidationMessage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 /**
  *
@@ -29,7 +28,4 @@ public interface WebValidator {
 
     public List<ValidationMessage> validate(Path filepath,
         String validationLevel, int maxErrors, boolean checkCvMapping, Path validationFile) throws IllegalStateException, IOException;
-
-    public Map<String, List<Map<String,String>>> parse(Path filepath, String validationLevel,
-        int maxErrors) throws IOException;
 }

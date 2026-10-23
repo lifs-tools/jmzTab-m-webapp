@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  Copyright 2026 LIFS Tools Consortium.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Test stand-in for the SPA's index.html. Test classes come before the
+  frontend jar on the test classpath, so server tests see this file even
+  when the frontend is not built (-Dfrontend.skip=true). The base tag has
+  the same form as frontend/projects/webapp/src/index.html.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>mzTab-M Validator</title>
+    <base href="/" />
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

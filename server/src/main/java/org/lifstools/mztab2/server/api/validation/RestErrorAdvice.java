@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.slf4j.Logger;
@@ -27,12 +28,15 @@ import org.springframework.beans.TypeMismatchException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -43,7 +47,9 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Answers errors of the validations endpoints as JSON {@link ErrorResponse} bodies. It is scoped to
@@ -104,16 +110,20 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Multipart parsing fails before a handler is chosen, so the advice above never sees an oversized upload.
-     * This resolver answers it for {@code /rest/**} only; other paths keep their behaviour.
+     * Some errors happen before a handler is chosen, so the advice above never sees them: an oversized upload
+     * (multipart parsing), a path with no endpoint, and a method an endpoint does not support. This resolver answers
+     * them as JSON for {@code /rest/**} only; other paths keep their behaviour.
      */
     @Component
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    static class UploadTooLargeResolver implements HandlerExceptionResolver {
+    static class RestPathErrorResolver implements HandlerExceptionResolver {
+
+        static final String NO_ENDPOINT = "There is no endpoint at this path.";
+        static final String METHOD_NOT_ALLOWED = "This endpoint does not support the request method.";
 
         private final ObjectMapper mapper;
 
-        UploadTooLargeResolver(ObjectMapper mapper) {
+        RestPathErrorResolver(ObjectMapper mapper) {
             this.mapper = mapper;
         }
 
@@ -121,19 +131,35 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         @Nullable
         public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response,
             @Nullable Object handler, Exception ex) {
-            if (!(ex instanceof MaxUploadSizeExceededException) || !request.getRequestURI().startsWith(
-                request.getContextPath() + "/rest/")) {
+            if (!request.getRequestURI().startsWith(request.getContextPath() + "/rest/")) {
                 return null;
             }
-            HttpStatus status = HttpStatus.PAYLOAD_TOO_LARGE;
+            if (ex instanceof MaxUploadSizeExceededException) {
+                return write(request, response, HttpStatus.PAYLOAD_TOO_LARGE, TOO_LARGE);
+            }
+            if (ex instanceof NoResourceFoundException || ex instanceof NoHandlerFoundException) {
+                return write(request, response, HttpStatus.NOT_FOUND, NO_ENDPOINT);
+            }
+            if (ex instanceof HttpRequestMethodNotSupportedException notSupported) {
+                Set<HttpMethod> allowed = notSupported.getSupportedHttpMethods();
+                if (allowed != null && !allowed.isEmpty()) {
+                    response.setHeader(HttpHeaders.ALLOW, StringUtils.collectionToCommaDelimitedString(allowed));
+                }
+                return write(request, response, HttpStatus.METHOD_NOT_ALLOWED, METHOD_NOT_ALLOWED);
+            }
+            return null;
+        }
+
+        private ModelAndView write(HttpServletRequest request, HttpServletResponse response, HttpStatus status,
+            String message) {
             response.setStatus(status.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");
             try {
                 mapper.writeValue(response.getWriter(),
-                    new ErrorResponse(status, status.getReasonPhrase(), TOO_LARGE, request.getRequestURI()));
+                    new ErrorResponse(status, status.getReasonPhrase(), message, request.getRequestURI()));
             } catch (IOException e) {
-                log.warn("Could not write the 413 response", e);
+                log.warn("Could not write the {} response", status.value(), e);
             }
             return new ModelAndView();
         }

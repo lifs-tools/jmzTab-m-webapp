@@ -18,11 +18,6 @@
             <artifactId>mztab-validator-frontend</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-thymeleaf</artifactId>
-            <!--<version>${spring.boot.version}</version>-->
-        </dependency>
         <!--SpringFox dependencies -->
         <!--        <dependency>
             <groupId>io.springfox</groupId>
@@ -108,11 +103,6 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
-            <groupId>ognl</groupId>
-            <artifactId>ognl</artifactId>
-            <version>3.5.0-BETA10</version>
-        </dependency>
-        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>jmztabm-validation</artifactId>
             <version>${jmztabm.version}</version>
@@ -165,20 +155,6 @@
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-to-slf4j</artifactId>
         </dependency>-->
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>webjars-locator-lite</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>jquery</artifactId>
-            <version>${jquery.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>bootstrap</artifactId>
-            <version>${bootstrap.version}</version>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
