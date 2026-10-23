@@ -9,11 +9,24 @@
             <span class="lifs-note">{{ detail }}</span>
           }
         </div>
-        @if (isExample(e)) {
-          <button mat-button type="button" (click)="validate.emit(e.id!)">Validate</button>
-        }
+        <button mat-button type="button" (click)="validate.emit(e.id!)">Validate</button>
       </li>
     }
   </ul>
+  @if (mappings().length) {
+    <h3 class="lifs-card__title">Mapping files</h3>
+    <ul class="examples">
+      @for (e of mappings(); track e.id) {
+        <li class="example">
+          <div class="example__text">
+            <a [href]="e.uri" target="_blank" rel="noopener" download>{{ e.name }}</a>
+            @if (e.description; as detail) {
+              <span class="lifs-note">{{ detail }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
   <a routerLink="/examples">All examples →</a>
 </section>

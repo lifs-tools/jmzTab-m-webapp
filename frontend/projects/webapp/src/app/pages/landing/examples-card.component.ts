@@ -18,10 +18,12 @@ export class ExamplesCardComponent {
   readonly examples = input<readonly ExampleDto[]>([]);
   readonly validate = output<string>();
 
-  protected readonly shown = computed(() => this.examples().slice(0, MAX_SHOWN));
-
-  /** Mapping files can be downloaded only; everything else can be validated. */
-  protected isExample(e: ExampleDto): boolean {
-    return e.section !== 'mapping';
-  }
+  /** Example files, capped; mapping entries never take a slot. */
+  protected readonly shown = computed(() =>
+    this.examples()
+      .filter((e) => e.section === 'example')
+      .slice(0, MAX_SHOWN),
+  );
+  /** Mapping files are download-only (no Validate action). */
+  protected readonly mappings = computed(() => this.examples().filter((e) => e.section === 'mapping'));
 }

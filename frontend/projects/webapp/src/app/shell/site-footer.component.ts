@@ -1,8 +1,6 @@
-import { ChangeDetectionStrategy, Component, DOCUMENT, computed, inject } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { ChangeDetectionStrategy, Component, DOCUMENT, Injector, computed, inject } from '@angular/core';
 
 import { AppInfoStore } from '../core/app-info.store';
-import { AnalyticsConsentDialogComponent } from './analytics-consent-dialog.component';
 
 interface Logo {
   readonly alt: string;
@@ -19,7 +17,7 @@ interface Logo {
 })
 export class SiteFooterComponent {
   private readonly appInfo = inject(AppInfoStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
   private readonly document = inject(DOCUMENT);
 
   protected readonly year = new Date().getFullYear();
@@ -57,8 +55,13 @@ export class SiteFooterComponent {
     { label: 'Terms of Service', href: 'https://lifs-tools.org/terms-of-service.html' },
   ] as const;
 
-  protected openAnalytics(): void {
-    this.dialog.open(AnalyticsConsentDialogComponent, {
+  /** The dialog stack is loaded on demand to keep it out of the initial bundle. */
+  protected async openAnalytics(): Promise<void> {
+    const [{ MatDialog }, { AnalyticsConsentDialogComponent }] = await Promise.all([
+      import('@angular/material/dialog'),
+      import('./analytics-consent-dialog.component'),
+    ]);
+    this.injector.get(MatDialog).open(AnalyticsConsentDialogComponent, {
       width: '440px',
       maxWidth: 'calc(100vw - 32px)',
     });

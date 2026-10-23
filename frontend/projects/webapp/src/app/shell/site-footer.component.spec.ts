@@ -69,7 +69,11 @@ describe('SiteFooterComponent', () => {
     const el = await render({ analytics: { siteId: '42', trackerBase: 'https://x/' } });
     const analytics = Array.from(el.querySelectorAll<HTMLButtonElement>('.footer__links button'));
     analytics.find((b) => b.textContent?.trim() === 'Analytics')?.click();
-    const dialog = document.querySelector<HTMLElement>('mat-dialog-container');
+    const dialog = await vi.waitFor(() => {
+      const d = document.querySelector<HTMLElement>('mat-dialog-container');
+      if (!d) throw new Error('dialog not open yet');
+      return d;
+    });
     expect(dialog?.textContent).toContain('Allow anonymous usage statistics?');
     const yes = Array.from(dialog?.querySelectorAll('button') ?? []).find(
       (b) => b.textContent?.trim() === 'Yes',

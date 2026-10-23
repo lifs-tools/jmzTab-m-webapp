@@ -82,4 +82,20 @@ describe('LandingPage', () => {
     expect(el.querySelector('a[href="https://github.com/lifs-tools/pymzTab-m"]')).toBeTruthy();
     expect(el.querySelector('a[href="https://github.com/lifs-tools/rmzTab-m"]')).toBeTruthy();
   });
+
+  it('caps 7 examples at 6 and never gives mapping entries a Validate action', async () => {
+    const entries: ExampleDto[] = [
+      { id: 'm1', name: 'm1.xml', section: 'mapping', uri: 'https://x/m1' },
+      { id: 'm2', name: 'm2.xml', section: 'mapping', uri: 'https://x/m2' },
+      ...Array.from({ length: 7 }, (_, i) => ({ id: `e${i}`, name: `f${i}.mzTab`, section: 'example', uri: `https://x/${i}` })),
+    ];
+    const { el } = await render(entries);
+    const items = Array.from(el.querySelectorAll('app-examples-card .example'));
+    const withValidate = items.filter((li) => li.querySelector('button'));
+    expect(withValidate.length).toBe(6);
+    expect(withValidate.map((li) => li.querySelector('a')?.textContent)).not.toContain('m1.xml');
+    expect(items.length).toBe(8);
+    expect(el.querySelector('a[href="https://x/m1"]')?.closest('li')?.querySelector('button')).toBeNull();
+    expect(el.querySelector('a[href="https://x/6"]')).toBeNull();
+  });
 });
