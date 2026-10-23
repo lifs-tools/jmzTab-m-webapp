@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
@@ -34,6 +35,9 @@ describe('ResultPage', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        // Dialogs close only after their exit animation; without animations the
+        // close (and the DELETE it triggers) does not depend on runner speed.
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -72,6 +76,8 @@ describe('ResultPage', () => {
   afterEach(() => {
     vi.useRealTimers();
     http.verify();
+    // Overlays live outside the fixture; don't let one test's dialog leak into the next.
+    document.querySelectorAll('.cdk-overlay-container').forEach((c) => c.remove());
   });
 
   it('polls until FINISHED and then stops', async () => {
@@ -187,7 +193,10 @@ describe('ResultPage', () => {
     const dialog = await deleteViaDialog(fixture, el);
     expect(navigate).not.toHaveBeenCalled();
     Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Delete')!.click();
-    const req = await vi.waitFor(() => http.expectOne((r) => r.method === 'DELETE' && r.url.endsWith('rest/v2/validations/abc')));
+    const req = await vi.waitFor(
+      () => http.expectOne((r) => r.method === 'DELETE' && r.url.endsWith('rest/v2/validations/abc')),
+      { timeout: 5000 },
+    );
     req.flush(null, { status: 204, statusText: 'No Content' });
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(['/']));
   });
