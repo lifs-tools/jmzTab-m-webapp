@@ -3,17 +3,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   ElementRef,
   inject,
   Injector,
   input,
   linkedSignal,
   signal,
+  viewChildren,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansion';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { catchError, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap } from 'rxjs';
 
 import { MetadataGroup } from '../../api/models/metadata-group';
 import { MetadataPage } from '../../api/models/metadata-page';
@@ -72,14 +74,16 @@ export class MetadataGroupComponent {
   readonly count = input.required<number>();
   readonly highlightKeys = input<readonly string[]>([]);
   readonly focusKey = input<string | null>(null);
+  /** The highlight object itself: a new object is a new jump even when its keys are the same. */
+  readonly jump = input<MetadataHighlight | null>(null);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   protected readonly highlighted = computed(() => new Set(this.highlightKeys()));
   /** The load being asked for: a key (the server picks the page) or a page; paging by hand drops the key. */
-  private readonly request = linkedSignal<{ page: number; key: string | null }>(() => ({
-    page: 0,
-    key: this.focusKey(),
-  }));
+  private readonly request = linkedSignal<{ page: number; key: string | null }>(() => {
+    this.jump();
+    return { page: 0, key: this.focusKey() };
+  });
   protected readonly pageSize = PAGE_SIZE;
   protected readonly page = signal(0);
   protected readonly error = signal(false);
@@ -99,20 +103,21 @@ export class MetadataGroupComponent {
           this.error.set(false);
           const { key, ...rest } = q;
           return this.api.getMetadataPage({ ...rest, ...(key ? { key } : {}), size: PAGE_SIZE }, quietRequest()).pipe(
+            map((d) => ({ d, byKey: !!key })),
             catchError(() => {
               this.error.set(true);
-              return of(undefined);
+              return of({ d: undefined, byKey: false });
             }),
           );
         }),
         takeUntilDestroyed(),
       )
-      .subscribe((d) => {
+      .subscribe(({ d, byKey }) => {
         this.loading.set(false);
         if (!d) return;
         this.data.set(d);
         this.page.set(d.page ?? this.request().page);
-        if (this.focusKey()) {
+        if (byKey) {
           afterNextRender(
             () => {
               const el = this.host.nativeElement.querySelector<HTMLElement>('.entry[tabindex="-1"]');
@@ -142,6 +147,17 @@ export class MetadataTabComponent {
   private readonly api = inject(ValidationsService);
   readonly validationId = input.required<string>();
   readonly highlight = input<MetadataHighlight | null>(null);
+  private readonly panels = viewChildren(MatExpansionPanel);
+
+  constructor() {
+    // A highlight is an event: every new object opens its panel again, also after the user collapsed it.
+    effect(() => {
+      const h = this.highlight();
+      const panels = this.panels();
+      const i = (this.groups.value() ?? []).findIndex((g) => g.name === h?.group);
+      if (h && i >= 0) panels[i]?.open();
+    });
+  }
 
   protected readonly groups = rxResource<MetadataGroup[], string>({
     params: () => this.validationId(),

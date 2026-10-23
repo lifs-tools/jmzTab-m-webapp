@@ -72,7 +72,7 @@ describe('MetadataTabComponent', () => {
     fixture.componentRef.setInput('highlight', highlight);
     http.expectOne((r) => isGroups(r.url)).flush([
       { name: 'general', count: 1 },
-      { name: 'sample', count: 70 },
+      { name: 'sample', count: 120 },
     ]);
     await settle(fixture);
     return fixture;
@@ -110,5 +110,87 @@ describe('MetadataTabComponent', () => {
     const panels = (fixture.nativeElement as HTMLElement).querySelectorAll('mat-expansion-panel');
     expect(panels[1].classList.contains('panel--hl')).toBe(true);
     expect(panels[0].classList.contains('panel--hl')).toBe(false);
+  });
+
+  const pageOf = (page: number, key: string) => ({
+    group: 'sample', page, size: 50, total: 120, entries: [{ lineNumber: page + 1, key, value: 'x' }],
+  });
+  const empty = (g: string) => ({ group: g, page: 0, size: 50, total: 1, entries: [] });
+  const K = 'sample[60]-description';
+
+  async function openedAtKey() {
+    const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K });
+    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
+    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    await settle(fixture);
+    await settle(fixture);
+    return fixture;
+  }
+  const buttons = (f: { nativeElement: unknown }, label: string) =>
+    (f.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+
+  it('does not steal focus when the user pages away and back', async () => {
+    const fixture = await openedAtKey();
+    buttons(fixture, 'Next page').click();
+    await settle(fixture);
+    const next = http.expectOne((r) => isPage('sample')(r.url));
+    expect(next.request.params.get('key')).toBeNull();
+    next.flush(pageOf(2, 'sample[100]-x'));
+    await settle(fixture);
+    const prevBtn = buttons(fixture, 'Previous page');
+    prevBtn.focus();
+    prevBtn.click();
+    await settle(fixture);
+    const back = http.expectOne((r) => isPage('sample')(r.url));
+    expect(back.request.params.get('key')).toBeNull();
+    back.flush(pageOf(1, K));
+    await settle(fixture);
+    await settle(fixture);
+    expect(document.activeElement).toBe(prevBtn);
+  });
+
+  it('repeats the jump for a new highlight object with the same key', async () => {
+    const fixture = await openedAtKey();
+    buttons(fixture, 'Next page').click();
+    await settle(fixture);
+    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(2, 'sample[100]-x'));
+    await settle(fixture);
+    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K });
+    await settle(fixture);
+    const req = http.expectOne((r) => isPage('sample')(r.url));
+    expect(req.request.params.get('key')).toBe(K);
+    req.flush(pageOf(1, K));
+    await settle(fixture);
+    await settle(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(document.activeElement).toBe(el.querySelector('.entry--hl'));
+  });
+
+  it('expands a collapsed panel again for a new highlight object', async () => {
+    const fixture = await openedAtKey();
+    const el = fixture.nativeElement as HTMLElement;
+    const header = el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1];
+    header.click();
+    await settle(fixture);
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K });
+    await settle(fixture);
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('moves from one group to another', async () => {
+    const fixture = await openedAtKey();
+    const key = 'general-x';
+    fixture.componentRef.setInput('highlight', { group: 'general', keys: [key], focusKey: key });
+    await settle(fixture);
+    const req = http.expectOne((r) => isPage('general')(r.url));
+    expect(req.request.params.get('key')).toBe(key);
+    req.flush({ group: 'general', page: 0, size: 50, total: 1, entries: [{ lineNumber: 1, key, value: 'v' }] });
+    await settle(fixture);
+    await settle(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('.mat-expansion-panel-header')[0].getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(el.querySelector('[tabindex="-1"].entry'));
+    expect(document.activeElement?.textContent).toContain(key);
   });
 });
