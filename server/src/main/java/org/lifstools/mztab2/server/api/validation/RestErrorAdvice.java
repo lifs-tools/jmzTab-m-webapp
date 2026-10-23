@@ -50,7 +50,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * {@link ValidationsApiController}, so the older validate endpoints keep their behaviour. Standard Spring MVC
  * exceptions keep their status codes.
  */
-@RestControllerAdvice(assignableTypes = ValidationsApiController.class)
+@RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
+    AppInfoApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);
