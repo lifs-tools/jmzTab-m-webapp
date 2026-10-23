@@ -165,7 +165,8 @@ describe('ResultPage', () => {
     fixture.detectChanges();
     const selected = el.querySelector('[role="tab"][aria-selected="true"]')!;
     expect(selected.textContent).toContain('Metadata');
-    expect(el.querySelector('[role="tabpanel"]')?.textContent).toContain('Section view coming next.');
+    expect(el.querySelector('[role="tabpanel"] app-metadata-tab')).toBeTruthy();
+    http.expectOne((r) => r.url.endsWith('/validations/abc/metadata')).flush([]);
   });
 
   async function deleteViaDialog(fixture: ComponentFixture<ResultPage>, el: HTMLElement) {

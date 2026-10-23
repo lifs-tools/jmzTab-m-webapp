@@ -17,6 +17,8 @@ import { ValidationRecord } from '../../api/models/validation-record';
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
 import { MessagesTabComponent } from './messages-tab.component';
+import { MetadataTabComponent } from './metadata-tab.component';
+import { TableTabComponent } from './table-tab.component';
 import { ResultBannerComponent } from './result-banner.component';
 import { ResultHeaderComponent } from './result-header.component';
 
@@ -39,6 +41,8 @@ const count = (n: number | undefined) => (n ?? 0).toLocaleString('en');
     MatProgressBarModule,
     RouterLink,
     MessagesTabComponent,
+    MetadataTabComponent,
+    TableTabComponent,
     ResultBannerComponent,
     ResultHeaderComponent,
   ],
@@ -85,6 +89,7 @@ export class ResultPage {
     ];
   });
 
+  private tabHandled = false;
   private confirmHandled = false;
   private dialogPending = false;
   protected readonly deleting = signal(false);
@@ -130,6 +135,11 @@ export class ResultPage {
     }
     this.record.set(p.record);
     this.view.set('ready');
+    if (!this.tabHandled && p.record.status === 'FINISHED') {
+      this.tabHandled = true;
+      const wanted = this.route.snapshot.queryParamMap.get('tab');
+      if (this.tabs().some((t) => t.id === wanted && !t.disabled)) this.active.set(wanted as TabId);
+    }
     if (!this.confirmHandled && p.record.status !== undefined && !inProgress(p.record)) {
       this.confirmHandled = true;
       if (this.route.snapshot.queryParamMap.get('confirmDelete') === 'true') {
@@ -185,6 +195,10 @@ export class ResultPage {
         this.deleteError.set(DELETE_ERROR);
       },
     });
+  }
+
+  protected sectionOf(tab: TabId): 'sml' | 'smf' | 'sme' {
+    return tab === 'features' ? 'smf' : tab === 'evidence' ? 'sme' : 'sml';
   }
 
   protected select(id: TabId): void {

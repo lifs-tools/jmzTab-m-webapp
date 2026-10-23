@@ -71,9 +71,12 @@
               >
                 @if (active() === 'messages') {
                   <app-messages-tab [messages]="rec.messages ?? []" />
+                } @else if (active() === 'metadata') {
+                  <app-metadata-tab [validationId]="rec.id ?? ''" />
                 } @else {
-                  <!-- Task 13 replaces this placeholder with the section views. -->
-                  <p class="lifs-note">Section view coming next.</p>
+                  @for (sec of [active()]; track sec) {
+                    <app-table-tab [validationId]="rec.id ?? ''" [section]="sectionOf(sec)" />
+                  }
                 }
               </div>
             </div>
