@@ -89,6 +89,7 @@
         <jquery.version>3.6.1</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <frontend.skip>false</frontend.skip>
+        <openapi.update>false</openapi.update>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
         <ga.id></ga.id>
