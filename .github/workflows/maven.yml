@@ -69,12 +69,14 @@ jobs:
       run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
 
     # Integration branch: pushes only the version tag (2.0.0-SNAPSHOT), never latest.
+    # Jib always pushes `to.image` itself, and an image reference without a tag means
+    # :latest, so the tag has to be part of the image reference, not only of jib.to.tags.
     - name: Build and push integration branch docker image with Maven
       if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa'
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-      run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
+      run: ./mvnw -B package -Pdocker "-Djib.to.image=docker.lifs-tools.org/lifs/mztab-validator-webapp:${RELEASE_VERSION}" "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
 
   # End-to-end tests of the SPA against the packaged jar (not part of ./mvnw verify).
   e2e:
