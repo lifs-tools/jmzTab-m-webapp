@@ -6,4 +6,5 @@ VOLUME /tmp
 ARG JAR_FILE
 ARG APP_NAME
 ADD target/${JAR_FILE} app.jar
-ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","/app.jar"]
+# the heap follows the container memory limit
+ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-XX:MaxRAMPercentage=75","-jar","/app.jar"]

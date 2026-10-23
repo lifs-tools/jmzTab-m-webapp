@@ -15,6 +15,7 @@ Source: spec §2 goal 1 and the parent design §3.2b (mzTab 1.0 excluded). Items
 - [x] **Old URLs.** How to check: `/validate/{id}` redirects to `/result/{id}`. Local: 302 as expected.
 - [x] **REST contracts unchanged.** How to check: the Swagger UI and `/v3/api-docs` load; `/rest/v2/validate` and `/validatePlain` respond as before (script `lipidcompass-submissions/src/curation/validate.py` against -dev). Local: `/v3/api-docs` 200, `/swagger-ui.html` redirects to the UI; the contract tests pass in `./mvnw verify`.
 - [ ] **Real files from the standalone design §3.3** validated on -dev (including the 32 MB file with the 846 x 1,990 table, in Chrome: page through Summary and shift the column window five times without the tab freezing). Local part below; the in-browser interaction is left to -dev.
+- [ ] **Heap stays below the container memory limit** while validating LCS-00050 and paging Summary on -dev. How to check: watch `docker stats` for the `mztabvalidator-dev` container during the large-file check; memory use stays below the 2048M limit and the container is not restarted (the image runs with `-XX:MaxRAMPercentage=75`).
 
 ## Large-file check (local jar, no profile)
 

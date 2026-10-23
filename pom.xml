@@ -377,6 +377,8 @@
                         <container>
                             <jvmFlags>
                                 <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+                                <!-- the heap follows the container memory limit (2048M on the public stacks) -->
+                                <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
                             </jvmFlags>
                             <ports>
                                 <port>8083</port>
