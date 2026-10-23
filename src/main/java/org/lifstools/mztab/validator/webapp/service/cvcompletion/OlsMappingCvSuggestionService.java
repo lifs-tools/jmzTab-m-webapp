@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import jakarta.xml.bind.JAXBException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -63,7 +62,7 @@ public class OlsMappingCvSuggestionService {
     private final Map<String, Ontology> ontologyLookup = new ConcurrentHashMap<>();
 
     @Autowired
-    public OlsMappingCvSuggestionService(OLSClient client, CvParameterLookupService lookupService) throws JAXBException, IOException {
+    public OlsMappingCvSuggestionService(OLSClient client, CvParameterLookupService lookupService) throws IOException {
         this.client = client;
         Resource res = new DefaultResourceLoader().getResource("mappings/mzTab-M-mapping.xml");
         try (InputStream in = res.getInputStream()) {
