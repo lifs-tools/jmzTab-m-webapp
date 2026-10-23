@@ -79,6 +79,7 @@
                 [class.null]="c === 'null'"
                 [class.cell--hl]="hit && !!highlight()?.column && columns()[i] === highlight()?.column"
                 [attr.tabindex]="isFocusCell(row.index ?? -1, columns()[i], i) ? -1 : null"
+                [attr.data-hl-focus]="isFocusCell(row.index ?? -1, columns()[i], i) ? '' : null"
               >{{ c }}</td>
             }
           </tr>

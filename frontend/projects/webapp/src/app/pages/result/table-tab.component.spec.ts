@@ -328,5 +328,40 @@ describe('TableTabComponent', () => {
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
       expect(ctx.next().request.params.get('page')).toBe('2');
     });
+
+    it('a typed filter still in its debounce does not undo the jump', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      vi.useFakeTimers();
+      const input = ctx.el.querySelectorAll<HTMLInputElement>('thead input')[1];
+      input.value = 'x';
+      input.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(100);
+      ctx.fixture.componentRef.setInput('highlight', hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      ctx.fixture.detectChanges();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
+      await ctx.settle();
+      const r = ctx.next();
+      expect(r.request.params.get('page')).toBe('2');
+      expect(r.request.params.has('filter')).toBe(false);
+      r.flush(page({ page: 2 }));
+    });
+
+    it('does not steal focus after the user pages while the jump loads', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      const jumpReq = ctx.next();
+      ctx.el.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')!.click();
+      await ctx.settle();
+      expect(jumpReq.cancelled).toBe(true);
+      const cols = ALL.slice(0, 50);
+      ctx.next().flush(page({ page: 3, columns: cols, rows: rowsAt([120], cols) }));
+      await ctx.settle();
+      expect(ctx.el.contains(document.activeElement)).toBe(false);
+    });
   });
 });

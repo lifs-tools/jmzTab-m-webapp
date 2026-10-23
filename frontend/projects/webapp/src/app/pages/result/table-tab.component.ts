@@ -14,7 +14,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Observable, Subject, catchError, debounceTime, filter, map, of, switchMap } from 'rxjs';
+import { EMPTY, Observable, Subject, catchError, filter, map, of, switchMap, timer } from 'rxjs';
 
 import { TablePage } from '../../api/models/table-page';
 import { ValidationsService } from '../../api/services/validations.service';
@@ -108,7 +108,7 @@ export class TableTabComponent {
   protected readonly hasPrev = computed(() => this.pageIndex() > 0);
   protected readonly hasNext = computed(() => (this.pageIndex() + 1) * this.size() < this.total());
 
-  private readonly filterEdits = new Subject<void>();
+  private readonly filterEdits = new Subject<boolean>();
   private readonly retryNonce = signal(0);
   private lastGood: Snapshot | undefined;
   private shownKey: string | undefined;
@@ -198,7 +198,11 @@ export class TableTabComponent {
       });
 
     this.filterEdits
-      .pipe(debounceTime(FILTER_DEBOUNCE_MS), takeUntilDestroyed())
+      .pipe(
+        // true starts (or restarts) the debounce, false cancels a pending one
+        switchMap((start) => (start ? timer(FILTER_DEBOUNCE_MS) : EMPTY)),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         const next: Record<string, string> = {};
         for (const [col, text] of Object.entries(this.draftFilters())) if (text !== '') next[col] = text;
@@ -255,6 +259,7 @@ export class TableTabComponent {
   }
 
   protected toggleSort(col: string): void {
+    this.awaitingFocus = false;
     if (this.sort() !== col) {
       this.sort.set(col);
       this.descending.set(false);
@@ -269,20 +274,25 @@ export class TableTabComponent {
 
   protected onFilter(col: string, event: Event): void {
     this.draftFilters.update((f) => ({ ...f, [col]: (event.target as HTMLInputElement).value }));
-    this.filterEdits.next();
+    this.awaitingFocus = false;
+    this.filterEdits.next(true);
   }
 
   protected setSize(event: Event): void {
+    this.awaitingFocus = false;
     this.size.set(Number((event.target as HTMLSelectElement).value));
     this.pageIndex.set(0);
   }
 
   protected go(delta: number): void {
+    this.awaitingFocus = false;
     this.pageIndex.update((p) => Math.max(0, p + delta));
   }
 
   /** Changing the visible columns clears filters, which may refer to columns that are no longer shown. */
   private resetColumnsState(): void {
+    this.filterEdits.next(false); // a typed filter still in its debounce must not fire after this
+    this.awaitingFocus = false; // a jump sets it again after the reset
     this.draftFilters.set({});
     this.filters.set({});
     this.sort.set(null);
@@ -317,7 +327,7 @@ export class TableTabComponent {
   private focusTarget(): void {
     afterNextRender(
       () => {
-        const el = this.host.nativeElement.querySelector<HTMLElement>('[tabindex="-1"]');
+        const el = this.host.nativeElement.querySelector<HTMLElement>('[data-hl-focus]');
         el?.focus({ preventScroll: true });
         el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // jsdom has no scrollIntoView
       },
