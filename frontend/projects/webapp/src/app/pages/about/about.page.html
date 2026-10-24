@@ -1,0 +1,106 @@
+<section class="hero">
+  <p class="lifs-eyebrow">LIFS Tools · Report &amp; share</p>
+  <h1>About the mzTab-M Validator</h1>
+  <p class="lifs-lead">
+    A web service of the LIFS Tools Consortium that checks mzTab-M files for structural and semantic
+    correctness.
+  </p>
+</section>
+
+<div class="page lifs-prose">
+  <section class="lifs-card" aria-labelledby="about-formats">
+    <h2 id="about-formats" class="lifs-card__title">mzTab-M and jmzTab-m</h2>
+    <p>
+      <a href="https://github.com/HUPO-PSI/mzTab" target="_blank" rel="noopener">mzTab-M</a> is the HUPO-PSI
+      tab-separated exchange format for quantitative results of mass spectrometry based metabolomics
+      experiments.
+      <a href="https://github.com/lifs-tools/jmzTab-m" target="_blank" rel="noopener">jmzTab-m</a> is its Java
+      reference implementation; this service uses it to parse and validate your files.
+    </p>
+    <p class="notice" role="note">mzTab 1.0 validation was retired in version 2.0.0.</p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="about-levels">
+    <h2 id="about-levels" class="lifs-card__title">Validation levels</h2>
+    <p>The level decides which messages are reported:</p>
+    <ul>
+      <li><span class="lifs-lvl lifs-lvl--info">INFO</span> everything, including hints that need no action.</li>
+      <li><span class="lifs-lvl lifs-lvl--warn">WARN</span> warnings and errors.</li>
+      <li><span class="lifs-lvl lifs-lvl--error">ERROR</span> only errors that make the file invalid.</li>
+    </ul>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="about-profiles">
+    <h2 id="about-profiles" class="lifs-card__title">Validation profiles and mapping files</h2>
+    <p>
+      A validation profile defines which controlled vocabulary terms, cardinalities and rules are expected in
+      addition to the structural checks. Choose one of the profiles offered on the
+      <a routerLink="/">start page</a>, for example the default mzTab-M 2.0 profile.
+    </p>
+    @if (info()?.customMappingsEnabled) {
+      <p>
+        You can also upload your own mapping file to check a file against custom rules. Example mapping
+        files are on the <a routerLink="/examples">examples page</a>.
+      </p>
+    }
+    <p>
+      Semantic checks look up controlled vocabulary terms in the EBI Ontology Lookup Service (OLS), so
+      validation needs network access to
+      <a href="https://www.ebi.ac.uk/ols4/" target="_blank" rel="noopener">EBI OLS</a>
+      and may take longer for large files.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="about-retention">
+    <h2 id="about-retention" class="lifs-card__title">Retention and privacy</h2>
+    <p>
+      Uploaded files and validation results are
+      @if (info()?.retentionDays; as days) {
+        kept for {{ days }} days
+      } @else {
+        kept for a limited time
+      }
+      and then deleted. You can delete a result earlier on its result page. Anyone who has the address of a
+      result can open it, so share it with care.
+    </p>
+    <p>
+      With your consent, this site uses Matomo to count page views. Page views are counted only after you
+      agree, and addresses of results are never sent. You can change your choice any time using
+      <em>Analytics</em> in the page footer.
+    </p>
+    <p>
+      Separately, when analytics is configured, the server counts validations anonymously: no file names,
+      no file contents and no identifiers are sent.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="about-cite">
+    <h2 id="about-cite" class="lifs-card__title">How to cite</h2>
+    <p>If you use this service or jmzTab-m in your work, please cite:</p>
+    <blockquote>
+      Hoffmann N, Rein J, Sachsenberg T, Hartler J, Haug K, Mayer G, Alka O, Dayalan S, Pearce JTM,
+      Rocca-Serra P, Qi D, Eisenacher M, Perez-Riverol Y, Vizcaino JA, Salek RM, Neumann S, Jones AR.
+      mzTab-M: A Data Standard for Sharing Quantitative Results in Mass Spectrometry Metabolomics.
+      <em>Anal Chem</em> 2019, 91(5), 3302-3310.
+      <a href="https://doi.org/10.1021/acs.analchem.8b04310" target="_blank" rel="noopener"
+        >doi:10.1021/acs.analchem.8b04310</a
+      >
+    </blockquote>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="about-version">
+    <h2 id="about-version" class="lifs-card__title">Version</h2>
+    @if (info(); as i) {
+      <dl class="kv">
+        <dt>Validator</dt>
+        <dd>{{ i.version }}</dd>
+        <dt>Build date</dt>
+        <dd>{{ i.buildDate }}</dd>
+        <dt>jmzTab-m</dt>
+        <dd>{{ i.jmztabmVersion }}</dd>
+      </dl>
+    } @else {
+      <p class="lifs-note">Version information is not available right now.</p>
+    }
+  </section>
+</div>

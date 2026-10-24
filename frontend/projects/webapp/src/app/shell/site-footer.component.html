@@ -1,0 +1,36 @@
+<footer class="footer">
+  <div class="footer__logos">
+    <ul class="footer__partners" aria-label="Partners">
+      @for (logo of partners; track logo.alt) {
+        <li>
+          <a [href]="logo.href" target="_blank" rel="noopener">
+            <img [src]="logo.src" [alt]="logo.alt" />
+          </a>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div class="footer__funding">
+    @for (logo of funders; track logo.alt) {
+      <img [src]="logo.src" [alt]="logo.alt" [class]="'funder--' + logo.size" />
+    }
+  </div>
+
+  <nav class="footer__links" aria-label="Legal">
+    @for (link of legalLinks; track link.href) {
+      <a [href]="link.href" target="_blank" rel="noopener">{{ link.label }}</a>
+    }
+    @if (analyticsEnabled()) {
+      <button type="button" (click)="openAnalytics()">Analytics</button>
+    }
+  </nav>
+
+  <div class="copyright">
+    <img src="brand/lifs-signet.png" alt="" width="89" height="30" />
+    <span>© 2016 - {{ year }} LIFS Tools Consortium</span>
+    <button type="button" class="copyright__top" (click)="toTop()">
+      Top <span aria-hidden="true">▲</span>
+    </button>
+  </div>
+</footer>

@@ -1,0 +1,89 @@
+:host {
+  display: block;
+}
+
+.form {
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+
+  > mat-form-field {
+    flex: 1 1 150px;
+    min-width: 150px;
+  }
+
+  > .row__wide {
+    flex: 2 1 240px;
+  }
+}
+
+.drop {
+  border: 1px dashed var(--lifs-site-blue);
+  background: var(--lifs-paper);
+  padding: 22px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+
+  &--active {
+    background: var(--lifs-tint);
+    border-style: solid;
+    border-color: var(--lifs-primary);
+  }
+}
+
+.drop__file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop__name {
+  word-break: break-all;
+}
+
+.field-hint {
+  margin-top: -8px;
+
+  &--error {
+    color: var(--lifs-error);
+  }
+}
+
+.mapping {
+  flex: 1 1 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.mapping__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  word-break: break-all;
+}
+
+button[type='submit'] mat-spinner {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--lifs-error);
+  background: var(--lifs-error-bg);
+  color: var(--lifs-error);
+}

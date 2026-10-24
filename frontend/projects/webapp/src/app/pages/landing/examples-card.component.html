@@ -1,0 +1,32 @@
+<section class="lifs-card lifs-card--accent" aria-labelledby="examples-title">
+  <h2 id="examples-title" class="lifs-card__title">Example files</h2>
+  <ul class="examples">
+    @for (e of shown(); track e.id) {
+      <li class="example">
+        <div class="example__text">
+          <a [href]="e.uri" target="_blank" rel="noopener">{{ e.name }}</a>
+          @if (e.focus || e.description; as detail) {
+            <span class="lifs-note">{{ detail }}</span>
+          }
+        </div>
+        <button mat-button type="button" (click)="validate.emit(e.id!)">Validate</button>
+      </li>
+    }
+  </ul>
+  @if (mappings().length) {
+    <h3 class="lifs-card__title">Mapping files</h3>
+    <ul class="examples">
+      @for (e of mappings(); track e.id) {
+        <li class="example">
+          <div class="example__text">
+            <a [href]="e.uri" target="_blank" rel="noopener" download>{{ e.name }}</a>
+            @if (e.description; as detail) {
+              <span class="lifs-note">{{ detail }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+  <a routerLink="/examples">All examples →</a>
+</section>

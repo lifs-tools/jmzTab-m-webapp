@@ -1,0 +1,114 @@
+<div class="toolbar">
+  @if (showWindow()) {
+    <div class="window">
+      <span aria-live="polite">{{ windowLabel() }}</span>
+      <button type="button" aria-label="Previous columns" [disabled]="!hasPrevWindow()" (click)="shiftWindow(-1)">‹</button>
+      <button type="button" aria-label="Next columns" [disabled]="!hasNextWindow()" (click)="shiftWindow(1)">›</button>
+    </div>
+  }
+  @if (allColumns().length > 1) {
+    <button type="button" class="pick-open" [attr.aria-expanded]="pickerOpen()" (click)="pickerOpen.set(!pickerOpen())">
+      Choose columns
+    </button>
+  }
+</div>
+
+@if (pickerOpen()) {
+  <app-column-picker
+    [allColumns]="allColumns()"
+    [selected]="pickerSeed()"
+    (applied)="applyPick($event)"
+    (reset)="resetPick()"
+    (closed)="pickerOpen.set(false)"
+  />
+}
+
+<div class="bar">
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading table" />
+  }
+</div>
+
+@if (error(); as msg) {
+  <div class="lifs-callout lifs-callout--error" role="alert">
+    <div>
+      {{ msg }}
+      @if (!data()) {
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      }
+    </div>
+  </div>
+}
+
+@if (data()) {
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Table data">
+    <table class="t">
+      <thead>
+        <tr>
+          @for (col of columns(); track col; let i = $index) {
+            <th scope="col" [class.sticky]="i === 0" [class.col--hl]="highlight()?.header && highlight()?.column === col" [attr.aria-sort]="ariaSort(col)">
+              <button type="button" class="sort" (click)="toggleSort(col)">
+                <span class="col-name">{{ col }}</span>
+                <span class="arrow" aria-hidden="true">{{ sort() === col ? (descending() ? '▼' : '▲') : '' }}</span>
+              </button>
+            </th>
+          }
+        </tr>
+        <tr class="filter-row">
+          @for (col of columns(); track col; let i = $index) {
+            <th [class.sticky]="i === 0">
+              <input
+                type="search"
+                class="filter"
+                [attr.aria-label]="'Filter ' + col"
+                placeholder="Filter"
+                [value]="filterValue(col)"
+                (input)="onFilter(col, $event)"
+              />
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.index) {
+          @let hit = highlightedRows().has(row.index ?? -1);
+          <tr [class.row--hl]="hit">
+            @for (c of row.cells ?? []; track $index; let i = $index) {
+              <td
+                [class.sticky]="i === 0"
+                [class.null]="c === 'null'"
+                [class.cell--hl]="hit && !!highlight()?.column && columns()[i] === highlight()?.column"
+                [attr.tabindex]="isFocusCell(row.index ?? -1, columns()[i], i) ? -1 : null"
+                [attr.data-hl-focus]="isFocusCell(row.index ?? -1, columns()[i], i) ? '' : null"
+              >{{ c }}</td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td class="empty" [attr.colspan]="columns().length || 1">No rows match.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (otherPages() > 0) {
+    <p class="hl-more" aria-live="polite">{{ otherPages() }} more on other pages</p>
+  }
+
+  <div class="pager">
+    <label class="size">
+      Rows per page
+      <select (change)="setSize($event)" [value]="size()">
+        @for (s of pageSizes; track s) {
+          <option [value]="s" [selected]="s === size()">{{ s }}</option>
+        }
+      </select>
+    </label>
+    <span aria-live="polite">{{ range() }}</span>
+    <button type="button" aria-label="Previous page" [disabled]="!hasPrev()" (click)="go(-1)">‹</button>
+    <button type="button" aria-label="Next page" [disabled]="!hasNext()" (click)="go(1)">›</button>
+  </div>
+} @else if (!error() && !loading()) {
+  <p class="lifs-note">No data.</p>
+}

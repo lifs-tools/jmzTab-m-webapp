@@ -1,0 +1,27 @@
+@if (groups.isLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading metadata" />
+} @else if (groups.error()) {
+  <p class="lifs-note" role="alert">The metadata could not be loaded.</p>
+} @else {
+  <mat-accordion multi>
+    @for (g of groups.value() ?? []; track g.name; let first = $first) {
+      <mat-expansion-panel
+        [expanded]="first"
+        [class.panel--hl]="g.name === highlight()?.group && !highlight()?.keys?.length"
+      >
+        <mat-expansion-panel-header>
+          <mat-panel-title>{{ g.name }} ({{ g.count }})</mat-panel-title>
+        </mat-expansion-panel-header>
+        <ng-template matExpansionPanelContent>
+          <app-metadata-group [validationId]="validationId()" [group]="g.name ?? ''" [count]="g.count ?? 0"
+            [highlightKeys]="g.name === highlight()?.group ? (highlight()?.keys ?? []) : []"
+            [jump]="g.name === highlight()?.group ? highlight() : null"
+            [focusKey]="g.name === highlight()?.group ? (highlight()?.focusKey ?? null) : null"
+          />
+        </ng-template>
+      </mat-expansion-panel>
+    } @empty {
+      <p class="lifs-note">No metadata.</p>
+    }
+  </mat-accordion>
+}

@@ -1,0 +1,41 @@
+:host {
+  display: block;
+}
+
+.error-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 72px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.tips {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--lifs-slate);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .error-page {
+    padding: 40px 16px 48px;
+  }
+  h1 {
+    font-size: 32px;
+  }
+}

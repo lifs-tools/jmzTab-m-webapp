@@ -1,0 +1,2126 @@
+{
+  "components" : {
+    "schemas" : {
+      "AnalyticsDto" : {
+        "properties" : {
+          "siteId" : {
+            "type" : "string"
+          },
+          "trackerBase" : {
+            "type" : "string"
+          }
+        },
+        "type" : "null"
+      },
+      "AppInfoDto" : {
+        "properties" : {
+          "analytics" : {
+            "$ref" : "#/components/schemas/AnalyticsDto"
+          },
+          "buildDate" : {
+            "type" : "string"
+          },
+          "customMappingsEnabled" : {
+            "type" : "boolean"
+          },
+          "jmztabmVersion" : {
+            "type" : "string"
+          },
+          "maxUploadBytes" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "retentionDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Assay" : {
+        "properties" : {
+          "custom" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "external_uri" : {
+            "format" : "uri",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "ms_run_ref" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MsRun"
+            },
+            "maxItems" : 2147483647,
+            "minItems" : 1,
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sample_ref" : {
+            "$ref" : "#/components/schemas/Sample"
+          }
+        },
+        "required" : [ "ms_run_ref", "name" ],
+        "type" : "object"
+      },
+      "CV" : {
+        "properties" : {
+          "full_name" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "format" : "uri",
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "full_name", "label", "uri", "version" ],
+        "type" : "object"
+      },
+      "ColumnParameterMapping" : {
+        "properties" : {
+          "column_name" : {
+            "type" : "string"
+          },
+          "param" : {
+            "$ref" : "#/components/schemas/Parameter"
+          }
+        },
+        "required" : [ "column_name", "param" ],
+        "type" : "object"
+      },
+      "Comment" : {
+        "properties" : {
+          "line_number" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "enum" : [ "COM" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "msg", "prefix" ],
+        "type" : "object"
+      },
+      "Contact" : {
+        "properties" : {
+          "affiliation" : {
+            "type" : [ "string", "null" ]
+          },
+          "email" : {
+            "pattern" : "^\\w+([\\.-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,3})+$",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "orcid" : {
+            "pattern" : "^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]{1}$",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "Database" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "param" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "format" : "uri",
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "param", "prefix", "uri", "version" ],
+        "type" : "object"
+      },
+      "ExampleDto" : {
+        "properties" : {
+          "createdBy" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "focus" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "section" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "format" : "uri",
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ExampleValidationRequest" : {
+        "properties" : {
+          "level" : {
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : [ "string", "null" ]
+          },
+          "maxErrors" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "validationProfile" : {
+            "type" : [ "string", "null" ]
+          },
+          "validationProfileVersion" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "null"
+      },
+      "Instrument" : {
+        "properties" : {
+          "analyzer" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "detector" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/Parameter"
+          }
+        },
+        "type" : "null"
+      },
+      "Metadata" : {
+        "properties" : {
+          "assay" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Assay"
+            },
+            "type" : "array"
+          },
+          "colunit-small_molecule" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ColumnParameterMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "colunit-small_molecule_evidence" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ColumnParameterMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "colunit-small_molecule_feature" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ColumnParameterMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "contact" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Contact"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "custom" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "cv" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CV"
+            },
+            "type" : "array"
+          },
+          "database" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Database"
+            },
+            "type" : "array"
+          },
+          "derivatization_agent" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "external_study_uri" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Uri"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "id_confidence_measure" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : "array"
+          },
+          "instrument" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Instrument"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "ms_run" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MsRun"
+            },
+            "type" : "array"
+          },
+          "mzTab-ID" : {
+            "type" : "string"
+          },
+          "mzTab-profile" : {
+            "enum" : [ "M", "M+S", "M+F", "M+F+E", "M+S+F+E" ],
+            "type" : [ "string", "null" ]
+          },
+          "mzTab-version" : {
+            "pattern" : "^\\d{1}\\.\\d{1}\\.\\d{1}-[A-Z]{1}$",
+            "type" : "string"
+          },
+          "prefix" : {
+            "enum" : [ "MTD" ],
+            "type" : "string"
+          },
+          "publication" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Publication"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "quantification_method" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "sample" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Sample"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "sample_processing" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SampleProcessing"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "small_molecule-identification_reliability" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "small_molecule-quantification_unit" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "small_molecule_feature-quantification_unit" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "software" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Software"
+            },
+            "type" : "array"
+          },
+          "study_variable" : {
+            "items" : {
+              "$ref" : "#/components/schemas/StudyVariable"
+            },
+            "type" : "array"
+          },
+          "study_variable_group" : {
+            "items" : {
+              "$ref" : "#/components/schemas/StudyVariableGroup"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          },
+          "uri" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Uri"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "required" : [ "assay", "cv", "database", "id_confidence_measure", "ms_run", "mzTab-ID", "mzTab-version", "prefix", "quantification_method", "small_molecule-quantification_unit", "small_molecule_feature-quantification_unit", "software", "study_variable", "study_variable_group" ],
+        "type" : "object"
+      },
+      "MetadataEntry" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "lineNumber" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MetadataGroup" : {
+        "properties" : {
+          "count" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MetadataPage" : {
+        "properties" : {
+          "entries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MetadataEntry"
+            },
+            "type" : "array"
+          },
+          "group" : {
+            "type" : "string"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "MsRun" : {
+        "properties" : {
+          "format" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "fragmentation_method" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "hash" : {
+            "type" : [ "string", "null" ]
+          },
+          "hash_method" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "id_format" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "instrument_ref" : {
+            "$ref" : "#/components/schemas/Instrument"
+          },
+          "location" : {
+            "format" : "uri",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "scan_polarity" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "required" : [ "id", "location" ],
+        "type" : "object"
+      },
+      "MzTab" : {
+        "properties" : {
+          "comment" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Comment"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "smallMoleculeEvidence" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SmallMoleculeEvidence"
+            },
+            "type" : "array"
+          },
+          "smallMoleculeFeature" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SmallMoleculeFeature"
+            },
+            "type" : "array"
+          },
+          "smallMoleculeSummary" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SmallMoleculeSummary"
+            },
+            "maxItems" : 2147483647,
+            "minItems" : 1,
+            "type" : "array"
+          }
+        },
+        "required" : [ "metadata", "smallMoleculeEvidence", "smallMoleculeFeature", "smallMoleculeSummary" ],
+        "type" : "object"
+      },
+      "OptColumnMapping" : {
+        "properties" : {
+          "identifier" : {
+            "type" : "string"
+          },
+          "param" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "value" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "identifier" ],
+        "type" : "object"
+      },
+      "Parameter" : {
+        "properties" : {
+          "cv_accession" : {
+            "type" : [ "string", "null" ]
+          },
+          "cv_label" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "value" ],
+        "type" : "object"
+      },
+      "ProfileRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "NONE", "CATALOG", "CUSTOM" ],
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Publication" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "publicationItems" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PublicationItem"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "publicationItems" ],
+        "type" : "object"
+      },
+      "PublicationItem" : {
+        "properties" : {
+          "accession" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "doi", "pubmed", "uri" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accession", "type" ],
+        "type" : "object"
+      },
+      "Sample" : {
+        "properties" : {
+          "cell_type" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "custom" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "disease" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "species" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "tissue" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "type" : "null"
+      },
+      "SampleProcessing" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "sampleProcessing" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "SectionsSummary" : {
+        "properties" : {
+          "metadataLines" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sme" : {
+            "$ref" : "#/components/schemas/TableSize"
+          },
+          "smf" : {
+            "$ref" : "#/components/schemas/TableSize"
+          },
+          "sml" : {
+            "$ref" : "#/components/schemas/TableSize"
+          }
+        },
+        "type" : "object"
+      },
+      "SmallMoleculeEvidence" : {
+        "properties" : {
+          "adduct_ion" : {
+            "pattern" : "^\\[\\d*M([+-][\\w\\d]+)*\\]\\d*[+-]$",
+            "type" : [ "string", "null" ]
+          },
+          "charge" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "chemical_formula" : {
+            "type" : [ "string", "null" ]
+          },
+          "chemical_name" : {
+            "type" : [ "string", "null" ]
+          },
+          "comment" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Comment"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "database_identifier" : {
+            "type" : "string"
+          },
+          "derivatized_form" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "evidence_input_id" : {
+            "type" : "string"
+          },
+          "exp_mass_to_charge" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "header_prefix" : {
+            "enum" : [ "SEH" ],
+            "type" : [ "string", "null" ]
+          },
+          "id_confidence_measure" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "identification_method" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "inchi" : {
+            "type" : [ "string", "null" ]
+          },
+          "ms_level" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "opt" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OptColumnMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "prefix" : {
+            "enum" : [ "SME" ],
+            "type" : [ "string", "null" ]
+          },
+          "rank" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "sme_id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "smiles" : {
+            "type" : [ "string", "null" ]
+          },
+          "spectra_ref" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SpectraRef"
+            },
+            "type" : "array"
+          },
+          "theoretical_mass_to_charge" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "uri" : {
+            "format" : "uri",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "charge", "database_identifier", "evidence_input_id", "exp_mass_to_charge", "identification_method", "ms_level", "rank", "sme_id", "spectra_ref", "theoretical_mass_to_charge" ],
+        "type" : "object"
+      },
+      "SmallMoleculeFeature" : {
+        "properties" : {
+          "abundance_assay" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "adduct_ion" : {
+            "pattern" : "^\\[\\d*M([+-][\\w\\d]+)*\\]\\d*[+-]$",
+            "type" : [ "string", "null" ]
+          },
+          "charge" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "comment" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Comment"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "exp_mass_to_charge" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "header_prefix" : {
+            "enum" : [ "SFH" ],
+            "type" : [ "string", "null" ]
+          },
+          "isotopomer" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "opt" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OptColumnMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "prefix" : {
+            "enum" : [ "SMF" ],
+            "type" : [ "string", "null" ]
+          },
+          "retention_time_in_seconds" : {
+            "format" : "double",
+            "type" : [ "number", "null" ]
+          },
+          "retention_time_in_seconds_end" : {
+            "format" : "double",
+            "type" : [ "number", "null" ]
+          },
+          "retention_time_in_seconds_start" : {
+            "format" : "double",
+            "type" : [ "number", "null" ]
+          },
+          "sme_id_ref_ambiguity_code" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "sme_id_refs" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "smf_id" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "exp_mass_to_charge", "smf_id" ],
+        "type" : "object"
+      },
+      "SmallMoleculeSummary" : {
+        "properties" : {
+          "abundance_assay" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "abundance_study_variable" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "abundance_variation_study_variable" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "adduct_ions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "best_id_confidence_measure" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "best_id_confidence_value" : {
+            "format" : "double",
+            "type" : [ "number", "null" ]
+          },
+          "chemical_formula" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "chemical_name" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "comment" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Comment"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "database_identifier" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "header_prefix" : {
+            "enum" : [ "SMH" ],
+            "type" : [ "string", "null" ]
+          },
+          "inchi" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "opt" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OptColumnMapping"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "prefix" : {
+            "enum" : [ "SML" ],
+            "type" : [ "string", "null" ]
+          },
+          "reliability" : {
+            "type" : [ "string", "null" ]
+          },
+          "smf_id_refs" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "smiles" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "sml_id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "theoretical_neutral_mass" : {
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "uri" : {
+            "items" : {
+              "format" : "uri",
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "required" : [ "sml_id" ],
+        "type" : "object"
+      },
+      "Software" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "parameter" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "setting" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "ting" : {
+            "$ref" : "#/components/schemas/Software",
+            "writeOnly" : true
+          }
+        },
+        "type" : "object"
+      },
+      "SpectraRef" : {
+        "properties" : {
+          "ms_run" : {
+            "$ref" : "#/components/schemas/MsRun"
+          },
+          "reference" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "ms_run", "reference" ],
+        "type" : "object"
+      },
+      "StudyVariable" : {
+        "properties" : {
+          "assay_refs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Assay"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "average_function" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "variation_function" : {
+            "$ref" : "#/components/schemas/Parameter"
+          }
+        },
+        "required" : [ "id", "name" ],
+        "type" : "object"
+      },
+      "StudyVariableGroup" : {
+        "properties" : {
+          "datatype" : {
+            "type" : [ "string", "null" ]
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "parameter" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "study_variable_refs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/StudyVariable"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "type" : {
+            "$ref" : "#/components/schemas/Parameter"
+          },
+          "unit" : {
+            "$ref" : "#/components/schemas/Parameter"
+          }
+        },
+        "required" : [ "description", "id", "parameter" ],
+        "type" : "object"
+      },
+      "TablePage" : {
+        "properties" : {
+          "allColumns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "columns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rows" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TableRow"
+            },
+            "type" : "array"
+          },
+          "section" : {
+            "enum" : [ "SML", "SMF", "SME" ],
+            "type" : "string"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalRows" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TableRow" : {
+        "properties" : {
+          "cells" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "index" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TableSize" : {
+        "properties" : {
+          "columns" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rows" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Uri" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "value" : {
+            "format" : "uri",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ValidationLocation" : {
+        "properties" : {
+          "column" : {
+            "type" : [ "string", "null" ]
+          },
+          "element_path" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata_group" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata_key" : {
+            "type" : [ "string", "null" ]
+          },
+          "row_index" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : [ "integer", "null" ]
+          },
+          "section" : {
+            "enum" : [ "mtd", "smh", "sml", "sfh", "smf", "seh", "sme", "com", "file" ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "null"
+      },
+      "ValidationMessage" : {
+        "properties" : {
+          "category" : {
+            "enum" : [ "format", "logical", "cross_check" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "line_number" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "location" : {
+            "$ref" : "#/components/schemas/ValidationLocation"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "message_type" : {
+            "enum" : [ "error", "warn", "info" ],
+            "type" : [ "string", "null" ]
+          },
+          "rule_id" : {
+            "type" : [ "string", "null" ]
+          },
+          "suggestion" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "category", "code", "message" ],
+        "type" : "object"
+      },
+      "ValidationProfile" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "mzTabVersions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ValidationRecord" : {
+        "properties" : {
+          "counts" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "failureReason" : {
+            "type" : "string"
+          },
+          "fileName" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "level" : {
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          },
+          "maxErrors" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "messages" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ValidationMessage"
+            },
+            "type" : "array"
+          },
+          "mzTabVersion" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "enum" : [ "PASSED", "PASSED_WITH_NOTES", "FAILED", "NOT_PARSED" ],
+            "type" : "string"
+          },
+          "sections" : {
+            "$ref" : "#/components/schemas/SectionsSummary"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "QUEUED", "RUNNING", "FINISHED", "FAILED" ],
+            "type" : "string"
+          },
+          "validationProfile" : {
+            "$ref" : "#/components/schemas/ProfileRef"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "externalDocs" : {
+    "description" : "Contact & Support",
+    "url" : "https://lifs-tools.org/contact"
+  },
+  "info" : {
+    "description" : "This is the mzTab validation service.",
+    "license" : {
+      "name" : "Apache 2.0",
+      "url" : "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "title" : "mzTab validation API.",
+    "version" : "2.0.0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/rest/v2/app-info" : {
+      "get" : {
+        "operationId" : "getAppInfo",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AppInfoDto"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns version, limits and analytics settings",
+        "tags" : [ "app-info" ]
+      }
+    },
+    "/rest/v2/convert" : {
+      "post" : {
+        "description" : "Converts an mzTab file in JSON or XML format to the tab-separated representation. If this method returns an error code 422, the provided file did not pass validation. ",
+        "operationId" : "convertMzTabFile",
+        "requestBody" : {
+          "content" : {
+            "text/plain" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MzTab"
+              }
+            },
+            "text/tab-separated-values" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MzTab"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Unexpected error"
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Unsupported content type"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Invalid input"
+          }
+        },
+        "summary" : "convertMzTabFile",
+        "tags" : [ "convert" ]
+      }
+    },
+    "/rest/v2/convertPlain" : {
+      "post" : {
+        "description" : "Converts an mzTab file in tab separated format to XML or JSON representation. If this method returns an error code 422, the provided file did not pass validation. ",
+        "operationId" : "convertPlainMzTabFile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "description" : "mzTab file that should be converted.",
+                "type" : "string"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "description" : "mzTab file that should be converted.",
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MzTab"
+                }
+              }
+            },
+            "description" : "Unexpected error"
+          },
+          "415" : {
+            "content" : {
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MzTab"
+                }
+              }
+            },
+            "description" : "Unsupported content type"
+          },
+          "422" : {
+            "content" : {
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MzTab"
+                }
+              }
+            },
+            "description" : "Invalid input"
+          }
+        },
+        "summary" : "convertPlainMzTabFile",
+        "tags" : [ "convertPlain", "convert" ]
+      }
+    },
+    "/rest/v2/examples" : {
+      "get" : {
+        "operationId" : "listExamples",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ExampleDto"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the example files",
+        "tags" : [ "examples" ]
+      }
+    },
+    "/rest/v2/examples/{id}/validations" : {
+      "post" : {
+        "operationId" : "validateExample",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ExampleValidationRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Starts a validation of an example file",
+        "tags" : [ "examples" ]
+      }
+    },
+    "/rest/v2/validate" : {
+      "post" : {
+        "description" : "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors.",
+        "operationId" : "validateMzTabFile",
+        "parameters" : [ {
+          "description" : "The level of errors that should be reported, one of error, warn, info.",
+          "in" : "query",
+          "name" : "level",
+          "required" : false,
+          "schema" : {
+            "default" : "info",
+            "type" : "string"
+          }
+        }, {
+          "description" : "The maximum number of errors to return.",
+          "in" : "query",
+          "name" : "maxErrors",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Whether a semantic validation against the default rule set should be performed.",
+          "in" : "query",
+          "name" : "semanticValidation",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MzTab"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MzTab"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Validation Okay"
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Unsupported content type"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Invalid input"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Unexpected error"
+          }
+        },
+        "summary" : "validateMzTabFile",
+        "tags" : [ "validate" ]
+      }
+    },
+    "/rest/v2/validatePlain" : {
+      "post" : {
+        "description" : "Validates an mzTab file in plain text representation and reports syntactic, structural, and semantic errors.",
+        "operationId" : "validatePlainMzTabFile",
+        "parameters" : [ {
+          "description" : "The level of errors that should be reported, one of error, warn, info.",
+          "in" : "query",
+          "name" : "level",
+          "required" : false,
+          "schema" : {
+            "default" : "info",
+            "type" : "string"
+          }
+        }, {
+          "description" : "The maximum number of errors to return.",
+          "in" : "query",
+          "name" : "maxErrors",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Whether a semantic validation against the default rule set should be performed.",
+          "in" : "query",
+          "name" : "semanticValidation",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "text/plain" : {
+              "schema" : {
+                "description" : "mzTab file that should be validated.",
+                "type" : "string"
+              }
+            },
+            "text/tab-separated-values" : {
+              "schema" : {
+                "description" : "mzTab file that should be validated.",
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Validation Okay"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Invalid request"
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Unsupported content type"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Invalid input"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Unexpected error"
+          }
+        },
+        "summary" : "validatePlainMzTabFile",
+        "tags" : [ "validatePlain" ]
+      }
+    },
+    "/rest/v2/validation-profiles" : {
+      "get" : {
+        "operationId" : "listValidationProfiles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationProfile"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the available validation profiles (latest version of each)",
+        "tags" : [ "validation-profiles" ]
+      }
+    },
+    "/rest/v2/validations" : {
+      "post" : {
+        "operationId" : "createValidation",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "level",
+          "required" : false,
+          "schema" : {
+            "default" : "INFO",
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxErrors",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "validationProfile",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "validationProfileVersion",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  },
+                  "mappingFile" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Starts a validation of an uploaded mzTab-M file",
+        "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/validations/{id}" : {
+      "delete" : {
+        "operationId" : "deleteValidation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Deletes a validation and its stored data",
+        "tags" : [ "validations" ]
+      },
+      "get" : {
+        "operationId" : "getValidation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns the state and result of a validation",
+        "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/validations/{id}/metadata" : {
+      "get" : {
+        "operationId" : "listMetadataGroups",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MetadataGroup"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the metadata groups of a validated file",
+        "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/validations/{id}/metadata/{group}" : {
+      "get" : {
+        "operationId" : "getMetadataPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "group",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "A metadata key of the group; the page that holds it is returned and page is ignored",
+          "in" : "query",
+          "name" : "key",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MetadataPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns one page of a metadata group",
+        "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/validations/{id}/report" : {
+      "get" : {
+        "operationId" : "getValidationReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "default" : "csv",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Downloads the validation messages as CSV or JSON",
+        "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/validations/{id}/tables/{section}" : {
+      "get" : {
+        "operationId" : "getTablePage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "section",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "descending",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "columns",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          }
+        }, {
+          "description" : "COLUMN:text, repeatable; the column is the first ':'-prefix that is an exact column name, the rest is the text (not split at commas)",
+          "in" : "query",
+          "name" : "filter",
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TablePage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns one page of the SML, SMF or SME table",
+        "tags" : [ "validations" ]
+      }
+    }
+  },
+  "tags" : [ {
+    "description" : "the convert API",
+    "name" : "convert"
+  }, {
+    "description" : "The validation API for mzTab-m documents in JSON or XML format.",
+    "name" : "validate"
+  }, {
+    "description" : "The validation API for mzTab-m documents in plaintext / tsv format.",
+    "name" : "validatePlain"
+  }, {
+    "description" : "the convertPlain API",
+    "name" : "convert"
+  } ]
+}

@@ -1,0 +1,34 @@
+<section class="picker" aria-label="Choose columns">
+  <div class="top">
+    <label class="search">
+      <span class="visually-hidden">Search columns</span>
+      <input type="search" placeholder="Search columns" [value]="search()" (input)="search.set($any($event.target).value)" />
+    </label>
+    <span class="count" aria-live="polite">{{ draft().size }} of {{ max }} selected</span>
+  </div>
+  @if (full()) {
+    <p class="hint">Up to {{ max }} columns.</p>
+  }
+  <ul class="list">
+    @for (col of visible(); track col) {
+      <li>
+        <label>
+          <input
+            type="checkbox"
+            [checked]="draft().has(col)"
+            [disabled]="isFirst(col) || (full() && !draft().has(col))"
+            (change)="toggle(col, $any($event.target).checked)"
+          />
+          <span class="name">{{ col }}</span>
+        </label>
+      </li>
+    } @empty {
+      <li class="lifs-note">No column matches.</li>
+    }
+  </ul>
+  <div class="actions">
+    <button type="button" class="pick-apply primary" (click)="apply()">Apply</button>
+    <button type="button" class="pick-reset" (click)="reset.emit()">Reset to window</button>
+    <button type="button" class="pick-close" (click)="closed.emit()">Close</button>
+  </div>
+</section>

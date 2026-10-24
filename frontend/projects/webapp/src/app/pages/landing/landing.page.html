@@ -1,0 +1,29 @@
+<section class="hero">
+  <div class="hero__col">
+    <p class="lifs-eyebrow">LIFS Tools · Report &amp; share</p>
+    <h1>Validate your mzTab-M files</h1>
+  </div>
+  <div class="hero__col">
+    <p class="lifs-lead">
+      Structural and semantic validation with jmzTab-m, the mzTab-M reference implementation.
+    </p>
+    @if (retentionDays(); as days) {
+      <p class="lifs-note">Results are kept for {{ days }} days, then deleted.</p>
+    }
+  </div>
+</section>
+
+<div class="page cols">
+  <app-validator-form class="cols__main" />
+  <div class="cols__side">
+    <app-examples-card [examples]="examples()" (validate)="validateExample($event)" />
+    <section class="lifs-card" aria-labelledby="scripts-title">
+      <h2 id="scripts-title" class="lifs-card__title">For scripts</h2>
+      <p class="lifs-note">
+        <a href="swagger-ui/index.html" target="_blank" rel="noopener">REST API</a> ·
+        <a href="https://github.com/lifs-tools/pymzTab-m" target="_blank" rel="noopener">pymzTab-m</a> ·
+        <a href="https://github.com/lifs-tools/rmzTab-m" target="_blank" rel="noopener">rmzTab-m</a>
+      </p>
+    </section>
+  </div>
+</div>
