@@ -44,7 +44,9 @@
           @if (tabs().length) {
             <div class="visually-hidden" aria-live="polite">
               @if (focus(); as f) {
-                <span class="occ">Showing occurrence {{ f.index + 1 }} of {{ f.targets.length }}</span>
+                <span class="occ"
+                  >Showing occurrence {{ f.index + 1 }} of {{ f.targets.length }}: {{ f.labels[f.index] }}</span
+                >
               }
             </div>
 
@@ -91,13 +93,23 @@
 
             <ng-template #stepper let-f>
               <span class="pos">{{ f.index + 1 }} of {{ f.targets.length }}</span>
-              <button type="button" class="step" aria-label="Previous occurrence" [disabled]="f.index === 0" (click)="step(-1)">‹</button>
               <button
+                #prev
+                type="button"
+                class="step"
+                aria-label="Previous occurrence"
+                [disabled]="f.index === 0"
+                (click)="step(-1, prev, next)"
+              >
+                ‹
+              </button>
+              <button
+                #next
                 type="button"
                 class="step"
                 aria-label="Next occurrence"
                 [disabled]="f.index >= f.targets.length - 1"
-                (click)="step(1)"
+                (click)="step(1, next, prev)"
               >
                 ›
               </button>

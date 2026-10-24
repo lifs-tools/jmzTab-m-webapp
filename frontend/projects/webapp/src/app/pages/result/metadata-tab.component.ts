@@ -29,6 +29,8 @@ export interface MetadataHighlight {
   group: string;
   keys: readonly string[];
   focusKey: string | null;
+  /** Whether the jump takes the focus; a ‹ › step leaves it on the stepper. */
+  moveFocus: boolean;
 }
 
 /** Entries of one metadata group, paged by the server; created (and so loaded) only when its panel opens. */
@@ -122,7 +124,7 @@ export class MetadataGroupComponent {
             () => {
               const el = this.host.nativeElement.querySelector<HTMLElement>('.entry[tabindex="-1"]');
               el?.scrollIntoView?.({ block: 'nearest' }); // jsdom has no scrollIntoView
-              el?.focus();
+              if (this.jump()?.moveFocus) el?.focus({ preventScroll: true });
             },
             { injector: this.injector },
           );

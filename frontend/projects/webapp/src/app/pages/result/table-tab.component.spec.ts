@@ -7,7 +7,7 @@ import { TableHighlight, TableTabComponent } from './table-tab.component';
 
 const ALL = Array.from({ length: 120 }, (_, i) => (i === 0 ? 'SML_ID' : `col[${i}]`));
 const WIDE = Array.from({ length: 130 }, (_, i) => `col${i}`);
-const hl = (over: Partial<TableHighlight>): TableHighlight => ({ rows: [], focusRow: null, column: null, header: false, ...over });
+const hl = (over: Partial<TableHighlight>): TableHighlight => ({ rows: [], focusRow: null, column: null, header: false, moveFocus: true, ...over });
 
 function page(over: Partial<TablePage> = {}): TablePage {
   const columns = over.columns ?? ALL.slice(0, 50);
@@ -246,6 +246,19 @@ describe('TableTabComponent', () => {
       await ctx.settle();
       expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
       expect(document.activeElement?.closest('tr')?.classList.contains('row--hl')).toBe(true);
+    });
+
+    it('opens the row without taking the focus when the jump does not move it', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID', moveFocus: false }));
+      const cols = ALL.slice(0, 50);
+      ctx.next().flush(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
+      await ctx.settle();
+      expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
+      expect(ctx.el.querySelector('[data-hl-focus]')).toBeTruthy();
+      expect(ctx.el.contains(document.activeElement)).toBe(false);
     });
 
     it('moves the column window to show a far column', async () => {

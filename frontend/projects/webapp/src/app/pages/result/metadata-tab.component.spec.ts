@@ -80,7 +80,7 @@ describe('MetadataTabComponent', () => {
 
   it('expands the highlighted group and asks for the page that holds the key', async () => {
     const key = 'sample[60]-description';
-    const fixture = await renderHighlighted({ group: 'sample', keys: [key], focusKey: key });
+    const fixture = await renderHighlighted({ group: 'sample', keys: [key], focusKey: key, moveFocus: true });
     const req = http.expectOne((r) => isPage('sample')(r.url));
     expect(req.request.params.get('key')).toBe(key);
     req.flush({ group: 'sample', page: 1, size: 50, total: 70, entries: [{ lineNumber: 9, key, value: 'x' }] });
@@ -95,7 +95,7 @@ describe('MetadataTabComponent', () => {
 
   it('marks every highlighted key on the page', async () => {
     const all = entries(3);
-    const fixture = await renderHighlighted({ group: 'sample', keys: all.map((e) => e.key), focusKey: null });
+    const fixture = await renderHighlighted({ group: 'sample', keys: all.map((e) => e.key), focusKey: null, moveFocus: true });
     http.expectOne((r) => isPage('sample')(r.url)).flush({ group: 'sample', page: 0, size: 50, total: 3, entries: all });
     http.expectOne((r) => isPage('general')(r.url)).flush({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
     await settle(fixture);
@@ -103,7 +103,7 @@ describe('MetadataTabComponent', () => {
   });
 
   it('outlines a group-only highlight', async () => {
-    const fixture = await renderHighlighted({ group: 'sample', keys: [], focusKey: null });
+    const fixture = await renderHighlighted({ group: 'sample', keys: [], focusKey: null, moveFocus: true });
     http.expectOne((r) => isPage('sample')(r.url)).flush({ group: 'sample', page: 0, size: 50, total: 1, entries: [] });
     http.expectOne((r) => isPage('general')(r.url)).flush({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
     await settle(fixture);
@@ -119,7 +119,7 @@ describe('MetadataTabComponent', () => {
   const K = 'sample[60]-description';
 
   async function openedAtKey() {
-    const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K });
+    const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K, moveFocus: true });
     http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
     http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
     await settle(fixture);
@@ -155,7 +155,7 @@ describe('MetadataTabComponent', () => {
     await settle(fixture);
     http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(2, 'sample[100]-x'));
     await settle(fixture);
-    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K });
+    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
     await settle(fixture);
     const req = http.expectOne((r) => isPage('sample')(r.url));
     expect(req.request.params.get('key')).toBe(K);
@@ -173,15 +173,26 @@ describe('MetadataTabComponent', () => {
     header.click();
     await settle(fixture);
     expect(header.getAttribute('aria-expanded')).toBe('false');
-    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K });
+    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
     await settle(fixture);
     expect(header.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('scrolls to the entry without taking the focus when the jump does not move it', async () => {
+    const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K, moveFocus: false });
+    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
+    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    await settle(fixture);
+    await settle(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.entry--hl')).toBeTruthy();
+    expect(el.contains(document.activeElement)).toBe(false);
   });
 
   it('moves from one group to another', async () => {
     const fixture = await openedAtKey();
     const key = 'general-x';
-    fixture.componentRef.setInput('highlight', { group: 'general', keys: [key], focusKey: key });
+    fixture.componentRef.setInput('highlight', { group: 'general', keys: [key], focusKey: key, moveFocus: true });
     await settle(fixture);
     const req = http.expectOne((r) => isPage('general')(r.url));
     expect(req.request.params.get('key')).toBe(key);

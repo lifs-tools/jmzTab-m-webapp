@@ -41,6 +41,8 @@ export interface TableHighlight {
   focusRow: number | null;
   column: string | null;
   header: boolean;
+  /** Whether the jump takes the focus; a ‹ › step leaves it on the stepper. */
+  moveFocus: boolean;
 }
 
 const FILTER_DEBOUNCE_MS = 300;
@@ -300,7 +302,7 @@ export class TableTabComponent {
     this.pageIndex.set(0);
   }
 
-  /** Clear what could hide the target, show its column, open its page, and focus it once it is rendered. */
+  /** Clear what could hide the target, show its column, open its page, and show (and maybe focus) it once rendered. */
   private jump(h: TableHighlight): void {
     const all = this.allColumns();
     if (h.column && !all.length) {
@@ -328,7 +330,7 @@ export class TableTabComponent {
     afterNextRender(
       () => {
         const el = this.host.nativeElement.querySelector<HTMLElement>('[data-hl-focus]');
-        el?.focus({ preventScroll: true });
+        if (this.highlight()?.moveFocus) el?.focus({ preventScroll: true });
         el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // jsdom has no scrollIntoView
       },
       { injector: this.injector },

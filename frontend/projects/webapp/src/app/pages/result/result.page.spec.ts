@@ -479,8 +479,8 @@ describe('ResultPage', () => {
       expect(selectedTab()).toBe('Summary');
       expect(el('.split .messages app-messages-tab')).toBeTruthy();
       expect(el('.grp[aria-current="true"]')!.textContent).toContain('Enter a number');
-      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 1 of 3');
-      expect(tableHighlight()).toEqual({ rows: [1], focusRow: 1, column: 'abundance_assay[3]', header: false });
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 1 of 3: SML row 2 · abundance_assay[3]');
+      expect(tableHighlight()).toEqual({ rows: [1], focusRow: 1, column: 'abundance_assay[3]', header: false, moveFocus: true });
       expect(el('.back-bar')).toBeNull();
       expect(el('.split .stepper')!.textContent).toContain('1 of 3');
     });
@@ -498,6 +498,7 @@ describe('ResultPage', () => {
         group: 'assay',
         keys: ['assay[3]-separation'],
         focusKey: 'assay[3]-separation',
+        moveFocus: true,
       });
       expect(el('.entry--hl')!.textContent).toContain('assay[3]-separation');
     });
@@ -531,8 +532,27 @@ describe('ResultPage', () => {
       expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 3 of 3');
       expect(next().disabled).toBe(true);
       expect(prev().disabled).toBe(false);
-      expect(tableHighlight()).toEqual({ rows: [60], focusRow: 60, column: 'abundance_assay[3]', header: false });
+      expect(tableHighlight()).toEqual({ rows: [60], focusRow: 60, column: 'abundance_assay[3]', header: false, moveFocus: false });
       expect(tableHighlight()).not.toBe(first);
+    });
+
+    it('stepping keeps the focus on the stepper, and on ‹ once › is disabled', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      await vi.waitFor(() => expect(document.activeElement?.closest('app-table-tab')).toBeTruthy());
+      const prev = () => el('.stepper button[aria-label="Previous occurrence"]') as HTMLButtonElement;
+      const next = () => el('.stepper button[aria-label="Next occurrence"]') as HTMLButtonElement;
+      next().focus();
+      await click('.stepper button[aria-label="Next occurrence"]');
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement).toBe(next());
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 2 of 3: SML row 4 · abundance_assay[3]');
+      await click('.stepper button[aria-label="Next occurrence"]');
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next().disabled).toBe(true);
+      expect(document.activeElement).toBe(prev());
+      expect(el('[aria-live] .occ')!.textContent).toContain('Showing occurrence 3 of 3: SML row 61 · abundance_assay[3]');
     });
 
     it('steps on narrow screens from the back bar', async () => {
@@ -540,7 +560,7 @@ describe('ResultPage', () => {
       await click('.chip');
       await click('.back-bar button[aria-label="Next occurrence"]');
       expect(el('.back-bar')!.textContent).toContain('2 of 3');
-      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false });
+      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false, moveFocus: false });
     });
 
     it('highlights every occurrence of a group with "Highlight all"', async () => {
@@ -548,7 +568,7 @@ describe('ResultPage', () => {
       await renderFinished(LINKED);
       await click('.act-all');
       expect(selectedTab()).toBe('Summary');
-      expect(tableHighlight()).toEqual({ rows: [1, 3, 60], focusRow: 1, column: 'abundance_assay[3]', header: false });
+      expect(tableHighlight()).toEqual({ rows: [1, 3, 60], focusRow: 1, column: 'abundance_assay[3]', header: false, moveFocus: true });
     });
 
     it('a second click on the same chip is a new jump', async () => {
@@ -608,7 +628,7 @@ describe('ResultPage', () => {
       expect(el('.stepper')!.textContent).toContain('1 of 3');
       expect(tableHighlight()).toBeNull();
       await click('.stepper button[aria-label="Next occurrence"]');
-      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false });
+      expect(tableHighlight()).toEqual({ rows: [3], focusRow: 3, column: 'abundance_assay[3]', header: false, moveFocus: false });
     });
 
     it('shows the back bar only on the tab of the shown occurrence', async () => {

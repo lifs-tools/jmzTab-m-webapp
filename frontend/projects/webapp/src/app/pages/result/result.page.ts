@@ -22,7 +22,7 @@ import { ValidationRecord } from '../../api/models/validation-record';
 import { ValidationsService } from '../../api/services/validations.service';
 import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
-import { DocTab, DocTarget, MessageGroup, targetOf } from './message-groups';
+import { DocTab, DocTarget, MessageGroup, occurrenceLabel, targetOf } from './message-groups';
 import { MessagesTabComponent, ShowRequest } from './messages-tab.component';
 import { MetadataHighlight, MetadataTabComponent } from './metadata-tab.component';
 import { TableHighlight, TableTabComponent } from './table-tab.component';
@@ -33,12 +33,15 @@ type Poll = { kind: 'record'; record: ValidationRecord } | { kind: 'error'; err:
 type View = 'loading' | 'ready' | 'notFound' | 'error';
 type TabId = 'messages' | DocTab;
 
-/** The occurrence a message group shows in the document: `index` into `targets`. */
+/** The occurrence a message group shows in the document: `index` into `targets` (and their `labels`). */
 interface Focus {
   group: MessageGroup;
   targets: DocTarget[];
+  labels: string[];
   index: number;
   all: boolean;
+  /** A chip or action takes the focus into the document; a ‹ › step keeps it on the stepper. */
+  moveFocus: boolean;
 }
 
 const POLL_MS = 2000;
@@ -166,7 +169,7 @@ export class ResultPage {
       : t.key
         ? [t.key]
         : [];
-    return { group: t.group, keys, focusKey: t.key ?? null };
+    return { group: t.group, keys, focusKey: t.key ?? null, moveFocus: f.moveFocus };
   });
   private readonly tableJump = computed<{ tab: DocTab; highlight: TableHighlight } | null>(() => {
     const f = this.focus();
@@ -179,7 +182,13 @@ export class ResultPage {
         : [];
     return {
       tab: t.tab,
-      highlight: { rows, focusRow: t.rowIndex ?? null, column: t.column ?? null, header: !!t.header },
+      highlight: {
+        rows,
+        focusRow: t.rowIndex ?? null,
+        column: t.column ?? null,
+        header: !!t.header,
+        moveFocus: f.moveFocus,
+      },
     };
   });
   /** The live jump's metadata highlight; null once the jump is consumed. */
@@ -348,20 +357,34 @@ export class ResultPage {
       const t = targetOf(m);
       return t && enabled.has(t.tab) ? t : null;
     };
-    const targets = req.group.messages.map(linked).filter((t): t is DocTarget => t !== null);
-    if (!targets.length) return;
+    const shown = req.group.messages.filter((m) => linked(m) !== null);
+    if (!shown.length) return;
     // `req.index` counts all messages of the group; the focus counts only those with a target.
     const before = req.group.messages.slice(0, req.index).filter((m) => linked(m) !== null).length;
-    this.showTarget({ group: req.group, targets, index: Math.min(before, targets.length - 1), all: req.all });
+    this.showTarget({
+      group: req.group,
+      targets: shown.map((m) => linked(m)!),
+      labels: shown.map(occurrenceLabel),
+      index: Math.min(before, shown.length - 1),
+      all: req.all,
+      moveFocus: true,
+    });
   }
 
-  /** ‹ › : the previous or next occurrence of the shown group. */
-  protected step(delta: 1 | -1): void {
+  /**
+   * ‹ › : the previous or next occurrence of the shown group. The focus stays on the stepper; when the
+   * pressed button becomes disabled (first or last occurrence), it moves to the other one.
+   */
+  protected step(delta: 1 | -1, pressed: HTMLButtonElement, other: HTMLButtonElement): void {
     const f = this.focus();
     if (!f) return;
     const index = f.index + delta;
     if (index < 0 || index >= f.targets.length) return;
-    this.showTarget({ ...f, index });
+    const hadFocus = pressed.ownerDocument.activeElement === pressed;
+    this.showTarget({ ...f, index, moveFocus: false });
+    if (hadFocus && (index === 0 || index === f.targets.length - 1)) {
+      afterNextRender(() => other.focus(), { injector: this.injector });
+    }
   }
 
   private showTarget(f: Focus): void {
