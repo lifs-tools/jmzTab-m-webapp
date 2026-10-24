@@ -83,7 +83,7 @@
         <jaxb.runtime.version>4.0.9</jaxb.runtime.version>
         <jacoco.version>0.8.15</jacoco.version>
         <bootstrap.version>4.6.2</bootstrap.version>
-        <jquery.version>3.7.1</jquery.version>
+        <jquery.version>4.0.0</jquery.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
