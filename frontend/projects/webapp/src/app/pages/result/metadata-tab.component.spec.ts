@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { MatExpansionPanel } from '@angular/material/expansion';
+import { By } from '@angular/platform-browser';
 
 import { MetadataHighlight, MetadataTabComponent } from './metadata-tab.component';
 
@@ -187,6 +189,24 @@ describe('MetadataTabComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.entry--hl')).toBeTruthy();
     expect(el.contains(document.activeElement)).toBe(false);
+  });
+
+  it('focuses the entry only once its panel has finished expanding', async () => {
+    const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K, moveFocus: true });
+    // The panel is still expanding: its content stays hidden, and browsers ignore focus() on hidden elements.
+    const content = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.mat-expansion-panel-content')[1];
+    content.style.visibility = 'hidden';
+    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
+    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    await settle(fixture);
+    await settle(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.contains(document.activeElement)).toBe(false);
+
+    content.style.visibility = '';
+    fixture.debugElement.queryAll(By.directive(MatExpansionPanel))[1].componentInstance.afterExpand.emit();
+    await settle(fixture);
+    expect(document.activeElement).toBe(el.querySelector('.entry--hl'));
   });
 
   it('moves from one group to another', async () => {

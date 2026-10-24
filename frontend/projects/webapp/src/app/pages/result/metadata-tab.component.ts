@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -15,7 +16,7 @@ import {
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansion';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap, take } from 'rxjs';
 
 import { MetadataGroup } from '../../api/models/metadata-group';
 import { MetadataPage } from '../../api/models/metadata-page';
@@ -80,6 +81,8 @@ export class MetadataGroupComponent {
   readonly jump = input<MetadataHighlight | null>(null);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly panel = inject(MatExpansionPanel, { optional: true });
   protected readonly highlighted = computed(() => new Set(this.highlightKeys()));
   /** The load being asked for: a key (the server picks the page) or a page; paging by hand drops the key. */
   private readonly request = linkedSignal<{ page: number; key: string | null }>(() => {
@@ -119,17 +122,23 @@ export class MetadataGroupComponent {
         if (!d) return;
         this.data.set(d);
         this.page.set(d.page ?? this.request().page);
-        if (byKey) {
-          afterNextRender(
-            () => {
-              const el = this.host.nativeElement.querySelector<HTMLElement>('.entry[tabindex="-1"]');
-              el?.scrollIntoView?.({ block: 'nearest' }); // jsdom has no scrollIntoView
-              if (this.jump()?.moveFocus) el?.focus({ preventScroll: true });
-            },
-            { injector: this.injector },
-          );
-        }
+        if (byKey) afterNextRender(() => this.reveal(), { injector: this.injector });
       });
+  }
+
+  /**
+   * Scrolls to the entry to focus and focuses it. While its panel is still expanding the entry is hidden, and the
+   * browser ignores focus() on hidden elements, so this waits for the panel to finish expanding.
+   */
+  private reveal(): void {
+    const el = this.host.nativeElement.querySelector<HTMLElement>('.entry[tabindex="-1"]');
+    if (!el) return;
+    if (this.panel && getComputedStyle(el).visibility === 'hidden') {
+      this.panel.afterExpand.pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.reveal());
+      return;
+    }
+    el.scrollIntoView?.({ block: 'nearest' }); // jsdom has no scrollIntoView
+    if (this.jump()?.moveFocus) el.focus({ preventScroll: true });
   }
 
   protected go(delta: number): void {
