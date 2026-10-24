@@ -17,7 +17,8 @@
     <select class="f-category" [value]="category()" (change)="onCategory($event)">
       <option value="ALL">All</option>
       @for (c of categories; track c.value) {
-        <option [value]="c.value">{{ c.label }}</option>
+        <!-- [selected]: these options are created after the select's [value] is set -->
+        <option [value]="c.value" [selected]="c.value === category()">{{ c.label }}</option>
       }
     </select>
   </label>

@@ -23,7 +23,7 @@ import { ValidationsService } from '../../api/services/validations.service';
 import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
 import { DocTab, DocTarget, MessageGroup, occurrenceLabel, targetOf } from './message-groups';
-import { MessagesTabComponent, ShowRequest } from './messages-tab.component';
+import { MessagesTabComponent, MessagesViewState, ShowRequest } from './messages-tab.component';
 import { MetadataHighlight, MetadataTabComponent } from './metadata-tab.component';
 import { TableHighlight, TableTabComponent } from './table-tab.component';
 import { ResultBannerComponent } from './result-banner.component';
@@ -71,6 +71,7 @@ const WIDE_QUERY = '(min-width: 1100px)';
   ],
   templateUrl: './result.page.html',
   styleUrl: './result.page.scss',
+  providers: [MessagesViewState],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResultPage {
@@ -80,6 +81,8 @@ export class ResultPage {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly appInfo = inject(AppInfoStore);
+  /** Kept here so the messages tab's filters, page and view survive its re-creation. */
+  private readonly messagesView = inject(MessagesViewState);
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
 
   protected readonly view = signal<View>('loading');
@@ -221,6 +224,7 @@ export class ResultPage {
           this.active.set('messages');
           this.docTab.set('metadata');
           this.focus.set(null);
+          this.messagesView.reset();
           return this.poll(id);
         }),
         takeUntilDestroyed(),
@@ -394,12 +398,10 @@ export class ResultPage {
     if (!this.split()) this.active.set(tab);
   }
 
-  /** Layout A: back to the Messages tab, with focus on the shown group's card. */
+  /** Layout A: back to the Messages tab, which brings the shown group's card into view and focuses it. */
   protected backToMessage(): void {
+    const key = this.focus()?.group.key;
     this.select('messages');
-    afterNextRender(
-      () => this.host.nativeElement.querySelector<HTMLElement>('.grp[aria-current="true"] button')?.focus(),
-      { injector: this.injector },
-    );
+    if (key) this.messagesView.reveal.set(key);
   }
 }

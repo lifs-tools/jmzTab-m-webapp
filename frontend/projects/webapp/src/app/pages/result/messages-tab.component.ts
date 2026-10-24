@@ -1,13 +1,17 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injectable,
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 
 import { ValidationMessage } from '../../api/models/validation-message';
@@ -31,6 +35,33 @@ export interface ShowRequest {
   all: boolean;
 }
 
+/**
+ * The messages tab's view state. The result page provides it, so filters, page, view and expanded chips
+ * survive the tab being re-created by a jump (narrow screens) or a layout switch.
+ */
+@Injectable()
+export class MessagesViewState {
+  readonly text = signal('');
+  readonly level = signal('ALL');
+  readonly category = signal('ALL');
+  readonly page = signal(0);
+  readonly flat = signal(false);
+  /** Number of chips shown per group key, for groups expanded beyond the first `CHIP_LIMIT`. */
+  readonly expanded = signal<ReadonlyMap<string, number>>(new Map());
+  /** The key of a group to bring into view and focus ("Back to message"). */
+  readonly reveal = signal<string | null>(null);
+
+  reset(): void {
+    this.text.set('');
+    this.level.set('ALL');
+    this.category.set('ALL');
+    this.page.set(0);
+    this.flat.set(false);
+    this.expanded.set(new Map());
+    this.reveal.set(null);
+  }
+}
+
 /** Filterable, paged validation messages: grouped by rule with the fix first, or as a flat table. */
 @Component({
   selector: 'app-messages-tab',
@@ -41,6 +72,9 @@ export interface ShowRequest {
 export class MessagesTabComponent {
   private static nextId = 0;
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  /** The page's state when it provides one; otherwise this tab keeps its own. */
+  private readonly state = inject(MessagesViewState, { optional: true }) ?? new MessagesViewState();
   /** Prefix of the headline ids the action buttons are described by. */
   protected readonly uid = `msgs-${MessagesTabComponent.nextId++}`;
   readonly messages = input.required<readonly ValidationMessage[]>();
@@ -50,14 +84,12 @@ export class MessagesTabComponent {
   readonly selected = input<string | null>(null);
   readonly show = output<ShowRequest>();
 
-  protected readonly flat = signal(false);
-  /** Number of chips shown per group key, for groups expanded beyond the first `CHIP_LIMIT`. */
-  private readonly expanded = signal<ReadonlyMap<string, number>>(new Map());
-
-  protected readonly text = signal('');
-  protected readonly level = signal('ALL');
-  protected readonly category = signal('ALL');
-  private readonly page = signal(0);
+  protected readonly flat = this.state.flat;
+  private readonly expanded = this.state.expanded;
+  protected readonly text = this.state.text;
+  protected readonly level = this.state.level;
+  protected readonly category = this.state.category;
+  private readonly page = this.state.page;
 
   protected readonly categories = Object.entries(CATEGORY_LABEL).map(([value, label]) => ({
     value,
@@ -133,6 +165,39 @@ export class MessagesTabComponent {
     const start = this.pageIndex() * PAGE_SIZE;
     return `${start + 1}–${Math.min(total, start + PAGE_SIZE)} of ${total}`;
   });
+
+  constructor() {
+    effect(() => {
+      const key = this.state.reveal();
+      if (key !== null) untracked(() => this.revealGroup(key));
+    });
+  }
+
+  /**
+   * Opens the page that holds the group, in the grouped view, and focuses its first button. Filters
+   * stay unless they hide the group: then the text filter is cleared, and if that is not enough, the
+   * level and category too.
+   */
+  private revealGroup(key: string): void {
+    this.state.reveal.set(null);
+    this.flat.set(false);
+    const position = () => this.groups().findIndex((g) => g.key === key);
+    if (position() < 0) this.text.set('');
+    if (position() < 0) {
+      this.level.set('ALL');
+      this.category.set('ALL');
+    }
+    const i = position();
+    if (i < 0) return;
+    this.page.set(Math.floor(i / PAGE_SIZE));
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>('.grp[aria-current="true"] button')
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
 
   private levelOf(m: ValidationMessage): 'error' | 'warn' | 'info' {
     return m.message_type ?? 'info';

@@ -519,6 +519,80 @@ describe('ResultPage', () => {
       await vi.waitFor(() => expect(document.activeElement).toBe(el('.grp[aria-current="true"] button')));
     });
 
+    /** Sets a filter control of the messages tab, as typing or choosing would. */
+    function setFilter(sel: string, value: string, event = 'input') {
+      const input = el(`app-messages-tab ${sel}`) as HTMLInputElement | HTMLSelectElement;
+      input.value = value;
+      input.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+    const focusedGroupButton = () => el('.grp[aria-current="true"] button');
+    const filler = (i: number): ValidationMessage => ({
+      category: 'format',
+      code: `[Error-${3000 + i}] line 1: filler\r\n`,
+      message: `Filler ${i}`,
+      message_type: 'error',
+      line_number: 1,
+    });
+
+    it('"Back to message" returns to the group on its messages page', async () => {
+      await renderFinished({ ...LINKED, messages: [...Array.from({ length: 25 }, (_, i) => filler(i)), ...LINKED.messages!] });
+      await click('app-messages-tab .pager button[aria-label="Next page"]');
+      await click('.chip');
+      expect(selectedTab()).toBe('Summary');
+      await click('.back-bar .back');
+      expect(el('app-messages-tab .pager')!.textContent).toContain('26–27 of 27');
+      await vi.waitFor(() => expect(focusedGroupButton()).not.toBeNull());
+      await vi.waitFor(() => expect(document.activeElement).toBe(focusedGroupButton()));
+    });
+
+    it('keeps filters and expanded chips across a jump and back', async () => {
+      const many = Array.from({ length: 12 }, (_, r) => cellError(r));
+      await renderFinished({ ...LINKED, messages: [...many, termWarning] });
+      setFilter('.f-text', 'number');
+      setFilter('.f-level', 'ERROR', 'change');
+      setFilter('.f-category', 'format', 'change');
+      await click('app-messages-tab .more');
+      expect(els('.chip').length).toBe(12);
+      await click('.chip');
+      expect(selectedTab()).toBe('Summary');
+      await click('.back-bar .back');
+      expect((el('app-messages-tab .f-text') as HTMLInputElement).value).toBe('number');
+      expect((el('app-messages-tab .f-level') as HTMLSelectElement).value).toBe('ERROR');
+      expect((el('app-messages-tab .f-category') as HTMLSelectElement).value).toBe('format');
+      expect(els('.grp').length).toBe(1);
+      expect(els('.chip').length).toBe(12);
+      await vi.waitFor(() => expect(document.activeElement).toBe(focusedGroupButton()));
+    });
+
+    it('a layout switch keeps the messages view state', async () => {
+      await renderFinished(LINKED);
+      setFilter('.f-text', 'number');
+      await click('app-messages-tab .view-toggle');
+      expect(el('app-messages-tab table')).toBeTruthy();
+      wide(true);
+      await serve();
+      expect(el('.split .messages app-messages-tab')).toBeTruthy();
+      expect((el('app-messages-tab .f-text') as HTMLInputElement).value).toBe('number');
+      expect(el('app-messages-tab table')).toBeTruthy();
+      expect(els('app-messages-tab tbody tr').length).toBe(3);
+    });
+
+    it('"Back to message" clears a text filter that hides the group', async () => {
+      wide(true);
+      await renderFinished(LINKED);
+      await click('.chip');
+      setFilter('.f-text', 'zzz');
+      expect(els('.grp').length).toBe(0);
+      wide(false);
+      await serve();
+      await click('#tab-summary');
+      await click('.back-bar .back');
+      expect((el('app-messages-tab .f-text') as HTMLInputElement).value).toBe('');
+      await vi.waitFor(() => expect(focusedGroupButton()).not.toBeNull());
+      await vi.waitFor(() => expect(document.activeElement).toBe(focusedGroupButton()));
+    });
+
     it('steps through occurrences', async () => {
       wide(true);
       await renderFinished(LINKED);
