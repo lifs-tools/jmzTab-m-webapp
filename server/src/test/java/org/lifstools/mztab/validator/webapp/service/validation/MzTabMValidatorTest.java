@@ -2,6 +2,7 @@ package org.lifstools.mztab.validator.webapp.service.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -96,6 +97,29 @@ class MzTabMValidatorTest {
         assertEquals(structural.size() + 10, messages.size());
         assertEquals("semantic 9", messages.get(messages.size() - 1).getMessage());
         assertFalse(messages.stream().anyMatch(m -> m.getMessage().contains("omitted")));
+    }
+
+    @Test
+    void semanticValidationIsSkippedWithANoteWhenTheFileHasNoModel() throws IOException {
+        // a data line without its header line: the parser stops and builds no model
+        Path broken = Files.writeString(dir.resolve("broken.mztab"),
+            Files.readString(mzTabFile) + "SML\t1\n");
+        MzTabMValidator stubbed = semanticResult(3);
+
+        MzTabMValidator.Outcome outcome = stubbed.validateAndParse(broken, ValidationLevel.INFO, 10,
+            dir.resolve("mapping.xml"));
+
+        assertNull(outcome.mzTab());
+        assertFalse(outcome.messages().stream().anyMatch(m -> m.getMessage().startsWith("semantic ")),
+            "semantic validation must not run: " + outcome.messages());
+        assertFalse(outcome.messages().stream().anyMatch(m -> m.getMessage().contains("Semantic validation failed")));
+        ValidationMessage note = outcome.messages().get(outcome.messages().size() - 1);
+        assertEquals("Semantic validation was skipped: the errors above prevent reading the file's content. "
+            + "Fix them and validate again.", note.getMessage());
+        assertEquals(ValidationMessage.MessageTypeEnum.INFO, note.getMessageType());
+        assertEquals(ValidationMessage.CategoryEnum.CROSS_CHECK, note.getCategory());
+        assertEquals("", note.getCode());
+        assertEquals(-1L, note.getLineNumber());
     }
 
     /** A validator whose semantic validation returns {@code n} messages "semantic 0" … */

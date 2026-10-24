@@ -110,7 +110,11 @@ public class MzTabMValidator implements WebValidator {
         validationResults.addAll(parser.getErrorList().
                 convertToValidationMessages());
         MzTab mzTab = parser.getMZTabFile();
-        if (mapping != null) {
+        if (mapping != null && mzTab == null) {
+            // jmzTab-m builds no model when the file has errors; there is nothing to check
+            validationResults.add(note("Semantic validation was skipped: the errors above prevent reading "
+                    + "the file's content. Fix them and validate again."));
+        } else if (mapping != null) {
             validationResults.addAll(capped(validateSemantics(file, mzTab, mapping), maxErrors));
         }
         return new Outcome(validationResults, parsed ? mzTab : null);
@@ -127,15 +131,20 @@ public class MzTabMValidator implements WebValidator {
             return messages;
         }
         List<ValidationMessage> kept = new ArrayList<>(messages.subList(0, maxErrors));
+        kept.add(note(omitted + " further semantic validation messages were omitted. "
+                + "Raise the maximum number of messages to see them."));
+        return kept;
+    }
+
+    /** An info message of the validator itself about semantic validation. */
+    private static ValidationMessage note(String message) {
         ValidationMessage vm = new ValidationMessage();
         vm.setCategory(ValidationMessage.CategoryEnum.CROSS_CHECK);
         vm.setCode("");
         vm.setLineNumber(-1l);
         vm.setMessageType(ValidationMessage.MessageTypeEnum.INFO);
-        vm.setMessage(omitted + " further semantic validation messages were omitted. "
-                + "Raise the maximum number of messages to see them.");
-        kept.add(vm);
-        return kept;
+        vm.setMessage(message);
+        return vm;
     }
 
     List<ValidationMessage> validateSemantics(Path file, MzTab mzTab, Path mapping) {
