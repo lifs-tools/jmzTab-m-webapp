@@ -116,21 +116,15 @@ test('linked messages open their place in the document', async ({ page, request 
   const id = UUID.exec(page.url())![0];
   await awaitBanner(page);
 
-  // An undefined CV label: the chip opens the metadata entry (the message is emitted more than once, hence first()).
-  const cvGroup = groupCard(page, 'Add a cv[n] entry for "XMS"').first();
+  // An undefined CV label, reported once where the parameter is defined: the chip opens the metadata entry.
+  const cvGroup = groupCard(page, 'Add a cv[n] entry for "XMS"');
   await expect(cvGroup).toBeVisible();
-  await cvGroup.getByRole('button', { name: 'instrument[1]-name', exact: true }).first().click();
+  await cvGroup.getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
   await expect(page.getByRole('tab', { name: /Metadata/ })).toHaveAttribute('aria-selected', 'true');
   const entry = page.locator('.entry--hl').filter({ has: page.locator('dt', { hasText: /^instrument\[1\]-name$/ }) });
   await expect(entry).toBeVisible();
   await expect(entry).toBeFocused();
-  await expect(page.getByText(/Showing occurrence \d+ of \d+/)).toBeAttached();
-
-  // The same group also points at evidence rows: the chip opens the Evidence table with the row highlighted.
-  await cvGroup.getByRole('button', { name: 'SME row 1', exact: true }).first().click();
-  await expect(page.getByRole('tab', { name: /Evidence/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('tr.row--hl')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Next occurrence' })).toBeVisible();
+  await expect(page.getByText(/Showing occurrence 1 of 1/)).toBeAttached();
 
   // An empty optional rule: the chip highlights the whole metadata group.
   const sampleGroup = groupCard(page, 'Add a value for sample[n]-species');
@@ -148,14 +142,14 @@ test('linked messages jump and return on a narrow screen', async ({ page, reques
   await page.goto(`result/${id}`);
   await awaitBanner(page);
 
-  await groupCard(page, 'Add a cv[n] entry for "XMS"').first()
-    .getByRole('button', { name: 'instrument[1]-name', exact: true }).first().click();
+  await groupCard(page, 'Add a cv[n] entry for "XMS"')
+    .getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
   await expect(page.getByRole('tab', { name: /Metadata/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.entry--hl')).toBeVisible();
 
   await page.getByRole('button', { name: /Back to message/ }).click();
   await expect(page.getByRole('tab', { name: /Messages/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(groupCard(page, 'Add a cv[n] entry for "XMS"').first()).toBeVisible();
+  await expect(groupCard(page, 'Add a cv[n] entry for "XMS"')).toBeVisible();
   await request.delete(`rest/v2/validations/${id}`);
 });
 
@@ -245,8 +239,8 @@ test('landing, result, about and examples pages have no serious accessibility vi
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`result/${linkedId}`);
   await awaitBanner(page);
-  await groupCard(page, 'Add a cv[n] entry for "XMS"').first()
-    .getByRole('button', { name: 'instrument[1]-name', exact: true }).first().click();
+  await groupCard(page, 'Add a cv[n] entry for "XMS"')
+    .getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
   await expect(page.locator('.entry--hl')).toBeVisible();
   expect(await seriousViolations(), 'result page with a highlighted occurrence').toEqual([]);
   await request.delete(`rest/v2/validations/${linkedId}`);
