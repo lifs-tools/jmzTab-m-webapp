@@ -1,10 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 
 import { ValidationMessage } from '../../api/models/validation-message';
 import { MessageGroup, groupMessages, occurrenceLabel, targetOf } from './message-groups';
 
 const PAGE_SIZE = 25;
 const CHIP_LIMIT = 8;
+/** "+N more" shows this many further chips; a group can hold thousands of occurrences. */
+const CHIP_STEP = 100;
 const LEVEL_CLASS = { error: 'error', warn: 'warn', info: 'info' } as const;
 const CATEGORY_LABEL: Record<ValidationMessage['category'], string> = {
   format: 'Format',
@@ -27,6 +39,10 @@ export interface ShowRequest {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MessagesTabComponent {
+  private static nextId = 0;
+  private readonly injector = inject(Injector);
+  /** Prefix of the headline ids the action buttons are described by. */
+  protected readonly uid = `msgs-${MessagesTabComponent.nextId++}`;
   readonly messages = input.required<readonly ValidationMessage[]>();
   /** E.g. "lipidcompass-summary-2.0 v3"; shown in the meta line of rule-based groups. */
   readonly profileLabel = input<string | null>(null);
@@ -35,7 +51,8 @@ export class MessagesTabComponent {
   readonly show = output<ShowRequest>();
 
   protected readonly flat = signal(false);
-  private readonly expanded = signal<ReadonlySet<string>>(new Set());
+  /** Number of chips shown per group key, for groups expanded beyond the first `CHIP_LIMIT`. */
+  private readonly expanded = signal<ReadonlyMap<string, number>>(new Map());
 
   protected readonly text = signal('');
   protected readonly level = signal('ALL');
@@ -95,7 +112,7 @@ export class MessagesTabComponent {
           }))
           .filter((c) => c.hasTarget);
         const code = group.typeCode?.match(/(\d+)\s*$/)?.[1];
-        const open = expanded.has(group.key);
+        const shown = expanded.get(group.key) ?? CHIP_LIMIT;
         return {
           group,
           cls: LEVEL_CLASS[group.level],
@@ -103,8 +120,8 @@ export class MessagesTabComponent {
           count: group.messages.length,
           code: code ? `code ${code}` : null,
           category: CATEGORY_LABEL[group.category] ?? group.category,
-          chips: open ? chips : chips.slice(0, CHIP_LIMIT),
-          more: open ? 0 : Math.max(0, chips.length - CHIP_LIMIT),
+          chips: chips.slice(0, shown),
+          more: Math.max(0, chips.length - shown),
           targets: chips.length,
           first: chips[0]?.index ?? 0,
         };
@@ -137,8 +154,12 @@ export class MessagesTabComponent {
     this.flat.update((f) => !f);
     this.page.set(0);
   }
-  protected showMore(key: string): void {
-    this.expanded.update((set) => new Set(set).add(key));
+  /** Shows the next `CHIP_STEP` chips and moves the focus to the first of them. */
+  protected showMore(key: string, shown: number, occ: HTMLElement): void {
+    this.expanded.update((map) => new Map(map).set(key, shown + CHIP_STEP));
+    afterNextRender(() => occ.querySelectorAll<HTMLElement>('.chip')[shown]?.focus(), {
+      injector: this.injector,
+    });
   }
   protected emit(group: MessageGroup, index: number, all: boolean): void {
     this.show.emit({ group, index, all });

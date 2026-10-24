@@ -61,14 +61,15 @@
   </div>
 } @else {
   <div class="stack">
-    @for (c of cards(); track c.group.key) {
+    @for (c of cards(); track c.group.key; let i = $index) {
+      @let fixId = uid + '-fix-' + i;
       <article
         [class]="'grp grp--' + c.cls + (c.group.key === selected() ? ' grp--sel' : '')"
         [attr.aria-current]="c.group.key === selected() ? 'true' : null"
       >
         <div class="row">
           <span [class]="'lifs-lvl lifs-lvl--' + c.cls">{{ c.level }}</span>
-          <span class="fix">{{ c.group.headline }}</span>
+          <span class="fix" [id]="fixId">{{ c.group.headline }}</span>
           @if (c.count > 1) {
             <span class="count">{{ c.count }} occurrences</span>
           }
@@ -91,24 +92,34 @@
           }
         </div>
         @if (c.targets) {
-          <div class="occ">
+          <div class="occ" #occ>
             @for (chip of c.chips; track chip.index) {
               <button type="button" class="chip" (click)="emit(c.group, chip.index, false)">
                 {{ chip.label }}
               </button>
             }
             @if (c.more) {
-              <button type="button" class="more" (click)="showMore(c.group.key)">
+              <button type="button" class="more" (click)="showMore(c.group.key, c.chips.length, occ)">
                 +{{ c.more }} more
               </button>
             }
           </div>
           <div class="act">
-            <button type="button" class="act-first" (click)="emit(c.group, c.first, false)">
+            <button
+              type="button"
+              class="act-first"
+              [attr.aria-describedby]="fixId"
+              (click)="emit(c.group, c.first, false)"
+            >
               Show first →
             </button>
             @if (c.targets > 1) {
-              <button type="button" class="act-all" (click)="emit(c.group, c.first, true)">
+              <button
+                type="button"
+                class="act-all"
+                [attr.aria-describedby]="fixId"
+                (click)="emit(c.group, c.first, true)"
+              >
                 Highlight all {{ c.targets }}
               </button>
             }

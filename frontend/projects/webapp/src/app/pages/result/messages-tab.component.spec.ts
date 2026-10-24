@@ -165,6 +165,45 @@ describe('MessagesTabComponent', () => {
     expect(el.querySelector('.more')).toBeNull();
   });
 
+  it('expands chips 100 at a time and focuses the first new one', async () => {
+    const many = Array.from({ length: 250 }, (_, i) =>
+      msg(i, {
+        code: '[Warn-1] x',
+        message_type: 'warn',
+        location: { section: 'sml', row_index: i },
+      }),
+    );
+    const { fixture, el } = render(many, false);
+    const chips = () => el.querySelectorAll<HTMLElement>('.chip');
+    const more = async (shown: number, focused: number) => {
+      click(el, '.more');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(chips().length).toBe(shown);
+      expect(document.activeElement).toBe(chips()[focused]);
+    };
+    expect(el.querySelector('.more')!.textContent!.trim()).toBe('+242 more');
+    await more(108, 8);
+    expect(el.querySelector('.more')!.textContent!.trim()).toBe('+142 more');
+    await more(208, 108);
+    await more(250, 208);
+    expect(el.querySelector('.more')).toBeNull();
+  });
+
+  it('describes the action buttons by their card headline', () => {
+    const { el } = render(grouped(), false);
+    for (const card of Array.from(el.querySelectorAll('.grp'))) {
+      const fix = card.querySelector('.fix')!;
+      expect(fix.id).toBeTruthy();
+      for (const b of Array.from(card.querySelectorAll('.act button'))) {
+        expect(b.getAttribute('aria-describedby')).toBe(fix.id);
+      }
+    }
+    const ids = Array.from(el.querySelectorAll('.fix')).map((f) => f.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(el.querySelectorAll('.act button[aria-describedby]').length).toBe(3);
+  });
+
   it('renders old records without chips or actions', () => {
     const { el } = render(
       [msg(1, { code: '[Error-2009] old\r\n', message_type: 'error', message: 'Old message' })],
