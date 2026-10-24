@@ -55,7 +55,10 @@ export class MessagesTabComponent {
       (m) =>
         (level === 'ALL' || this.levelOf(m) === level.toLowerCase()) &&
         (category === 'ALL' || m.category === category) &&
-        (!needle || `${m.message} ${m.code}`.toLowerCase().includes(needle)),
+        (!needle ||
+          `${m.message} ${m.code} ${m.suggestion ?? ''} ${occurrenceLabel(m)}`
+            .toLowerCase()
+            .includes(needle)),
     );
   });
   private readonly groups = computed(() => groupMessages(this.filtered()));

@@ -186,6 +186,18 @@ describe('MessagesTabComponent', () => {
     expect(texts(el, '.chip')).toEqual(['sample[2]-species[1]']);
   });
 
+  it('the text filter searches the fix and the occurrence label', () => {
+    const { fixture, el } = render(grouped(), false);
+    type(el, '.f-text', 'consider adding');
+    fixture.detectChanges();
+    expect(texts(el, '.grp .fix')).toEqual([INFO_FIX]);
+    expect(texts(el, '.chip')).toEqual(['sample[1]-species[1]', 'sample[2]-species[1]']);
+    type(el, '.f-text', 'sample[2]-species');
+    fixture.detectChanges();
+    expect(texts(el, '.grp .fix')).toEqual([INFO_FIX]);
+    expect(texts(el, '.chip')).toEqual(['sample[2]-species[1]']);
+  });
+
   it('flat list has a Location column', () => {
     const { el } = render(grouped());
     expect(texts(el, 'th')).toContain('Location');
