@@ -38,9 +38,10 @@ export class SiteFooterComponent {
     },
   ];
 
-  protected readonly funders: readonly Logo[] = [
-    { alt: 'BMFTR', src: 'brand/BMFTR_en_Web_RGB_gef_durch.png' },
-    { alt: 'BMBWF', src: 'brand/Logo_BMBWF.png' },
+  /** The BMFTR logo carries its own "With funding from the:" line and is shown larger so that it stays legible. */
+  protected readonly funders: readonly (Logo & { readonly size: 'large' | 'small' })[] = [
+    { alt: 'BMFTR', src: 'brand/BMFTR_en_Web_RGB_gef_durch_cropped.png', size: 'large' },
+    { alt: 'BMBWF', src: 'brand/Logo_BMBWF.png', size: 'small' },
   ];
 
   protected readonly legalLinks = [
