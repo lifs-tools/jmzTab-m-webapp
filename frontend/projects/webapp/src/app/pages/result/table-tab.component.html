@@ -46,7 +46,7 @@
       <thead>
         <tr>
           @for (col of columns(); track col; let i = $index) {
-            <th scope="col" [class.sticky]="i === 0" [attr.aria-sort]="ariaSort(col)">
+            <th scope="col" [class.sticky]="i === 0" [class.col--hl]="highlight()?.header && highlight()?.column === col" [attr.aria-sort]="ariaSort(col)">
               <button type="button" class="sort" (click)="toggleSort(col)">
                 <span class="col-name">{{ col }}</span>
                 <span class="arrow" aria-hidden="true">{{ sort() === col ? (descending() ? '▼' : '▲') : '' }}</span>
@@ -71,9 +71,16 @@
       </thead>
       <tbody>
         @for (row of rows(); track row.index) {
-          <tr>
+          @let hit = highlightedRows().has(row.index ?? -1);
+          <tr [class.row--hl]="hit">
             @for (c of row.cells ?? []; track $index; let i = $index) {
-              <td [class.sticky]="i === 0" [class.null]="c === 'null'">{{ c }}</td>
+              <td
+                [class.sticky]="i === 0"
+                [class.null]="c === 'null'"
+                [class.cell--hl]="hit && !!highlight()?.column && columns()[i] === highlight()?.column"
+                [attr.tabindex]="isFocusCell(row.index ?? -1, columns()[i], i) ? -1 : null"
+                [attr.data-hl-focus]="isFocusCell(row.index ?? -1, columns()[i], i) ? '' : null"
+              >{{ c }}</td>
             }
           </tr>
         } @empty {
@@ -84,6 +91,10 @@
       </tbody>
     </table>
   </div>
+
+  @if (otherPages() > 0) {
+    <p class="hl-more" aria-live="polite">{{ otherPages() }} more on other pages</p>
+  }
 
   <div class="pager">
     <label class="size">

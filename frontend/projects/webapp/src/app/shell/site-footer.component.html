@@ -9,14 +9,12 @@
         </li>
       }
     </ul>
-    <div class="footer__funding">
-      <small>With funding from the:</small>
-      <div>
-        @for (logo of funders; track logo.alt) {
-          <img [src]="logo.src" [alt]="logo.alt" />
-        }
-      </div>
-    </div>
+  </div>
+
+  <div class="footer__funding">
+    @for (logo of funders; track logo.alt) {
+      <img [src]="logo.src" [alt]="logo.alt" [class]="'funder--' + logo.size" />
+    }
   </div>
 
   <nav class="footer__links" aria-label="Legal">

@@ -21,6 +21,8 @@ import { join } from 'node:path';
 const FIXTURES = join(__dirname, 'fixtures');
 const MZTAB = join(FIXTURES, 'lipidomics-example.mzTab');
 const DOCTYPE_MAPPING = join(FIXTURES, 'doctype-mapping.xml');
+const LINKED_MZTAB = join(FIXTURES, 'linked-messages.mzTab');
+const LINKED_MAPPING = join(FIXTURES, 'linked-messages-mapping.xml');
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
 /** Semantic validation needs EBI OLS; these tests stay offline with structural validation only. */
@@ -43,6 +45,24 @@ async function createValidation(request: APIRequestContext): Promise<string> {
   });
   expect(response.status()).toBe(202);
   return (await response.json()).id as string;
+}
+
+/** Starts a validation of the linked-messages fixture with its custom mapping (no network needed). */
+async function createLinkedValidation(request: APIRequestContext): Promise<string> {
+  const response = await request.post('rest/v2/validations', {
+    multipart: {
+      file: { name: 'linked-messages.mzTab', mimeType: 'text/plain', buffer: readFileSync(LINKED_MZTAB) },
+      mappingFile: { name: 'linked-messages-mapping.xml', mimeType: 'application/xml', buffer: readFileSync(LINKED_MAPPING) },
+      level: 'INFO',
+    },
+  });
+  expect(response.status()).toBe(202);
+  return (await response.json()).id as string;
+}
+
+/** The group card whose headline starts with the given fix text. */
+function groupCard(page: Page, headline: string) {
+  return page.locator('.grp').filter({ has: page.locator('.fix', { hasText: headline }) });
 }
 
 async function awaitBanner(page: Page): Promise<void> {
@@ -84,6 +104,53 @@ test('custom mapping with DOCTYPE is rejected', async ({ page }) => {
   const error = page.locator('form').getByRole('alert');
   await expect(error).toContainText('Mapping file rejected');
   await expect(page).toHaveURL(/\/mztabvalidator\/$/);
+});
+
+test('linked messages open their place in the document', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('');
+  await page.getByTestId('file-input').setInputFiles(LINKED_MZTAB);
+  await page.getByTestId('mapping-input').setInputFiles(LINKED_MAPPING);
+  await validateButton(page).click();
+  await expect(page).toHaveURL(new RegExp(`/mztabvalidator/result/${UUID.source}$`));
+  const id = UUID.exec(page.url())![0];
+  await awaitBanner(page);
+
+  // An undefined CV label, reported once where the parameter is defined: the chip opens the metadata entry.
+  const cvGroup = groupCard(page, 'Add a cv[n] entry for "XMS"');
+  await expect(cvGroup).toBeVisible();
+  await cvGroup.getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
+  await expect(page.getByRole('tab', { name: /Metadata/ })).toHaveAttribute('aria-selected', 'true');
+  const entry = page.locator('.entry--hl').filter({ has: page.locator('dt', { hasText: /^instrument\[1\]-name$/ }) });
+  await expect(entry).toBeVisible();
+  await expect(entry).toBeFocused();
+  await expect(page.getByText(/Showing occurrence 1 of 1/)).toBeAttached();
+
+  // An empty optional rule: the chip highlights the whole metadata group.
+  const sampleGroup = groupCard(page, 'Add a value for sample[n]-species');
+  await sampleGroup.getByRole('button', { name: 'metadata group: sample', exact: true }).click();
+  await expect(page.getByRole('tab', { name: /Metadata/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.panel--hl')).toHaveCount(1);
+  await expect(page.locator('.panel--hl')).toContainText('sample');
+
+  await request.delete(`rest/v2/validations/${id}`);
+});
+
+test('linked messages jump and return on a narrow screen', async ({ page, request }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  const id = await createLinkedValidation(request);
+  await page.goto(`result/${id}`);
+  await awaitBanner(page);
+
+  await groupCard(page, 'Add a cv[n] entry for "XMS"')
+    .getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
+  await expect(page.getByRole('tab', { name: /Metadata/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.entry--hl')).toBeVisible();
+
+  await page.getByRole('button', { name: /Back to message/ }).click();
+  await expect(page.getByRole('tab', { name: /Messages/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(groupCard(page, 'Add a cv[n] entry for "XMS"')).toBeVisible();
+  await request.delete(`rest/v2/validations/${id}`);
 });
 
 test('old /validate/{id} link lands on the result', async ({ page, request }) => {
@@ -167,6 +234,16 @@ test('landing, result, about and examples pages have no serious accessibility vi
   await awaitBanner(page);
   expect(await seriousViolations(), 'result page').toEqual([]);
   await request.delete(`rest/v2/validations/${id}`);
+
+  const linkedId = await createLinkedValidation(request);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`result/${linkedId}`);
+  await awaitBanner(page);
+  await groupCard(page, 'Add a cv[n] entry for "XMS"')
+    .getByRole('button', { name: 'instrument[1]-name', exact: true }).click();
+  await expect(page.locator('.entry--hl')).toBeVisible();
+  expect(await seriousViolations(), 'result page with a highlighted occurrence').toEqual([]);
+  await request.delete(`rest/v2/validations/${linkedId}`);
 
   await page.goto('about');
   await expect(page.getByRole('heading', { level: 2, name: 'How to cite' })).toBeVisible();

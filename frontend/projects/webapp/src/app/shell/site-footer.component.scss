@@ -38,25 +38,26 @@
   }
 }
 
+// Funders in their own centred band, large enough for the ministry names to be legible.
 .footer__funding {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 40px;
+  padding: 14px 32px 20px;
+  border-top: 1px solid var(--lifs-line);
 
-  small {
-    font-family: Georgia, serif;
-    font-size: 9px;
-    color: #222;
-  }
-  div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-  }
   img {
-    height: 40px;
+    display: block;
     width: auto;
+    max-width: 100%;
+  }
+  .funder--large {
+    height: 96px;
+  }
+  .funder--small {
+    height: 52px;
   }
 }
 
@@ -126,6 +127,7 @@
 
 @media (max-width: 599.98px) {
   .footer__logos,
+  .footer__funding,
   .footer__links,
   .copyright {
     padding-left: 16px;
@@ -134,8 +136,15 @@
   .footer__partners img {
     height: 28px;
   }
-  .footer__funding img {
-    height: 34px;
+  .footer__funding {
+    gap: 12px 24px;
+
+    .funder--large {
+      height: 72px;
+    }
+    .funder--small {
+      height: 40px;
+    }
   }
   .copyright {
     gap: 12px 20px;

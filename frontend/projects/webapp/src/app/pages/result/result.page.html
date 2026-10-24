@@ -42,44 +42,140 @@
           <app-result-banner [record]="rec" />
 
           @if (tabs().length) {
-            <div>
-              <div class="tabs" role="tablist" aria-label="Result sections" (keydown)="onTabKey($event)">
-                @for (tab of tabs(); track tab.id) {
+            <div class="visually-hidden" aria-live="polite">
+              @if (focus(); as f) {
+                <span class="occ"
+                  >Showing occurrence {{ f.index + 1 }} of {{ f.targets.length }}: {{ f.labels[f.index] }}</span
+                >
+              }
+            </div>
+
+            <ng-template #tablist let-list let-label="label">
+              <div class="tabs" role="tablist" [attr.aria-label]="label" (keydown)="onTabKey($event)">
+                @for (tab of list; track tab.id) {
                   <button
                     type="button"
                     role="tab"
                     class="tab"
                     [id]="'tab-' + tab.id"
                     [attr.aria-controls]="'panel-' + tab.id"
-                    [attr.aria-selected]="active() === tab.id"
-                    [attr.tabindex]="active() === tab.id ? 0 : -1"
-                    [class.tab--on]="active() === tab.id"
+                    [attr.aria-selected]="current() === tab.id"
+                    [attr.tabindex]="current() === tab.id ? 0 : -1"
+                    [class.tab--on]="current() === tab.id"
                     [disabled]="tab.disabled"
                     (click)="select(tab.id)"
                   >
-                    {{ tab.label }}
+                    <span class="tab-label">{{ tab.label }}</span>
                     <span class="count">{{ tab.count }}</span>
                   </button>
                 }
               </div>
-              <div
-                role="tabpanel"
-                class="panel"
-                [id]="'panel-' + active()"
-                [attr.aria-labelledby]="'tab-' + active()"
-                tabindex="0"
+            </ng-template>
+
+            <ng-template #messagesTab>
+              <app-messages-tab
+                [messages]="messages()"
+                [profileLabel]="profileLabel()"
+                [selected]="focus()?.group?.key ?? null"
+                (show)="onShow($event)"
+              />
+            </ng-template>
+
+            <ng-template #docPane let-tab>
+              @if (tab === 'metadata') {
+                <app-metadata-tab [validationId]="rec.id ?? ''" [highlight]="metadataHighlight()" />
+              } @else {
+                @for (sec of [tab]; track sec) {
+                  <app-table-tab [validationId]="rec.id ?? ''" [section]="sectionOf(sec)" [highlight]="tableHighlight()" />
+                }
+              }
+            </ng-template>
+
+            <ng-template #stepper let-f>
+              <span class="pos">{{ f.index + 1 }} of {{ f.targets.length }}</span>
+              <button
+                #prev
+                type="button"
+                class="step"
+                aria-label="Previous occurrence"
+                [disabled]="f.index === 0"
+                (click)="step(-1, prev, next)"
               >
-                @if (active() === 'messages') {
-                  <app-messages-tab [messages]="rec.messages ?? []" />
-                } @else if (active() === 'metadata') {
-                  <app-metadata-tab [validationId]="rec.id ?? ''" />
-                } @else {
-                  @for (sec of [active()]; track sec) {
-                    <app-table-tab [validationId]="rec.id ?? ''" [section]="sectionOf(sec)" />
+                ‹
+              </button>
+              <button
+                #next
+                type="button"
+                class="step"
+                aria-label="Next occurrence"
+                [disabled]="f.index >= f.targets.length - 1"
+                (click)="step(1, next, prev)"
+              >
+                ›
+              </button>
+            </ng-template>
+
+            @if (split()) {
+              <div class="split">
+                <section class="messages" aria-label="Messages">
+                  <ng-container [ngTemplateOutlet]="messagesTab" />
+                </section>
+                <div class="doc">
+                  <ng-container
+                    [ngTemplateOutlet]="tablist"
+                    [ngTemplateOutletContext]="{ $implicit: docTabs(), label: 'Document sections' }"
+                  />
+                  @if (showStepper()) {
+                    @if (focus(); as f) {
+                      <div class="stepper">
+                        <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
+                        <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
+                      </div>
+                    }
+                  }
+                  <div
+                    role="tabpanel"
+                    class="panel"
+                    [id]="'panel-' + docTab()"
+                    [attr.aria-labelledby]="'tab-' + docTab()"
+                    tabindex="0"
+                  >
+                    <ng-container [ngTemplateOutlet]="docPane" [ngTemplateOutletContext]="{ $implicit: docTab() }" />
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div>
+                <ng-container
+                  [ngTemplateOutlet]="tablist"
+                  [ngTemplateOutletContext]="{ $implicit: tabs(), label: 'Result sections' }"
+                />
+                @if (showBackBar()) {
+                  @if (focus(); as f) {
+                    <div class="back-bar">
+                      <button type="button" class="back" (click)="backToMessage()">← Back to message</button>
+                      <span class="sep" aria-hidden="true">·</span>
+                      <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
+                      <span class="sep" aria-hidden="true">·</span>
+                      <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
+                    </div>
                   }
                 }
+                <div
+                  role="tabpanel"
+                  class="panel"
+                  [id]="'panel-' + active()"
+                  [attr.aria-labelledby]="'tab-' + active()"
+                  tabindex="0"
+                >
+                  @if (active() === 'messages') {
+                    <ng-container [ngTemplateOutlet]="messagesTab" />
+                  } @else {
+                    <ng-container [ngTemplateOutlet]="docPane" [ngTemplateOutletContext]="{ $implicit: active() }" />
+                  }
+                </div>
               </div>
-            </div>
+            }
           }
         }
       }

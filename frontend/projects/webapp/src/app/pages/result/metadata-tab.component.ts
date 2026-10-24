@@ -1,8 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  linkedSignal,
+  signal,
+  viewChildren,
+} from '@angular/core';
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansion';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { catchError, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap, take } from 'rxjs';
 
 import { MetadataGroup } from '../../api/models/metadata-group';
 import { MetadataPage } from '../../api/models/metadata-page';
@@ -10,6 +24,15 @@ import { ValidationsService } from '../../api/services/validations.service';
 import { quietRequest } from '../../core/http-error.interceptor';
 
 const PAGE_SIZE = 50;
+
+/** What a validation message names in the metadata: a group, optionally with entry keys and one to focus. */
+export interface MetadataHighlight {
+  group: string;
+  keys: readonly string[];
+  focusKey: string | null;
+  /** Whether the jump takes the focus; a ‹ › step leaves it on the stepper. */
+  moveFocus: boolean;
+}
 
 /** Entries of one metadata group, paged by the server; created (and so loaded) only when its panel opens. */
 @Component({
@@ -25,7 +48,11 @@ const PAGE_SIZE = 50;
     @if (data(); as d) {
       <dl class="entries">
         @for (e of d.entries; track e.lineNumber) {
-          <div class="entry">
+          <div
+            class="entry"
+            [class.entry--hl]="highlighted().has(e.key ?? '')"
+            [attr.tabindex]="focusKey() && e.key === focusKey() ? -1 : null"
+          >
             <dt class="key">{{ e.key }}</dt>
             <dd class="value">{{ e.value }}</dd>
           </div>
@@ -48,6 +75,20 @@ export class MetadataGroupComponent {
   readonly validationId = input.required<string>();
   readonly group = input.required<string>();
   readonly count = input.required<number>();
+  readonly highlightKeys = input<readonly string[]>([]);
+  readonly focusKey = input<string | null>(null);
+  /** The highlight object itself: a new object is a new jump even when its keys are the same. */
+  readonly jump = input<MetadataHighlight | null>(null);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly panel = inject(MatExpansionPanel, { optional: true });
+  protected readonly highlighted = computed(() => new Set(this.highlightKeys()));
+  /** The load being asked for: a key (the server picks the page) or a page; paging by hand drops the key. */
+  private readonly request = linkedSignal<{ page: number; key: string | null }>(() => {
+    this.jump();
+    return { page: 0, key: this.focusKey() };
+  });
   protected readonly pageSize = PAGE_SIZE;
   protected readonly page = signal(0);
   protected readonly error = signal(false);
@@ -60,32 +101,52 @@ export class MetadataGroupComponent {
   });
 
   constructor() {
-    toObservable(computed(() => ({ id: this.validationId(), group: this.group(), page: this.page() })))
+    toObservable(computed(() => ({ id: this.validationId(), group: this.group(), ...this.request() })))
       .pipe(
         switchMap((q) => {
           this.loading.set(true);
           this.error.set(false);
-          return this.api.getMetadataPage({ ...q, size: PAGE_SIZE }, quietRequest()).pipe(
+          const { key, ...rest } = q;
+          return this.api.getMetadataPage({ ...rest, ...(key ? { key } : {}), size: PAGE_SIZE }, quietRequest()).pipe(
+            map((d) => ({ d, byKey: !!key })),
             catchError(() => {
               this.error.set(true);
-              return of(undefined);
+              return of({ d: undefined, byKey: false });
             }),
           );
         }),
         takeUntilDestroyed(),
       )
-      .subscribe((d) => {
+      .subscribe(({ d, byKey }) => {
         this.loading.set(false);
-        if (d) this.data.set(d);
+        if (!d) return;
+        this.data.set(d);
+        this.page.set(d.page ?? this.request().page);
+        if (byKey) afterNextRender(() => this.reveal(), { injector: this.injector });
       });
   }
 
+  /**
+   * Scrolls to the entry to focus and focuses it. While its panel is still expanding the entry is hidden, and the
+   * browser ignores focus() on hidden elements, so this waits for the panel to finish expanding.
+   */
+  private reveal(): void {
+    const el = this.host.nativeElement.querySelector<HTMLElement>('.entry[tabindex="-1"]');
+    if (!el) return;
+    if (this.panel && getComputedStyle(el).visibility === 'hidden') {
+      this.panel.afterExpand.pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.reveal());
+      return;
+    }
+    el.scrollIntoView?.({ block: 'nearest' }); // jsdom has no scrollIntoView
+    if (this.jump()?.moveFocus) el.focus({ preventScroll: true });
+  }
+
   protected go(delta: number): void {
-    this.page.set(Math.min(Math.max(0, this.page() + delta), this.pages() - 1));
+    this.request.set({ page: Math.min(Math.max(0, this.page() + delta), this.pages() - 1), key: null });
   }
 }
 
-/** One expansion panel per metadata group; the first group starts expanded. */
+/** One expansion panel per metadata group; the first group starts expanded, and so does the one a highlight names. */
 @Component({
   selector: 'app-metadata-tab',
   imports: [MatExpansionModule, MatProgressBarModule, MetadataGroupComponent],
@@ -96,6 +157,18 @@ export class MetadataGroupComponent {
 export class MetadataTabComponent {
   private readonly api = inject(ValidationsService);
   readonly validationId = input.required<string>();
+  readonly highlight = input<MetadataHighlight | null>(null);
+  private readonly panels = viewChildren(MatExpansionPanel);
+
+  constructor() {
+    // A highlight is an event: every new object opens its panel again, also after the user collapsed it.
+    effect(() => {
+      const h = this.highlight();
+      const panels = this.panels();
+      const i = (this.groups.value() ?? []).findIndex((g) => g.name === h?.group);
+      if (h && i >= 0) panels[i]?.open();
+    });
+  }
 
   protected readonly groups = rxResource<MetadataGroup[], string>({
     params: () => this.validationId(),

@@ -1,8 +1,20 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Observable, Subject, catchError, debounceTime, filter, map, of, switchMap } from 'rxjs';
+import { EMPTY, Observable, Subject, catchError, filter, map, of, switchMap, timer } from 'rxjs';
 
 import { TablePage } from '../../api/models/table-page';
 import { ValidationsService } from '../../api/services/validations.service';
@@ -23,6 +35,16 @@ interface Snapshot {
 
 type Outcome = { page: TablePage; snapshot: Snapshot; key: string } | { error: string };
 
+/** Rows (0-based model-list positions), a column and/or its header that a validation message points at. */
+export interface TableHighlight {
+  rows: readonly number[];
+  focusRow: number | null;
+  column: string | null;
+  header: boolean;
+  /** Whether the jump takes the focus; a ‹ › step leaves it on the stepper. */
+  moveFocus: boolean;
+}
+
 const FILTER_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat('en');
 
@@ -38,6 +60,10 @@ export class TableTabComponent {
   private readonly api = inject(ValidationsService);
   readonly validationId = input.required<string>();
   readonly section = input.required<'sml' | 'smf' | 'sme'>();
+  /** An event, not a value: each new object jumps to its target again, even when its fields are unchanged. */
+  readonly highlight = input<TableHighlight | null>(null);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   protected readonly pageSizes = [25, 50, 100];
   private readonly pageIndex = signal(0);
@@ -69,6 +95,12 @@ export class TableTabComponent {
   protected readonly hasNextWindow = computed(() => this.windowStart() + MAX_COLUMNS < this.allColumns().length);
   protected readonly pickerSeed = computed(() => this.columns().slice(0, MAX_COLUMNS));
 
+  protected readonly highlightedRows = computed(() => new Set(this.highlight()?.rows ?? []));
+  protected readonly otherPages = computed(() => {
+    const here = new Set(this.rows().map((r) => r.index ?? -1));
+    return this.highlight()?.rows.filter((r) => !here.has(r)).length ?? 0;
+  });
+
   protected readonly range = computed(() => {
     const total = this.total();
     if (!total) return '0 of 0';
@@ -78,11 +110,14 @@ export class TableTabComponent {
   protected readonly hasPrev = computed(() => this.pageIndex() > 0);
   protected readonly hasNext = computed(() => (this.pageIndex() + 1) * this.size() < this.total());
 
-  private readonly filterEdits = new Subject<void>();
+  private readonly filterEdits = new Subject<boolean>();
   private readonly retryNonce = signal(0);
   private lastGood: Snapshot | undefined;
   private shownKey: string | undefined;
   private inFlightKey: string | undefined;
+  /** A highlight that arrived before the column list was known, and a jump still waiting for its page. */
+  private pendingHighlight: TableHighlight | undefined;
+  private awaitingFocus = false;
 
   /** The columns to request: nothing for the first window (the server default), otherwise explicit. */
   private readonly columnsParam = computed(() => {
@@ -107,6 +142,11 @@ export class TableTabComponent {
   }));
 
   constructor() {
+    effect(() => {
+      const h = this.highlight();
+      if (h) untracked(() => this.jump(h));
+    });
+
     toObservable(this.query)
       .pipe(
         // Skip a query equal to the one in flight, or else to the last shown one (including a restored state).
@@ -142,8 +182,17 @@ export class TableTabComponent {
           this.lastGood = o.snapshot;
           this.shownKey = o.key;
           this.data.set(o.page);
+          const pending = this.pendingHighlight;
+          if (pending && o.page.allColumns?.length) {
+            this.pendingHighlight = undefined;
+            this.jump(pending);
+          } else if (this.awaitingFocus) {
+            this.awaitingFocus = false;
+            this.focusTarget();
+          }
         } else {
           this.error.set(o.error);
+          this.awaitingFocus = false;
           if (this.lastGood) {
             this.restore(this.lastGood);
           }
@@ -151,7 +200,11 @@ export class TableTabComponent {
       });
 
     this.filterEdits
-      .pipe(debounceTime(FILTER_DEBOUNCE_MS), takeUntilDestroyed())
+      .pipe(
+        // true starts (or restarts) the debounce, false cancels a pending one
+        switchMap((start) => (start ? timer(FILTER_DEBOUNCE_MS) : EMPTY)),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         const next: Record<string, string> = {};
         for (const [col, text] of Object.entries(this.draftFilters())) if (text !== '') next[col] = text;
@@ -208,6 +261,7 @@ export class TableTabComponent {
   }
 
   protected toggleSort(col: string): void {
+    this.awaitingFocus = false;
     if (this.sort() !== col) {
       this.sort.set(col);
       this.descending.set(false);
@@ -222,25 +276,72 @@ export class TableTabComponent {
 
   protected onFilter(col: string, event: Event): void {
     this.draftFilters.update((f) => ({ ...f, [col]: (event.target as HTMLInputElement).value }));
-    this.filterEdits.next();
+    this.awaitingFocus = false;
+    this.filterEdits.next(true);
   }
 
   protected setSize(event: Event): void {
+    this.awaitingFocus = false;
     this.size.set(Number((event.target as HTMLSelectElement).value));
     this.pageIndex.set(0);
   }
 
   protected go(delta: number): void {
+    this.awaitingFocus = false;
     this.pageIndex.update((p) => Math.max(0, p + delta));
   }
 
   /** Changing the visible columns clears filters, which may refer to columns that are no longer shown. */
   private resetColumnsState(): void {
+    this.filterEdits.next(false); // a typed filter still in its debounce must not fire after this
+    this.awaitingFocus = false; // a jump sets it again after the reset
     this.draftFilters.set({});
     this.filters.set({});
     this.sort.set(null);
     this.descending.set(false);
     this.pageIndex.set(0);
+  }
+
+  /** Clear what could hide the target, show its column, open its page, and show (and maybe focus) it once rendered. */
+  private jump(h: TableHighlight): void {
+    const all = this.allColumns();
+    if (h.column && !all.length) {
+      this.pendingHighlight = h;
+      return;
+    }
+    this.pendingHighlight = undefined;
+    this.resetColumnsState();
+    const c = h.column ? all.indexOf(h.column) : -1;
+    if (c >= 0) {
+      const picked = this.picked();
+      if (picked && !picked.includes(h.column!)) this.picked.set(null);
+      this.windowStart.set(c < MAX_COLUMNS ? 0 : Math.floor(c / MAX_COLUMNS) * MAX_COLUMNS);
+    }
+    if (h.focusRow !== null) this.pageIndex.set(Math.floor(h.focusRow / this.size()));
+    if (JSON.stringify(this.query()) === (this.inFlightKey ?? this.shownKey)) {
+      this.awaitingFocus = false;
+      this.focusTarget();
+    } else {
+      this.awaitingFocus = true;
+    }
+  }
+
+  private focusTarget(): void {
+    afterNextRender(
+      () => {
+        const el = this.host.nativeElement.querySelector<HTMLElement>('[data-hl-focus]');
+        if (this.highlight()?.moveFocus) el?.focus({ preventScroll: true });
+        el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // jsdom has no scrollIntoView
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** The cell that takes focus: the highlighted column's cell in the focus row, else that row's first cell. */
+  protected isFocusCell(rowIndex: number, col: string | undefined, i: number): boolean {
+    const h = this.highlight();
+    if (!h || h.focusRow !== rowIndex) return false;
+    return h.column && this.columns().includes(h.column) ? col === h.column : i === 0;
   }
 
   protected shiftWindow(delta: number): void {

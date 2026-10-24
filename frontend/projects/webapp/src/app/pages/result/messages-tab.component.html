@@ -17,13 +17,23 @@
     <select class="f-category" [value]="category()" (change)="onCategory($event)">
       <option value="ALL">All</option>
       @for (c of categories; track c.value) {
-        <option [value]="c.value">{{ c.label }}</option>
+        <!-- [selected]: these options are created after the select's [value] is set -->
+        <option [value]="c.value" [selected]="c.value === category()">{{ c.label }}</option>
       }
     </select>
   </label>
 </div>
 
-@if (rows().length) {
+<div class="view-bar">
+  <span class="lifs-note">{{ flat() ? 'Flat list' : 'Grouped by rule' }}</span>
+  <button type="button" class="view-toggle" (click)="toggleView()">
+    {{ flat() ? 'Group by rule' : 'Show as flat list' }}
+  </button>
+</div>
+
+@if (!total()) {
+  <p class="lifs-note empty">No messages{{ messages().length ? ' match the filters' : '' }}.</p>
+} @else if (flat()) {
   <div class="table-wrap">
     <table class="t">
       <thead>
@@ -31,6 +41,7 @@
           <th scope="col" class="c-level">Level</th>
           <th scope="col" class="c-line">Line</th>
           <th scope="col" class="c-cat">Category</th>
+          <th scope="col" class="c-loc">Location</th>
           <th scope="col">Message</th>
         </tr>
       </thead>
@@ -42,6 +53,7 @@
             </td>
             <td class="mono">{{ row.line }}</td>
             <td>{{ row.category }}</td>
+            <td class="mono">{{ row.location }}</td>
             <td class="msg">{{ row.message }}</td>
           </tr>
         }
@@ -49,12 +61,81 @@
     </table>
   </div>
 } @else {
-  <p class="lifs-note empty">No messages{{ messages().length ? ' match the filters' : '' }}.</p>
+  <div class="stack">
+    @for (c of cards(); track c.group.key; let i = $index) {
+      @let fixId = uid + '-fix-' + i;
+      <article
+        [class]="'grp grp--' + c.cls + (c.group.key === selected() ? ' grp--sel' : '')"
+        [attr.aria-current]="c.group.key === selected() ? 'true' : null"
+      >
+        <div class="row">
+          <span [class]="'lifs-lvl lifs-lvl--' + c.cls">{{ c.level }}</span>
+          <span class="fix" [id]="fixId">{{ c.group.headline }}</span>
+          @if (c.count > 1) {
+            <span class="count">{{ c.count }} occurrences</span>
+          }
+        </div>
+        @if (c.group.diagnosis) {
+          <div class="why" [title]="c.group.diagnosis">{{ c.group.diagnosis }}</div>
+        }
+        <div class="meta">
+          @if (c.code) {
+            <span class="mono">{{ c.code }}</span>
+          }
+          <span>{{ c.category }}</span>
+          @if (c.group.ruleId) {
+            <span
+              >rule <span class="mono">{{ c.group.ruleId }}</span></span
+            >
+            @if (profileLabel()) {
+              <span>{{ profileLabel() }}</span>
+            }
+          }
+        </div>
+        @if (c.targets) {
+          <div class="occ" #occ>
+            @for (chip of c.chips; track chip.index) {
+              <button type="button" class="chip" (click)="emit(c.group, chip.index, false)">
+                {{ chip.label }}
+              </button>
+            }
+            @if (c.more) {
+              <button type="button" class="more" (click)="showMore(c.group.key, c.chips.length, occ)">
+                +{{ c.more }} more
+              </button>
+            }
+          </div>
+          <div class="act">
+            <button
+              type="button"
+              class="act-first"
+              [attr.aria-describedby]="fixId"
+              (click)="emit(c.group, c.first, false)"
+            >
+              Show first →
+            </button>
+            @if (c.targets > 1) {
+              <button
+                type="button"
+                class="act-all"
+                [attr.aria-describedby]="fixId"
+                (click)="emit(c.group, c.first, true)"
+              >
+                Highlight all {{ c.targets }}
+              </button>
+            }
+          </div>
+        }
+      </article>
+    }
+  </div>
 }
 
 <div class="pager">
   <span aria-live="polite">{{ range() }}</span>
-  <button type="button" aria-label="Previous page" [disabled]="pageIndex() === 0" (click)="go(-1)">‹</button>
+  <button type="button" aria-label="Previous page" [disabled]="pageIndex() === 0" (click)="go(-1)">
+    ‹
+  </button>
   <button
     type="button"
     aria-label="Next page"

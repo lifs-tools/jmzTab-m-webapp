@@ -3,9 +3,11 @@ import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@a
 import { TestBed } from '@angular/core/testing';
 
 import { TablePage } from '../../api/models/table-page';
-import { TableTabComponent } from './table-tab.component';
+import { TableHighlight, TableTabComponent } from './table-tab.component';
 
 const ALL = Array.from({ length: 120 }, (_, i) => (i === 0 ? 'SML_ID' : `col[${i}]`));
+const WIDE = Array.from({ length: 130 }, (_, i) => `col${i}`);
+const hl = (over: Partial<TableHighlight>): TableHighlight => ({ rows: [], focusRow: null, column: null, header: false, moveFocus: true, ...over });
 
 function page(over: Partial<TablePage> = {}): TablePage {
   const columns = over.columns ?? ALL.slice(0, 50);
@@ -217,5 +219,162 @@ describe('TableTabComponent', () => {
     r.flush(page({ columns: cols }));
     await settle();
     expect(el.querySelector('.window')).toBeNull();
+  });
+
+  describe('highlight', () => {
+    const setHl = async (ctx: ReturnType<typeof render>, h: TableHighlight | null) => {
+      ctx.fixture.componentRef.setInput('highlight', h);
+      await ctx.settle();
+    };
+    const rowsAt = (idx: number[], columns: string[]) => idx.map((index) => ({ index, cells: columns.map((_, i) => `v${i}`) }));
+
+    it('clears filters and sort and opens the page of the row', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      ctx.el.querySelectorAll<HTMLButtonElement>('thead .sort')[1].click();
+      await ctx.settle();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      const r = ctx.next();
+      expect(r.request.params.get('page')).toBe('2');
+      expect(r.request.params.has('sort')).toBe(false);
+      expect(r.request.params.has('filter')).toBe(false);
+      const cols = ALL.slice(0, 50);
+      r.flush(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
+      await ctx.settle();
+      expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
+      expect(document.activeElement?.closest('tr')?.classList.contains('row--hl')).toBe(true);
+    });
+
+    it('opens the row without taking the focus when the jump does not move it', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID', moveFocus: false }));
+      const cols = ALL.slice(0, 50);
+      ctx.next().flush(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
+      await ctx.settle();
+      expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
+      expect(ctx.el.querySelector('[data-hl-focus]')).toBeTruthy();
+      expect(ctx.el.contains(document.activeElement)).toBe(false);
+    });
+
+    it('moves the column window to show a far column', async () => {
+      const ctx = render();
+      ctx.next().flush(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [0], focusRow: 0, column: 'col120' }));
+      const r = ctx.next();
+      expect(r.request.params.get('columns')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
+      const cols = ['col0', ...WIDE.slice(100, 130)];
+      r.flush(page({ allColumns: WIDE, columns: cols, rows: rowsAt([0], cols) }));
+      await ctx.settle();
+      expect(ctx.el.querySelectorAll('.cell--hl').length).toBe(1);
+      expect(ctx.el.querySelector('.window')?.textContent).toContain('Columns 101–130 of 130');
+    });
+
+    it('applies a highlight that arrives before the columns are known', async () => {
+      const ctx = render();
+      const first = ctx.next();
+      await setHl(ctx, hl({ rows: [0], focusRow: 0, column: 'col120' }));
+      first.flush(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
+      await ctx.settle();
+      const r = ctx.next();
+      expect(r.request.params.get('columns')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
+      r.flush(page({ allColumns: WIDE, columns: ['col0', ...WIDE.slice(100, 130)] }));
+    });
+
+    it('drops a picked column set that hides the column', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      ctx.el.querySelector<HTMLButtonElement>('.pick-open')!.click();
+      await ctx.settle();
+      ctx.el.querySelector<HTMLButtonElement>('.pick-apply')!.click();
+      await ctx.settle();
+      const picked = ctx.next();
+      picked.flush(page({ columns: ALL.slice(0, 50) }));
+      await ctx.settle();
+      // the picked set is the first window, so it hides col[60]
+      expect(ctx.el.querySelector('.window')).toBeNull();
+      await setHl(ctx, hl({ rows: [0], focusRow: 0, column: ALL[60] }));
+      const r = ctx.next();
+      expect(r.request.params.get('columns')).toBe(ALL[0] + ',' + ALL.slice(50, 100).join(','));
+      r.flush(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
+      await ctx.settle();
+      expect(ctx.el.querySelector('.window')?.textContent).toContain('Columns 51–100 of 120');
+    });
+
+    it('tints rows, outlines the cell and counts rows on other pages', async () => {
+      const ctx = render();
+      const cols = ALL.slice(0, 50);
+      ctx.next().flush(page({ rows: rowsAt([0, 1, 2], cols) }));
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [1, 2, 300], focusRow: 1, column: ALL[3] }));
+      expect(ctx.el.querySelectorAll('.row--hl').length).toBe(2);
+      expect(ctx.el.querySelectorAll('.cell--hl').length).toBe(2);
+      expect(ctx.el.querySelector('.hl-more')?.textContent?.trim()).toBe('1 more on other pages');
+      expect(ctx.el.querySelector('.hl-more')?.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('highlights a header cell', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ column: ALL[2], header: true }));
+      const ths = ctx.el.querySelectorAll('thead tr:first-child th.col--hl');
+      expect(ths.length).toBe(1);
+      expect(ths[0].textContent).toContain(ALL[2]);
+    });
+
+    it('jumps again for a new highlight object and shows the error when the jump fails', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      ctx.next().flush({}, { status: 500, statusText: 'Server Error' });
+      await ctx.settle();
+      expect(ctx.el.querySelector('[role="alert"]')).toBeTruthy();
+      http.expectNone((r) => r.url.includes('/tables/sml'));
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      expect(ctx.next().request.params.get('page')).toBe('2');
+    });
+
+    it('a typed filter still in its debounce does not undo the jump', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      vi.useFakeTimers();
+      const input = ctx.el.querySelectorAll<HTMLInputElement>('thead input')[1];
+      input.value = 'x';
+      input.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(100);
+      ctx.fixture.componentRef.setInput('highlight', hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      ctx.fixture.detectChanges();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
+      await ctx.settle();
+      const r = ctx.next();
+      expect(r.request.params.get('page')).toBe('2');
+      expect(r.request.params.has('filter')).toBe(false);
+      r.flush(page({ page: 2 }));
+    });
+
+    it('does not steal focus after the user pages while the jump loads', async () => {
+      const ctx = render();
+      ctx.next().flush(page());
+      await ctx.settle();
+      await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      const jumpReq = ctx.next();
+      ctx.el.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')!.click();
+      await ctx.settle();
+      expect(jumpReq.cancelled).toBe(true);
+      const cols = ALL.slice(0, 50);
+      ctx.next().flush(page({ page: 3, columns: cols, rows: rowsAt([120], cols) }));
+      await ctx.settle();
+      expect(ctx.el.contains(document.activeElement)).toBe(false);
+    });
   });
 });

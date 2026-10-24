@@ -12,6 +12,20 @@
   border-bottom: 1px solid #eaf0f4;
   font-size: 13.5px;
 }
+.entry--hl {
+  background: var(--lifs-highlight);
+  box-shadow: inset 3px 0 0 var(--lifs-highlight-border);
+  padding-left: 8px;
+  color: var(--lifs-ink);
+
+  .key {
+    color: var(--lifs-ink);
+  }
+}
+.entry:focus-visible {
+  outline: 2px solid var(--lifs-highlight-border);
+  outline-offset: -2px;
+}
 .key {
   font-family: var(--lifs-mono);
   font-size: 12px;
@@ -52,4 +66,10 @@
       cursor: default;
     }
   }
+}
+
+// on the panel element, which belongs to the tab component's own template
+.panel--hl {
+  outline: 2px solid var(--lifs-highlight-border);
+  outline-offset: -2px;
 }

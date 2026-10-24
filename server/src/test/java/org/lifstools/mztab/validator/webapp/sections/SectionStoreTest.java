@@ -289,6 +289,25 @@ class SectionStoreTest {
     }
 
     @Test
+    void metadataKeySelectsThePageThatHoldsIt() throws Exception {
+        UUID id = finishedText(withSamples(120)).id();
+        String key = "sample[60]-description";
+
+        MetadataPage p = reader.metadata(id, "sample", 0, 50, key).orElseThrow();
+
+        assertEquals(1, p.page());
+        assertTrue(p.entries().stream().anyMatch(e -> e.key().equals(key)));
+    }
+
+    @Test
+    void unknownKeyFallsBackToThePageArgument() throws Exception {
+        UUID id = finishedText(withSamples(120)).id();
+
+        assertEquals(2, reader.metadata(id, "sample", 2, 50, "nope").orElseThrow().page());
+        assertEquals(2, reader.metadata(id, "sample", 2, 50, null).orElseThrow().page());
+    }
+
+    @Test
     void deletedSessionStopsServingCachedData() throws Exception {
         UUID id = finished(LIPIDOMICS).id();
         assertTrue(reader.table(id, Section.SML, query(0, 1)).isPresent());
@@ -323,6 +342,24 @@ class SectionStoreTest {
             assertNotNull(in, resource);
             return awaitFinal(sessions.submit("f.mzTab", in, STRUCTURAL, null).id());
         }
+    }
+
+    /** The lipidomics example with sample[2]-description ... sample[n]-description after its last MTD line. */
+    private String withSamples(int n) throws IOException {
+        try (InputStream in = getClass().getResourceAsStream(LIPIDOMICS)) {
+            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            int lastMtd = text.lastIndexOf("\nMTD\t");
+            int at = text.indexOf('\n', lastMtd + 1) + 1;
+            StringBuilder extra = new StringBuilder();
+            for (int i = 2; i <= n; i++) {
+                extra.append("MTD\tsample[").append(i).append("]-description\td").append(i).append('\n');
+            }
+            return text.substring(0, at) + extra + text.substring(at);
+        }
+    }
+
+    private ValidationRecord finishedText(String text) throws Exception {
+        return awaitFinal(sessions.submit("f.mzTab", stream(text), STRUCTURAL, null).id());
     }
 
     private ValidationRecord awaitFinal(UUID id) throws InterruptedException {

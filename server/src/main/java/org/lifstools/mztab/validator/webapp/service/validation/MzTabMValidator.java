@@ -71,7 +71,8 @@ public class MzTabMValidator implements WebValidator {
      *
      * @param file the mzTab-M file
      * @param level the lowest level of messages to report
-     * @param maxErrors the maximum number of messages the parser reports
+     * @param maxErrors the maximum number of messages the parser reports, and
+     * the maximum number of semantic messages
      * @param mapping a CV mapping file for semantic validation; {@code null}
      * skips semantic validation
      * @return the messages and the parsed model
@@ -109,13 +110,44 @@ public class MzTabMValidator implements WebValidator {
         validationResults.addAll(parser.getErrorList().
                 convertToValidationMessages());
         MzTab mzTab = parser.getMZTabFile();
-        if (mapping != null) {
-            validationResults.addAll(validateSemantics(file, mzTab, mapping));
+        if (mapping != null && mzTab == null) {
+            // jmzTab-m builds no model when the file has errors; there is nothing to check
+            validationResults.add(note("Semantic validation was skipped: the errors above prevent reading "
+                    + "the file's content. Fix them and validate again."));
+        } else if (mapping != null) {
+            validationResults.addAll(capped(validateSemantics(file, mzTab, mapping), maxErrors));
         }
         return new Outcome(validationResults, parsed ? mzTab : null);
     }
 
-    private List<ValidationMessage> validateSemantics(Path file, MzTab mzTab, Path mapping) {
+    /**
+     * The first {@code maxErrors} semantic messages; if more were dropped, an
+     * info message saying how many follows them. A CV mapping rule may report
+     * every row of a large table.
+     */
+    private static List<ValidationMessage> capped(List<ValidationMessage> messages, int maxErrors) {
+        int omitted = messages.size() - maxErrors;
+        if (omitted <= 0) {
+            return messages;
+        }
+        List<ValidationMessage> kept = new ArrayList<>(messages.subList(0, maxErrors));
+        kept.add(note(omitted + " further semantic validation messages were omitted. "
+                + "Raise the maximum number of messages to see them."));
+        return kept;
+    }
+
+    /** An info message of the validator itself about semantic validation. */
+    private static ValidationMessage note(String message) {
+        ValidationMessage vm = new ValidationMessage();
+        vm.setCategory(ValidationMessage.CategoryEnum.CROSS_CHECK);
+        vm.setCode("");
+        vm.setLineNumber(-1l);
+        vm.setMessageType(ValidationMessage.MessageTypeEnum.INFO);
+        vm.setMessage(message);
+        return vm;
+    }
+
+    List<ValidationMessage> validateSemantics(Path file, MzTab mzTab, Path mapping) {
         try {
             CvMappingValidator cvValidator = CvMappingValidator.of(
                     SafeCvMappingLoader.load(mapping),

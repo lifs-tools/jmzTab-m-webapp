@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.lang.Nullable;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -127,13 +128,30 @@ public class SectionReader {
      * @return empty if the session has no metadata; an unknown group gives an empty page
      */
     public Optional<MetadataPage> metadata(UUID id, String group, int page, int size) {
+        return metadata(id, group, page, size, null);
+    }
+
+    /**
+     * @param key a key of the group: its page is returned and {@code page} is
+     * ignored; a key that is not in the group is ignored
+     * @see #metadata(UUID, String, int, int)
+     */
+    public Optional<MetadataPage> metadata(UUID id, String group, int page, int size, @Nullable String key) {
         checkPaging(page, size);
         return metadataEntries(id).map(entries -> {
             List<MetadataEntry> inGroup = entries.stream().filter(e -> groupOf(e.key()).equals(group)).toList();
-            long from = (long) page * size;
+            int keyIndex = -1;
+            for (int i = 0; key != null && i < inGroup.size(); i++) {
+                if (inGroup.get(i).key().equals(key)) {
+                    keyIndex = i;
+                    break;
+                }
+            }
+            int shown = keyIndex < 0 ? page : keyIndex / size;
+            long from = (long) shown * size;
             List<MetadataEntry> slice = from >= inGroup.size() ? List.of()
                 : inGroup.subList((int) from, (int) Math.min(inGroup.size(), from + size));
-            return new MetadataPage(group, page, size, inGroup.size(), slice);
+            return new MetadataPage(group, shown, size, inGroup.size(), slice);
         });
     }
 

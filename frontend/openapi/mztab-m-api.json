@@ -1170,6 +1170,32 @@
         },
         "type" : "object"
       },
+      "ValidationLocation" : {
+        "properties" : {
+          "column" : {
+            "type" : [ "string", "null" ]
+          },
+          "element_path" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata_group" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata_key" : {
+            "type" : [ "string", "null" ]
+          },
+          "row_index" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : [ "integer", "null" ]
+          },
+          "section" : {
+            "enum" : [ "mtd", "smh", "sml", "sfh", "smf", "seh", "sme", "com", "file" ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "null"
+      },
       "ValidationMessage" : {
         "properties" : {
           "category" : {
@@ -1183,11 +1209,20 @@
             "format" : "int64",
             "type" : [ "integer", "null" ]
           },
+          "location" : {
+            "$ref" : "#/components/schemas/ValidationLocation"
+          },
           "message" : {
             "type" : "string"
           },
           "message_type" : {
             "enum" : [ "error", "warn", "info" ],
+            "type" : [ "string", "null" ]
+          },
+          "rule_id" : {
+            "type" : [ "string", "null" ]
+          },
+          "suggestion" : {
             "type" : [ "string", "null" ]
           }
         },
@@ -1926,6 +1961,14 @@
             "default" : 50,
             "format" : "int32",
             "type" : "integer"
+          }
+        }, {
+          "description" : "A metadata key of the group; the page that holds it is returned and page is ignored",
+          "in" : "query",
+          "name" : "key",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
           }
         } ],
         "responses" : {
