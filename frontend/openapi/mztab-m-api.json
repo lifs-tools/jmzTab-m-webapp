@@ -1042,6 +1042,12 @@
           "description" : {
             "type" : [ "string", "null" ]
           },
+          "factors" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
           "id" : {
             "format" : "int32",
             "minimum" : 1,
