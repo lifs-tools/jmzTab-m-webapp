@@ -168,7 +168,7 @@ Precision rule (anti-goal): a field is set only when jmzTab-m knows it for certa
 
 **Acceptance bar for structural locations [my call]:** every structural message that has a line number also gets a `section`. `row_index`, `column` and `metadata_key` are set where the call site processes a specific row, column or MTD line; the work includes passing the parser's current section/row/column state to the places that create `MZTabError`s for header, MTD-line and data-row checks, but not restructuring the parser. Line numbers keep referring to the file jmzTab-m parsed; for JSON uploads the validator converts to TSV first, so the line refers to the generated TSV — links therefore use section/row/key, never the line.
 
-**Splitting multi-element messages [my call]:** handlers emit one message per offending element by default; `maxErrors` applies to the emitted (split) messages, as it applies to all messages today. Message counts for such rules rise; the release notes of jmzTab-m and the validator say so. The validator's grouping (§5.6) keeps the list readable.
+**Splitting multi-element messages [my call]:** handlers emit one message per offending element by default; `maxErrors` applies to the emitted (split) messages: the parser caps the structural messages at it, and the validator now caps the semantic messages at it too, adding one info message that counts the omitted ones. Message counts for such rules rise; the release notes of jmzTab-m and the validator say so. The validator's grouping (§5.6) keeps the list readable.
 
 ### 5.4 Suggested fixes (both lines)
 
