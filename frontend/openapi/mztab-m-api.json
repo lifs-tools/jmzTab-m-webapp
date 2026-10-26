@@ -1453,6 +1453,16 @@
               }
             },
             "description" : "The model could not be written, or the written file has errors"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many conversions are running; try again after Retry-After seconds"
           }
         },
         "summary" : "convertMzTabFile",
@@ -1512,6 +1522,16 @@
               }
             },
             "description" : "The file has errors"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many conversions are running; try again after Retry-After seconds"
           }
         },
         "summary" : "convertPlainMzTabFile",

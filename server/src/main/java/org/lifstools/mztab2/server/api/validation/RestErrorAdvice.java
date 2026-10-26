@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import org.lifstools.mztab.validator.webapp.service.validation.ConversionLimiter;
 import org.lifstools.mztab2.server.api.ConvertApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
@@ -65,6 +66,9 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     static final String TOO_LARGE = "The uploaded file is too large.";
 
+    /** When a client may retry a conversion that found no free slot. */
+    static final String RETRY_AFTER_SECONDS = "5";
+
     @ExceptionHandler(UnknownValidationException.class)
     public ResponseEntity<ErrorResponse> notFound(UnknownValidationException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, e.getMessage(), request);
@@ -73,6 +77,13 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> badRequest(Exception e, HttpServletRequest request) {
         return respond(HttpStatus.BAD_REQUEST, e.getMessage(), request);
+    }
+
+    @ExceptionHandler(ConversionLimiter.BusyException.class)
+    public ResponseEntity<ErrorResponse> busy(ConversionLimiter.BusyException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
+            .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(StorageFullException.class)
