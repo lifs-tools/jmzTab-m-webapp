@@ -1,5 +1,6 @@
 package org.lifstools.mztab.validator.webapp;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.oneOf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,6 +33,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
 class DefaultProfileAccessIntegrationTest {
 
     @TempDir
