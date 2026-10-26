@@ -176,6 +176,28 @@
         "required" : [ "param", "prefix", "uri", "version" ],
         "type" : "object"
       },
+      "ErrorResponse" : {
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "100 CONTINUE", "101 SWITCHING_PROTOCOLS", "102 PROCESSING", "103 EARLY_HINTS", "103 CHECKPOINT", "200 OK", "201 CREATED", "202 ACCEPTED", "203 NON_AUTHORITATIVE_INFORMATION", "204 NO_CONTENT", "205 RESET_CONTENT", "206 PARTIAL_CONTENT", "207 MULTI_STATUS", "208 ALREADY_REPORTED", "226 IM_USED", "300 MULTIPLE_CHOICES", "301 MOVED_PERMANENTLY", "302 FOUND", "302 MOVED_TEMPORARILY", "303 SEE_OTHER", "304 NOT_MODIFIED", "305 USE_PROXY", "307 TEMPORARY_REDIRECT", "308 PERMANENT_REDIRECT", "400 BAD_REQUEST", "401 UNAUTHORIZED", "402 PAYMENT_REQUIRED", "403 FORBIDDEN", "404 NOT_FOUND", "405 METHOD_NOT_ALLOWED", "406 NOT_ACCEPTABLE", "407 PROXY_AUTHENTICATION_REQUIRED", "408 REQUEST_TIMEOUT", "409 CONFLICT", "410 GONE", "411 LENGTH_REQUIRED", "412 PRECONDITION_FAILED", "413 PAYLOAD_TOO_LARGE", "413 REQUEST_ENTITY_TOO_LARGE", "414 URI_TOO_LONG", "414 REQUEST_URI_TOO_LONG", "415 UNSUPPORTED_MEDIA_TYPE", "416 REQUESTED_RANGE_NOT_SATISFIABLE", "417 EXPECTATION_FAILED", "418 I_AM_A_TEAPOT", "419 INSUFFICIENT_SPACE_ON_RESOURCE", "420 METHOD_FAILURE", "421 DESTINATION_LOCKED", "422 UNPROCESSABLE_ENTITY", "423 LOCKED", "424 FAILED_DEPENDENCY", "425 TOO_EARLY", "426 UPGRADE_REQUIRED", "428 PRECONDITION_REQUIRED", "429 TOO_MANY_REQUESTS", "431 REQUEST_HEADER_FIELDS_TOO_LARGE", "451 UNAVAILABLE_FOR_LEGAL_REASONS", "500 INTERNAL_SERVER_ERROR", "501 NOT_IMPLEMENTED", "502 BAD_GATEWAY", "503 SERVICE_UNAVAILABLE", "504 GATEWAY_TIMEOUT", "505 HTTP_VERSION_NOT_SUPPORTED", "506 VARIANT_ALSO_NEGOTIATES", "507 INSUFFICIENT_STORAGE", "508 LOOP_DETECTED", "509 BANDWIDTH_LIMIT_EXCEEDED", "510 NOT_EXTENDED", "511 NETWORK_AUTHENTICATION_REQUIRED" ],
+            "type" : "string"
+          },
+          "timestamp" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "ExampleDto" : {
         "properties" : {
           "createdBy" : {
@@ -1365,53 +1387,62 @@
     },
     "/rest/v2/convert" : {
       "post" : {
-        "description" : "Converts an mzTab file in JSON or XML format to the tab-separated representation. If this method returns an error code 422, the provided file did not pass validation. ",
+        "description" : "Converts an mzTab-M file in JSON representation to tab separated mzTab-M. Comments are not written. Unless validate is false, the written file is parsed again, and its errors are reported with 422; their line numbers refer to the written file.",
         "operationId" : "convertMzTabFile",
+        "parameters" : [ {
+          "description" : "Whether to parse the written file again and report its errors.",
+          "in" : "query",
+          "name" : "validate",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        } ],
         "requestBody" : {
           "content" : {
-            "text/plain" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/MzTab"
-              }
-            },
-            "text/tab-separated-values" : {
+            "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/MzTab"
               }
             }
           },
+          "description" : "The mzTab-M file in JSON representation.",
           "required" : true
         },
         "responses" : {
           "200" : {
             "content" : {
-              "application/json" : {
+              "text/tab-separated-values" : {
                 "schema" : {
                   "type" : "string"
                 }
               }
             },
-            "description" : "Unexpected error"
+            "description" : "The tab separated mzTab-M file"
           },
-          "415" : {
+          "400" : {
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "string"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description" : "Unsupported content type"
+            "description" : "The request body is not mzTab-M JSON"
           },
           "422" : {
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "string"
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
                 }
               }
             },
-            "description" : "Invalid input"
+            "description" : "The model could not be written, or the written file has errors"
           }
         },
         "summary" : "convertMzTabFile",
@@ -1420,59 +1451,51 @@
     },
     "/rest/v2/convertPlain" : {
       "post" : {
-        "description" : "Converts an mzTab file in tab separated format to XML or JSON representation. If this method returns an error code 422, the provided file did not pass validation. ",
+        "description" : "Converts a tab separated mzTab-M file to its JSON representation. A file with errors is reported with 422.",
         "operationId" : "convertPlainMzTabFile",
         "requestBody" : {
           "content" : {
-            "application/json" : {
+            "text/plain" : {
               "schema" : {
-                "description" : "mzTab file that should be converted.",
                 "type" : "string"
               }
             },
-            "application/xml" : {
+            "text/tab-separated-values" : {
               "schema" : {
-                "description" : "mzTab file that should be converted.",
                 "type" : "string"
               }
             }
           },
+          "description" : "The tab separated mzTab-M file.",
           "required" : true
         },
         "responses" : {
           "200" : {
             "content" : {
-              "text/tab-separated-values" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MzTab"
                 }
               }
             },
-            "description" : "Unexpected error"
-          },
-          "415" : {
-            "content" : {
-              "text/tab-separated-values" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/MzTab"
-                }
-              }
-            },
-            "description" : "Unsupported content type"
+            "description" : "The mzTab-M file in JSON representation"
           },
           "422" : {
             "content" : {
-              "text/tab-separated-values" : {
+              "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/MzTab"
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
                 }
               }
             },
-            "description" : "Invalid input"
+            "description" : "The file has errors"
           }
         },
         "summary" : "convertPlainMzTabFile",
-        "tags" : [ "convertPlain", "convert" ]
+        "tags" : [ "convert" ]
       }
     },
     "/rest/v2/examples" : {
@@ -2117,7 +2140,7 @@
     }
   },
   "tags" : [ {
-    "description" : "the convert API",
+    "description" : "Conversion between tab separated mzTab-M and its JSON representation.",
     "name" : "convert"
   }, {
     "description" : "The validation API for mzTab-m documents in JSON or XML format.",
@@ -2125,8 +2148,5 @@
   }, {
     "description" : "The validation API for mzTab-m documents in plaintext / tsv format.",
     "name" : "validatePlain"
-  }, {
-    "description" : "the convertPlain API",
-    "name" : "convert"
   } ]
 }

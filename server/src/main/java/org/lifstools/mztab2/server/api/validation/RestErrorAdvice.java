@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import org.lifstools.mztab2.server.api.ConvertApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.slf4j.Logger;
@@ -57,7 +58,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * exceptions keep their status codes.
  */
 @RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
-    AppInfoApiController.class})
+    AppInfoApiController.class, ConvertApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);
