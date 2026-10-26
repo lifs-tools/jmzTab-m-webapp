@@ -10,7 +10,7 @@
             "type" : "string"
           }
         },
-        "type" : "null"
+        "type" : "object"
       },
       "AppInfoDto" : {
         "properties" : {
@@ -223,7 +223,7 @@
             "type" : [ "string", "null" ]
           }
         },
-        "type" : "null"
+        "type" : "object"
       },
       "Instrument" : {
         "properties" : {
@@ -248,7 +248,7 @@
             "$ref" : "#/components/schemas/Parameter"
           }
         },
-        "type" : "null"
+        "type" : "object"
       },
       "Metadata" : {
         "properties" : {
@@ -669,7 +669,7 @@
             "type" : [ "array", "null" ]
           }
         },
-        "type" : "null"
+        "type" : "object"
       },
       "SampleProcessing" : {
         "properties" : {
@@ -1042,6 +1042,12 @@
           "description" : {
             "type" : [ "string", "null" ]
           },
+          "factors" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Parameter"
+            },
+            "type" : [ "array", "null" ]
+          },
           "id" : {
             "format" : "int32",
             "minimum" : 1,
@@ -1194,7 +1200,7 @@
             "type" : [ "string", "null" ]
           }
         },
-        "type" : "null"
+        "type" : "object"
       },
       "ValidationMessage" : {
         "properties" : {
