@@ -1462,7 +1462,7 @@
                 }
               }
             },
-            "description" : "Too many conversions are running; try again after Retry-After seconds"
+            "description" : "Too many files are being validated or converted; try again after Retry-After seconds"
           }
         },
         "summary" : "convertMzTabFile",
@@ -1531,7 +1531,7 @@
                 }
               }
             },
-            "description" : "Too many conversions are running; try again after Retry-After seconds"
+            "description" : "Too many files are being validated or converted; try again after Retry-After seconds"
           }
         },
         "summary" : "convertPlainMzTabFile",
@@ -1598,7 +1598,7 @@
     },
     "/rest/v2/validate" : {
       "post" : {
-        "description" : "Validates an mzTab file in XML or JSON representation and reports syntactic, structural, and semantic errors.",
+        "description" : "Validates an mzTab file in JSON representation and reports syntactic, structural, and semantic errors.",
         "operationId" : "validateMzTabFile",
         "parameters" : [ {
           "description" : "The level of errors that should be reported, one of error, warn, info.",
@@ -1637,13 +1637,9 @@
               "schema" : {
                 "$ref" : "#/components/schemas/MzTab"
               }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/MzTab"
-              }
             }
           },
+          "description" : "mzTab file that should be validated.",
           "required" : true
         },
         "responses" : {
@@ -1659,6 +1655,26 @@
               }
             },
             "description" : "Validation Okay"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The request body is not mzTab-M JSON"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit"
           },
           "415" : {
             "content" : {
@@ -1698,6 +1714,16 @@
               }
             },
             "description" : "Unexpected error"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many files are being validated or converted; try again after Retry-After seconds"
           }
         },
         "summary" : "validateMzTabFile",
@@ -1743,17 +1769,16 @@
           "content" : {
             "text/plain" : {
               "schema" : {
-                "description" : "mzTab file that should be validated.",
                 "type" : "string"
               }
             },
             "text/tab-separated-values" : {
               "schema" : {
-                "description" : "mzTab file that should be validated.",
                 "type" : "string"
               }
             }
           },
+          "description" : "mzTab file that should be validated.",
           "required" : true
         },
         "responses" : {
@@ -1782,6 +1807,16 @@
               }
             },
             "description" : "Invalid request"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit"
           },
           "415" : {
             "content" : {
@@ -1821,6 +1856,16 @@
               }
             },
             "description" : "Unexpected error"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many files are being validated or converted; try again after Retry-After seconds"
           }
         },
         "summary" : "validatePlainMzTabFile",
@@ -2183,7 +2228,7 @@
     "description" : "Conversion between tab separated mzTab-M and its JSON representation.",
     "name" : "convert"
   }, {
-    "description" : "The validation API for mzTab-m documents in JSON or XML format.",
+    "description" : "The validation API for mzTab-m documents in JSON format.",
     "name" : "validate"
   }, {
     "description" : "The validation API for mzTab-m documents in plaintext / tsv format.",

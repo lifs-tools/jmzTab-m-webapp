@@ -15,15 +15,18 @@
  */
 package org.lifstools.mztab2.server.api;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.oneOf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Path;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousLimiter;
 import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,16 +40,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
- * The conversion endpoints take files up to the upload limit, like the
- * validation form.
+ * At most rest.synchronous.max-concurrent synchronous validations and
+ * conversions run at once; a request that finds no free slot within
+ * rest.synchronous.wait answers 503.
  */
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false",
-    "spring.cloud.discovery.enabled=false", "spring.servlet.multipart.max-file-size=1KB"})
+    "spring.cloud.discovery.enabled=false", "rest.synchronous.max-concurrent=1", "rest.synchronous.wait=50ms"})
 @ActiveProfiles("microservice")
 @AutoConfigureMockMvc
-class ConvertApiSizeLimitTest {
-
-    static final String TOO_LARGE = "The uploaded file is too large.";
+class SynchronousEndpointsConcurrencyTest {
 
     @TempDir
     static Path storageRoot;
@@ -62,23 +64,27 @@ class ConvertApiSizeLimitTest {
     @Autowired
     MockMvc mvc;
 
-    @Test
-    void convertPlainRejectsAFileOverTheUploadLimit() throws Exception {
-        mvc.perform(post("/rest/v2/convertPlain")
-                .contentType(ConvertApiIntegrationTest.TSV).accept(MediaType.APPLICATION_JSON)
-                .content("COM\t" + "x".repeat(2048)))
-            .andExpect(status().isPayloadTooLarge())
-            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.message").value(TOO_LARGE));
+    @Autowired
+    SynchronousLimiter limiter;
+
+    @ParameterizedTest
+    @EnumSource(SynchronousEndpoint.class)
+    void answers503WhileAllSlotsAreTaken(SynchronousEndpoint endpoint) throws Exception {
+        try (SynchronousLimiter.Permit held = limiter.acquire()) {
+            mvc.perform(endpoint.request())
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message").value(SynchronousLimiter.BUSY));
+        }
     }
 
-    @Test
-    void convertRejectsAFileOverTheUploadLimit() throws Exception {
-        mvc.perform(post("/rest/v2/convert")
-                .contentType(MediaType.APPLICATION_JSON).accept(ConvertApiIntegrationTest.TSV)
-                .content("{\"metadata\": {\"description\": \"" + "x".repeat(2048) + "\"}}"))
-            .andExpect(status().isPayloadTooLarge())
-            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.message").value(TOO_LARGE));
+    @ParameterizedTest
+    @EnumSource(SynchronousEndpoint.class)
+    void aFinishedRequestFreesItsSlot(SynchronousEndpoint endpoint) throws Exception {
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(endpoint.request())
+                .andExpect(status().is(oneOf(200, 422)));
+        }
     }
 }

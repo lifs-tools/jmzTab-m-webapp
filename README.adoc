@@ -83,9 +83,9 @@ All settings can be given as command line arguments, environment variables or in
 |`storage.max-total-bytes` |`10737418240` (10 GiB) |New validations are refused while the stored files take up at least this many bytes.
 |`sections.cache.max-bytes` |`268435456` (256 MiB) |Size of the in-memory cache for the section data shown on the result page.
 |`validation.custom-mappings.enabled` |`true` |Allow users to upload their own CV mapping file.
-|`spring.servlet.multipart.max-file-size` |`64MB` |Upload size limit (the request limit is set equally). It also limits the files sent to `/rest/v2/convert` and `/rest/v2/convertPlain`.
-|`conversion.max-concurrent` |number of processors |How many conversions (`/rest/v2/convert`, `/rest/v2/convertPlain`) run at once.
-|`conversion.wait` |`10s` |How long a conversion waits for a free slot; then it answers 503 with `Retry-After`.
+|`spring.servlet.multipart.max-file-size` |`64MB` |Upload size limit (the request limit is set equally). It also limits the files sent to the synchronous endpoints `/rest/v2/validate`, `/validatePlain`, `/convert` and `/convertPlain`.
+|`rest.synchronous.max-concurrent` |number of processors |How many requests to the synchronous endpoints run at once.
+|`rest.synchronous.wait` |`10s` |How long such a request waits for a free slot; then it answers 503 with `Retry-After`.
 |`ga.id` |empty |Matomo site id. If empty, no analytics tracker is loaded in the browser.
 |`ga.url` |empty |Matomo tracking endpoint used for server-side events (anonymous).
 |`ga.app.url` |empty |Public URL of the application, used for analytics.

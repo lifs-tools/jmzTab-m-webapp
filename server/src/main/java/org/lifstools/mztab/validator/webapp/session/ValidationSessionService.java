@@ -16,7 +16,6 @@
 package org.lifstools.mztab.validator.webapp.session;
 
 import java.io.ByteArrayInputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -24,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.lifstools.mztab.validator.webapp.service.CappedInputStream;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
@@ -96,7 +96,7 @@ public class ValidationSessionService {
                 throw new StorageFullException();
             }
             try {
-                CappedInputStream upload = new CappedInputStream(content, remaining);
+                CappedInputStream upload = new CappedInputStream(content, remaining, StorageFullException::new);
                 storage.write(id, SLOT.MZTABFILE, UPLOAD, upload);
                 if (mapping != null) {
                     if (mapping.length > remaining - upload.count()) {
@@ -157,59 +157,5 @@ public class ValidationSessionService {
         }
         SafeCvMappingLoader.validateAgainstSchema(bytes);
         return bytes;
-    }
-
-    /**
-     * Passes at most {@code limit} bytes through and refuses the rest, so an
-     * upload of unknown length cannot exceed the storage cap.
-     */
-    private static final class CappedInputStream extends FilterInputStream {
-
-        private final long limit;
-        private long count;
-
-        CappedInputStream(InputStream in, long limit) {
-            super(in);
-            this.limit = limit;
-        }
-
-        long count() {
-            return count;
-        }
-
-        @Override
-        public int read() throws IOException {
-            int b = super.read();
-            if (b >= 0) {
-                add(1);
-            }
-            return b;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            int n = super.read(b, off, len);
-            if (n > 0) {
-                add(n);
-            }
-            return n;
-        }
-
-        @Override
-        public long skip(long n) throws IOException {
-            throw new IOException("skip is not supported");
-        }
-
-        @Override
-        public boolean markSupported() {
-            return false;
-        }
-
-        private void add(int n) {
-            count += n;
-            if (count > limit) {
-                throw new StorageFullException();
-            }
-        }
     }
 }

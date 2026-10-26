@@ -19,7 +19,7 @@ import org.lifstools.mztab.validator.webapp.domain.AppInfo;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
 import org.lifstools.mztab2.io.serialization.ParameterConverter;
-import org.lifstools.mztab2.server.api.ConversionSlotInterceptor;
+import org.lifstools.mztab2.server.api.SynchronousSlotInterceptor;
 import org.lifstools.mztab2.server.config.LocalDateConverter;
 import org.lifstools.mztab2.server.config.LocalDateTimeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,11 +56,12 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Autowired
-    private ConversionSlotInterceptor conversionSlots;
+    private SynchronousSlotInterceptor synchronousSlots;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(conversionSlots).addPathPatterns("/rest/v2/convert", "/rest/v2/convertPlain");
+        registry.addInterceptor(synchronousSlots).addPathPatterns("/rest/v2/validate", "/rest/v2/validatePlain",
+            "/rest/v2/convert", "/rest/v2/convertPlain");
     }
 
     @Override

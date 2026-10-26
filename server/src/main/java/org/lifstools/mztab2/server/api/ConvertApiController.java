@@ -24,28 +24,24 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.io.InputStream;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.service.validation.MzTabConverter;
 import org.lifstools.mztab.validator.webapp.service.validation.MzTabConverter.Conversion;
 import org.lifstools.mztab2.model.MzTab;
 import org.lifstools.mztab2.model.ValidationMessage;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Converts mzTab-M between its tab separated form and its JSON
  * representation. A conversion that fails answers 422 with the errors as
  * validation messages. Files up to the upload limit are accepted, as in the
  * validation form; larger ones answer 413. A bounded number of conversions
- * run at once ({@link ConversionSlotInterceptor}); a request that finds no
+ * run at once ({@link SynchronousSlotInterceptor}); a request that finds no
  * free slot in time answers 503.
  */
 @RestController
@@ -57,12 +53,11 @@ public class ConvertApiController {
 
     private final MzTabConverter converter;
 
-    private final long maxBytes;
+    private final RequestBodies bodies;
 
-    public ConvertApiController(MzTabConverter converter,
-        @Value("${spring.servlet.multipart.max-file-size:64MB}") DataSize maxUpload) {
+    public ConvertApiController(MzTabConverter converter, RequestBodies bodies) {
         this.converter = converter;
-        this.maxBytes = maxUpload.toBytes();
+        this.bodies = bodies;
     }
 
     @Operation(summary = "convertMzTabFile",
@@ -84,7 +79,7 @@ public class ConvertApiController {
     @ApiResponse(responseCode = "422", description = "The model could not be written, or the written file has errors",
         content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class))))
-    @ApiResponse(responseCode = "503", description = "Too many conversions are running; try again after Retry-After seconds",
+    @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted; try again after Retry-After seconds",
         content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping(value = "/convert", consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -93,7 +88,7 @@ public class ConvertApiController {
         HttpServletRequest request,
         @Parameter(description = "Whether to parse the written file again and report its errors.")
         @RequestParam(name = "validate", defaultValue = "true") boolean validate) throws IOException {
-        return respond(converter.write(body(request), maxBytes, validate));
+        return respond(converter.write(bodies.open(request), validate));
     }
 
     @Operation(summary = "convertPlainMzTabFile",
@@ -111,22 +106,14 @@ public class ConvertApiController {
     @ApiResponse(responseCode = "422", description = "The file has errors",
         content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class))))
-    @ApiResponse(responseCode = "503", description = "Too many conversions are running; try again after Retry-After seconds",
+    @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted; try again after Retry-After seconds",
         content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping(value = "/convertPlain", consumes = {TSV, MediaType.TEXT_PLAIN_VALUE},
         produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> convertPlainMzTabFile(
         HttpServletRequest request) throws IOException {
-        return respond(converter.read(body(request), maxBytes));
-    }
-
-    /** The request body; a body that declares a length over the limit is refused before it is read. */
-    private InputStream body(HttpServletRequest request) throws IOException {
-        if (request.getContentLengthLong() > maxBytes) {
-            throw new MaxUploadSizeExceededException(maxBytes);
-        }
-        return request.getInputStream();
+        return respond(converter.read(bodies.open(request)));
     }
 
     /** The converted value, or the errors as JSON whatever the client accepts. */

@@ -19,6 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
@@ -27,8 +29,8 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
- * The size cap of a conversion holds for a body without a declared length,
- * and leaves no temporary file behind.
+ * A body that cannot be read, e.g. one over the upload limit, leaves no
+ * temporary file behind.
  */
 class MzTabConverterTest {
 
@@ -36,14 +38,21 @@ class MzTabConverterTest {
     Path tmp;
 
     @Test
-    void receiveKeepsABodyUpToTheLimit() throws Exception {
-        Path file = MzTabConverter.receive(new ByteArrayInputStream(new byte[1024]), 1024, tmp);
+    void receiveKeepsTheBody() throws Exception {
+        Path file = MzTabConverter.receive(new ByteArrayInputStream(new byte[1024]), tmp);
         assertThat(file).hasSize(1024);
     }
 
     @Test
-    void receiveRejectsABodyOverTheLimitAndDeletesWhatItRead() throws Exception {
-        assertThatThrownBy(() -> MzTabConverter.receive(new ByteArrayInputStream(new byte[1025]), 1024, tmp))
+    void receiveDeletesWhatItReadOfABodyThatFails() throws Exception {
+        InputStream failing = new SequenceInputStream(new ByteArrayInputStream(new byte[8192]),
+            new InputStream() {
+                @Override
+                public int read() {
+                    throw new MaxUploadSizeExceededException(8192);
+                }
+            });
+        assertThatThrownBy(() -> MzTabConverter.receive(failing, tmp))
             .isInstanceOf(MaxUploadSizeExceededException.class);
         try (Stream<Path> left = Files.list(tmp)) {
             assertThat(left).isEmpty();

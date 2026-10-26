@@ -19,11 +19,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
@@ -33,13 +33,13 @@ import org.lifstools.mztab2.model.ValidationMessage;
 import org.lifstools.mztab2.model.ValidationMessage.MessageTypeEnum;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  * Converts between tab separated mzTab-M and its JSON representation. Only
  * errors stop a conversion; warnings and infos are not reported. Request
- * bodies go to a temporary file, never into memory as a whole.
+ * bodies go to a temporary file, never into memory as a whole; their size is
+ * capped by the caller.
  */
 @Slf4j
 @Component
@@ -79,13 +79,10 @@ public class MzTabConverter {
      * Parses tab separated mzTab-M into its model.
      *
      * @param tsv the file content, UTF-8
-     * @param maxBytes the largest file accepted
      * @return the model, or the errors that prevent reading it
-     * @throws MaxUploadSizeExceededException if the file is larger than
-     * {@code maxBytes}
      */
-    public Conversion<MzTab> read(InputStream tsv, long maxBytes) throws IOException {
-        Path file = receive(tsv, maxBytes, null);
+    public Conversion<MzTab> read(InputStream tsv) throws IOException {
+        Path file = receive(tsv, null);
         try {
             MzTabMValidator.Outcome outcome = validator.validateAndParse(file, ValidationLevel.ERROR,
                 MAX_ERRORS, null);
@@ -100,16 +97,13 @@ public class MzTabConverter {
      * Writes the JSON representation of mzTab-M as tab separated mzTab-M.
      *
      * @param json the JSON representation
-     * @param maxBytes the largest JSON accepted
      * @param validate whether to parse the written file again and fail on its
      * errors
      * @return the file content, or the errors that prevent writing it
-     * @throws MaxUploadSizeExceededException if the JSON is larger than
-     * {@code maxBytes}
      * @throws IllegalArgumentException if the JSON is not mzTab-M
      */
-    public Conversion<String> write(InputStream json, long maxBytes, boolean validate) throws IOException {
-        Path in = receive(json, maxBytes, null);
+    public Conversion<String> write(InputStream json, boolean validate) throws IOException {
+        Path in = receive(json, null);
         MzTab mzTab;
         try {
             mzTab = objectMapper.readValue(in.toFile(), MzTab.class);
@@ -148,30 +142,19 @@ public class MzTabConverter {
     }
 
     /**
-     * Copies a request body to a new temporary file, at most
-     * {@code maxBytes}. A body without a declared length can be larger than
-     * the limit, so the copy counts.
+     * Copies a request body to a new temporary file.
      *
      * @param dir the directory of the file; {@code null} for the default
      * temporary directory
-     * @throws MaxUploadSizeExceededException if the body is larger than
-     * {@code maxBytes}; the file is deleted
+     * @throws IOException or a runtime exception if the body cannot be read,
+     * e.g. because it is over the upload limit; the file is deleted
      */
-    static Path receive(InputStream body, long maxBytes, @Nullable Path dir) throws IOException {
+    static Path receive(InputStream body, @Nullable Path dir) throws IOException {
         Path file = dir == null ? Files.createTempFile("mztab-conversion-", ".upload")
             : Files.createTempFile(dir, "mztab-conversion-", ".upload");
         boolean kept = false;
-        try (OutputStream out = Files.newOutputStream(file)) {
-            byte[] buffer = new byte[8192];
-            long total = 0;
-            int n;
-            while ((n = body.read(buffer)) != -1) {
-                total += n;
-                if (total > maxBytes) {
-                    throw new MaxUploadSizeExceededException(maxBytes);
-                }
-                out.write(buffer, 0, n);
-            }
+        try {
+            Files.copy(body, file, StandardCopyOption.REPLACE_EXISTING);
             kept = true;
             return file;
         } finally {

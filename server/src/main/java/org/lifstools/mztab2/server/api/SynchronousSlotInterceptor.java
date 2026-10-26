@@ -17,27 +17,28 @@ package org.lifstools.mztab2.server.api;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.lifstools.mztab.validator.webapp.service.validation.ConversionLimiter;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousLimiter;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * Holds a conversion slot for the whole request: it is taken before the
- * handler reads the body and freed after the response is written, since the
- * model and the converted file are serialized after the handler returns. A
+ * Holds a {@link SynchronousLimiter} slot for the whole request: it is taken
+ * before the handler reads the body and freed after the response is written,
+ * since the model, the converted file or the messages are serialized after
+ * the handler returns. A
  * request that finds no free slot fails with
- * {@link ConversionLimiter.BusyException}, which {@code RestErrorAdvice}
+ * {@link SynchronousLimiter.BusyException}, which {@code RestErrorAdvice}
  * answers with 503.
  */
 @Component
-public class ConversionSlotInterceptor implements HandlerInterceptor {
+public class SynchronousSlotInterceptor implements HandlerInterceptor {
 
-    static final String PERMIT = ConversionSlotInterceptor.class.getName() + ".permit";
+    static final String PERMIT = SynchronousSlotInterceptor.class.getName() + ".permit";
 
-    private final ConversionLimiter limiter;
+    private final SynchronousLimiter limiter;
 
-    public ConversionSlotInterceptor(ConversionLimiter limiter) {
+    public SynchronousSlotInterceptor(SynchronousLimiter limiter) {
         this.limiter = limiter;
     }
 
@@ -50,7 +51,7 @@ public class ConversionSlotInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
         @Nullable Exception ex) {
-        if (request.getAttribute(PERMIT) instanceof ConversionLimiter.Permit permit) {
+        if (request.getAttribute(PERMIT) instanceof SynchronousLimiter.Permit permit) {
             request.removeAttribute(PERMIT);
             permit.close();
         }

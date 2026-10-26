@@ -20,8 +20,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
-import org.lifstools.mztab.validator.webapp.service.validation.ConversionLimiter;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousLimiter;
 import org.lifstools.mztab2.server.api.ConvertApiController;
+import org.lifstools.mztab2.server.api.ValidateApiController;
+import org.lifstools.mztab2.server.api.ValidatePlainApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.slf4j.Logger;
@@ -54,19 +56,19 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * Answers errors of the validations endpoints as JSON {@link ErrorResponse} bodies. It is scoped to
- * {@link ValidationsApiController}, so the older validate endpoints keep their behaviour. Standard Spring MVC
- * exceptions keep their status codes.
+ * Answers errors of the REST endpoints as JSON {@link ErrorResponse} bodies. Standard Spring MVC exceptions keep
+ * their status codes.
  */
 @RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
-    AppInfoApiController.class, ConvertApiController.class})
+    AppInfoApiController.class, ConvertApiController.class, ValidateApiController.class,
+    ValidatePlainApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);
 
     static final String TOO_LARGE = "The uploaded file is too large.";
 
-    /** When a client may retry a conversion that found no free slot. */
+    /** When a client may retry a request that found no free slot. */
     static final String RETRY_AFTER_SECONDS = "5";
 
     @ExceptionHandler(UnknownValidationException.class)
@@ -79,8 +81,8 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         return respond(HttpStatus.BAD_REQUEST, e.getMessage(), request);
     }
 
-    @ExceptionHandler(ConversionLimiter.BusyException.class)
-    public ResponseEntity<ErrorResponse> busy(ConversionLimiter.BusyException e, HttpServletRequest request) {
+    @ExceptionHandler(SynchronousLimiter.BusyException.class)
+    public ResponseEntity<ErrorResponse> busy(SynchronousLimiter.BusyException e, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
             .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
                 HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));

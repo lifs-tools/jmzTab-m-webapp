@@ -21,11 +21,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
@@ -133,6 +137,9 @@ public interface ValidatePlainApi {
 
     Logger log = LoggerFactory.getLogger(ValidatePlainApi.class);
 
+    /** The name of the uploaded file in its session. */
+    String UPLOAD = "upload.mztab";
+
     default Optional<ObjectMapper> getObjectMapper() {
         return Optional.empty();
     }
@@ -155,21 +162,31 @@ public interface ValidatePlainApi {
         return Optional.empty();
     }
 
+    default Optional<RequestBodies> getRequestBodies() {
+        return Optional.empty();
+    }
+
     @Operation(summary = "validatePlainMzTabFile",
-        description = "Validates an mzTab file in plain text representation and reports syntactic, structural, and semantic errors.")
+        description = "Validates an mzTab file in plain text representation and reports syntactic, structural, and semantic errors.",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "mzTab file that should be validated.", required = true,
+            content = {@Content(mediaType = "text/tab-separated-values", schema = @Schema(type = "string")),
+                @Content(mediaType = "text/plain", schema = @Schema(type = "string"))}))
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Validation Okay"),
         @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "413", description = "The file is larger than the upload limit",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "415", description = "Unsupported content type"),
         @ApiResponse(responseCode = "422", description = "Invalid input"),
-        @ApiResponse(responseCode = "500", description = "Unexpected error")})
+        @ApiResponse(responseCode = "500", description = "Unexpected error"),
+        @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted; try again after Retry-After seconds",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))})
     @RequestMapping(value = "/validatePlain",
         produces = {"application/json"},
         consumes = {"text/tab-separated-values", "text/plain"},
         method = RequestMethod.POST)
     default ResponseEntity<List<ValidationMessage>> validatePlainMzTabFile(
-        @Parameter(description = "mzTab file that should be validated.", required = true)
-        @Valid @RequestBody(required = true) String mztabfile,
         @RequestParam(name = "level", defaultValue = "info", required = false)
         @Parameter(name = "level", description = "The level of errors that should be reported, one of error, warn, info.")
         @Valid String level,
@@ -178,7 +195,7 @@ public interface ValidatePlainApi {
         @Valid @Min(0) @Max(500) Integer maxErrors,
         @RequestParam(name = "semanticValidation", defaultValue = "false", required = false)
         @Parameter(name = "semanticValidation", description = "Whether a semantic validation against the default rule set should be performed.")
-        @Valid boolean semanticValidation) {
+        @Valid boolean semanticValidation) throws IOException {
         if (getObjectMapper().
             isPresent() && getAcceptHeader().
                 isPresent()) {
@@ -187,9 +204,10 @@ public interface ValidatePlainApi {
                 contains("application/json")) {
                 UUID sessionId = UUID.randomUUID();
                 try {
-                    UserSessionFile file = getStorageService().
-                        get().
-                        store(mztabfile, sessionId, StorageService.SLOT.MZTABFILE);
+                    try (InputStream body = getRequestBodies().get().open(getRequest().get())) {
+                        getStorageService().get().write(sessionId, StorageService.SLOT.MZTABFILE, UPLOAD, body);
+                    }
+                    UserSessionFile file = new UserSessionFile(UPLOAD, sessionId);
                     UserSessionFile mappingFile = getStorageService().
                             get().
                             store(ValidateApi.class.getResource(

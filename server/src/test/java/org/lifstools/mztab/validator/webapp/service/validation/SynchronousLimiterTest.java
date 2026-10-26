@@ -21,31 +21,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
-class ConversionLimiterTest {
+class SynchronousLimiterTest {
 
     @Test
     void refusesAConversionOverTheLimitAfterWaiting() {
-        ConversionLimiter limiter = new ConversionLimiter(1, Duration.ofMillis(50));
-        try (ConversionLimiter.Permit held = limiter.acquire()) {
-            assertThatThrownBy(limiter::acquire).isInstanceOf(ConversionLimiter.BusyException.class);
+        SynchronousLimiter limiter = new SynchronousLimiter(1, Duration.ofMillis(50));
+        try (SynchronousLimiter.Permit held = limiter.acquire()) {
+            assertThatThrownBy(limiter::acquire).isInstanceOf(SynchronousLimiter.BusyException.class);
         }
     }
 
     @Test
     void closingAPermitFreesItsSlot() {
-        ConversionLimiter limiter = new ConversionLimiter(1, Duration.ofMillis(50));
+        SynchronousLimiter limiter = new SynchronousLimiter(1, Duration.ofMillis(50));
         limiter.acquire().close();
         assertThatCode(() -> limiter.acquire().close()).doesNotThrowAnyException();
     }
 
     @Test
     void closingAPermitTwiceFreesOneSlot() {
-        ConversionLimiter limiter = new ConversionLimiter(1, Duration.ofMillis(50));
-        ConversionLimiter.Permit permit = limiter.acquire();
+        SynchronousLimiter limiter = new SynchronousLimiter(1, Duration.ofMillis(50));
+        SynchronousLimiter.Permit permit = limiter.acquire();
         permit.close();
         permit.close();
-        try (ConversionLimiter.Permit held = limiter.acquire()) {
-            assertThatThrownBy(limiter::acquire).isInstanceOf(ConversionLimiter.BusyException.class);
+        try (SynchronousLimiter.Permit held = limiter.acquire()) {
+            assertThatThrownBy(limiter::acquire).isInstanceOf(SynchronousLimiter.BusyException.class);
         }
     }
 }

@@ -35,14 +35,17 @@ public class ValidateApiController implements ValidateApi {
 
     private final ValidationService validationService;
 
+    private final RequestBodies requestBodies;
+
     @org.springframework.beans.factory.annotation.Autowired
     public ValidateApiController(ObjectMapper objectMapper,
         HttpServletRequest request, StorageService storageService,
-        ValidationService validationService) {
+        ValidationService validationService, RequestBodies requestBodies) {
         this.objectMapper = objectMapper;
         this.request = request;
         this.storageService = storageService;
         this.validationService = validationService;
+        this.requestBodies = requestBodies;
     }
 
     @Override
@@ -65,4 +68,8 @@ public class ValidateApiController implements ValidateApi {
         return Optional.ofNullable(storageService);
     }
 
+    @Override
+    public Optional<RequestBodies> getRequestBodies() {
+        return Optional.ofNullable(requestBodies);
+    }
 }

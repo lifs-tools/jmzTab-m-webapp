@@ -24,37 +24,39 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Bounds the number of conversions that run at once. The conversion
- * endpoints answer synchronously on a request thread and hold a whole file
+ * Bounds the number of synchronous validations and conversions that run at
+ * once. {@code /rest/v2/validate}, {@code /validatePlain}, {@code /convert}
+ * and {@code /convertPlain} answer on a request thread and hold a whole file
  * and its model; without a bound, parallel requests can exhaust the memory.
+ * Validations through {@code /rest/v2/validations} run on their own pool.
  */
 @Component
-public class ConversionLimiter {
+public class SynchronousLimiter {
 
     static final String DEFAULT_MAX = "#{T(java.lang.Runtime).getRuntime().availableProcessors()}";
 
-    public static final String BUSY = "Too many conversions are running. Please try again shortly.";
+    public static final String BUSY = "Too many files are being validated or converted. Please try again shortly.";
 
     private final Semaphore slots;
 
     private final Duration wait;
 
     /**
-     * @param maxConcurrent the number of conversions that may run at once
-     * @param wait how long a conversion waits for a free slot
+     * @param maxConcurrent the number of requests that may run at once
+     * @param wait how long a request waits for a free slot
      */
     @Autowired
-    public ConversionLimiter(@Value("${conversion.max-concurrent:" + DEFAULT_MAX + "}") int maxConcurrent,
-        @Value("${conversion.wait:10s}") Duration wait) {
+    public SynchronousLimiter(@Value("${rest.synchronous.max-concurrent:" + DEFAULT_MAX + "}") int maxConcurrent,
+        @Value("${rest.synchronous.wait:10s}") Duration wait) {
         if (maxConcurrent < 1) {
-            throw new IllegalArgumentException("conversion.max-concurrent must be at least 1, was " + maxConcurrent);
+            throw new IllegalArgumentException("rest.synchronous.max-concurrent must be at least 1, was " + maxConcurrent);
         }
         this.slots = new Semaphore(maxConcurrent, true);
         this.wait = wait;
     }
 
     /**
-     * Takes a slot, waiting up to {@code conversion.wait} for one.
+     * Takes a slot, waiting up to {@code rest.synchronous.wait} for one.
      *
      * @return the slot; closing it frees the slot
      * @throws BusyException if no slot became free in time
@@ -70,7 +72,7 @@ public class ConversionLimiter {
         throw new BusyException();
     }
 
-    /** A slot of a running conversion. */
+    /** A slot of a running request. */
     public final class Permit implements AutoCloseable {
 
         private final AtomicBoolean released = new AtomicBoolean();
