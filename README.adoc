@@ -53,73 +53,31 @@ The Playwright end-to-end tests run against a packaged server that is already ru
 
 `E2E_BASE_URL` overrides the default address `http://localhost:8083/mztabvalidator/` (it must end with a slash).
 
-== Running the Web Application for Validation
+== Running your own instance
 
-The `server/target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
+The guide in link:docs/self-hosting/README.md[`docs/self-hosting`] covers building, configuring and operating your own mzTab Validator:
 
-  java -jar server/target/mztab-validator-webapp-<VERSION>.jar
+* link:docs/self-hosting/building.md[Building]: prerequisites, the JAR, Docker images.
+* link:docs/self-hosting/configuration.md[Configuration]: every setting with its default, validation profiles, analytics, logging.
+* link:docs/self-hosting/operating.md[Operating]: the JAR or the container, reverse proxy, storage and retention, memory, monitoring, security, upgrades, troubleshooting.
 
-This will start the application with a default configuration, running on http port 8083. 
-The application can then be accessed from your web browser at
+In short: the packaged JAR runs with Java 24 or later,
 
-  http://localhost:8083/mztabvalidator
+  java -jar server/target/mztab-validator-webapp-<VERSION>.jar --storage.location=/var/lib/mztabvalidator
 
-== Self-hosting
+and serves the application at http://localhost:8083/mztabvalidator. To run it in Docker, build an image from the JAR and mount a volume at `/tmp/upload-dir`, the default `storage.location` in the image:
 
-Requirements and configuration for running your own instance:
+  docker build --build-arg JAR_FILE=mztab-validator-webapp-<VERSION>.jar -t mztab-validator-webapp:<VERSION> server
+  docker run -d --name mztabvalidator -p 8083:8083 -m 2g -v mztabvalidator-data:/tmp/upload-dir mztab-validator-webapp:<VERSION>
 
-* *Outbound network access* to the https://www.ebi.ac.uk/ols4/[EBI Ontology Lookup Service (OLS)]. It is needed for semantic validation (controlled vocabulary checks); structural validation works offline.
-* *A persistent volume for `storage.location`.* Uploaded files, validation results and the section files used by the result page are stored there and survive restarts and redeploys for the retention period. The default is `${java.io.tmpdir}/upload-dir`; in Docker this is `/tmp/upload-dir`, so mount your volume there or set `storage.location`.
-* *One replica per instance.* Results are held on the local file system of the instance; do not load-balance several replicas over different storage.
-* A reverse proxy should forward `X-Forwarded-*` headers (the server trusts them) and may serve the application below any context path (`server.servlet.contextPath`); the SPA determines its base path at runtime.
+What an instance needs:
 
-All settings can be given as command line arguments, environment variables or in `SPRING_APPLICATION_JSON`:
+* *A persistent directory or volume for `storage.location`.* Uploads, results and the data of the result page are kept there for `minCleanupAge` days (7).
+* *One instance per storage directory.* Results are files of one instance; do not load-balance several.
+* *Outbound HTTPS* to the https://www.ebi.ac.uk/ols4/[EBI Ontology Lookup Service] for semantic validation, and to `raw.githubusercontent.com` for the example files. Structural validation works offline.
+* *A reverse proxy* that forwards `X-Forwarded-*` headers and accepts uploads up to `spring.servlet.multipart.max-file-size` (64 MB).
 
-[cols="2,2,4",options="header"]
-|===
-|Property |Default |Meaning
-|`storage.location` |`${java.io.tmpdir}/upload-dir` |Directory for uploads, results and sections.
-|`minCleanupAge` |`7` |Retention in days; results older than this are removed by the nightly cleanup (`oldFileMaintenanceSchedule`, default 11 pm).
-|`storage.max-total-bytes` |`10737418240` (10 GiB) |New validations are refused while the stored files take up at least this many bytes.
-|`sections.cache.max-bytes` |`268435456` (256 MiB) |Size of the in-memory cache for the section data shown on the result page.
-|`validation.custom-mappings.enabled` |`true` |Allow users to upload their own CV mapping file.
-|`spring.servlet.multipart.max-file-size` |`64MB` |Upload size limit (the request limit is set equally). It also limits the files sent to the synchronous endpoints `/rest/v2/validate`, `/validatePlain`, `/convert` and `/convertPlain`.
-|`rest.synchronous.max-concurrent` |number of processors |How many requests to the synchronous endpoints run at once.
-|`rest.synchronous.wait` |`10s` |How long such a request waits for a free slot; then it answers 503 with `Retry-After`.
-|`ga.id` |empty |Matomo site id. If empty, no analytics tracker is loaded in the browser.
-|`ga.url` |empty |Matomo tracking endpoint used for server-side events (anonymous).
-|`ga.app.url` |empty |Public URL of the application, used for analytics.
-|`matomo.tracker-base` |`https://lifs-tools.org/matomo/` |Base URL of the Matomo instance used by the browser tracker.
-|===
-
-== Validation profiles
-
-A validation profile is a set of semantic rules (a CV mapping) that a file is checked against. Users select a profile in the form or pass it to the `/rest/v2/validations` endpoint; they can also upload their own mapping file (if `validation.custom-mappings.enabled` is `true`). The catalog is read from `server/src/main/resources/validation-profiles/index.json` (override with `validation.profiles.index`) and is also served at `/rest/v2/validation-profiles`.
-
-[cols="2,1,3,2",options="header"]
-|===
-|Id |Version |Use case |mzTab version
-|`mztab-m-2.0-default` |1.0.0 |The reference semantic rules shipped with jmzTab-m (mzTab-M 2.0 default rules). |2.0.0-M
-|===
-
-== Building the Web Application Docker Image
-If you want to run the web application as a docker container, you can build it as follows:
-
-  ./mvnw -B -Pdocker package
-
-This will build a Docker container (with Jib) for the webapplication and will make it available to be run by docker.
-Images are published as `lifs/mztab-validator-webapp` (registry `docker.lifs-tools.org`).
-
-  docker image ls
-  REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-  lifs/mztab-validator-webapp   2.0.0-SNAPSHOT      b87d4683db50        About an hour ago   472MB
-
-Please note that the base image we use is quite large (for details, see the Jib configuration in `server/pom.xml`), but also includes monitoring utilities and automatic scaling and limiting of the 
-internal JVMs memory based on the amount of memory allocated for the container by Docker.
-
-To run the web application as a Docker container, type in the following (replacing <VERSION> with the current project version, i.e. the TAG version displayed by `docker image ls`), and mount a volume at `/tmp/upload-dir` to keep results across restarts:
-
-  docker run -it --rm --name mztabvalidator -p 8080:8083 -m 1G -v mztabvalidator-data:/tmp/upload-dir lifs/mztab-validator-webapp:<VERSION>
+The project's own images are built with Jib (`-Pdocker`) and published as `docker.lifs-tools.org/lifs/mztab-validator-webapp`. The `docker` profile pushes to a registry during `package`; see link:docs/self-hosting/building.md#docker-image[Building] for pushing to your own.
 
 == References
 
