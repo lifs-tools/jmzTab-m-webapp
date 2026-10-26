@@ -1,5 +1,6 @@
 package org.lifstools.mztab2.server.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
@@ -127,6 +129,21 @@ class ValidateApiIntegrationTest {
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.message", containsString("not mzTab-M JSON")));
+    }
+
+    /** It was System.nanoTime(), which is no point in time. */
+    @Test
+    void errorsCarryTheTimeTheyHappened() throws Exception {
+        Instant before = Instant.now();
+        String body = mvc.perform(post("/rest/v2/validate")
+                .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .content("{\"metadata\": "))
+            .andExpect(status().isBadRequest())
+            .andReturn().getResponse().getContentAsString();
+        Instant after = Instant.now();
+
+        Instant timestamp = Instant.parse(json.readTree(body).get("timestamp").asText());
+        assertThat(timestamp).isBetween(before, after);
     }
 
     private MzTab model() throws Exception {

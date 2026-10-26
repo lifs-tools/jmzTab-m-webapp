@@ -192,8 +192,8 @@
             "type" : "string"
           },
           "timestamp" : {
-            "format" : "int64",
-            "type" : "integer"
+            "format" : "date-time",
+            "type" : "string"
           }
         },
         "type" : "object"
