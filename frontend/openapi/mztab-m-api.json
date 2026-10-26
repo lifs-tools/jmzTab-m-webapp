@@ -1431,6 +1431,16 @@
             },
             "description" : "The request body is not mzTab-M JSON"
           },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit"
+          },
           "422" : {
             "content" : {
               "application/json" : {
@@ -1479,6 +1489,16 @@
               }
             },
             "description" : "The mzTab-M file in JSON representation"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit"
           },
           "422" : {
             "content" : {
