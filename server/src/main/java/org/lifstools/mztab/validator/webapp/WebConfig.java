@@ -19,6 +19,7 @@ import org.lifstools.mztab.validator.webapp.domain.AppInfo;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import java.util.concurrent.Executor;
 import org.lifstools.mztab2.io.serialization.ParameterConverter;
+import org.lifstools.mztab2.server.api.ConversionSlotInterceptor;
 import org.lifstools.mztab2.server.config.LocalDateConverter;
 import org.lifstools.mztab2.server.config.LocalDateTimeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfig;
@@ -51,6 +53,14 @@ public class WebConfig implements WebMvcConfigurer {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
         tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
         return tpe;
+    }
+
+    @Autowired
+    private ConversionSlotInterceptor conversionSlots;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(conversionSlots).addPathPatterns("/rest/v2/convert", "/rest/v2/convertPlain");
     }
 
     @Override

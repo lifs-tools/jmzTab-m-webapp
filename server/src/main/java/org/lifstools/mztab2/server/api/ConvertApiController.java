@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
-import org.lifstools.mztab.validator.webapp.service.validation.ConversionLimiter;
 import org.lifstools.mztab.validator.webapp.service.validation.MzTabConverter;
 import org.lifstools.mztab.validator.webapp.service.validation.MzTabConverter.Conversion;
 import org.lifstools.mztab2.model.MzTab;
@@ -46,7 +45,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  * representation. A conversion that fails answers 422 with the errors as
  * validation messages. Files up to the upload limit are accepted, as in the
  * validation form; larger ones answer 413. A bounded number of conversions
- * run at once; a request that finds no free slot in time answers 503.
+ * run at once ({@link ConversionSlotInterceptor}); a request that finds no
+ * free slot in time answers 503.
  */
 @RestController
 @RequestMapping(path = "/rest/v2")
@@ -57,14 +57,11 @@ public class ConvertApiController {
 
     private final MzTabConverter converter;
 
-    private final ConversionLimiter limiter;
-
     private final long maxBytes;
 
-    public ConvertApiController(MzTabConverter converter, ConversionLimiter limiter,
+    public ConvertApiController(MzTabConverter converter,
         @Value("${spring.servlet.multipart.max-file-size:64MB}") DataSize maxUpload) {
         this.converter = converter;
-        this.limiter = limiter;
         this.maxBytes = maxUpload.toBytes();
     }
 
@@ -96,10 +93,7 @@ public class ConvertApiController {
         HttpServletRequest request,
         @Parameter(description = "Whether to parse the written file again and report its errors.")
         @RequestParam(name = "validate", defaultValue = "true") boolean validate) throws IOException {
-        InputStream body = body(request);
-        try (ConversionLimiter.Permit permit = limiter.acquire()) {
-            return respond(converter.write(body, maxBytes, validate));
-        }
+        return respond(converter.write(body(request), maxBytes, validate));
     }
 
     @Operation(summary = "convertPlainMzTabFile",
@@ -124,10 +118,7 @@ public class ConvertApiController {
         produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> convertPlainMzTabFile(
         HttpServletRequest request) throws IOException {
-        InputStream body = body(request);
-        try (ConversionLimiter.Permit permit = limiter.acquire()) {
-            return respond(converter.read(body, maxBytes));
-        }
+        return respond(converter.read(body(request), maxBytes));
     }
 
     /** The request body; a body that declares a length over the limit is refused before it is read. */
