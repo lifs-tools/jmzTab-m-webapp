@@ -15,6 +15,8 @@
  */
 package org.lifstools.mztab2.server.api.validation;
 
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,6 +71,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
 class ValidationsApiControllerTest {
 
     static final String UNKNOWN = "Unknown or expired validation.";

@@ -15,6 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp.domain;
 
+import java.time.Instant;
 import java.util.Objects;
 import org.springframework.http.HttpStatus;
 
@@ -24,7 +25,8 @@ import org.springframework.http.HttpStatus;
  */
 public class ErrorResponse {
 
-    private long timestamp;
+    /** When the error happened; written as ISO-8601, e.g. {@code 2026-10-26T09:41:00.123Z}. */
+    private Instant timestamp;
     private HttpStatus status;
     private String error;
     private String message;
@@ -32,18 +34,18 @@ public class ErrorResponse {
 
     public ErrorResponse(HttpStatus status, String error,
         String message, String path) {
-        this.timestamp = System.nanoTime();
+        this.timestamp = Instant.now();
         this.status = status;
         this.error = error;
         this.message = message;
         this.path = path;
     }
 
-    public long getTimestamp() {
+    public Instant getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(long timestamp) {
+    public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
 
@@ -82,7 +84,7 @@ public class ErrorResponse {
     @Override
     public int hashCode() {
         int hash = 3;
-        hash = 29 * hash + (int) (this.timestamp ^ (this.timestamp >>> 32));
+        hash = 29 * hash + Objects.hashCode(this.timestamp);
         hash = 29 * hash + Objects.hashCode(this.status);
         hash = 29 * hash + Objects.hashCode(this.error);
         hash = 29 * hash + Objects.hashCode(this.message);
@@ -102,7 +104,7 @@ public class ErrorResponse {
             return false;
         }
         final ErrorResponse other = (ErrorResponse) obj;
-        if (this.timestamp != other.timestamp) {
+        if (!Objects.equals(this.timestamp, other.timestamp)) {
             return false;
         }
         if (this.status != other.status) {

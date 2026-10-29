@@ -15,6 +15,8 @@
  */
 package org.lifstools.mztab.validator.webapp.spa;
 
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +59,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false",
     "spring.cloud.discovery.enabled=false"})
 @AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
 class SpaControllerTest {
 
     static final String CTX = "/mztabvalidator";

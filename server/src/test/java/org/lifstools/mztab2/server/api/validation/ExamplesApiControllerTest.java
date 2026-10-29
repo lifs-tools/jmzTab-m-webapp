@@ -15,6 +15,8 @@
  */
 package org.lifstools.mztab2.server.api.validation;
 
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -46,6 +48,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
 class ExamplesApiControllerTest {
 
     @TempDir

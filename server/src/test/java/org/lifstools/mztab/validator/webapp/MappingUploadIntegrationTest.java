@@ -1,5 +1,6 @@
 package org.lifstools.mztab.validator.webapp;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +42,7 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @ActiveProfiles("microservice")
 @AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
 class MappingUploadIntegrationTest {
 
     @TempDir

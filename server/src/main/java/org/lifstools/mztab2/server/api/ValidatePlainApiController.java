@@ -19,12 +19,15 @@ public class ValidatePlainApiController implements ValidatePlainApi {
     
     private final ValidationService validationService;
 
+    private final RequestBodies requestBodies;
+
     @org.springframework.beans.factory.annotation.Autowired
-    public ValidatePlainApiController(ObjectMapper objectMapper, HttpServletRequest request, StorageService storageService, ValidationService validationService) {
+    public ValidatePlainApiController(ObjectMapper objectMapper, HttpServletRequest request, StorageService storageService, ValidationService validationService, RequestBodies requestBodies) {
         this.objectMapper = objectMapper;
         this.request = request;
         this.storageService = storageService;
         this.validationService = validationService;
+        this.requestBodies = requestBodies;
     }
 
     @Override
@@ -47,4 +50,8 @@ public class ValidatePlainApiController implements ValidatePlainApi {
         return Optional.ofNullable(storageService);
     }
 
+    @Override
+    public Optional<RequestBodies> getRequestBodies() {
+        return Optional.ofNullable(requestBodies);
+    }
 }
