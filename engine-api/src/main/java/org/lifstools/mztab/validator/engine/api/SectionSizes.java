@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Leibniz Institut für Analytische Wissenschaften - ISAS e.V..
+ * Copyright 2026 LIFS Tools Consortium.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lifstools.mztab.validator.webapp.domain;
+package org.lifstools.mztab.validator.engine.api;
 
 /**
+ * The sizes of the sections of a validated file.
  *
- * @author Nils Hoffmann nils.hoffmann@cebitec.uni-bielefeld.de;
+ * @param metadataLines the number of metadata lines
+ * @param sml the small molecule table
+ * @param smf the small molecule feature table
+ * @param sme the small molecule evidence table
  */
-public enum ValidationLevel {
-    INFO, WARN, ERROR
-
+public record SectionSizes(int metadataLines, TableDims sml, TableDims smf, TableDims sme) {
 }

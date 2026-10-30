@@ -16,7 +16,7 @@
 package org.lifstools.mztab.validator.webapp.service.validation;
 
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.AnalyticsTracker;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.ValidationService;

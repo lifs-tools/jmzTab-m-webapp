@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;

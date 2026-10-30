@@ -9,7 +9,7 @@ import org.lifstools.mztab2.model.Error;
 import org.lifstools.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.ValidationService;
 import io.swagger.v3.oas.annotations.Operation;

@@ -15,6 +15,11 @@
     <dependencies>
         <dependency>
             <groupId>org.lifs-tools</groupId>
+            <artifactId>mztab-validator-engine-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
             <artifactId>mztab-validator-frontend</artifactId>
             <version>${project.version}</version>
         </dependency>

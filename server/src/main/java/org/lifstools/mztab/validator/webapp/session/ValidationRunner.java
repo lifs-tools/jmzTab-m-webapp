@@ -17,11 +17,9 @@ package org.lifstools.mztab.validator.webapp.session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
-import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +35,8 @@ import org.lifstools.mztab.validator.webapp.service.AnalyticsTracker;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab.validator.webapp.service.validation.MzTabMValidator;
-import org.lifstools.mztab.validator.webapp.service.validation.MzTabVersionDetector;
+import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfile;
 import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfileCatalog;
 import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
@@ -139,7 +138,7 @@ public class ValidationRunner {
                 + " is missing")), ".mztab");
             Optional<String> version;
             Path file;
-            if (isJson(upload)) {
+            if (MzTabVersionDetector.isJson(upload)) {
                 MzTab parsed;
                 try (InputStream in = Files.newInputStream(upload)) {
                     parsed = objectMapper.readValue(in, MzTab.class);
@@ -149,7 +148,7 @@ public class ValidationRunner {
                     return notParsed(record, JSON_NOT_READ, jsonDetail(e));
                 }
                 version = Optional.ofNullable(parsed.getMetadata()).map(m -> m.getMzTabVersion());
-                if (version.filter(MzTabVersionDetector::isLegacy).isPresent()) {
+                if (version.filter(MzTabVersions::isLegacy).isPresent()) {
                     return record.rejected(version.get(), legacyMessage(), Instant.now());
                 }
                 // jmzTab-m validates files: write the model as tab separated mzTab-M, as /rest/v2/validate does
@@ -166,8 +165,8 @@ public class ValidationRunner {
                 }
                 file = tsv;
             } else {
-                version = MzTabVersionDetector.detect(upload);
-                if (version.filter(MzTabVersionDetector::isLegacy).isPresent()) {
+                version = MzTabVersionDetector.detectTsv(upload);
+                if (version.filter(MzTabVersions::isLegacy).isPresent()) {
                     return record.rejected(version.get(), legacyMessage(), Instant.now());
                 }
                 file = upload;
@@ -204,23 +203,6 @@ public class ValidationRunner {
                 log.warn("Validation {}: could not delete partial sections", id, cleanup);
             }
             return null;
-        }
-    }
-
-    /** An upload whose first non-blank character is <code>{</code> is an mzTab-M model as JSON. */
-    static boolean isJson(Path file) throws IOException {
-        try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            int c;
-            while ((c = reader.read()) != -1) {
-                if (c == '﻿' || Character.isWhitespace(c)) {
-                    continue;
-                }
-                return c == '{';
-            }
-            return false;
-        } catch (MalformedInputException e) {
-            // not UTF-8 text, so not JSON; the mzTab parser reports the file
-            return false;
         }
     }
 

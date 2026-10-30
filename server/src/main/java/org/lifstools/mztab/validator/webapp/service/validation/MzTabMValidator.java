@@ -29,7 +29,7 @@ import org.lifstools.mztab2.io.MzTabFileParser;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;

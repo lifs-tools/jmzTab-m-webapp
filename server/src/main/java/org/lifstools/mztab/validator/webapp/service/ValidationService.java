@@ -16,7 +16,7 @@
 package org.lifstools.mztab.validator.webapp.service;
 
 import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab2.model.ValidationMessage;
 import java.util.List;
 

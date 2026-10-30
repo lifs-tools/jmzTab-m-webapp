@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.lifstools.mztab.validator.webapp.ExampleFileConfig;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;

@@ -15,7 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp.session;
 
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 
 /**
  * The parameters of a new validation. A {@code null} profile id means

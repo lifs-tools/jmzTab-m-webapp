@@ -9,6 +9,7 @@
     <name>MzTab validator webapplication parent.</name>
     <modules>
         <module>frontend</module>
+        <module>engine-api</module>
         <module>server</module>
     </modules>
     <url>https://github.com/lifs-tools/jmzTab-m-webapp</url>	

@@ -44,7 +44,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.sections.SectionWriter;
 import org.lifstools.mztab.validator.webapp.service.AnalyticsTracker;
 import org.lifstools.mztab.validator.webapp.service.StorageService;

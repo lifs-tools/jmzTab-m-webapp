@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.session.SectionsSummary;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationOutcome;

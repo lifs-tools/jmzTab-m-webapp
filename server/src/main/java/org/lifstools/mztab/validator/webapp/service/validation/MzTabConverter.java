@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
 import org.lifstools.mztab2.model.MzTab;
 import org.lifstools.mztab2.model.ValidationMessage;

@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import org.lifstools.mztab2.model.MzTab;
 import org.lifstools.mztab2.model.ValidationMessage;

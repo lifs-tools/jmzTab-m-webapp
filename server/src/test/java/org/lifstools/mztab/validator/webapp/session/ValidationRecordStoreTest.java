@@ -31,7 +31,7 @@ import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.lifstools.mztab.validator.webapp.domain.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.storage.FileSystemStorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
 import org.lifstools.mztab2.model.ValidationLocation;
