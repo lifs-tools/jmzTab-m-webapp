@@ -38,14 +38,27 @@
         }
       </span>
     }
+    <span
+      class="lifs-note"
+      aria-live="polite"
+      data-testid="version-reading"
+      [class.visually-hidden]="!detecting()"
+      >@if (detecting()) {
+        Reading the mzTab-M version…
+      }</span
+    >
   </div>
 
-  @if (unsupportedLine(); as line) {
-    <div class="lifs-callout lifs-callout--warn" role="status" data-testid="version-unsupported">
+  @if (engineIssue(); as issue) {
+    <div class="lifs-callout lifs-callout--warn" role="status" data-testid="version-callout">
       <p class="callout__text">
-        mzTab-M {{ line }} is not supported by this validator.
-        @if (unavailableHint(); as url) {
-          <a [href]="url" target="_blank" rel="noopener">It is available for testing on the development validator.</a>
+        @if (issue.kind === 'unavailable') {
+          The mzTab-M {{ issue.line }} validator is temporarily unavailable. Please try again later.
+        } @else {
+          mzTab-M {{ issue.line }} is not supported by this validator.
+          @if (unavailableHint(); as url) {
+            <a [href]="url" target="_blank" rel="noopener">It is available for testing on the development validator.</a>
+          }
         }
       </p>
     </div>

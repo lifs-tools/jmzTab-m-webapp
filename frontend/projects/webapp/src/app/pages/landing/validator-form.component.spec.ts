@@ -328,10 +328,10 @@ describe('ValidatorFormComponent', () => {
       expect(callout()).toBeNull();
     });
 
-    it('warns when the engine of the line is unavailable, and links the hint URL', async () => {
+    it('links the development validator for a line without engine', async () => {
       await render({
         ...INFO,
-        engines: [BOTH_ENGINES![0], { ...BOTH_ENGINES![1], available: false }],
+        engines: [BOTH_ENGINES![0]],
         unavailableHintUrl: 'https://dev.example.org/mztabvalidator/',
       });
       await choose('input[data-testid=file-input]', mzTab21());
@@ -340,6 +340,92 @@ describe('ValidatorFormComponent', () => {
       expect(link.textContent?.trim()).toBe('It is available for testing on the development validator.');
       expect(link.getAttribute('href')).toBe('https://dev.example.org/mztabvalidator/');
       expect(submitButton().disabled).toBe(false);
+    });
+
+    it('says temporarily unavailable, without the development link, when the engine is down', async () => {
+      await render({
+        ...INFO,
+        engines: [BOTH_ENGINES![0], { ...BOTH_ENGINES![1], available: false }],
+        unavailableHintUrl: 'https://dev.example.org/mztabvalidator/',
+      });
+      await choose('input[data-testid=file-input]', mzTab21());
+      expect(callout()?.textContent?.trim()).toBe(
+        'The mzTab-M 2.1 validator is temporarily unavailable. Please try again later.',
+      );
+      expect(callout()?.querySelector('a')).toBeNull();
+      expect(submitButton().disabled).toBe(false);
+    });
+
+    it('says temporarily unavailable when the engine of the default line is down', async () => {
+      await render({ ...INFO, engines: [{ ...BOTH_ENGINES![0], available: false }, BOTH_ENGINES![1]] });
+      expect(callout()?.textContent?.trim()).toBe(
+        'The mzTab-M 2.0 validator is temporarily unavailable. Please try again later.',
+      );
+    });
+
+    describe('while the version is being read', () => {
+      /** A file whose reads wait until release() is called. */
+      function slowFile(text: string, name: string): { file: File; release: () => void } {
+        const file = new File([text], name);
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const slice = file.slice.bind(file);
+        Object.defineProperty(file, 'slice', {
+          value: (start?: number, end?: number) => {
+            const part = slice(start, end);
+            return {
+              arrayBuffer: async () => {
+                await gate;
+                return part.arrayBuffer();
+              },
+            };
+          },
+        });
+        return { file, release };
+      }
+      const reading = () => el.querySelector<HTMLElement>('[data-testid=version-reading]')!;
+
+      it('keeps submit disabled until the badge appears, then sends the new line\'s default', async () => {
+        await render();
+        await choose('input[data-testid=file-input]', mzTab());
+        expect(badge()).toBe('mzTab-M 2.0');
+        expect(reading().getAttribute('aria-live')).toBe('polite');
+        expect(reading().textContent?.trim()).toBe('');
+
+        const slow = slowFile('MTD\tmzTab-version\t2.1.0-M\n', 'slow.mzTab');
+        const input = el.querySelector<HTMLInputElement>('input[data-testid=file-input]')!;
+        Object.defineProperty(input, 'files', { value: [slow.file], configurable: true });
+        input.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+
+        expect(reading().textContent?.trim()).toBe('Reading the mzTab-M version…');
+        expect(el.querySelector('[data-testid=version-badge]')).toBeNull();
+        expect(submitButton().disabled).toBe(true);
+        submitButton().click();
+        http.expectNone((r) => r.url.endsWith('rest/v2/validations') && r.method === 'POST');
+
+        slow.release();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(badge()).toBe('mzTab-M 2.1');
+        expect(reading().textContent?.trim()).toBe('');
+        expect(submitButton().disabled).toBe(false);
+        const req = await submit();
+        expect(req.request.params.get('validationProfile')).toBe('mztab-m-2.1-default');
+        req.flush({ id: 'x' }, { status: 202, statusText: 'Accepted' });
+      });
+
+      it('does not submit from a direct call while reading', async () => {
+        await render();
+        const slow = slowFile('MTD\tmzTab-version\t2.1.0-M\n', 'slow.mzTab');
+        const input = el.querySelector<HTMLInputElement>('input[data-testid=file-input]')!;
+        Object.defineProperty(input, 'files', { value: [slow.file], configurable: true });
+        input.dispatchEvent(new Event('change'));
+        (fixture.componentInstance as unknown as { submit(): void }).submit();
+        http.expectNone((r) => r.url.endsWith('rest/v2/validations') && r.method === 'POST');
+        slow.release();
+        await fixture.whenStable();
+      });
     });
 
     it('removing the file removes the badge and returns to the default line', async () => {

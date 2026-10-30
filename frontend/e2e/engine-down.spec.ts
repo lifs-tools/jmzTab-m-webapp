@@ -51,9 +51,10 @@ test('a 2.1 file fails with the unavailable message while 2.0 still validates @e
   await page.goto('');
   await chooseFile(page, MZTAB_21);
   await expect(page.getByTestId('version-badge')).toHaveText('mzTab-M 2.1');
-  await expect(page.getByTestId('version-unsupported')).toContainText(
-    'mzTab-M 2.1 is not supported by this validator.',
+  await expect(page.getByTestId('version-callout')).toHaveText(
+    'The mzTab-M 2.1 validator is temporarily unavailable. Please try again later.',
   );
+  await expect(page.getByTestId('version-callout').getByRole('link')).toHaveCount(0);
   await expect(validateButton(page)).toBeEnabled();
   const failed = await submitAndAwaitResult(page);
   await expect(
@@ -65,7 +66,7 @@ test('a 2.1 file fails with the unavailable message while 2.0 still validates @e
 
   await page.goto('');
   await chooseFile(page, MZTAB_20);
-  await expect(page.getByTestId('version-unsupported')).toHaveCount(0);
+  await expect(page.getByTestId('version-callout')).toHaveCount(0);
   await chooseNoProfile(page);
   const passed = await submitAndAwaitResult(page);
   await expect(page.getByTestId('version-badge')).toHaveText('mzTab-M 2.0.0-M');

@@ -121,19 +121,25 @@ export class ValidatorFormComponent {
   });
   /**
    * The active line when no engine for it is available, for the warning callout; the form still
-   * submits, as the server decides.
+   * submits, as the server decides. `unsupported`: no engine is configured for the line;
+   * `unavailable`: its engine is configured but did not answer the last time it was asked.
    */
-  protected readonly unsupportedLine = computed(() => {
+  protected readonly engineIssue = computed<{ line: string; kind: 'unsupported' | 'unavailable' } | null>(() => {
     const info = this.info();
     const line = this.activeLine();
     if (!info || !line || this.detecting()) return null;
-    return info.engines?.some((e) => e.line === line && e.available) ? null : line;
+    const engine = info.engines?.find((e) => e.line === line);
+    if (!engine) return { line, kind: 'unsupported' };
+    return engine.available ? null : { line, kind: 'unavailable' };
   });
-  /** Where the line can be tried instead; never for legacy mzTab 1.x, which no validator takes. */
+  /**
+   * Where a line without engine can be tried instead; never for legacy mzTab 1.x, which no
+   * validator takes, and never for an engine that is only down.
+   */
   protected readonly unavailableHint = computed(() => {
-    const line = this.unsupportedLine();
+    const issue = this.engineIssue();
     const url = this.info()?.unavailableHintUrl?.trim();
-    return line && url && !line.startsWith('1.') ? url : null;
+    return issue?.kind === 'unsupported' && url && !issue.line.startsWith('1.') ? url : null;
   });
   protected readonly maxUploadMb = computed(() => {
     const bytes = this.info()?.maxUploadBytes;
@@ -143,8 +149,9 @@ export class ValidatorFormComponent {
     const n = this.maxErrors();
     return n !== null && Number.isInteger(n) && n >= 1 && n <= 500;
   });
+  /** Not while the file's version is being read: the profile may still belong to the previous line. */
   protected readonly canSubmit = computed(
-    () => this.file() !== null && this.maxErrorsValid() && !this.submitting(),
+    () => this.file() !== null && this.maxErrorsValid() && !this.submitting() && !this.detecting(),
   );
   /** Value shown by the profile select: a sentinel for "none"/"custom", since option values are strings. */
   protected readonly profileSelection = computed(() =>

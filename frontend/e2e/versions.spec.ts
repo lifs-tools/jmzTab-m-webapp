@@ -35,7 +35,7 @@ test('a 2.1 file is validated by the 2.1 engine', async ({ page, request }) => {
   await chooseFile(page, MZTAB_21);
   await expect(page.getByTestId('version-badge')).toHaveText('mzTab-M 2.1');
   await expect(page.getByTestId('profile-select')).toContainText('mzTab-M 2.1 default rules');
-  await expect(page.getByTestId('version-unsupported')).toHaveCount(0);
+  await expect(page.getByTestId('version-callout')).toHaveCount(0);
   await chooseNoProfile(page);
   const id = await submitAndAwaitResult(page);
 
