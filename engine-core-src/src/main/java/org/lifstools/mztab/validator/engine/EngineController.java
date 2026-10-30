@@ -30,7 +30,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -50,7 +49,6 @@ import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
-import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
 import org.lifstools.mztab2.model.MzTab;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,7 +66,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabException;
 
 /**
  * The engine API: what the engine is, validation of one file as an NDJSON
@@ -186,15 +183,9 @@ public class EngineController {
                 }
                 // jmzTab-m validates files: write the model as tab separated mzTab-M
                 tsv = Files.createTempFile("mztab-validation-", ".mztab");
-                try (OutputStreamWriter out = new OutputStreamWriter(Files.newOutputStream(tsv),
-                    StandardCharsets.UTF_8)) {
-                    new MzTabNonValidatingWriter().write(out, parsed);
-                } catch (IOException | RuntimeException e) {
-                    // e.g. a model without metadata: the writer reports the mzTab error
-                    log.info("The JSON upload could not be written as mzTab-M", e);
-                    Throwable cause = e.getCause() instanceof MZTabException ? e.getCause() : e;
-                    notParsed(response, version, JSON_NOT_CONVERTED + shorten(cause.getMessage() == null
-                        ? cause.getClass().getSimpleName() : cause.getMessage().strip()));
+                Optional<String> failure = EngineConverter.writeTsv(parsed, tsv);
+                if (failure.isPresent()) {
+                    notParsed(response, version, JSON_NOT_CONVERTED + shorten(failure.get()));
                     return;
                 }
                 validated = tsv;

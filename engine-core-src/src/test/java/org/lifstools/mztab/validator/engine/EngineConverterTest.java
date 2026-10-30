@@ -111,6 +111,36 @@ class EngineConverterTest {
     }
 
     @Test
+    void writeTsvKeepsADeclaredVersion() throws Exception {
+        MzTab model = converter.read(new ByteArrayInputStream(Fixtures.ofThisLine(Fixtures.MINIMAL))).value();
+        Path file = tmp.resolve("with-version.mztab");
+
+        assertThat(EngineConverter.writeTsv(model, file)).isEmpty();
+
+        assertThat(Files.readString(file)).startsWith("MTD\tmzTab-version\t" + Fixtures.engineVersion());
+    }
+
+    @Test
+    void writeTsvOfAModelWithoutVersionWritesNone() throws Exception {
+        MzTab model = converter.read(new ByteArrayInputStream(Fixtures.ofThisLine(Fixtures.MINIMAL))).value();
+        model.getMetadata().setMzTabVersion(null);
+        Path file = tmp.resolve("no-version.mztab");
+
+        assertThat(EngineConverter.writeTsv(model, file)).isEmpty();
+
+        String tsv = Files.readString(file);
+        assertThat(tsv).as("jmzTab-m's writer puts in its default version").doesNotContain("mzTab-version");
+        assertThat(tsv).contains("MTD\tmzTab-ID\t").contains("SMH\tSML_ID");
+        assertThat(model.getMetadata().getMzTabVersion()).as("the model is not changed").isNull();
+    }
+
+    @Test
+    void writeTsvReportsWhyAModelCannotBeWritten() throws Exception {
+        assertThat(EngineConverter.writeTsv(new MzTab(), tmp.resolve("empty.mztab"))).hasValueSatisfying(
+            detail -> assertThat(detail).isNotBlank());
+    }
+
+    @Test
     void writeRejectsNonJson() {
         assertThatThrownBy(() -> converter.write(
             new ByteArrayInputStream("not json".getBytes(StandardCharsets.UTF_8)), true))

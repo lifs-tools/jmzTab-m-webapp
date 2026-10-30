@@ -17,14 +17,20 @@ package org.lifstools.mztab.validator.engine;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
@@ -51,6 +57,8 @@ public class EngineConverter {
     static final String NOT_WRITTEN = "The model could not be written as mzTab-M: ";
 
     static final String NOT_JSON = "The request body is not mzTab-M JSON: ";
+
+    private static final byte[] VERSION_LINE = "MTD\tmzTab-version\t".getBytes(StandardCharsets.UTF_8);
 
     private final EngineValidator validator;
 
@@ -143,15 +151,9 @@ public class EngineConverter {
     private Conversion<String> write(MzTab mzTab, boolean validate) throws IOException {
         Path file = Files.createTempFile("mztab-conversion-", ".mztab");
         try {
-            try (OutputStreamWriter out = new OutputStreamWriter(Files.newOutputStream(file),
-                StandardCharsets.UTF_8)) {
-                new MzTabNonValidatingWriter().write(out, mzTab);
-            } catch (IOException | RuntimeException e) {
-                // e.g. a model without metadata: the writer reports the mzTab error
-                log.info("A model could not be written as mzTab-M", e);
-                Throwable cause = e.getCause() instanceof MZTabException ? e.getCause() : e;
-                return new Conversion<>(null, List.of(ValidationMessage.error(NOT_WRITTEN
-                    + (cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage().strip()))));
+            Optional<String> failure = writeTsv(mzTab, file);
+            if (failure.isPresent()) {
+                return new Conversion<>(null, List.of(ValidationMessage.error(NOT_WRITTEN + failure.get())));
             }
             if (validate) {
                 List<ValidationMessage> errors = errors(validator.validate(file, ValidationLevel.ERROR,
@@ -164,6 +166,80 @@ public class EngineConverter {
         } finally {
             Files.deleteIfExists(file);
         }
+    }
+
+    /**
+     * Writes a model as tab separated mzTab-M with jmzTab-m's writer. A model
+     * without {@code mzTab-version} is written without one: jmzTab-m's writer
+     * would put in its default version, and the file would be validated as if
+     * it declared it instead of reporting the missing version.
+     *
+     * @param mzTab the model; it is not changed
+     * @param file the file to write
+     * @return empty if the model was written, otherwise why not, e.g. the
+     * mzTab error of a model without metadata
+     */
+    static Optional<String> writeTsv(MzTab mzTab, Path file) throws IOException {
+        boolean versionMissing = mzTab.getMetadata() != null && mzTab.getMetadata().getMzTabVersion() == null;
+        try (OutputStreamWriter out = new OutputStreamWriter(Files.newOutputStream(file),
+            StandardCharsets.UTF_8)) {
+            new MzTabNonValidatingWriter().write(out, mzTab);
+        } catch (IOException | RuntimeException e) {
+            // e.g. a model without metadata: the writer reports the mzTab error
+            log.info("A model could not be written as mzTab-M", e);
+            Throwable cause = e.getCause() instanceof MZTabException ? e.getCause() : e;
+            return Optional.of(cause.getMessage() == null ? cause.getClass().getSimpleName()
+                : cause.getMessage().strip());
+        } finally {
+            if (versionMissing) {
+                // jmzTab-m's metadata serializer sets its default version on the model
+                mzTab.getMetadata().setMzTabVersion(null);
+            }
+        }
+        if (versionMissing) {
+            dropVersionLine(file);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Removes the first {@code MTD mzTab-version} line, which jmzTab-m's
+     * writer puts first; the rest of the file is copied as it is.
+     */
+    private static void dropVersionLine(Path file) throws IOException {
+        Path filtered = Files.createTempFile(file.toAbsolutePath().getParent(), "mztab-conversion-", ".mztab");
+        try {
+            try (InputStream in = new BufferedInputStream(Files.newInputStream(file));
+                OutputStream out = new BufferedOutputStream(Files.newOutputStream(filtered))) {
+                ByteArrayOutputStream line = new ByteArrayOutputStream();
+                boolean dropped = false;
+                int b;
+                while (!dropped && (b = in.read()) != -1) {
+                    line.write(b);
+                    if (b == '\n') {
+                        dropped = isVersionLine(line);
+                        if (!dropped) {
+                            line.writeTo(out);
+                        }
+                        line.reset();
+                    }
+                }
+                if (!dropped && !isVersionLine(line)) {
+                    // the last line, without a line end
+                    line.writeTo(out);
+                }
+                in.transferTo(out);
+            }
+            Files.move(filtered, file, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(filtered);
+        }
+    }
+
+    private static boolean isVersionLine(ByteArrayOutputStream line) {
+        byte[] bytes = line.toByteArray();
+        return bytes.length >= VERSION_LINE.length
+            && Arrays.equals(bytes, 0, VERSION_LINE.length, VERSION_LINE, 0, VERSION_LINE.length);
     }
 
     /**

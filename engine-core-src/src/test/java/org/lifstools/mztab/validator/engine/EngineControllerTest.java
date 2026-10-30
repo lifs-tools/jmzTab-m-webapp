@@ -124,11 +124,7 @@ class EngineControllerTest extends EngineContextTest {
 
     @Test
     void validatesJsonUpload() throws Exception {
-        Path tsv = Files.write(dir.resolve("lipidomics.mztab"), ofThisLine(Fixtures.LIPIDOMICS));
-        MzTabFileParser parser = new MzTabFileParser(tsv.toFile());
-        parser.parse(System.out, MZTabErrorType.Level.Error, 100);
-        MzTab model = parser.getMZTabFile();
-        assertThat(model).as("errors: %s", parser.getErrorList()).isNotNull();
+        MzTab model = model(ofThisLine(Fixtures.LIPIDOMICS));
 
         List<ValidationEvent> events = events(mvc.perform(validation(file("lipidomics-example.mzTab.json",
             objectMapper.writeValueAsBytes(model))))
@@ -139,6 +135,19 @@ class EngineControllerTest extends EngineContextTest {
         assertThat(outcome.parsed()).as("messages: %s", outcome.messages()).isTrue();
         assertThat(outcome.mzTabVersion()).isEqualTo(mzTabVersions[0]);
         assertThat(((ValidationEvent.End) events.get(events.size() - 1)).sections().sml()).isNotNull();
+    }
+
+    @Test
+    void validatesJsonWithoutVersionReportsError2008() throws Exception {
+        MzTab model = model(ofThisLine(Fixtures.MINIMAL));
+        model.getMetadata().setMzTabVersion(null);
+
+        ValidationEvent.Outcome outcome = outcome(validation(file("no-version.json",
+            objectMapper.writeValueAsBytes(model))));
+
+        assertThat(outcome.mzTabVersion()).as("the file declares no version").isNull();
+        assertThat(outcome.messages()).extracting(ValidationMessage::getCode)
+            .anySatisfy(code -> assertThat(code).contains("2008"));
     }
 
     @Test
@@ -340,6 +349,25 @@ class EngineControllerTest extends EngineContextTest {
     }
 
     @Test
+    void jsonToTsvOfModelWithoutVersionWritesNoVersion() throws Exception {
+        MzTab model = model(ofThisLine(Fixtures.MINIMAL));
+        model.getMetadata().setMzTabVersion(null);
+        byte[] json = objectMapper.writeValueAsBytes(model);
+
+        String tsv = mvc.perform(post(JSON_TO_TSV).param("validate", "false")
+            .contentType(MediaType.APPLICATION_JSON).content(json))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(tsv).startsWith("MTD\t").doesNotContain("mzTab-version");
+
+        String body = mvc.perform(post(JSON_TO_TSV).contentType(MediaType.APPLICATION_JSON).content(json))
+            .andExpect(status().isUnprocessableEntity())
+            .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(objectMapper.readValue(body, ValidationMessage[].class)).extracting(ValidationMessage::getCode)
+            .anySatisfy(code -> assertThat(code).contains("2008"));
+    }
+
+    @Test
     void jsonToTsvRejectsNonJson() throws Exception {
         mvc.perform(post(JSON_TO_TSV).contentType(MediaType.APPLICATION_JSON).content("not json"))
             .andExpect(status().isBadRequest())
@@ -408,6 +436,15 @@ class EngineControllerTest extends EngineContextTest {
             }
         }
         return events;
+    }
+
+    /** The model of a tab separated fixture, as jmzTab-m parses it. */
+    private MzTab model(byte[] tsv) throws Exception {
+        Path file = Files.write(dir.resolve("model.mztab"), tsv);
+        MzTabFileParser parser = new MzTabFileParser(file.toFile());
+        parser.parse(System.out, MZTabErrorType.Level.Error, 100);
+        assertThat(parser.getMZTabFile()).as("errors: %s", parser.getErrorList()).isNotNull();
+        return parser.getMZTabFile();
     }
 
     private JsonNode json(MvcResult result) throws Exception {
