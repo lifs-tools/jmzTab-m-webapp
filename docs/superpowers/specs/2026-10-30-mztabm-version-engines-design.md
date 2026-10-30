@@ -345,5 +345,9 @@ Answered by the project lead on 2026-10-30:
 ## 11. Future work
 
 - **Convert a 2.0 file to 2.1 [decided: later].** In the API (e.g. a conversion endpoint) and in the **SPA editor component** (e.g. "Upgrade to mzTab-M 2.1"), including mapping `study_variable[n]-factors` to `study_variable_group[n]`. Which engine performs it (the 2.1 engine reading 2.0 input, or a dedicated step that uses both) is decided then. Nothing in this design may make it harder: working copies record their version (§5.7), and the engine contract can gain an operation.
+- **Offline (locally prepared) semantic validation [raised by the project lead, 2026-10-30; separate design].**
+  - Today: semantic validation asks EBI OLS for every parent and child query, through jmzTab-m's `CvParameterLookupService`. Its only cache is an in-memory LRU of 4,096 entries each for parents and children, lost on restart.
+  - The idea: download the CVs a file lists (and those the mapping rules use) and prepare them locally for the parent–child and membership queries of semantic validation.
+  - Engines are where it would run; whether it lives in jmzTab-m or in the engines is part of that design.
 - **The 2.1 engine in releases** once jmzTab-m 2.1.0 is released (§5.2), followed by **switching the default version to 2.1** (`engines.default-version`) and freezing the 2.0 engine to bug fixes (E3).
 
