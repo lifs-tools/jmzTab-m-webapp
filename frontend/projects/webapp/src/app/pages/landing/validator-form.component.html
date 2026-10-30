@@ -1,0 +1,136 @@
+<form class="lifs-card form" (submit)="$event.preventDefault(); submit()" novalidate>
+  <h2 class="lifs-card__title">Validate a file</h2>
+
+  <div
+    class="drop"
+    [class.drop--active]="dragging()"
+    role="group"
+    aria-label="mzTab-M file"
+    (dragover)="onDragOver($event)"
+    (dragleave)="dragging.set(false)"
+    (drop)="onDrop($event)"
+  >
+    <input
+      #fileInput
+      class="visually-hidden"
+      type="file"
+      tabindex="-1"
+      data-testid="file-input"
+      accept=".mzTab,.mztab,.txt,.tsv,.json"
+      aria-label="mzTab-M file"
+      (change)="onFileInput($event)"
+    />
+    @if (file(); as f) {
+      <div class="drop__file">
+        <span class="lifs-mono drop__name">{{ f.name }}</span>
+        <span class="lifs-note">{{ size(f) }}</span>
+        <button mat-button type="button" data-testid="remove-file" (click)="setFile(null)">Remove</button>
+      </div>
+    } @else {
+      <button mat-flat-button type="button" (click)="fileInput.click()">Browse files</button>
+      <span class="lifs-note">
+        or drop an <span class="lifs-mono">.mzTab</span> / <span class="lifs-mono">.json</span> file here
+        @if (maxUploadMb(); as mb) {
+          · up to {{ mb }} MB
+        }
+      </span>
+    }
+  </div>
+
+  <div class="row">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Validation level</mat-label>
+      <mat-select [value]="level()" (selectionChange)="level.set($event.value)">
+        @for (l of levels; track l.value) {
+          <mat-option [value]="l.value">{{ l.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Max. messages</mat-label>
+      <input
+        matInput
+        type="number"
+        min="1"
+        max="500"
+        step="1"
+        inputmode="numeric"
+        data-testid="max-errors"
+        [value]="maxErrors() ?? ''"
+        [attr.aria-invalid]="!maxErrorsValid()"
+        aria-describedby="max-errors-hint"
+        (input)="onMaxErrors($event)"
+      />
+    </mat-form-field>
+  </div>
+  <p id="max-errors-hint" class="lifs-note field-hint" [class.field-hint--error]="!maxErrorsValid()">
+    @if (maxErrorsValid()) {
+      Between 1 and 500 messages.
+    } @else {
+      Enter a whole number from 1 to 500.
+    }
+  </p>
+
+  <div class="row">
+    <mat-form-field appearance="outline" class="row__wide" subscriptSizing="dynamic">
+      <mat-label>Validation profile</mat-label>
+      <mat-select
+        data-testid="profile-select"
+        [value]="profileSelection()"
+        [disabled]="mappingFile() !== null"
+        (selectionChange)="onProfile($event.value)"
+      >
+        @if (mappingFile()) {
+          <mat-option [value]="CUSTOM">Custom mapping file</mat-option>
+        }
+        @for (p of profiles(); track p.id) {
+          <mat-option [value]="p.id">{{ p.title }}</mat-option>
+        }
+        <mat-option [value]="NONE">None — structural validation only</mat-option>
+      </mat-select>
+      @if (profileHint()) {
+        <mat-hint>{{ profileHint() }}</mat-hint>
+      }
+    </mat-form-field>
+
+    @if (info()?.customMappingsEnabled) {
+      <div class="mapping">
+        <input
+          #mappingInput
+          class="visually-hidden"
+          type="file"
+          tabindex="-1"
+          data-testid="mapping-input"
+          accept=".xml"
+          aria-label="Your own mapping file (XML)"
+          (change)="onMappingInput($event)"
+        />
+        <span class="lifs-label">…or your own mapping file</span>
+        @if (mappingFile(); as m) {
+          <span class="mapping__file">
+            <span class="lifs-mono">{{ m.name }}</span>
+            <button mat-button type="button" data-testid="remove-mapping" (click)="mappingFile.set(null)">
+              Remove
+            </button>
+          </span>
+        } @else {
+          <button mat-button type="button" (click)="mappingInput.click()">Upload XML</button>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="row">
+    <button mat-flat-button type="submit" [disabled]="!canSubmit()">
+      @if (submitting()) {
+        <mat-spinner diameter="18" aria-label="Submitting" />
+      }
+      Validate
+    </button>
+    <span class="lifs-note">Semantic checks look up CV terms in EBI OLS.</span>
+  </div>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</form>

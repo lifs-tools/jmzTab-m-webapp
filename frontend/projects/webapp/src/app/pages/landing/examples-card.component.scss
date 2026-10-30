@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.example__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13px;
+
+  a {
+    word-break: break-all;
+  }
+}

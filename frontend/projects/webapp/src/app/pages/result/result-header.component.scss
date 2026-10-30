@@ -1,0 +1,38 @@
+:host {
+  display: block;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px 24px;
+  align-items: flex-start;
+}
+.head__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+h1 {
+  font-family: var(--lifs-display);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--lifs-ink);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.danger {
+  --mat-button-outlined-label-text-color: var(--lifs-error);
+  --mat-button-outlined-outline-color: #f2c5bf;
+}

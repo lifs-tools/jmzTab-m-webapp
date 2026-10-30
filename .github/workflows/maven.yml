@@ -5,9 +5,11 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, feat/validator-spa ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, feat/validator-spa ]
+  # Manual runs publish the integration branch image (version tag only, never latest).
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,9 +35,10 @@ jobs:
       uses: whelk-io/maven-settings-xml-action@v22
       with:
         servers: '[{ "id": "lifstools-jfrog", "username": "${env.ARTIFACTORY_USERNAME_REF}", "password": "${env.ARTIFACTORY_TOKEN_REF}" }]'        
-    # Pull requests only build and test; images are published from master only.
+    # Pull requests and pushes to the integration branch only build and test;
+    # images are published from master (and by manual dispatch on the integration branch).
     - name: Build and test with Maven
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/master')
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +46,7 @@ jobs:
     # The version goes through a file because on a fresh runner ./mvnw prints
     # its Maven download progress to stdout.
     - name: Set Release version env variable
-      if: github.event_name == 'push'
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa')
       run: |
         ./mvnw -B -q help:evaluate -Dexpression=project.version -Doutput="$RUNNER_TEMP/version.txt" > /dev/null
         version=$(cat "$RUNNER_TEMP/version.txt")
@@ -52,16 +55,87 @@ jobs:
     # Jib pushes to the registry during package and reads the credentials
     # written by docker/login-action, so the login has to come first.
     - name: Login to LIFS Tools registry
-      if: github.event_name == 'push'
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa')
       uses: docker/login-action@v4
       with:
         registry: docker.lifs-tools.org
         username: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_USER }}
         password: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_PW }}
     - name: Build and push docker image with Maven
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
 
+    # Integration branch: pushes only the version tag (2.0.0-SNAPSHOT), never latest.
+    # Jib always pushes `to.image` itself, and an image reference without a tag means
+    # :latest, so the tag has to be part of the image reference, not only of jib.to.tags.
+    - name: Build and push integration branch docker image with Maven
+      if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa'
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: ./mvnw -B package -Pdocker "-Djib.to.image=docker.lifs-tools.org/lifs/mztab-validator-webapp:${RELEASE_VERSION}" "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
+
+  # End-to-end tests of the SPA against the packaged jar (not part of ./mvnw verify).
+  e2e:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        lfs: 'true'
+    - name: Set up JDK 25
+      uses: actions/setup-java@v6
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+    - name: Setup Maven settings.xml
+      uses: whelk-io/maven-settings-xml-action@v22
+      with:
+        servers: '[{ "id": "lifstools-jfrog", "username": "${env.ARTIFACTORY_USERNAME_REF}", "password": "${env.ARTIFACTORY_TOKEN_REF}" }]'
+    - name: Build the jar
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: ./mvnw -B package -DskipTests --file pom.xml
+    # The frontend build installs Node under frontend/node; the e2e tests use the same one.
+    - name: Use the Maven-installed Node
+      run: echo "$GITHUB_WORKSPACE/frontend/node" >> "$GITHUB_PATH"
+    - name: Start the server
+      run: |
+        jar=$(ls server/target/mztab-validator-webapp-*.jar | grep -v '\.original$' | head -n 1)
+        nohup java -jar "$jar" --server.port=8083 --server.servlet.contextPath=/mztabvalidator \
+          --storage.location="$RUNNER_TEMP/storage" > "$RUNNER_TEMP/server.log" 2>&1 &
+        for i in $(seq 1 120); do
+          if curl -sf http://localhost:8083/mztabvalidator/actuator/health | grep -q '"status":"UP"'; then
+            echo "Server is up"; exit 0
+          fi
+          sleep 1
+        done
+        echo "Server did not start" >&2; cat "$RUNNER_TEMP/server.log" >&2; exit 1
+    - name: Install Playwright Chromium
+      working-directory: frontend
+      run: npx playwright install --with-deps chromium
+    - name: Run end-to-end tests
+      env:
+        CI: 'true'
+      run: npm --prefix frontend run e2e
+    - name: Upload Playwright report
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: playwright-report
+        path: |
+          frontend/playwright-report/
+          frontend/test-results/
+        retention-days: 7
+    - name: Upload server log
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: e2e-server-log
+        path: ${{ runner.temp }}/server.log
+        retention-days: 7

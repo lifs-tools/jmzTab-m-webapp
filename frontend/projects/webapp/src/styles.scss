@@ -1,0 +1,252 @@
+// Global styles: LIFS tokens, the Material theme, bundled fonts and icons (no CDN at runtime).
+@use 'styles/lifs-tokens';
+@use 'styles/material-theme';
+
+// Inter: app bar and footer only.
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+// Space Grotesk: headings.
+@import '@fontsource/space-grotesk/600.css';
+// IBM Plex Sans: text, forms, tables.
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+// IBM Plex Mono: eyebrows, labels, codes, counts.
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+// Material Symbols, self-hosted.
+@import 'material-symbols/outlined.css';
+
+@include lifs-tokens.tokens;
+@include material-theme.theme;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #fff;
+  color: var(--lifs-ink);
+  font-family: var(--lifs-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--lifs-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Links inside running text must be recognisable without colour (WCAG 1.4.1).
+.lifs-prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--lifs-display);
+  font-weight: 600;
+  color: var(--lifs-ink);
+  margin: 0;
+}
+h1 {
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+h2 {
+  font-size: 24px;
+  line-height: 1.15;
+}
+h3 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+// Visible focus outlines everywhere (keyboard users).
+:focus-visible {
+  outline: 2px solid var(--lifs-primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Small LIFS building blocks shared by the pages (mockup §1).
+.lifs-eyebrow {
+  font-family: var(--lifs-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lifs-rose);
+  margin: 0;
+}
+.lifs-label {
+  font-family: var(--lifs-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lifs-grey);
+  margin: 0;
+}
+.lifs-lead {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #33475c;
+  margin: 0;
+}
+.lifs-note {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--lifs-slate);
+  margin: 0;
+}
+.lifs-mono {
+  font-family: var(--lifs-mono);
+}
+.lifs-badge {
+  font-family: var(--lifs-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--lifs-tint);
+  color: var(--lifs-primary);
+  border-radius: var(--lifs-radius-sm);
+
+  &--plain {
+    background: none;
+    border: 1px solid var(--lifs-line);
+    color: var(--lifs-grey);
+  }
+}
+.lifs-lvl {
+  font-family: var(--lifs-mono);
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: var(--lifs-radius-sm);
+  white-space: nowrap;
+
+  &--error {
+    background: var(--lifs-error-bg);
+    color: var(--lifs-error);
+  }
+  &--warn {
+    background: var(--lifs-warn-bg);
+    color: var(--lifs-warn);
+  }
+  &--info {
+    background: var(--lifs-info-bg);
+    color: var(--lifs-info);
+  }
+  &--ok {
+    background: var(--lifs-ok-bg);
+    color: var(--lifs-ok);
+  }
+}
+.lifs-card {
+  border: 1px solid var(--lifs-line);
+  border-radius: var(--lifs-radius-none);
+  background: #fff;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+
+  &--accent {
+    background: var(--lifs-paper);
+  }
+}
+.lifs-card__title {
+  font-family: var(--lifs-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lifs-grey);
+  font-weight: 400;
+  margin: 0;
+}
+.lifs-tile {
+  border: 1px solid var(--lifs-line);
+  border-radius: var(--lifs-radius-md);
+  background: var(--lifs-paper);
+  padding: 8px 10px;
+}
+.lifs-callout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--lifs-radius-none);
+
+  &--error {
+    border-color: #f2c5bf;
+    border-left-color: var(--lifs-error);
+    background: var(--lifs-error-bg);
+  }
+  &--warn {
+    border-color: var(--lifs-warn-bg);
+    border-left-color: var(--lifs-warn);
+    background: var(--lifs-warn-bg);
+  }
+  &--info {
+    border-color: var(--lifs-line);
+    border-left-color: var(--lifs-info);
+    background: var(--lifs-info-bg);
+  }
+  &--ok {
+    border-color: var(--lifs-ok-bg);
+    border-left-color: var(--lifs-ok);
+    background: var(--lifs-ok-bg);
+  }
+}
+
+// Outlined form fields with square corners: the notch geometry derives from the corner radius
+// (0 here), which leaves the text flush with the border. Restore the usual 12px inset.
+.mat-mdc-form-field.mat-form-field-appearance-outline {
+  .mdc-notched-outline__leading {
+    width: 12px !important;
+  }
+  .mat-mdc-form-field-infix {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .mat-mdc-form-field-subscript-wrapper {
+    padding: 0 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -11,3 +11,8 @@ buildNumber.properties
 # Avoid ignoring Maven wrapper jar file (.jar files are usually ignored)
 !/.mvn/wrapper/maven-wrapper.jar
 /nbproject/
+# Brainstorming companion session files
+.superpowers/
+
+# Claude Code worktrees
+.claude/worktrees/

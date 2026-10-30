@@ -4,51 +4,80 @@ Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 image:https://travis-ci.org/lifs-tools/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/lifs-tools/jmzTab-m-webapp"]
 image:https://img.shields.io/github/release/lifs-tools/jmzTab-m-webapp.svg["Latest Release", link="https://github.com/lifs-tools/jmzTab-m-webapp/releases/latest"] image:https://zenodo.org/badge/120903476.svg["DOI", link="https://zenodo.org/badge/latestdoi/120903476"]
 
-This project provides a validator implementation for the https://github.com/HUPO-PSI/mzTab[mzTab 1.0 standard and for the current mzTab-M 2.0 standard for metabolomics].
+This project provides a validator implementation and web application for the https://github.com/HUPO-PSI/mzTab[mzTab-M 2.0 standard for metabolomics]. Support for mzTab 1.0 (proteomics) was retired in version 2.0.0; please use an earlier 1.0.x release for those files.
 
 == Using the LIFS Web application
 
 The mzTab validator webapplication is hosted https://apps.lifs-tools.org/mztabvalidator[here]. 
 For programmatic usage of the validation service, the REST API description is available https://apps.lifs-tools.org/mztabvalidator/swagger-ui.html[here].
+The release notes of the current version are in `docs/release-notes/2.0.0.md`.
+
+== Project layout
+
+The build is a Maven reactor with two modules:
+
+`server`:: the https://projects.spring.io/spring-boot/[Spring Boot] web application (REST API under `/rest/v2`, validation, persistence of results). It serves the single-page application and is built as an executable JAR and, with `-Pdocker`, as a Docker image.
+`frontend`:: the https://angular.dev/[Angular] single-page application with https://material.angular.dev/[Angular Material] in the LIFS design. Maven builds it with a local Node installation and the `server` module packages the result.
 
 == Building the project from the command-line
 
-In order to build the project and run the unit tests, execute the following command from a terminal:
+Building both modules, running the unit tests of the server and the frontend:
 
-  ./mvnw install
+  ./mvnw -B verify
+
+For a fast server-only build that skips the Angular build (the SPA is then not part of the JAR):
+
+  ./mvnw -B verify -Dfrontend.skip=true
+
+The packaged application is `server/target/mztab-validator-webapp-<VERSION>.jar`.
 
 == Running the Web Application for Development
 
-  ./mvnw spring-boot:run
+Start the server on port 8083 with the context path `/mztabvalidator`, which the proxy configuration of the frontend expects:
 
-== Running the Web Application for Validation
-The web-application is based on https://projects.spring.io/spring-boot/[Spring-Boot], http://www.thymeleaf.org/[Thymeleaf], https://jquery.com/[jQuery], https://datatables.net/[jQuery Datatables] and https://getbootstrap.com/[Bootstrap 4].
-The `target` folder holds all necessary dependencies and resources as a stand-alone, executable JAR file that can be run as follows (please replace <VERSION> with the correct one)
+  ./mvnw -B package -DskipTests
+  java -jar server/target/mztab-validator-webapp-<VERSION>.jar --server.servlet.contextPath=/mztabvalidator
 
-  ./mztab-validator-webapp-<VERSION>.jar
+Then, in a second terminal, start the Angular development server. It proxies `/rest` to `http://localhost:8083/mztabvalidator/rest` on the running server (see `frontend/proxy.conf.json`):
 
-This will start the application with a default configuration, running on http port 8083. 
-The application can then be accessed from your web browser at
+  npm --prefix frontend install
+  npm --prefix frontend start
 
-  http://localhost:8083/mztabvalidator
+The frontend is then available at http://localhost:4200/ and reloads on changes.
 
-== Building the Web Application Docker Image
-If you want to run the web application as a docker container, you can build it as follows:
+=== End-to-end tests
 
-  ./mvnw -Pdocker install
+The Playwright end-to-end tests run against a packaged server that is already running (they are not part of `./mvnw verify`). Build and start it as above (with an empty, throw-away `--storage.location`), then:
 
-This will build a Docker container for the webapplication and will make it locally available to be run by docker.
+  npm --prefix frontend run e2e
 
-  docker image ls
-  REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-  isas/mztab-validator-webapp   1.0.8-SNAPSHOT      b87d4683db50        About an hour ago   472MB
+`E2E_BASE_URL` overrides the default address `http://localhost:8083/mztabvalidator/` (it must end with a slash).
 
-Please note that the base image we use is quite large (for details, see `web/Dockerfile`), but also includes monitoring utilities and automatic scaling and limiting of the 
-internal JVMs memory based on the amount of memory allocated for the container by Docker.
+== Running your own instance
 
-To run the web application as a Docker container, type in the following (replacing <VERSION> with the current project version, i.e. the TAG version displayed by `docker image ls`):
+The guide in link:docs/self-hosting/README.md[`docs/self-hosting`] covers building, configuring and operating your own mzTab Validator:
 
-  docker run -it --rm --name mztabvalidator -p 8080:8083 -m 150M isas/mztab-validator-webapp:<VERSION>
+* link:docs/self-hosting/building.md[Building]: prerequisites, the JAR, Docker images.
+* link:docs/self-hosting/configuration.md[Configuration]: every setting with its default, validation profiles, analytics, logging.
+* link:docs/self-hosting/operating.md[Operating]: the JAR or the container, reverse proxy, storage and retention, memory, monitoring, security, upgrades, troubleshooting.
+
+In short: the packaged JAR runs with Java 24 or later,
+
+  java -jar server/target/mztab-validator-webapp-<VERSION>.jar --storage.location=/var/lib/mztabvalidator
+
+and serves the application at http://localhost:8083/mztabvalidator. To run it in Docker, build an image from the JAR and mount a volume at `/tmp/upload-dir`, the default `storage.location` in the image:
+
+  docker build --build-arg JAR_FILE=mztab-validator-webapp-<VERSION>.jar -t mztab-validator-webapp:<VERSION> server
+  docker run -d --name mztabvalidator -p 8083:8083 -m 2g -v mztabvalidator-data:/tmp/upload-dir mztab-validator-webapp:<VERSION>
+
+What an instance needs:
+
+* *A persistent directory or volume for `storage.location`.* Uploads, results and the data of the result page are kept there for `minCleanupAge` days (7).
+* *One instance per storage directory.* Results are files of one instance; do not load-balance several.
+* *Outbound HTTPS* to the https://www.ebi.ac.uk/ols4/[EBI Ontology Lookup Service] for semantic validation, and to `raw.githubusercontent.com` for the example files. Structural validation works offline.
+* *A reverse proxy* that forwards `X-Forwarded-*` headers and accepts uploads up to `spring.servlet.multipart.max-file-size` (64 MB).
+
+The project's own images are built with Jib (`-Pdocker`) and published as `docker.lifs-tools.org/lifs/mztab-validator-webapp`. The `docker` profile pushes to a registry during `package`; see link:docs/self-hosting/building.md#docker-image[Building] for pushing to your own.
 
 == References
 
