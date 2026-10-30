@@ -1,20 +1,22 @@
 # Configuration
 
-The application is a Spring Boot application, so every setting can be given in any of the usual ways. Later entries override earlier ones:
+The webapp and the engines are Spring Boot applications, so every setting can be given in any of the usual ways. Later entries override earlier ones:
 
-1. the defaults in the JAR (`server/src/main/resources/application.properties`);
+1. the defaults in the JAR (webapp: `server/src/main/resources/application.properties`; engines: `engine-core-src/src/main/resources/application.properties`);
 2. an `application.properties` or `application.yml` in the working directory or in `./config/`, or a file named with `--spring.config.additional-location=file:/etc/mztabvalidator/`;
-3. environment variables: upper case, with `.` and `-` replaced by `_`, e.g. `STORAGE_LOCATION`, `REST_SYNCHRONOUS_MAX_CONCURRENT`, `MINCLEANUPAGE`;
+3. environment variables: upper case, with `.` replaced by `_` and `-` removed (Spring Boot's canonical form) or replaced by `_`, e.g. `STORAGE_LOCATION`, `REST_SYNCHRONOUS_MAX_CONCURRENT`, `MINCLEANUPAGE`; a list index becomes `_<n>_`, e.g. `ENGINES_MZTABM_0_URL` for `engines.mztabm[0].url`;
 4. a JSON object in `SPRING_APPLICATION_JSON`, e.g. `SPRING_APPLICATION_JSON='{"storage.location":"/data"}'`;
 5. command line arguments, e.g. `--storage.location=/data`.
 
-Environment variables or `SPRING_APPLICATION_JSON` suit containers best.
+Environment variables or `SPRING_APPLICATION_JSON` suit containers best. In a compose file, quote values that look like numbers: `ENGINES_MZTABM_0_LINE: "2.0"`, not `2.0`, which YAML reads as a number.
+
+The sections up to [Health and info endpoints](#health-and-info-endpoints) are the webapp's settings; the engines have [their own](#engines-mztab-m-20-and-21).
 
 ## Server
 
 | Property | Default | Meaning |
 |---|---|---|
-| `server.port` | `8083` | HTTP port. |
+| `server.port` | `8083` | HTTP port of the webapp. |
 | `server.servlet.contextPath` | `/mztabvalidator` | The path the application is served below. The browser application finds its base path at runtime, so any value works, including `/`. |
 | `server.forward-headers-strategy` | `FRAMEWORK` | The application trusts the `X-Forwarded-*` headers of a reverse proxy. Only expose the port to that proxy, or set this to `NONE`. |
 
@@ -28,13 +30,41 @@ Environment variables or `SPRING_APPLICATION_JSON` suit containers best.
 | `oldFileMaintenanceSchedule` | `0 0 23 * * *` (11 pm daily) | When the cleanup runs: a Spring cron expression (seconds, minutes, hours, day of month, month, day of week), in the time zone of the JVM. |
 | `sections.cache.max-bytes` | `268435456` (256 MiB) | Size of the in-memory cache for the table and metadata data shown on the result page. |
 
+## Validation engines
+
+The webapp sends every file to the engine of its mzTab-M version: a `2.0.x-M` file to the 2.0 engine, a `2.1.x-M` file to the 2.1 engine. It reads the declared `mzTab-version` itself and parses nothing else. A version whose engine is not configured is not offered: a file of that version gets one error message, a profile of that version is not listed.
+
+| Property | Environment variable | Default | Meaning |
+|---|---|---|---|
+| `engines.mztabm[n].line` | `ENGINES_MZTABM_<n>_LINE` | `engines.mztabm[0].line=2.0` | The mzTab-M version line of the n-th engine, `MAJOR.MINOR` (`2.0`, `2.1`). Each line may have one engine. |
+| `engines.mztabm[n].url` | `ENGINES_MZTABM_<n>_URL` | `engines.mztabm[0].url=http://mztab-engine-2-0:8084` | Its base URL, `http` or `https`. The default is the compose service name of the 2.0 engine. |
+| `engines.default-line` | `ENGINES_DEFAULTLINE` | `2.0` | The engine for files that declare no `mzTab-version`. Such a file still gets Error-2008 (missing version); the default only decides which version's other checks run. The webapp does not start if no engine is configured for this line. |
+| `engines.unavailable-hint-url` | `ENGINES_UNAVAILABLEHINTURL` | empty | Where users are pointed when a version has no engine on this instance, e.g. another validator that has one. The public production instance points to the development validator. Empty: no link. |
+| `engines.connect-timeout` | `ENGINES_CONNECTTIMEOUT` | `5s` | How long the webapp waits for a connection to an engine, and for an engine's answer about itself. |
+| `engines.job-timeout` | `ENGINES_JOBTIMEOUT` | `10m` | How long the webapp waits for an engine to finish a validation or conversion. A background validation that runs out of time ends as failed. |
+
+- **A list replaces the default as a whole.** Setting `ENGINES_MZTABM_0_*` and `ENGINES_MZTABM_1_*` configures exactly these two engines. To keep the default 2.0 engine and add the 2.1 engine, set both:
+
+  ```sh
+  ENGINES_MZTABM_0_LINE=2.0
+  ENGINES_MZTABM_0_URL=http://mztab-engine-2-0:8084
+  ENGINES_MZTABM_1_LINE=2.1
+  ENGINES_MZTABM_1_URL=http://mztab-engine-2-1:8085
+  ```
+
+- The environment variables with `_` for each `-` (`ENGINES_DEFAULT_LINE`, `ENGINES_UNAVAILABLE_HINT_URL`, `ENGINES_CONNECT_TIMEOUT`, `ENGINES_JOB_TIMEOUT`) work as well.
+- Durations are Spring Boot durations: `30s`, `5m`, `1h`, or ISO-8601 (`PT10M`).
+- The webapp starts without its engines and asks each one about itself every minute, on every health check and when a background validation goes to it, so the start order does not matter.
+- A busy engine (all its jobs running) answers 503. Background validations then wait and retry, up to `engines.job-timeout`; the synchronous endpoints pass the 503 with `Retry-After` on to the client.
+- There is no authentication between webapp and engines. Make the engines reachable from the webapp only (see [Operating](operating.md#the-services)).
+
 ## Uploads and the synchronous endpoints
 
 | Property | Default | Meaning |
 |---|---|---|
 | `spring.servlet.multipart.max-file-size` | `64MB` | The largest file a user can upload in the form or send to `/rest/v2/validations`. It is also the largest file accepted by the synchronous endpoints `/rest/v2/validate`, `/validatePlain`, `/convert` and `/convertPlain`. Larger files answer 413. |
 | `spring.servlet.multipart.max-request-size` | `64MB` | The largest multipart request. Raise it together with `max-file-size`; the form also sends a mapping file. |
-| `rest.synchronous.max-concurrent` | the number of processors | How many requests to the synchronous endpoints run at once. Each holds its whole file in memory, so lower this on hosts with little memory. |
+| `rest.synchronous.max-concurrent` | the number of processors | How many requests to the synchronous endpoints run at once. Each spools its file to the temporary directory (`java.io.tmpdir`) and waits for an engine. |
 | `rest.synchronous.wait` | `10s` | How long such a request waits for a free slot. Then it answers 503 with `Retry-After: 5`. |
 
 Validations started in the form or with `POST /rest/v2/validations` run in the background, at most one fewer than the number of processors at once (at least one); further ones wait in a queue. This is not configurable.
@@ -79,7 +109,6 @@ The application logs to the console (standard output), in Spring Boot's default 
 | Property | Default | Meaning |
 |---|---|---|
 | `logging.level.org.lifstools` | `INFO` | The application. |
-| `logging.level.uk.ac.ebi` | `INFO` | jmzTab-m's parser and validator. |
 | `logging.level.org.springframework.web` | `INFO` | Request handling. |
 | `logging.file.name` | not set | Also log to this file. |
 
@@ -94,4 +123,24 @@ Activate a profile with `SPRING_PROFILES_ACTIVE=microservice` or `--spring.profi
 
 ## Health and info endpoints
 
-`/actuator/health` and `/actuator/info` (below the context path) are the only management endpoints. Health shows details, including the free disk space of the working directory. If you do not want them public, block `/actuator/` at the reverse proxy.
+`/actuator/health` and `/actuator/info` (below the context path) are the only management endpoints. Health shows details, including the free disk space of the working directory and each engine (component `engines`, with `engine-2-0`, `engine-2-1`; see [Monitoring](operating.md#monitoring)). If you do not want them public, block `/actuator/` at the reverse proxy.
+
+## Engines (mzTab-M 2.0 and 2.1)
+
+The engines parse, validate and convert mzTab-M files, and ask the Ontology Lookup Service during semantic validation. They have no storage, no volume and no authentication, and serve only an internal API under `/engine/v1` plus `/actuator/health` and `/actuator/info` (no context path). Both engines take the same settings.
+
+| Property | Environment variable | Default | Meaning |
+|---|---|---|---|
+| `server.port` | `SERVER_PORT` | `8084` (2.0), `8085` (2.1) | HTTP port. If you change it, change `engines.mztabm[n].url` of the webapp as well. |
+| `engine.max-concurrent-jobs` | `ENGINE_MAXCONCURRENTJOBS` | the number of processors | How many validations and conversions run at once. Further requests answer 503 with `Retry-After` (the webapp retries). Each job holds its parsed file in memory. |
+| `spring.servlet.multipart.max-file-size` | `SPRING_SERVLET_MULTIPART_MAXFILESIZE` | `64MB` | The largest file the engine accepts. Keep it at least the webapp's `spring.servlet.multipart.max-file-size`. |
+| `spring.servlet.multipart.max-request-size` | `SPRING_SERVLET_MULTIPART_MAXREQUESTSIZE` | `70MB` | The largest request: the file plus a mapping file and the parameters. |
+| `engine.ols.protocol` | `ENGINE_OLS_PROTOCOL` | `https` | The Ontology Lookup Service of semantic validation, as `<protocol>://<host>/<base-path>/api/…`. |
+| `engine.ols.host` | `ENGINE_OLS_HOST` | `www.ebi.ac.uk` | Its host, optionally with a port (`ols.example.org:8443`). |
+| `engine.ols.base-path` | `ENGINE_OLS_BASEPATH` | `ols` | Its base path, a single path segment. The defaults are the EBI OLS. |
+| `logging.level.org.lifstools` | `LOGGING_LEVEL_ORG_LIFSTOOLS` | `INFO` | The engine. |
+| `logging.level.uk.ac.ebi` | `LOGGING_LEVEL_UK_AC_EBI` | `INFO` | jmzTab-m's parser and validator, and the OLS client. |
+
+`engine.line`, `engine.mztab-versions` and `engine.jmztabm-version` are set when the engine is built and describe what it validates; do not change them.
+
+The engines answer `GET /engine/v1/info` with their version line, mzTab-M versions, jmzTab-m version, build and limits; the webapp shows it in its health endpoint and on the About page.

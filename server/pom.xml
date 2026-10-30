@@ -11,6 +11,11 @@
     <description>A web-based validator for mzTab format version 1.0 onwards.</description>
     <name>MzTab validator webapplication.</name>
 
+    <properties>
+        <!-- the main class of the executable jar and of the image -->
+        <start-class>org.lifstools.mztab.validator.webapp.Application</start-class>
+    </properties>
+
 
     <dependencies>
         <dependency>

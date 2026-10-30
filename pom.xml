@@ -10,6 +10,7 @@
     <modules>
         <module>frontend</module>
         <module>engine-api</module>
+        <module>engine-parent</module>
         <module>engine-mztabm-2.0</module>
         <module>server</module>
     </modules>
@@ -102,7 +103,8 @@
         <ga.url></ga.url>
         <ga.app.url></ga.app.url>
         <spring.profiles.active></spring.profiles.active>
-        <start-class>org.lifstools.mztab.validator.webapp.Application</start-class>
+        <!-- start-class, the main class of the executable jar and of the image, is set by each application
+             module: server and engine-parent -->
     </properties>
 
     <dependencyManagement>
@@ -409,7 +411,10 @@
                             </pluginExtension>
                         </pluginExtensions>
                         <to>
-                            <image>${docker.image.prefix}/${project.artifactId}</image>
+                            <!-- with the version tag: Jib always pushes (or loads) to.image itself, and a
+                                 reference without a tag would mean :latest. latest is added explicitly
+                                 (-Djib.to.tags=<version>,latest, master builds only). -->
+                            <image>${docker.image.prefix}/${project.artifactId}:${project.version}</image>
                             <tags>
                                 <tag>${project.version}</tag> 
                             </tags>
@@ -417,9 +422,10 @@
                         <container>
                             <jvmFlags>
                                 <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
-                                <!-- the heap follows the container memory limit (2048M on the public stacks) -->
+                                <!-- the heap follows the container memory limit (public stacks: webapp 1024M, engines 2048M) -->
                                 <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
                             </jvmFlags>
+                            <!-- the webapp's; engine-parent sets engine.port -->
                             <ports>
                                 <port>8083</port>
                             </ports>
@@ -428,7 +434,7 @@
                             </volumes>
                             <!--<user>1000:1000</user>-->
                             <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
-                            <mainClass>org.lifstools.mztab.validator.webapp.Application</mainClass>
+                            <mainClass>${start-class}</mainClass>
                         </container>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <skip>true</skip>
@@ -501,6 +507,34 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-jar-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <!-- A release depends only on released artifacts (spec E11), jmzTab-m included. The
+                             modules of this reactor are exempt: they are released together with this version.
+                             Build releases with -DskipSnapshotEngines (a bare flag), which leaves out the
+                             engines on a jmzTab-m SNAPSHOT line (profile snapshot-engines). -->
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-release-dependencies</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireReleaseDeps>
+                                            <onlyWhenRelease>false</onlyWhenRelease>
+                                            <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                            <excludes>
+                                                <exclude>org.lifs-tools:mztab-validator-*</exclude>
+                                            </excludes>
+                                            <message>A release must not depend on SNAPSHOT versions: release them first (e.g. jmzTab-m), and build with -DskipSnapshotEngines.</message>
+                                        </requireReleaseDeps>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

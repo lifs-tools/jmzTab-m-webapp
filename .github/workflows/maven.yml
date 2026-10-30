@@ -61,22 +61,31 @@ jobs:
         registry: docker.lifs-tools.org
         username: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_USER }}
         password: ${{ secrets.LIFS_TOOLS_DOCKER_REGISTRY_PW }}
-    - name: Build and push docker image with Maven
+    # Jib builds one image per application module, named after its artifactId:
+    #   docker.lifs-tools.org/lifs/mztab-validator-webapp
+    #   docker.lifs-tools.org/lifs/mztab-validator-engine-2.0
+    #   docker.lifs-tools.org/lifs/mztab-validator-engine-2.1
+    # The pom's jib.to.image carries the version tag (an image reference without a tag would
+    # mean :latest), so only the tags in jib.to.tags are pushed.
+    # master: version and latest for all three. A release version (no -SNAPSHOT) leaves out the
+    # engines on a jmzTab-m SNAPSHOT line, as a release build does (-DskipSnapshotEngines, spec E11).
+    - name: Build and push docker images with Maven
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-      run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
+      run: |
+        release_args=()
+        [[ "$RELEASE_VERSION" == *-SNAPSHOT ]] || release_args=(-DskipSnapshotEngines)
+        ./mvnw -B package -Pdocker "${release_args[@]}" "-Djib.to.tags=${RELEASE_VERSION},latest" --file pom.xml
 
-    # Integration branch: pushes only the version tag (2.0.0-SNAPSHOT), never latest.
-    # Jib always pushes `to.image` itself, and an image reference without a tag means
-    # :latest, so the tag has to be part of the image reference, not only of jib.to.tags.
-    - name: Build and push integration branch docker image with Maven
+    # Integration branch: pushes only the version tag (2.0.0-SNAPSHOT) of all three images, never latest.
+    - name: Build and push integration branch docker images with Maven
       if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/validator-spa'
       env:
         USERNAME: ${{ github.actor }}
         PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-      run: ./mvnw -B package -Pdocker "-Djib.to.image=docker.lifs-tools.org/lifs/mztab-validator-webapp:${RELEASE_VERSION}" "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
+      run: ./mvnw -B package -Pdocker "-Djib.to.tags=${RELEASE_VERSION}" --file pom.xml
 
   # End-to-end tests of the SPA against the packaged jar (not part of ./mvnw verify).
   e2e:

@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.lifs-tools</groupId>
+        <artifactId>mztab-validator-webapp-parent</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>mztab-validator-engine-parent</artifactId>
+    <packaging>pom</packaging>
+    <name>MzTab validator engine parent.</name>
+    <description>The build every mzTab-M engine shares: the engine sources of engine-core-src compiled against the
+        jmzTab-m line the engine module selects, its dependencies, the executable jar and the image. An engine module
+        sets only what differs (artifactId, name, engine.line, engine.mztab-versions, engine.jmztabm-version,
+        engine.port).</description>
+
+    <properties>
+        <!-- set by each engine module; written into application.properties by resource filtering -->
+        <engine.line/>
+        <engine.mztab-versions/>
+        <engine.port/>
+        <!-- the jmzTab-m line of the engine; each engine module sets its own. The value here only makes this
+             pom itself valid (a dependency needs a version). -->
+        <engine.jmztabm-version>${jmztabm20.version}</engine.jmztabm-version>
+        <!-- resolved in the engine module, so relative to its directory -->
+        <engine.core.dir>${project.basedir}/../engine-core-src</engine.core.dir>
+        <start-class>org.lifstools.mztab.validator.engine.EngineApplication</start-class>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>mztab-validator-engine-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jmztabm-io</artifactId>
+            <version>${engine.jmztabm-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jmztabm-validation</artifactId>
+            <version>${engine.jmztabm-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jmztabm-test-utils</artifactId>
+            <version>${engine.jmztabm-version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- Declared as plugins here, so the engine modules inherit them without a build section of their own.
+         On this pom-packaged module itself they do nothing useful: there is nothing to compile, Spring Boot
+         does not repackage and Jib does not containerize a pom project. -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-engine-core-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${engine.core.dir}/src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-engine-core-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${engine.core.dir}/src/main/resources</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-engine-core-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${engine.core.dir}/src/test/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <engine.line>${engine.line}</engine.line>
+                        <openapi.update>${openapi.update}</openapi.update>
+                        <!-- WebappCopiesTest compares the webapp's copies of jmzTab-m files with this engine's -->
+                        <webapp.dir>${project.basedir}/../server</webapp.dir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
+                <configuration>
+                    <mainClass>${start-class}</mainClass>
+                    <!-- GET /engine/v1/info reports it as the build; Maven's reproducible default
+                         (project.build.outputTimestamp, 1980-02-01) would not tell builds apart -->
+                    <time>${maven.build.timestamp}</time>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <!-- builds lifs/mztab-validator-engine-<line> (docker.image.prefix/artifactId), port engine.port -->
+            <id>docker</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.google.cloud.tools</groupId>
+                        <artifactId>jib-maven-plugin</artifactId>
+                        <configuration>
+                            <container>
+                                <ports combine.self="override">
+                                    <port>${engine.port}</port>
+                                </ports>
+                            </container>
+                            <skip>false</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
