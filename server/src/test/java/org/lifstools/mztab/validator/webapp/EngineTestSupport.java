@@ -43,6 +43,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
  * The jar path comes from the surefire property {@value #JAR_PROPERTY}; the jar
  * exists only after {@code package} of engine-mztabm-2.0, so run the server
  * tests with {@value #COMMAND}.
+ *
+ * <p>The engine asks the {@link OlsStub} in this JVM instead of the EBI
+ * Ontology Lookup Service ({@code engine.ols.*}), so semantic validation gives
+ * the same result online and offline. To keep it that way the engine runs
+ * without a network beyond the loopback interface: every other connection
+ * goes to a SOCKS proxy on a closed local port and is refused, so a request
+ * that escapes the stub fails the validation instead of quietly reaching EBI.
  */
 public final class EngineTestSupport {
 
@@ -52,6 +59,7 @@ public final class EngineTestSupport {
 
     private static URI url;
     private static Process process;
+    private static OlsStub ols;
 
     private EngineTestSupport() {
     }
@@ -61,6 +69,12 @@ public final class EngineTestSupport {
         registry.add("engines.default-line", () -> "2.0");
         registry.add("engines.mztabm[0].line", () -> "2.0");
         registry.add("engines.mztabm[0].url", () -> engine20().toString());
+    }
+
+    /** The OLS stub the running engine asks; starts the engine if needed. */
+    public static synchronized OlsStub ols() {
+        engine20();
+        return ols;
     }
 
     /** The base URL of the running 2.0 engine. */
@@ -82,8 +96,17 @@ public final class EngineTestSupport {
         int port = freePort();
         Path log = jar.getParent().resolve("engine-2.0-server-tests.log");
         String java = Paths.get(System.getProperty("java.home"), "bin", "java").toString();
-        ProcessBuilder builder = new ProcessBuilder(List.of(java, "-Xmx512m", "-jar", jar.toString(),
-            "--server.port=" + port, "--spring.main.banner-mode=off"))
+        try {
+            ols = new OlsStub();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not start the OLS stub", e);
+        }
+        ProcessBuilder builder = new ProcessBuilder(List.of(java, "-Xmx512m",
+            "-DsocksProxyHost=127.0.0.1", "-DsocksProxyPort=" + freePort(),
+            "-DsocksNonProxyHosts=localhost|127.*|[::1]",
+            "-jar", jar.toString(),
+            "--server.port=" + port, "--spring.main.banner-mode=off",
+            "--engine.ols.protocol=http", "--engine.ols.host=" + ols.hostAndPort()))
             .redirectErrorStream(true).redirectOutput(log.toFile());
         try {
             process = builder.start();

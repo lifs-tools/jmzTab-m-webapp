@@ -45,6 +45,10 @@ class DefaultProfileAccessIntegrationTest {
         EngineTestSupport.register(registry);
     }
 
+    /**
+     * The webapp's own OLS client: the CV suggestions resolve the mapping's CVs at startup, and
+     * validatePlain still validates in process. Validations through the engine ask the OLS stub.
+     */
     @MockitoBean(answers = Answers.RETURNS_MOCKS)
     OLSClient olsClient;
 

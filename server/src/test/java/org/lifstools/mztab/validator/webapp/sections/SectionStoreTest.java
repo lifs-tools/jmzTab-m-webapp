@@ -50,7 +50,10 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
-/** Section store and paging on real validation sessions; OLS is mocked. */
+/**
+ * Section store and paging on real validation sessions. The engine asks the OLS stub of
+ * {@link EngineTestSupport}; the webapp's own OLS client is mocked.
+ */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 class SectionStoreTest {
 

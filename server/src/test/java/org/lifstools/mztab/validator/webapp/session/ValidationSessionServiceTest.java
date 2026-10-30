@@ -45,6 +45,8 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,7 +77,9 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
  * runner with the real mzTab-M 2.0 engine ({@link EngineTestSupport}),
  * persistence in the storage directory and restart recovery. A 2.1 line is
  * configured whose engine is not running, so submit-time checks can see a 2.1
- * file routed. Semantic validation in the engine asks OLS.
+ * file routed. Semantic validation in the engine asks the local OLS stub of
+ * {@link EngineTestSupport}; the webapp's own OLS client, which the
+ * in-process endpoints and the CV suggestions still use, is mocked.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 class ValidationSessionServiceTest {
@@ -85,6 +89,12 @@ class ValidationSessionServiceTest {
     private static final String RESTART_TEXT
         = "The validation was interrupted by a server restart. Please validate the file again.";
     private static final ValidationOptions STRUCTURAL = new ValidationOptions(ValidationLevel.INFO, 100, null, null);
+    /** The optional rules of the 2.0 default profile that lipidomics-example.mzTab leaves empty, sorted. */
+    private static final List<String> EMPTY_OPTIONAL_RULES = List.of("derivatization_agent_may",
+        "msrun_fragmentation_method_may", "sample_cell_type_may", "sample_disease_may", "sample_species_may",
+        "sample_tissue_may");
+    private static final Pattern EMPTY_OPTIONAL_RULE
+        = Pattern.compile("accessed by (\\S+) is optional, but was null or empty");
 
     @TempDir
     static Path storageRoot;
@@ -262,8 +272,7 @@ class ValidationSessionServiceTest {
             submitted.validationProfile());
         ValidationRecord record = awaitFinal(submitted.id());
         assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
-        assertTrue(record.messages().stream().anyMatch(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK),
-            "semantic validation reports cross_check messages: " + record.messages());
+        assertOnlyEmptyOptionalRules(record);
     }
 
     @Test
@@ -275,8 +284,8 @@ class ValidationSessionServiceTest {
         assertTrue(storageService.read(submitted.id(), SLOT.MAPPINGFILE, "custom-mapping.xml").isPresent());
         ValidationRecord record = awaitFinal(submitted.id());
         assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
-        assertTrue(record.messages().stream().anyMatch(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK),
-            "the custom mapping must reach the engine: " + record.messages());
+        // the custom mapping is the default profile, so it must give the same semantic result
+        assertOnlyEmptyOptionalRules(record);
     }
 
     @Test
@@ -499,6 +508,27 @@ class ValidationSessionServiceTest {
         assertEquals(record, read);
         assertNull(read.outcome());
         sessions.delete(record.id());
+    }
+
+    /**
+     * Semantic validation of lipidomics-example.mzTab with the 2.0 default
+     * profile, as the engine gives it with the answers of the OLS stub: every
+     * CV term of the file is found and allowed by its rule, so the only
+     * cross-check messages are the optional rules whose element the file
+     * leaves empty. A term the engine cannot look up would add an error
+     * message for its rule instead.
+     */
+    private static void assertOnlyEmptyOptionalRules(ValidationRecord record) {
+        List<String> crossChecks = record.messages().stream()
+            .filter(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK)
+            .map(ValidationMessage::getMessage).toList();
+        assertEquals(EMPTY_OPTIONAL_RULES, crossChecks.stream().map(m -> {
+            Matcher rule = EMPTY_OPTIONAL_RULE.matcher(m);
+            return rule.find() ? rule.group(1) : m;
+        }).sorted().toList(), "cross_check messages: " + crossChecks);
+        assertTrue(record.messages().stream().noneMatch(m -> m.getMessageType() == ValidationMessage.MessageType.ERROR),
+            "no errors: " + record.messages());
+        assertEquals(List.of(), EngineTestSupport.ols().unmatched(), "every OLS request has a stub answer");
     }
 
     private static void runAfter(CountDownLatch start, ValidationRunner target, UUID id) {

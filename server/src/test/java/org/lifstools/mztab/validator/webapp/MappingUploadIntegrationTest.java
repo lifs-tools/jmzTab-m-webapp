@@ -18,6 +18,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.service.validation.MappingFixtures;
@@ -36,7 +40,8 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * End-to-end through the validations API: an uploaded mapping file that declares a DOCTYPE must be rejected, and
- * the bundled default validation profile must still work. OLS is mocked, so the test needs no network. Runs with the
+ * the bundled default validation profile must still work. Semantic validation in the engine asks the local OLS stub
+ * of {@link EngineTestSupport}, so the test needs no network; the webapp's own OLS client is mocked. Runs with the
  * production security setup (microservice profile), without Eureka.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
@@ -44,6 +49,10 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 @AutoConfigureMockMvc
 @ExtendWith(AwaitAsyncValidations.class)
 class MappingUploadIntegrationTest {
+
+    private static final Pattern NOT_ALLOWED
+        = Pattern.compile("The cv term \"\\[[^,]*, ([^,]+),[^\"]*\" is not allowed for \"([^\"]+)\"");
+    private static final Pattern EMPTY = Pattern.compile("accessed by (\\S+) is optional, but was null or empty");
 
     @TempDir
     static Path storageRoot;
@@ -54,6 +63,7 @@ class MappingUploadIntegrationTest {
         EngineTestSupport.register(registry);
     }
 
+    /** The webapp's own OLS client: the CV suggestions resolve the mapping's CVs at startup. */
     @MockitoBean(answers = Answers.RETURNS_MOCKS)
     OLSClient olsClient;
 
@@ -96,6 +106,32 @@ class MappingUploadIntegrationTest {
             "default mapping must load, got: " + done.get("messages"));
         assertFalse(done.get("messages").toString().contains("Semantic validation failed"),
             "default mapping must load, got: " + done.get("messages"));
+        // as the engine judges minimal-m-2.0.mztab with the OLS stub's answers: three terms are
+        // not below the terms their rules allow, and one optional element is empty
+        List<String> crossChecks = new ArrayList<>();
+        done.get("messages").forEach(m -> {
+            if ("cross_check".equals(m.get("category").asText())) {
+                crossChecks.add(m.get("message_type").asText() + " " + summary(m.get("message").asText()));
+            }
+        });
+        assertEquals(List.of(
+            "error MS:1002887 is not allowed for /metadata/@smallMoleculeFeatureQuantificationUnit",
+            "error MS:1002887 is not allowed for /metadata/@smallMoleculeQuantificationUnit",
+            "info MS:1000598 is not allowed for /metadata/instrument/@source",
+            "info MS:1001530 is not allowed for /metadata/msRun/@idFormat",
+            "info derivatization_agent_may is empty"), crossChecks.stream().sorted().toList(),
+            "cross_check messages: " + done.get("messages"));
+        assertEquals(List.of(), EngineTestSupport.ols().unmatched(), "every OLS request has a stub answer");
+    }
+
+    /** The term and path of a "not allowed" message, the rule of an "optional but empty" one. */
+    private static String summary(String message) {
+        Matcher notAllowed = NOT_ALLOWED.matcher(message);
+        if (notAllowed.find()) {
+            return notAllowed.group(1) + " is not allowed for " + notAllowed.group(2);
+        }
+        Matcher empty = EMPTY.matcher(message);
+        return empty.find() ? empty.group(1) + " is empty" : message;
     }
 
     private JsonNode awaitFinished(String id) throws Exception {

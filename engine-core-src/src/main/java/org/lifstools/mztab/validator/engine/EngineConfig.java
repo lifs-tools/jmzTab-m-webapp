@@ -39,6 +39,11 @@ import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfig;
 @Configuration
 public class EngineConfig {
 
+    /** Together these give {@code Constants.OLS_PROTOCOL} and {@code Constants.OLS_SERVER} of ols-client. */
+    static final String DEFAULT_OLS_PROTOCOL = "https";
+    static final String DEFAULT_OLS_HOST = "www.ebi.ac.uk";
+    static final String DEFAULT_OLS_BASE_PATH = "ols";
+
     static final String DEFAULT_MAX_JOBS = "#{T(java.lang.Runtime).getRuntime().availableProcessors()}";
 
     @Bean
@@ -51,10 +56,30 @@ public class EngineConfig {
         return mapper;
     }
 
+    /**
+     * The Ontology Lookup Service client of semantic validation. The endpoint
+     * is {@code <engine.ols.protocol>://<engine.ols.host>/<engine.ols.base-path>/api/...};
+     * the defaults are the library's own ({@code https://www.ebi.ac.uk/ols/}).
+     * The host may carry a port. The client keeps only the first path segment
+     * of its host name, so the base path must be a single segment.
+     */
     @Bean
-    public OLSClient olsClient() {
-        OLSWsConfig config = new OLSWsConfig();
-        return new OLSClient(config);
+    public OLSClient olsClient(
+            @Value("${engine.ols.protocol:" + DEFAULT_OLS_PROTOCOL + "}") String protocol,
+            @Value("${engine.ols.host:" + DEFAULT_OLS_HOST + "}") String host,
+            @Value("${engine.ols.base-path:" + DEFAULT_OLS_BASE_PATH + "}") String basePath) {
+        String segment = basePath.strip();
+        if (segment.startsWith("/")) {
+            segment = segment.substring(1);
+        }
+        if (segment.endsWith("/")) {
+            segment = segment.substring(0, segment.length() - 1);
+        }
+        if (segment.isEmpty() || segment.contains("/")) {
+            throw new IllegalArgumentException("engine.ols.base-path must be a single path segment, e.g. '"
+                + DEFAULT_OLS_BASE_PATH + "', but was '" + basePath + "'");
+        }
+        return new OLSClient(new OLSWsConfig(protocol.strip(), host.strip() + "/" + segment + "/"));
     }
 
     @Bean
