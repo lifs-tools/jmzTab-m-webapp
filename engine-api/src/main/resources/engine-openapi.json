@@ -193,24 +193,25 @@
       "ValidationLocation" : {
         "properties" : {
           "column" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "element_path" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "metadata_group" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "metadata_key" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "row_index" : {
             "format" : "int32",
-            "type" : "integer"
+            "minimum" : 0,
+            "type" : [ "integer", "null" ]
           },
           "section" : {
             "enum" : [ "mtd", "smh", "sml", "sfh", "smf", "seh", "sme", "com", "file" ],
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         },
         "type" : "object"
@@ -226,7 +227,7 @@
           },
           "line_number" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "location" : {
             "$ref" : "#/components/schemas/ValidationLocation"
@@ -236,15 +237,16 @@
           },
           "message_type" : {
             "enum" : [ "error", "warn", "info" ],
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "rule_id" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "suggestion" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         },
+        "required" : [ "category", "code", "message" ],
         "type" : "object"
       }
     }

@@ -19,13 +19,15 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Locale;
 import lombok.Data;
 
 /**
  * A validation finding. The JSON is identical to jmzTab-m's
  * {@code ValidationMessage}, so the engines and the REST API can exchange it
- * without a model dependency.
+ * without a model dependency. Every message has a code, a category and a text,
+ * as in jmzTab-m's schema.
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -52,24 +54,31 @@ public class ValidationMessage {
         }
     }
 
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonProperty("code")
     private String code;
 
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonProperty("category")
     private Category category;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("message_type")
     private MessageType messageType;
 
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonProperty("message")
     private String message;
 
+    @Schema(types = {"integer", "null"})
     @JsonProperty("line_number")
     private Long lineNumber;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("suggestion")
     private String suggestion;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("rule_id")
     private String ruleId;
 

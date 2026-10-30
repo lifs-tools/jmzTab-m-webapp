@@ -67,6 +67,14 @@ class MzTabVersionDetectorTest {
         assertEquals(Optional.empty(), MzTabVersionDetector.detect(fixture("json-missing.json")));
     }
 
+    /** A comment line without a tab, as in jmzTab-m's example_study_variable_group.mztab. */
+    @Test
+    void bareCommentLinesBeforeTheVersionAreSkipped() throws IOException {
+        Path f = Files.writeString(dir.resolve("bare-com.mztab"),
+            "COM\tExample\nCOM\nCOM\r\nMTD\nCOM\tx\n\nMTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-ID\ta\n");
+        assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detect(f));
+    }
+
     @Test
     void readsOnlyUntilMetadataEnds() throws IOException {
         Path f = Files.writeString(dir.resolve("late.mztab"),

@@ -74,12 +74,21 @@ public final class MzTabVersionDetector {
                     int tab = value.indexOf('\t');
                     return Optional.of(tab >= 0 ? value.substring(0, tab).trim() : value);
                 }
-                if (!line.startsWith("MTD\t") && !line.startsWith("COM\t") && !line.isBlank()) {
+                if (!isMetadataOrComment(line) && !line.isBlank()) {
                     break;
                 }
             }
         }
         return Optional.empty();
+    }
+
+    /** An {@code MTD} or {@code COM} line, also one without a tab (an empty comment). */
+    private static boolean isMetadataOrComment(String line) {
+        if (line.startsWith("MTD\t") || line.startsWith("COM\t")) {
+            return true;
+        }
+        String bare = line.stripTrailing();
+        return bare.equals("MTD") || bare.equals("COM");
     }
 
     /**

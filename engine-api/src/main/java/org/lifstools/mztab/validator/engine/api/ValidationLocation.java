@@ -19,12 +19,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Locale;
 import lombok.Data;
 
 /**
  * Where in an mzTab file a validation message applies. The JSON is identical
- * to jmzTab-m's {@code ValidationLocation}.
+ * to jmzTab-m's {@code ValidationLocation}, and so is its schema: every field
+ * may be absent or null.
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -41,21 +43,27 @@ public class ValidationLocation {
         }
     }
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("section")
     private Section section;
 
+    @Schema(types = {"integer", "null"}, minimum = "0")
     @JsonProperty("row_index")
     private Integer rowIndex;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("column")
     private String column;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("metadata_key")
     private String metadataKey;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("metadata_group")
     private String metadataGroup;
 
+    @Schema(types = {"string", "null"})
     @JsonProperty("element_path")
     private String elementPath;
 }
