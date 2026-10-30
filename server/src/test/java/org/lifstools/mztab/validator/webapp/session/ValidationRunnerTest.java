@@ -64,6 +64,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.VersionFixtures;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
@@ -187,19 +188,41 @@ class ValidationRunnerTest {
     }
 
     @Test
-    void notUtf8OrMalformedJsonGoesToTheDefaultLine() throws Exception {
-        ValidationRunner runner = runner();
-        byte[] latin1 = "MTD\tmzTab-version\t2.0.0-M\nMTD\tdescription\tMüller\n"
-            .getBytes(StandardCharsets.ISO_8859_1);
-        for (byte[] upload : List.of(latin1, "{\"metadata\": {".getBytes(StandardCharsets.UTF_8))) {
-            engine20.answer(ndjson(null));
+    void malformedJsonGoesToTheDefaultLine() throws Exception {
+        engine20.answer(ndjson(null));
 
-            ValidationRecord record = run(runner, upload, ProfileRef.none());
+        ValidationRecord record = run(runner(), "{\"metadata\": {".getBytes(StandardCharsets.UTF_8), ProfileRef.none());
 
-            assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
-            assertTrue(record.defaultVersionApplied());
-        }
-        assertEquals(2, engine20.validations.size(), "the engine's parser reports such files");
+        assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
+        assertTrue(record.defaultVersionApplied());
+        assertEquals(1, engine20.validations.size(), "the engine's JSON reader reports such a file");
+    }
+
+    /** F1: one ISO-8859-1 byte after the version line must not send a 2.1 file to the default (2.0) line. */
+    @Test
+    void nonUtf8FileRoutesByItsDeclaredVersion() throws Exception {
+        engine21.answer(ndjson("2.1.0-M"));
+        ValidationRunner runner = runner(Duration.ofMinutes(10), null, Map.of("2.0", engine20.url(), "2.1",
+            engine21.url()));
+
+        ValidationRecord record = run(runner, VersionFixtures.LATIN1_21, ProfileRef.none());
+
+        assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
+        assertEquals(1, engine21.validations.size(), "the request must reach the 2.1 engine");
+        assertEquals(0, engine20.validations.size(), "a 2.1 file must never reach the 2.0 engine");
+        assertFalse(record.defaultVersionApplied());
+        assertEquals("2.1.0-M", record.mzTabVersion());
+    }
+
+    @Test
+    void nonUtf8FileOfALineWithoutEngineGetsTheUnsupportedMessage() throws Exception {
+        ValidationRecord record = run(runner(), VersionFixtures.LATIN1_21, ProfileRef.none());
+
+        assertEquals(ValidationStatus.FAILED, record.status());
+        assertEquals("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0.",
+            record.messages().get(0).getMessage());
+        assertEquals("2.1.0-M", record.mzTabVersion());
+        assertEquals(0, engine20.validations.size(), "a 2.1 file must never reach the 2.0 engine");
     }
 
     @Test
@@ -394,6 +417,52 @@ class ValidationRunnerTest {
             assertEquals("2.0.1-M", record.mzTabVersion());
             assertTrue(logged.list.stream().map(ILoggingEvent::getFormattedMessage)
                 .anyMatch(m -> m.contains("2.0.1-M") && m.contains("2.0.0-M")), "logged: " + logged.list);
+        } finally {
+            logger.detachAppender(logged);
+        }
+    }
+
+    /** Spec §5.4.3: the engine's reading of the version is kept; one of another line than the routed is a warning. */
+    @Test
+    void engineReportingAnotherLineIsAWarning() throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(ValidationRunner.class);
+        ListAppender<ILoggingEvent> logged = new ListAppender<>();
+        logged.start();
+        logger.addAppender(logged);
+        try {
+            engine20.answer(ndjson("2.1.0-M"));
+            ValidationRecord declared = run(runner(), TSV_20, ProfileRef.none());
+            engine20.answer(ndjson("2.1.0-M"));
+            ValidationRecord undeclared = run(runner(), "MTD\tmzTab-ID\tx\n", ProfileRef.none());
+
+            assertEquals("2.1.0-M", declared.mzTabVersion());
+            assertEquals("2.1.0-M", undeclared.mzTabVersion());
+            List<ILoggingEvent> warnings = logged.list.stream()
+                .filter(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN)
+                .filter(e -> e.getFormattedMessage().contains("2.1.0-M")).toList();
+            assertEquals(2, warnings.size(), "logged: " + logged.list);
+            assertTrue(warnings.get(0).getFormattedMessage().contains(declared.id().toString())
+                && warnings.get(0).getFormattedMessage().contains("2.0.0-M"), warnings.get(0).getFormattedMessage());
+            assertTrue(warnings.get(1).getFormattedMessage().contains(undeclared.id().toString())
+                && warnings.get(1).getFormattedMessage().contains("declares none"),
+                warnings.get(1).getFormattedMessage());
+        } finally {
+            logger.detachAppender(logged);
+        }
+    }
+
+    @Test
+    void engineVersionOfTheRoutedLineIsNoWarning() throws Exception {
+        engine20.answer(ndjson("2.0.0-M"));
+        Logger logger = (Logger) LoggerFactory.getLogger(ValidationRunner.class);
+        ListAppender<ILoggingEvent> logged = new ListAppender<>();
+        logged.start();
+        logger.addAppender(logged);
+        try {
+            run(runner(), "MTD\tmzTab-ID\tx\n", ProfileRef.none());
+
+            assertTrue(logged.list.stream().noneMatch(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN),
+                "logged: " + logged.list);
         } finally {
             logger.detachAppender(logged);
         }

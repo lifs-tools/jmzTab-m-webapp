@@ -30,7 +30,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,7 +70,10 @@ import org.springframework.web.multipart.MultipartFile;
  * The engine API: what the engine is, validation of one file as an NDJSON
  * stream, and conversion between tab separated mzTab-M and JSON. A file that
  * declares a version of another line is refused, so a file only ever reaches
- * the jmzTab-m of its own line.
+ * the jmzTab-m of its own line. Behind the check of the declared version, the
+ * version of the parsed model (tab separated or JSON) is checked again before
+ * any result of it leaves the engine: should the detection ever miss a version
+ * that jmzTab-m or Jackson reads, the file is still refused.
  */
 @Slf4j
 @RestController
@@ -181,6 +183,7 @@ public class EngineController {
                     notParsed(response, version, ValidationMessage.jsonNotRead(shorten(jsonDetail(e))));
                     return;
                 }
+                requireLine(parsed);
                 // jmzTab-m validates files: write the model as tab separated mzTab-M
                 tsv = Files.createTempFile("mztab-validation-", ".mztab");
                 Optional<String> failure = EngineConverter.writeTsv(parsed, tsv);
@@ -195,6 +198,7 @@ public class EngineController {
             mappingFile = mapping == null ? null : spool(mapping, ".xml");
             EngineValidator.Outcome outcome = validator.validate(validated, level, maxErrors, mappingFile);
             MzTab mzTab = outcome.mzTab();
+            requireLine(mzTab);
             String mzTabVersion = version.orElseGet(() -> mzTab == null || mzTab.getMetadata() == null
                 ? null : mzTab.getMetadata().getMzTabVersion());
             stream(response, mzTabVersion, outcome, mzTab == null ? null : render(mzTab));
@@ -227,7 +231,7 @@ public class EngineController {
         try (JobLimiter.Permit permit = acquire()) {
             body = receive(request);
             requireLine(declaredVersion(body, false));
-            return respond(converter.read(body));
+            return respond(converter.read(body, this::requireLine));
         } finally {
             deleteQuietly(body);
         }
@@ -261,7 +265,7 @@ public class EngineController {
             requireLine(declaredVersion(body, true));
             EngineConverter.Conversion<String> conversion;
             try {
-                conversion = converter.write(body, validate);
+                conversion = converter.write(body, validate, this::requireLine);
             } catch (IllegalArgumentException e) {
                 throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.NOT_JSON, shorten(e.getMessage()));
             }
@@ -281,19 +285,23 @@ public class EngineController {
     }
 
     /**
-     * The declared version. A file that cannot be inspected, e.g. JSON that is
-     * not well formed or text that is not UTF-8, declares none; jmzTab-m or the
-     * JSON reader reports it.
+     * The declared version. Text that is not UTF-8 is decoded with
+     * replacement, so its (ASCII) version line is still read; JSON that is not
+     * well formed declares none here, and the JSON reader reports it.
      */
     private static Optional<String> declaredVersion(Path file, boolean json) throws IOException {
         try {
             return json ? MzTabVersionDetector.detectJson(file) : MzTabVersionDetector.detectTsv(file);
-        } catch (MalformedInputException | JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             return Optional.empty();
         }
     }
 
-    /** Refuses a file whose declared version belongs to another line. */
+    /**
+     * Refuses a file whose declared version belongs to another line. A file
+     * without a version, or with one that names no line, is left to jmzTab-m
+     * (Error-2008 for a missing version).
+     */
     private void requireLine(Optional<String> declared) {
         if (declared.isEmpty()) {
             return;
@@ -303,6 +311,21 @@ public class EngineController {
             throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.UNSUPPORTED_VERSION,
                 "This file declares mzTab-version " + declared.get().strip() + ". This engine validates mzTab-M "
                 + line + " files (" + String.join(", ", mzTabVersions) + ").");
+        }
+    }
+
+    /** Refuses a parsed model whose version belongs to another line, as {@link #requireLine(Optional)}. */
+    private void requireLine(@Nullable MzTab model) {
+        if (model == null || model.getMetadata() == null) {
+            return;
+        }
+        String version = model.getMetadata().getMzTabVersion();
+        if (version != null && !version.isBlank()) {
+            if (MzTabVersions.lineOf(version).filter(l -> !l.equals(line)).isPresent()) {
+                log.warn("Refused a file whose parsed model declares mzTab-version {}; the version detection did "
+                    + "not find it", version.strip());
+            }
+            requireLine(Optional.of(version));
         }
     }
 

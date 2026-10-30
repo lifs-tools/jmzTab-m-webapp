@@ -11,6 +11,7 @@ import tsvBomCrlf from '../../testing/version-detection/tsv-bom-crlf.mztab' with
   loader: 'binary',
 };
 import tsvFirst from '../../testing/version-detection/tsv-first.mztab' with { loader: 'binary' };
+import tsvLatin1 from '../../testing/version-detection/tsv-latin1.mztab' with { loader: 'binary' };
 import tsvLegacy from '../../testing/version-detection/tsv-legacy.mztab' with { loader: 'binary' };
 import tsvMissing from '../../testing/version-detection/tsv-missing.mztab' with {
   loader: 'binary',
@@ -33,6 +34,12 @@ describe('detectMzTabVersion', () => {
 
   it('detects the TSV version after a BOM with CRLF', async () => {
     expect(await detectMzTabVersion(blob(tsvBomCrlf))).toBe('2.1.0-M');
+  });
+
+  it('detects the TSV version of a file that is not UTF-8 throughout', async () => {
+    // one ISO-8859-1 byte (0xB5) after the version line, as engine-api's MzTabVersionDetector reads it
+    expect(Array.from(tsvLatin1)).toContain(0xb5);
+    expect(await detectMzTabVersion(blob(tsvLatin1))).toBe('2.1.0-M');
   });
 
   it('detects a legacy TSV version', async () => {

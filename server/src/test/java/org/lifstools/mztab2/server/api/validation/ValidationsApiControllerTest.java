@@ -406,6 +406,25 @@ class ValidationsApiControllerTest {
         assertTrue(message.get("message").asText().startsWith("The JSON file could not be read: "), message.toString());
     }
 
+    /** F1: one ISO-8859-1 byte after the version line must not send a 2.1 file to the 2.0 engine. */
+    @Test
+    void nonUtf8FileOfALineWithoutEngineGetsTheUnsupportedMessage() throws Exception {
+        MockMultipartFile upload = new MockMultipartFile("file", "latin1.mztab", "text/plain",
+            org.lifstools.mztab.validator.webapp.VersionFixtures.LATIN1_21);
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(upload).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+
+        JsonNode done = awaitFinished(json.readTree(r.getResponse().getContentAsString()).get("id").asText());
+
+        assertEquals("FAILED", done.get("status").asText(), done.toString());
+        assertEquals("2.1.0-M", done.get("mzTabVersion").asText(), done.toString());
+        assertFalse(done.get("defaultVersionApplied").asBoolean(), done.toString());
+        assertTrue(done.get("engine").isNull(), "no engine validated the file: " + done);
+        assertEquals(1, done.get("messages").size(), done.toString());
+        assertEquals("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0.",
+            done.get("messages").get(0).get("message").asText());
+    }
+
     @Test
     void bindingErrorsDoNotLeakJavaTypes() throws Exception {
         MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")).param("maxErrors", "abc"))

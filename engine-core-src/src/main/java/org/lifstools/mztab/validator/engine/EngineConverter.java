@@ -31,6 +31,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
@@ -57,6 +58,9 @@ public class EngineConverter {
     static final String NOT_WRITTEN = "The model could not be written as mzTab-M: ";
 
     static final String NOT_JSON = "The request body is not mzTab-M JSON: ";
+
+    private static final Consumer<MzTab> NO_CHECK = mzTab -> {
+    };
 
     private static final byte[] VERSION_LINE = "MTD\tmzTab-version\t".getBytes(StandardCharsets.UTF_8);
 
@@ -105,7 +109,22 @@ public class EngineConverter {
      * @return the model, or the errors that prevent reading it
      */
     public Conversion<MzTab> read(Path file) throws IOException {
+        return read(file, NO_CHECK);
+    }
+
+    /**
+     * Parses a tab separated mzTab-M file into its model.
+     *
+     * @param file the file, UTF-8
+     * @param check runs on the parsed model, if there is one, before anything
+     * of it is returned; it refuses the model by throwing
+     * @return the model, or the errors that prevent reading it
+     */
+    public Conversion<MzTab> read(Path file, Consumer<MzTab> check) throws IOException {
         EngineValidator.Outcome outcome = validator.validate(file, ValidationLevel.ERROR, MAX_ERRORS, null);
+        if (outcome.mzTab() != null) {
+            check.accept(outcome.mzTab());
+        }
         List<ValidationMessage> errors = errors(outcome.messages());
         return new Conversion<>(errors.isEmpty() ? outcome.mzTab() : null, errors);
     }
@@ -139,12 +158,29 @@ public class EngineConverter {
      * @throws IllegalArgumentException if the JSON is not mzTab-M
      */
     public Conversion<String> write(Path json, boolean validate) throws IOException {
+        return write(json, validate, NO_CHECK);
+    }
+
+    /**
+     * Writes a file with the JSON representation of mzTab-M as tab separated
+     * mzTab-M.
+     *
+     * @param json the file with the JSON representation
+     * @param validate whether to parse the written file again and fail on its
+     * errors
+     * @param check runs on the model read from the JSON before it is written;
+     * it refuses the model by throwing
+     * @return the file content, or the errors that prevent writing it
+     * @throws IllegalArgumentException if the JSON is not mzTab-M
+     */
+    public Conversion<String> write(Path json, boolean validate, Consumer<MzTab> check) throws IOException {
         MzTab mzTab;
         try {
             mzTab = objectMapper.readValue(json.toFile(), MzTab.class);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(NOT_JSON + e.getOriginalMessage(), e);
         }
+        check.accept(mzTab);
         return write(mzTab, validate);
     }
 

@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.engine.DeclaredVersions;
@@ -227,8 +228,14 @@ public class ValidationRunner {
         RouteDecision.Routed routed, EngineResultReader.EngineResult result) {
         ValidationEvent.Outcome outcome = result.outcome();
         String version = outcome.mzTabVersion();
-        if (declared.isPresent() && !declared.get().equals(version)) {
-            // the engine's parser has the last word
+        // the engine's parser has the last word (spec 5.4.3)
+        Optional<String> reportedLine = MzTabVersions.lineOf(version);
+        if (reportedLine.isPresent() && !reportedLine.get().equals(routed.line())) {
+            // should not happen: the file reached the jmzTab-m of another line than its version
+            log.warn("Validation {}: the engine for mzTab-M {} reports mzTab-version {} of mzTab-M {}; the file "
+                + "declares {}", record.id(), routed.line(), version, reportedLine.get(),
+                declared.orElse("none, so the default line was used"));
+        } else if (declared.isPresent() && !declared.get().equals(version)) {
             log.info("Validation {}: the engine for mzTab-M {} reports mzTab-version {}, the file declares {}",
                 record.id(), routed.line(), version, declared.get());
         }
@@ -270,9 +277,9 @@ public class ValidationRunner {
     }
 
     /**
-     * The declared {@code mzTab-version} of a tab separated or JSON file. A
-     * file that is not UTF-8 text or not well formed JSON declares none here:
-     * it goes to the default line, whose parser reports it.
+     * The declared {@code mzTab-version} of a tab separated or JSON file
+     * ({@link DeclaredVersions#of}): JSON that is not well formed declares
+     * none and goes to the default line, whose engine reports it.
      */
     static Optional<String> declaredVersion(Path file) throws IOException {
         return DeclaredVersions.of(file);

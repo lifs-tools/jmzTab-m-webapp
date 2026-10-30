@@ -126,6 +126,58 @@ class MzTabVersionDetectorTest {
             () -> assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detect(big)));
     }
 
+    /**
+     * A file that is not UTF-8 throughout, here one ISO-8859-1 byte (µ, 0xB5)
+     * after the version line: the version line is ASCII, so it is still found,
+     * as the SPA's non-fatal TextDecoder and jmzTab-m (which replaces bad
+     * bytes) read it. Without it the file would go to the default line.
+     */
+    @Test
+    void detectsTsvVersionOfFileThatIsNotUtf8() throws IOException {
+        assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detect(fixture("tsv-latin1.mztab")));
+        assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detectTsv(fixture("tsv-latin1.mztab")));
+        assertFalse(MzTabVersionDetector.isJson(fixture("tsv-latin1.mztab")));
+    }
+
+    @Test
+    void isJsonOfFileStartingWithAnInvalidByteIsFalse() throws IOException {
+        assertFalse(MzTabVersionDetector.isJson(Files.write(dir.resolve("b5"), new byte[]{(byte) 0xb5, '{'})));
+        assertTrue(MzTabVersionDetector.isJson(Files.write(dir.resolve("b5-later"),
+            new byte[]{' ', '{', '"', (byte) 0xb5, '"', ':', '1', '}'})));
+    }
+
+    /** Jackson coerces a scalar into the model's string field; routing must read what the engine will. */
+    @Test
+    void jsonVersionThatIsANumberIsReadAsItsText() throws IOException {
+        assertEquals(Optional.of("2.1"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("number.json"),
+            "{\"metadata\":{\"mzTab-version\":2.1}}")));
+        assertEquals(Optional.of("2.10"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("n2.json"),
+            "{\"metadata\":{\"mzTab-version\":2.10}}")));
+        assertEquals(Optional.of("2"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("int.json"),
+            "{\"metadata\":{\"mzTab-version\":2}}")));
+        assertEquals(Optional.of("true"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("bool.json"),
+            "{\"metadata\":{\"mzTab-version\":true}}")));
+        assertEquals(Optional.empty(), MzTabVersionDetector.detect(Files.writeString(dir.resolve("null.json"),
+            "{\"metadata\":{\"mzTab-version\":null}}")));
+        assertEquals(Optional.empty(), MzTabVersionDetector.detect(Files.writeString(dir.resolve("obj.json"),
+            "{\"metadata\":{\"mzTab-version\":{\"v\":\"2.1.0-M\"}}}")));
+    }
+
+    /** As Jackson binds it: of duplicate keys, the last one wins. */
+    @Test
+    void duplicateJsonKeysResolveLikeJacksonLastWins() throws IOException {
+        assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("dv.json"),
+            "{\"metadata\":{\"mzTab-version\":\"2.0.0-M\",\"mzTab-ID\":\"a\",\"mzTab-version\":\"2.1.0-M\"}}")));
+        assertEquals(Optional.of("2.1.0-M"), MzTabVersionDetector.detect(Files.writeString(dir.resolve("dm.json"),
+            "{\"metadata\":{\"mzTab-version\":\"2.0.0-M\"},\"smallMoleculeSummary\":[],"
+            + "\"metadata\":{\"mzTab-version\":\"2.1.0-M\"}}")));
+        // the later metadata object replaces the earlier one as a whole
+        assertEquals(Optional.empty(), MzTabVersionDetector.detect(Files.writeString(dir.resolve("dm2.json"),
+            "{\"metadata\":{\"mzTab-version\":\"2.1.0-M\"},\"metadata\":{\"mzTab-ID\":\"a\"}}")));
+        assertEquals(Optional.empty(), MzTabVersionDetector.detect(Files.writeString(dir.resolve("dm3.json"),
+            "{\"metadata\":{\"mzTab-version\":\"2.1.0-M\"},\"metadata\":null}")));
+    }
+
     @Test
     void nestedMzTabVersionKeyOutsideMetadataIsIgnored() throws IOException {
         Path f = Files.writeString(dir.resolve("nested.json"),

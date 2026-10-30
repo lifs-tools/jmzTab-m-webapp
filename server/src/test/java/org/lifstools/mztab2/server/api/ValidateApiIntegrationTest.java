@@ -28,6 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.lifstools.mztab.validator.webapp.Application;
 import org.lifstools.mztab.validator.webapp.EngineProxy;
+import org.lifstools.mztab.validator.webapp.VersionFixtures;
 import org.lifstools.mztab.validator.webapp.service.validation.SynchronousLimiter;
 import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfile;
 import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfileCatalog;
@@ -55,6 +56,7 @@ class ValidateApiIntegrationTest {
     static final MediaType TSV = MediaType.parseMediaType("text/tab-separated-values");
 
     static final EngineProxy ENGINE = EngineProxy.start();
+
 
     @TempDir
     static Path storageRoot;
@@ -146,6 +148,19 @@ class ValidateApiIntegrationTest {
         mvc.perform(post("/rest/v2/validate")
                 .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
                 .content(ConvertApiIntegrationTest.METADATA_ONLY.replace("2.0.0-M", "2.1.0-M")))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].message")
+                .value("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0."));
+        assertThat(ENGINE.jobs()).isEmpty();
+    }
+
+    /** F1: one ISO-8859-1 byte after the version line must not send a 2.1 file to the 2.0 engine. */
+    @Test
+    void nonUtf8FileOfALineWithoutEngineGetsTheUnsupportedMessage() throws Exception {
+        mvc.perform(post("/rest/v2/validatePlain")
+                .contentType(MediaType.TEXT_PLAIN).accept(MediaType.APPLICATION_JSON)
+                .content(VersionFixtures.LATIN1_21))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].message")

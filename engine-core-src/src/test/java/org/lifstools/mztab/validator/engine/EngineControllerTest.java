@@ -31,16 +31,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab2.io.MzTabFileParser;
 import org.lifstools.mztab2.model.MzTab;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -199,7 +203,7 @@ class EngineControllerTest extends EngineContextTest {
 
     @Test
     void nonUtf8FileIsReportedByTheParserNotRejected() throws Exception {
-        // detectTsv cannot decode the file; the engine leaves it to jmzTab-m instead of failing
+        // detectTsv replaces the byte it cannot decode; the file is this line's, so jmzTab-m reads it
         byte[] latin1 = ("MTD\tmzTab-version\t" + mzTabVersions[0] + "\nCOM\tM\u00fcller\n")
             .getBytes(StandardCharsets.ISO_8859_1);
 
@@ -289,6 +293,127 @@ class EngineControllerTest extends EngineContextTest {
         mvc.perform(validation(file("other.json", json)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("unsupported_version"));
+    }
+
+    /** One ISO-8859-1 byte after the version line does not hide the declared version (F1). */
+    @Test
+    void rejectsNonUtf8FileOfOtherLine() throws Exception {
+        String other = Fixtures.otherLineVersion(System.getProperty("engine.line"));
+        byte[] latin1 = ("MTD\tmzTab-version\t" + other + "\nMTD\tmzTab-ID\tA\nMTD\tdescription\t5 \u00b5L\n")
+            .getBytes(StandardCharsets.ISO_8859_1);
+
+        mvc.perform(validation(file("latin1-other.mztab", latin1)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("unsupported_version"))
+            .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(other)));
+        mvc.perform(post(TSV_TO_JSON).content(latin1))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("unsupported_version"));
+    }
+
+    /**
+     * The backstop behind the version detection: whatever the detection
+     * found, a file whose parsed model declares a version of another line is
+     * refused before any result of it leaves the engine. Here the detection
+     * finds nothing at all.
+     */
+    @Nested
+    class ParsedModelOfOtherLine {
+
+        private final String other = Fixtures.otherLineVersion(System.getProperty("engine.line"));
+
+        private MockedStatic<MzTabVersionDetector> detectionBypassed() {
+            return Mockito.mockStatic(MzTabVersionDetector.class, invocation -> switch (invocation.getMethod()
+                .getName()) {
+                case "detect", "detectTsv", "detectJson" -> Optional.empty();
+                default -> invocation.callRealMethod();
+            });
+        }
+
+        private byte[] tsvOfOtherLine() {
+            return Fixtures.withVersion(Fixtures.resource(Fixtures.LIPIDOMICS), other);
+        }
+
+        private byte[] jsonOfOtherLine() throws Exception {
+            MzTab model = model(ofThisLine(Fixtures.LIPIDOMICS));
+            model.getMetadata().setMzTabVersion(other);
+            return objectMapper.writeValueAsBytes(model);
+        }
+
+        @Test
+        void validationOfTsvIsRefused() throws Exception {
+            byte[] tsv = tsvOfOtherLine();
+            try (MockedStatic<MzTabVersionDetector> bypassed = detectionBypassed()) {
+                mvc.perform(validation(file("other.mztab", tsv)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("unsupported_version"))
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(other)));
+            }
+        }
+
+        @Test
+        void validationOfJsonIsRefused() throws Exception {
+            byte[] json = jsonOfOtherLine();
+            try (MockedStatic<MzTabVersionDetector> bypassed = detectionBypassed()) {
+                mvc.perform(validation(file("other.json", json)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("unsupported_version"));
+            }
+        }
+
+        @Test
+        void conversionsAreRefused() throws Exception {
+            byte[] tsv = tsvOfOtherLine();
+            byte[] json = jsonOfOtherLine();
+            try (MockedStatic<MzTabVersionDetector> bypassed = detectionBypassed()) {
+                mvc.perform(post(TSV_TO_JSON).content(tsv))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("unsupported_version"));
+                mvc.perform(post(JSON_TO_TSV).contentType(MediaType.APPLICATION_JSON).content(json))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("unsupported_version"));
+                mvc.perform(post(JSON_TO_TSV + "?validate=false").contentType(MediaType.APPLICATION_JSON)
+                    .content(json))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("unsupported_version"));
+            }
+        }
+
+        /** The model of this engine's own line still goes through with the detection bypassed. */
+        @Test
+        void fileOfThisLineIsValidated() throws Exception {
+            byte[] tsv = ofThisLine(Fixtures.LIPIDOMICS);
+            try (MockedStatic<MzTabVersionDetector> bypassed = detectionBypassed()) {
+                ValidationEvent.Outcome outcome = outcome(validation(file("this.mztab", tsv)));
+                assertThat(outcome.parsed()).as("messages: %s", outcome.messages()).isTrue();
+            }
+        }
+    }
+
+    /**
+     * Routing reads the version with {@link MzTabVersionDetector#detectJson}; the engine binds the model with
+     * Jackson. Both must read the same version: a number as its text, the last of duplicate keys.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"metadata\": {\"mzTab-version\": \"2.1.0-M\"}}",
+        "{\"metadata\": {\"mzTab-version\": 2.1}}",
+        "{\"metadata\": {\"mzTab-version\": 2.10}}",
+        "{\"metadata\": {\"mzTab-version\": 2}}",
+        "{\"metadata\": {\"mzTab-version\": true}}",
+        "{\"metadata\": {\"mzTab-version\": null}}",
+        "{\"metadata\": {\"mzTab-version\": \"2.0.0-M\", \"mzTab-version\": \"2.1.0-M\"}}",
+        "{\"metadata\": {\"mzTab-version\": \"2.0.0-M\"}, \"metadata\": {\"mzTab-version\": \"2.1.0-M\"}}",
+        "{\"metadata\": {\"mzTab-version\": \"2.1.0-M\"}, \"metadata\": {\"mzTab-ID\": \"a\"}}",
+        "{\"metadata\": {\"mzTab-version\": \"2.1.0-M\"}, \"metadata\": null}",
+        "{\"smallMoleculeSummary\": [], \"metadata\": {\"mzTab-ID\": \"a\", \"mzTab-version\": \"2.0.0-M\"}}"
+    })
+    void detectedJsonVersionIsTheVersionOfTheBoundModel(String json) throws Exception {
+        Path file = Files.writeString(dir.resolve("agreement.json"), json);
+        MzTab model = objectMapper.readValue(file.toFile(), MzTab.class);
+        Optional<String> bound = Optional.ofNullable(model.getMetadata()).map(m -> m.getMzTabVersion());
+
+        assertThat(MzTabVersionDetector.detectJson(file)).isEqualTo(bound);
     }
 
     @Test
