@@ -1,0 +1,541 @@
+{
+  "components" : {
+    "schemas" : {
+      "End" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ValidationEvent"
+        }, {
+          "properties" : {
+            "sections" : {
+              "$ref" : "#/components/schemas/SectionSizes"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "EngineError" : {
+        "properties" : {
+          "code" : {
+            "enum" : [ "unsupported_version", "busy", "invalid_request", "file_too_large", "not_json", "internal" ],
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "EngineInfo" : {
+        "properties" : {
+          "build" : {
+            "type" : "string"
+          },
+          "jmztabmVersion" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "string"
+          },
+          "maxConcurrentJobs" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxUploadBytes" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mzTabVersions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "MetadataLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ValidationEvent"
+        }, {
+          "properties" : {
+            "key" : {
+              "type" : "string"
+            },
+            "line" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "value" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Outcome" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ValidationEvent"
+        }, {
+          "properties" : {
+            "messages" : {
+              "items" : {
+                "$ref" : "#/components/schemas/ValidationMessage"
+              },
+              "type" : "array"
+            },
+            "mzTabVersion" : {
+              "type" : "string"
+            },
+            "parsed" : {
+              "type" : "boolean"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SectionSizes" : {
+        "properties" : {
+          "metadataLines" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sme" : {
+            "$ref" : "#/components/schemas/TableDims"
+          },
+          "smf" : {
+            "$ref" : "#/components/schemas/TableDims"
+          },
+          "sml" : {
+            "$ref" : "#/components/schemas/TableDims"
+          }
+        },
+        "type" : "object"
+      },
+      "TableDims" : {
+        "properties" : {
+          "columns" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rows" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TableHeader" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ValidationEvent"
+        }, {
+          "properties" : {
+            "header" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "section" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "TableRowCells" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ValidationEvent"
+        }, {
+          "properties" : {
+            "cells" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "section" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "ValidationEvent" : {
+        "description" : "One line of the NDJSON validation stream; type names the event.",
+        "discriminator" : {
+          "mapping" : {
+            "end" : "#/components/schemas/End",
+            "metadata" : "#/components/schemas/MetadataLine",
+            "outcome" : "#/components/schemas/Outcome",
+            "row" : "#/components/schemas/TableRowCells",
+            "table" : "#/components/schemas/TableHeader"
+          },
+          "propertyName" : "type"
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/Outcome"
+        }, {
+          "$ref" : "#/components/schemas/MetadataLine"
+        }, {
+          "$ref" : "#/components/schemas/TableHeader"
+        }, {
+          "$ref" : "#/components/schemas/TableRowCells"
+        }, {
+          "$ref" : "#/components/schemas/End"
+        } ],
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "type" ]
+      },
+      "ValidationLocation" : {
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "element_path" : {
+            "type" : "string"
+          },
+          "metadata_group" : {
+            "type" : "string"
+          },
+          "metadata_key" : {
+            "type" : "string"
+          },
+          "row_index" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "section" : {
+            "enum" : [ "mtd", "smh", "sml", "sfh", "smf", "seh", "sme", "com", "file" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ValidationMessage" : {
+        "properties" : {
+          "category" : {
+            "enum" : [ "format", "logical", "cross_check" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "line_number" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "location" : {
+            "$ref" : "#/components/schemas/ValidationLocation"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "message_type" : {
+            "enum" : [ "error", "warn", "info" ],
+            "type" : "string"
+          },
+          "rule_id" : {
+            "type" : "string"
+          },
+          "suggestion" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "description" : "Validates and converts mzTab-M files of one version line with the jmzTab-m library of that line. GET /engine/v1/info names the line. Internal API of the mzTab-M validator webapp; no authentication.",
+    "license" : {
+      "name" : "Apache 2.0",
+      "url" : "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "title" : "mzTab-M validation engine",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/engine/v1/conversions/json-to-tsv" : {
+      "post" : {
+        "description" : "Converts an mzTab-M file in JSON representation to tab separated mzTab-M. Comments are not written. Unless validate is false, the written file is parsed again, and its errors are reported with 422; their line numbers refer to the written file.",
+        "operationId" : "jsonToTsv",
+        "parameters" : [ {
+          "description" : "Whether to parse the written file again and report its errors.",
+          "in" : "query",
+          "name" : "validate",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object"
+              }
+            }
+          },
+          "description" : "The mzTab-M file in JSON representation.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "The tab separated mzTab-M file"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The body is not mzTab-M JSON (not_json), or it declares a version of another line (unsupported_version)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit (file_too_large)"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "The model could not be written, or the written file has errors"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "jsonToTsv",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/conversions/tsv-to-json" : {
+      "post" : {
+        "description" : "Converts a tab separated mzTab-M file to its JSON representation. A file with errors is reported with 422.",
+        "operationId" : "tsvToJson",
+        "requestBody" : {
+          "content" : {
+            "text/tab-separated-values" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "description" : "The tab separated mzTab-M file.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The mzTab-M model of the engine's jmzTab-m line as JSON"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The file declares a version of another line (unsupported_version)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The file is larger than the upload limit (file_too_large)"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ValidationMessage"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "The file has errors"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "tsvToJson",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/info" : {
+      "get" : {
+        "description" : "The version line this engine validates, the declared versions it accepts, its jmzTab-m version and its limits.",
+        "operationId" : "info",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineInfo"
+                }
+              }
+            },
+            "description" : "The engine"
+          }
+        },
+        "summary" : "info",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/validations" : {
+      "post" : {
+        "description" : "Validates one mzTab-M file, tab separated or JSON, and streams the result as NDJSON: one outcome event; if the file was parsed, its metadata events and, for each present table (SML, SMF, SME), one table event followed by its row events; then one end event. A stream without the end event is incomplete. Row cells exclude the line prefix. A file that declares no mzTab-version is validated and reported by jmzTab-m.",
+        "operationId" : "validate",
+        "parameters" : [ {
+          "description" : "The lowest level of messages to report",
+          "in" : "query",
+          "name" : "level",
+          "required" : false,
+          "schema" : {
+            "default" : "INFO",
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          }
+        }, {
+          "description" : "The maximum number of messages the parser reports, and the maximum number of semantic messages",
+          "in" : "query",
+          "name" : "maxErrors",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "description" : "The mzTab-M file, tab separated or JSON; at most the upload limit of GET /info",
+                    "format" : "binary",
+                    "type" : "string"
+                  },
+                  "mapping" : {
+                    "description" : "A CV mapping file for semantic validation, at most 5 MiB; without it, only the structure is validated",
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/x-ndjson" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationEvent"
+                }
+              }
+            },
+            "description" : "The validation result as NDJSON, one event per line"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "A parameter is invalid (invalid_request), or the file declares a version of another line (unsupported_version)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The file or the mapping is larger than its limit (file_too_large)"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "validate",
+        "tags" : [ "engine" ]
+      }
+    }
+  },
+  "tags" : [ {
+    "description" : "mzTab-M validation and conversion with the jmzTab-m of one version line",
+    "name" : "engine"
+  } ]
+}

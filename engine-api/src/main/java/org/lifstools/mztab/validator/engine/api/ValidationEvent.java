@@ -17,9 +17,22 @@ package org.lifstools.mztab.validator.engine.api;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /** One line of the engine's NDJSON validation stream. */
+@Schema(description = "One line of the NDJSON validation stream; type names the event.",
+    oneOf = {ValidationEvent.Outcome.class, ValidationEvent.MetadataLine.class, ValidationEvent.TableHeader.class,
+        ValidationEvent.TableRowCells.class, ValidationEvent.End.class},
+    discriminatorProperty = "type",
+    discriminatorMapping = {
+        @DiscriminatorMapping(value = "outcome", schema = ValidationEvent.Outcome.class),
+        @DiscriminatorMapping(value = "metadata", schema = ValidationEvent.MetadataLine.class),
+        @DiscriminatorMapping(value = "table", schema = ValidationEvent.TableHeader.class),
+        @DiscriminatorMapping(value = "row", schema = ValidationEvent.TableRowCells.class),
+        @DiscriminatorMapping(value = "end", schema = ValidationEvent.End.class)
+    })
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
     @JsonSubTypes.Type(value = ValidationEvent.Outcome.class, name = "outcome"),
