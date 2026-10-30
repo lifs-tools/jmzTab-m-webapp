@@ -25,7 +25,9 @@ import java.nio.file.Path;
 import java.util.List;
 import org.lifstools.mztab.validator.webapp.ExampleFileConfig;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
+import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
@@ -50,7 +52,7 @@ public class ExamplesApiController {
     static final String FETCH_FAILED = "The example file could not be downloaded.";
 
     public record ExampleDto(String id, String name, String section, String description, String version,
-        String focus, String createdBy, URI uri) {
+        String mzTabVersion, String focus, String createdBy, URI uri) {
 
     }
 
@@ -63,18 +65,28 @@ public class ExamplesApiController {
     private final ExampleFileConfig config;
     private final ValidationSessionService sessions;
     private final ExampleFetcher fetcher;
+    private final EngineRegistry engines;
 
     public ExamplesApiController(ExampleFileConfig config, ValidationSessionService sessions,
-        ExampleFetcher fetcher) {
+        ExampleFetcher fetcher, EngineRegistry engines) {
+        this.engines = engines;
         this.config = config;
         this.sessions = sessions;
         this.fetcher = fetcher;
     }
 
-    @Operation(operationId = "listExamples", summary = "Lists the example files")
+    /** Whether the example's mzTab-M version line has an engine on this instance; no version means yes. */
+    private boolean available(ExampleDto e) {
+        if (e.mzTabVersion() == null) {
+            return true;
+        }
+        return MzTabVersions.lineOf(e.mzTabVersion()).filter(engines.lines()::contains).isPresent();
+    }
+
+    @Operation(operationId = "listExamples", summary = "Lists the example files of the mzTab-M versions this instance can validate")
     @GetMapping(value = "/examples", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<ExampleDto> listExamples() {
-        return config.getExampleFile().stream().map(ExamplesApiController::dto).toList();
+        return config.getExampleFile().stream().map(ExamplesApiController::dto).filter(this::available).toList();
     }
 
     @Operation(operationId = "validateExample", summary = "Starts a validation of an example file")
@@ -83,7 +95,7 @@ public class ExamplesApiController {
     public ResponseEntity<ValidationRecord> validateExample(@PathVariable("id") String id,
         @RequestBody(required = false) @Nullable ExampleValidationRequest body) throws IOException {
         ExampleDto example = config.getExampleFile().stream().map(ExamplesApiController::dto)
-            .filter(e -> e.id().equals(id)).findFirst()
+            .filter(e -> e.id().equals(id)).filter(this::available).findFirst()
             .orElseThrow(() -> new UnknownValidationException("Unknown example."));
         if ("mapping".equals(example.section())) {
             throw new IllegalArgumentException("Mapping files cannot be validated.");
@@ -116,7 +128,7 @@ public class ExamplesApiController {
 
     private static ExampleDto dto(ExampleFile f) {
         return new ExampleDto(f.getName(), f.getName(), f.getSection(), f.getDescription(), f.getVersion(),
-            f.getFocus(), f.getCreatedBy(), f.getUri());
+            f.getMzTabVersion(), f.getFocus(), f.getCreatedBy(), f.getUri());
     }
 
     @Nullable

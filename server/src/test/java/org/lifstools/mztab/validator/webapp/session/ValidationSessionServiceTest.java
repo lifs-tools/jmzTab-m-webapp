@@ -212,7 +212,7 @@ class ValidationSessionServiceTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> sessions.submit("two-one.mzTab", stream(twoOneFile()), options, null));
 
-        assertEquals("The validation profile mztab-m-2.0-default 1.0.0 applies to mzTab-M 2.0, but the file is "
+        assertEquals("The validation profile mztab-m-2.0-default 1.1.0 applies to mzTab-M 2.0, but the file is "
             + "validated as mzTab-M 2.1.", e.getMessage());
         assertEquals(before, allSessions(), "no session directory may be left behind");
     }
@@ -263,7 +263,7 @@ class ValidationSessionServiceTest {
         ValidationOptions options = new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-2.0-default", null);
         ValidationRecord submitted = submit("/metabolomics/lipidomics-example.mzTab", options, null);
 
-        assertEquals(new ProfileRef(ProfileRef.Kind.CATALOG, "mztab-m-2.0-default", "1.0.0"),
+        assertEquals(new ProfileRef(ProfileRef.Kind.CATALOG, "mztab-m-2.0-default", "1.1.0"),
             submitted.validationProfile());
         ValidationRecord record = awaitFinal(submitted.id());
         assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());

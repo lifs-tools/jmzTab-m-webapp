@@ -21,6 +21,7 @@ import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -143,5 +144,21 @@ class ExamplesApiControllerTest {
     void unknownExampleIs404() throws Exception {
         mvc.perform(post("/rest/v2/examples/nope/validations").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("Unknown example."));
+    }
+
+    @Test
+    void hidesExamplesOfUnavailableLines() throws Exception {
+        mvc.perform(get("/rest/v2/examples")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(20))
+            .andExpect(jsonPath("$[?(@.mzTabVersion == '2.1.0-M')]").isEmpty())
+            .andExpect(jsonPath("$[?(@.mzTabVersion == null)]").isEmpty());
+    }
+
+    @Test
+    void exampleOfUnavailableLineIsRejectedWithoutFetching() throws Exception {
+        mvc.perform(post("/rest/v2/examples/official-profile-m.mztab/validations").contentType(MediaType.APPLICATION_JSON)
+            .content("{}")).andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Unknown example."));
+        verifyNoInteractions(fetcher);
     }
 }

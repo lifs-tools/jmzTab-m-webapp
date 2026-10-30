@@ -39,11 +39,25 @@ class ValidationProfileCatalogTest {
     }
 
     @Test
-    void catalogListsDefaultProfileOnly() {
+    void catalogListsTheDefaultProfileOfEachLine() {
         List<ValidationProfile> latest = catalog().latest();
-        assertEquals(1, latest.size());
+        assertEquals(2, latest.size());
         assertEquals("mztab-m-2.0-default", latest.get(0).id());
-        assertEquals("1.0.0", latest.get(0).version());
+        assertEquals("1.1.0", latest.get(0).version());
+        assertEquals("mztab-m-2.1-default", latest.get(1).id());
+        assertEquals("1.0.0", latest.get(1).version());
+        assertEquals(List.of("2.1.0-M"), latest.get(1).mzTabVersions());
+        assertEquals("1.0.0", catalog().find("mztab-m-2.0-default", "1.0.0").orElseThrow().version());
+    }
+
+    @Test
+    void forLinesKeepsProfilesWithAVersionOfAnAvailableLine() {
+        assertEquals(List.of("mztab-m-2.0-default"),
+            catalog().forLines(java.util.Set.of("2.0")).stream().map(ValidationProfile::id).toList());
+        assertEquals(List.of("mztab-m-2.1-default"),
+            catalog().forLines(java.util.Set.of("2.1")).stream().map(ValidationProfile::id).toList());
+        assertEquals(2, catalog().forLines(java.util.Set.of("2.0", "2.1")).size());
+        assertTrue(catalog().forLines(java.util.Set.of("3.0")).isEmpty());
     }
 
     @Test
@@ -80,7 +94,13 @@ class ValidationProfileCatalogTest {
         assertEquals("1.10.0", c.defaultFor("2.0").orElseThrow().version());
         assertEquals("mztab-m-2.0-default", c.defaultFor("2.0").orElseThrow().id());
         assertTrue(c.defaultFor("2.1").isEmpty());
-        assertEquals("1.0.0", catalog().defaultFor("2.0").orElseThrow().version());
+        assertEquals("1.1.0", catalog().defaultFor("2.0").orElseThrow().version());
+        assertEquals("1.0.0", catalog().defaultFor("2.1").orElseThrow().version());
+    }
+
+    @Test
+    void defaultForLineIsLatestVersion() {
+        assertEquals("1.1.0", catalog().defaultFor("2.0").orElseThrow().version());
     }
 
     @Test

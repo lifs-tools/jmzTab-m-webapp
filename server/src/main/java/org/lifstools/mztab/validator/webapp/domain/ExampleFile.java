@@ -28,6 +28,7 @@ public class ExampleFile {
     private URI uri;
     private String description;
     private String version;
+    private String mzTabVersion;
     private String focus;
     private String createdBy;
     private String section;

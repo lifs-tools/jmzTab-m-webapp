@@ -112,4 +112,22 @@ class EnginesPropertiesTest {
         assertNotNull(message);
         assertTrue(message.contains("unique"), message);
     }
+
+    @Test
+    void rejectsNonHttpUnavailableHintUrl() {
+        for (String bad : new String[] {"javascript:alert(1)", "ftp://a/x", "/relative", "https:///nohost"}) {
+            String message = failure(Map.of("engines.mztabm[0].line", "2.0", "engines.mztabm[0].url", "http://a:1",
+                "engines.unavailable-hint-url", bad));
+            assertNotNull(message, bad);
+            assertTrue(message.contains("unavailableHintUrl") || message.contains("unavailable-hint-url"), message);
+        }
+    }
+
+    @Test
+    void acceptsBlankAndHttpUnavailableHintUrl() {
+        for (String ok : new String[] {"", "http://a/x", "HTTPS://example.org/hint"}) {
+            assertEquals(null, failure(Map.of("engines.mztabm[0].line", "2.0", "engines.mztabm[0].url", "http://a:1",
+                "engines.unavailable-hint-url", ok)), ok);
+        }
+    }
 }

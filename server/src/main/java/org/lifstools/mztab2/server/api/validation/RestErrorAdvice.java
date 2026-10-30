@@ -67,7 +67,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * their status codes.
  */
 @RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
-    AppInfoApiController.class, ConvertApiController.class, ValidateApiController.class,
+    AppInfoApiController.class, ValidationProfilesApiController.class, ConvertApiController.class, ValidateApiController.class,
     ValidatePlainApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 

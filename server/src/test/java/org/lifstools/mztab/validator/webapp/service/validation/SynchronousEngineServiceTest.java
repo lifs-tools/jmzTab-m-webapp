@@ -46,7 +46,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * The synchronous endpoints' way through the engines, against stub engines
- * for 2.0 and 2.1 and the shipped catalog, which has default rules for 2.0 only.
+ * for 2.0 and 2.1 and the shipped catalog, which has default rules for both lines.
  */
 class SynchronousEngineServiceTest {
 
@@ -61,6 +61,7 @@ class SynchronousEngineServiceTest {
     private MockWebServer engine20;
     private MockWebServer engine21;
     private SynchronousEngineService service;
+    private EnginesProperties properties;
 
     @BeforeEach
     void start() throws IOException {
@@ -68,7 +69,7 @@ class SynchronousEngineServiceTest {
         engine21 = new MockWebServer();
         engine20.start();
         engine21.start();
-        EnginesProperties properties = new EnginesProperties("2.0", List.of(
+        properties = new EnginesProperties("2.0", List.of(
             new EnginesProperties.Engine("2.0", engine20.url("/").uri()),
             new EnginesProperties.Engine("2.1", engine21.url("/").uri())), Duration.ofSeconds(2),
             Duration.ofSeconds(10), null);
@@ -89,6 +90,11 @@ class SynchronousEngineServiceTest {
     void semanticValidationOfALineWithoutDefaultRulesIsStructuralWithAnInfo() throws Exception {
         engine21.enqueue(ndjson(OUTCOME + "{\"type\":\"metadata\",\"line\":1,\"key\":\"k\",\"value\":\"v\"}\n" + END));
         Path file = file("MTD\tmzTab-version\t2.1.0-M\n");
+        // the shipped catalog has default rules for both lines; this one for 2.0 only
+        ValidationProfileCatalog only20 = new ValidationProfileCatalog(new ObjectMapper(), new DefaultResourceLoader(),
+            "classpath:/validation-profiles-test/index.json");
+        SynchronousEngineService service = new SynchronousEngineService(new EngineRegistry(properties),
+            new EngineResultReader(null), only20, properties);
 
         List<ValidationMessage> messages = service.validate(file, Optional.of("2.1.0-M"), ValidationLevel.INFO, 100,
             true);
@@ -112,7 +118,7 @@ class SynchronousEngineServiceTest {
 
         String body = engine20.takeRequest(5, TimeUnit.SECONDS).getBody().readString(StandardCharsets.UTF_8);
         String latest;
-        try (var in = getClass().getResourceAsStream("/validation-profiles/mztab-m-2.0-default/1.0.0.xml")) {
+        try (var in = getClass().getResourceAsStream("/validation-profiles/mztab-m-2.0-default/1.1.0.xml")) {
             latest = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
         assertThat(body).contains("name=\"mapping\"").contains(latest);

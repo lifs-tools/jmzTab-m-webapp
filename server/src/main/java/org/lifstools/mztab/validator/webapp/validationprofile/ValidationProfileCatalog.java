@@ -26,6 +26,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -69,6 +71,15 @@ public class ValidationProfileCatalog {
             byId.merge(p.id(), p, (a, b) -> compareVersions(a.version(), b.version()) >= 0 ? a : b);
         }
         return List.copyOf(byId.values());
+    }
+
+    /**
+     * The latest version of every profile that has at least one mzTab-M version
+     * whose line is in {@code lines}, e.g. the lines that have an engine.
+     */
+    public List<ValidationProfile> forLines(Set<String> lines) {
+        return latest().stream().filter(p -> p.mzTabVersions() != null && p.mzTabVersions().stream()
+            .map(MzTabVersions::lineOf).flatMap(Optional::stream).anyMatch(lines::contains)).toList();
     }
 
     /** The given version of a profile; a {@code null} version means the latest. */

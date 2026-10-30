@@ -100,7 +100,7 @@ class MappingUploadIntegrationTest {
             "default mapping must load, got: " + done.get("messages"));
         assertFalse(done.get("messages").toString().contains("Semantic validation failed"),
             "default mapping must load, got: " + done.get("messages"));
-        // as the engine judges minimal-m-2.0.mztab with the OLS stub's answers: three terms are
+        // as the engine judges minimal-m-2.0.mztab with the OLS stub's answers: two terms are
         // not below the terms their rules allow, and one optional element is empty
         List<String> crossChecks = new ArrayList<>();
         done.get("messages").forEach(m -> {
@@ -109,8 +109,6 @@ class MappingUploadIntegrationTest {
             }
         });
         assertEquals(List.of(
-            "error MS:1002887 is not allowed for /metadata/@smallMoleculeFeatureQuantificationUnit",
-            "error MS:1002887 is not allowed for /metadata/@smallMoleculeQuantificationUnit",
             "info MS:1000598 is not allowed for /metadata/instrument/@source",
             "info MS:1001530 is not allowed for /metadata/msRun/@idFormat",
             "info derivatization_agent_may is empty"), crossChecks.stream().sorted().toList(),

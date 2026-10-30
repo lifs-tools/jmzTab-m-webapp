@@ -69,6 +69,20 @@ public record EnginesProperties(
         }
     }
 
+    @AssertTrue(message = "unavailableHintUrl must be blank or an absolute http or https URL")
+    boolean isUnavailableHintUrlHttp() {
+        if (unavailableHintUrl == null || unavailableHintUrl.isBlank()) {
+            return true;
+        }
+        try {
+            URI uri = URI.create(unavailableHintUrl.strip());
+            return uri.getHost() != null && uri.getScheme() != null
+                && (uri.getScheme().equalsIgnoreCase("http") || uri.getScheme().equalsIgnoreCase("https"));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     @AssertTrue(message = "each line may have only one engine: lines must be unique")
     boolean isLinesUnique() {
         if (mztabm == null) {
