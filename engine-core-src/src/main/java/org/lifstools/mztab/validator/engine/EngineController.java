@@ -83,7 +83,7 @@ public class EngineController {
     static final String TSV = "text/tab-separated-values";
     /** The largest accepted mapping file (5 MiB), as in the webapp. */
     static final long MAX_MAPPING_BYTES = 5L * 1024 * 1024;
-    static final String JSON_NOT_READ = "The JSON file could not be read: ";
+    static final String JSON_NOT_READ = ValidationMessage.JSON_NOT_READ_TEXT;
     static final String JSON_NOT_CONVERTED = "The JSON file could not be converted to mzTab-M: ";
     static final String BUSY = "The engine is running as many jobs as it may. Please try again shortly.";
     /** Longest parser message kept after {@link #JSON_NOT_READ}. */
@@ -178,14 +178,14 @@ public class EngineController {
                     parsed = objectMapper.readValue(in, MzTab.class);
                 } catch (JsonProcessingException e) {
                     log.info("The JSON upload could not be read: {}", e.getOriginalMessage());
-                    notParsed(response, version, JSON_NOT_READ + shorten(jsonDetail(e)));
+                    notParsed(response, version, ValidationMessage.jsonNotRead(shorten(jsonDetail(e))));
                     return;
                 }
                 // jmzTab-m validates files: write the model as tab separated mzTab-M
                 tsv = Files.createTempFile("mztab-validation-", ".mztab");
                 Optional<String> failure = EngineConverter.writeTsv(parsed, tsv);
                 if (failure.isPresent()) {
-                    notParsed(response, version, JSON_NOT_CONVERTED + shorten(failure.get()));
+                    notParsed(response, version, ValidationMessage.error(JSON_NOT_CONVERTED + shorten(failure.get())));
                     return;
                 }
                 validated = tsv;
@@ -346,9 +346,9 @@ public class EngineController {
     }
 
     /** A JSON upload that never reached the validator: one ERROR message. */
-    private void notParsed(HttpServletResponse response, Optional<String> version, String message) throws IOException {
-        stream(response, version.orElse(null), new EngineValidator.Outcome(List.of(ValidationMessage.error(message)),
-            null), null);
+    private void notParsed(HttpServletResponse response, Optional<String> version, ValidationMessage message)
+        throws IOException {
+        stream(response, version.orElse(null), new EngineValidator.Outcome(List.of(message), null), null);
     }
 
     /** The converted value, or the errors as JSON whatever the client accepts. */

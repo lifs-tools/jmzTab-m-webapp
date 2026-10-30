@@ -194,6 +194,16 @@ class ConvertApiIntegrationTest {
             .andExpect(jsonPath("$.error").value("Bad Request"));
     }
 
+    @Test
+    void convertReportsJsonThatIsNotAModelAs400() throws Exception {
+        mvc.perform(post("/rest/v2/convert")
+                .contentType(MediaType.APPLICATION_JSON).accept(TSV)
+                .content("{\"metadata\": 5}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.error").value("Bad Request"));
+    }
+
     /** Both directions read and write UTF-8, whether or not the client names a charset. */
     @Test
     void conversionKeepsNonAsciiCharacters() throws Exception {

@@ -156,6 +156,40 @@ class SynchronousEngineServiceTest {
             ValidationLevel.INFO, 100, false)).isInstanceOf(MaxUploadSizeExceededException.class);
     }
 
+    static final String NOT_READ = "{\"type\":\"outcome\",\"parsed\":false,\"mzTabVersion\":null,\"messages\":"
+        + "[{\"code\":\"json_not_read\",\"category\":\"format\",\"message_type\":\"error\","
+        + "\"message\":\"The JSON file could not be read: Cannot construct instance (line 1, column 14)\","
+        + "\"line_number\":-1}]}\n";
+
+    /** The JSON endpoint answers JSON that is not a model as a bad request, as before the engines. */
+    @Test
+    void jsonThatTheEngineCannotReadIsABadRequestForTheJsonEndpoint() throws Exception {
+        engine20.enqueue(ndjson(NOT_READ + END));
+
+        assertThatThrownBy(() -> service.validateJson(file("{\"metadata\": 5}"), Optional.empty(),
+            ValidationLevel.INFO, 100, false))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("The request body is not mzTab-M JSON: Cannot construct instance (line 1, column 14)");
+    }
+
+    /** The file endpoint takes any file and reports what the engine says about it. */
+    @Test
+    void jsonThatTheEngineCannotReadIsAMessageForTheFileEndpoint() throws Exception {
+        engine20.enqueue(ndjson(NOT_READ + END));
+
+        assertThat(service.validate(file("{\"metadata\": 5}"), Optional.empty(), ValidationLevel.INFO, 100, false))
+            .extracting(ValidationMessage::getCode).containsExactly(ValidationMessage.JSON_NOT_READ);
+    }
+
+    /** Only the code marks the case: an unparsed outcome with another message stays a result. */
+    @Test
+    void anotherUnparsedOutcomeOfTheJsonEndpointIsAResult() throws Exception {
+        engine20.enqueue(ndjson(NOT_READ.replace("json_not_read", "other") + END));
+
+        assertThat(service.validateJson(file("{\"metadata\": 5}"), Optional.empty(), ValidationLevel.INFO, 100,
+            false)).extracting(ValidationMessage::getCode).containsExactly("other");
+    }
+
     @Test
     void conversionsRouteByTheDeclaredVersion() throws Exception {
         engine21.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody("{\"a\":1}"));

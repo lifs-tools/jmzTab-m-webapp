@@ -78,6 +78,9 @@ public class SynchronousEngineService {
         }
     }
 
+    /** The start of the answer to a body that is not mzTab-M JSON, as before the engines. */
+    public static final String NOT_JSON = "The request body is not mzTab-M JSON: ";
+
     private final EngineRegistry registry;
     private final EngineResultReader reader;
     private final ValidationProfileCatalog catalog;
@@ -102,6 +105,11 @@ public class SynchronousEngineService {
      */
     public List<ValidationMessage> validate(Path file, Optional<String> declared, ValidationLevel level,
         int maxErrors, boolean semantic) throws IOException {
+        return validate(file, declared, level, maxErrors, semantic, false);
+    }
+
+    private List<ValidationMessage> validate(Path file, Optional<String> declared, ValidationLevel level,
+        int maxErrors, boolean semantic, boolean jsonBody) throws IOException {
         RouteDecision decision = registry.route(declared);
         Optional<String> rejection = EngineMessages.rejection(decision, engines.unavailableHintUrl());
         if (rejection.isPresent()) {
@@ -123,6 +131,9 @@ public class SynchronousEngineService {
                 ValidationEvent.Outcome outcome = routed.engine().validate(file, mapping, level, maxErrors,
                     reader::readOutcome);
                 if (outcome.messages() != null) {
+                    if (jsonBody && !outcome.parsed()) {
+                        requireReadable(outcome.messages());
+                    }
                     messages.addAll(outcome.messages());
                 }
             } catch (EngineRejection e) {
@@ -133,6 +144,31 @@ public class SynchronousEngineService {
             return messages;
         } finally {
             deleteQuietly(mapping);
+        }
+    }
+
+    /**
+     * Validates the JSON body of {@code /rest/v2/validate}: as {@link #validate}, except that JSON the engine
+     * cannot read as a model is a bad request, as when the webapp read the model itself. The engine reports it as
+     * an unparsed outcome with a {@link ValidationMessage#JSON_NOT_READ} error, which an upload through
+     * {@code /rest/v2/validations} keeps as its result.
+     *
+     * @throws IllegalArgumentException if the engine could not read the JSON as an mzTab-M model
+     */
+    public List<ValidationMessage> validateJson(Path file, Optional<String> declared, ValidationLevel level,
+        int maxErrors, boolean semantic) throws IOException {
+        return validate(file, declared, level, maxErrors, semantic, true);
+    }
+
+    /** Throws for the engine's {@link ValidationMessage#JSON_NOT_READ} error, known by its code. */
+    private static void requireReadable(List<ValidationMessage> messages) {
+        for (ValidationMessage m : messages) {
+            if (ValidationMessage.JSON_NOT_READ.equals(m.getCode())) {
+                String text = m.getMessage() == null ? "" : m.getMessage();
+                String detail = text.startsWith(ValidationMessage.JSON_NOT_READ_TEXT)
+                    ? text.substring(ValidationMessage.JSON_NOT_READ_TEXT.length()) : text;
+                throw new IllegalArgumentException(NOT_JSON + detail);
+            }
         }
     }
 

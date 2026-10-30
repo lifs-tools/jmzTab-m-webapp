@@ -388,6 +388,24 @@ class ValidationsApiControllerTest {
             .andExpect(status().isBadRequest());
     }
 
+    /** Unlike /rest/v2/validate, which answers 400, an upload ends not parsed with one message. */
+    @Test
+    void uploadedJsonThatIsNotAModelIsNotParsed() throws Exception {
+        MockMultipartFile upload = new MockMultipartFile("file", "no-model.json", "application/json",
+            "{\"metadata\": 5}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(upload).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+
+        JsonNode done = awaitFinished(json.readTree(r.getResponse().getContentAsString()).get("id").asText());
+
+        assertEquals("NOT_PARSED", done.get("outcome").asText(), done.toString());
+        assertEquals(1, done.get("messages").size(), done.toString());
+        JsonNode message = done.get("messages").get(0);
+        assertEquals("json_not_read", message.get("code").asText());
+        assertEquals("error", message.get("message_type").asText());
+        assertTrue(message.get("message").asText().startsWith("The JSON file could not be read: "), message.toString());
+    }
+
     @Test
     void bindingErrorsDoNotLeakJavaTypes() throws Exception {
         MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")).param("maxErrors", "abc"))

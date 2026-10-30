@@ -50,7 +50,7 @@ public interface ValidateApi {
 
     Logger log = LoggerFactory.getLogger(ValidateApi.class);
 
-    String NOT_JSON = "The request body is not mzTab-M JSON: ";
+    String NOT_JSON = SynchronousEngineService.NOT_JSON;
 
     default Optional<ObjectMapper> getObjectMapper() {
         return Optional.empty();
@@ -122,7 +122,7 @@ public interface ValidateApi {
                 Path json = getRequestBodies().get().spool(getRequest().get(), ".json");
                 try {
                     requireJsonObject(json);
-                    List<ValidationMessage> messages = getEngineService().get().validate(json,
+                    List<ValidationMessage> messages = getEngineService().get().validateJson(json,
                         DeclaredVersions.ofJson(json), validationLevel, maxErrors, semanticValidation);
                     return ValidatePlainApi.respond(messages, maxErrors);
                 } finally {

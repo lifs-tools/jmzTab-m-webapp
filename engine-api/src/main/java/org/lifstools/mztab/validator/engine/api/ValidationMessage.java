@@ -54,6 +54,15 @@ public class ValidationMessage {
         }
     }
 
+    /**
+     * The code of the one error of a JSON upload that could not be read as an
+     * mzTab-M model. Clients tell this case by the code, never by the text.
+     */
+    public static final String JSON_NOT_READ = "json_not_read";
+
+    /** The text before the reader's own message in a {@link #JSON_NOT_READ} error. */
+    public static final String JSON_NOT_READ_TEXT = "The JSON file could not be read: ";
+
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonProperty("code")
     private String code;
@@ -99,6 +108,16 @@ public class ValidationMessage {
      */
     public static ValidationMessage info(String text) {
         return of(MessageType.INFO, text);
+    }
+
+    /**
+     * @param detail what the reader said
+     * @return the {@link #JSON_NOT_READ} error
+     */
+    public static ValidationMessage jsonNotRead(String detail) {
+        ValidationMessage m = error(JSON_NOT_READ_TEXT + detail);
+        m.setCode(JSON_NOT_READ);
+        return m;
     }
 
     private static ValidationMessage of(MessageType type, String text) {

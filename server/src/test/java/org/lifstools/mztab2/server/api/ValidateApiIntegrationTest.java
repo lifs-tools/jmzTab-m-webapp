@@ -269,6 +269,19 @@ class ValidateApiIntegrationTest {
             .andExpect(jsonPath("$.message", containsString("not mzTab-M JSON")));
     }
 
+    /** As when the webapp read the model itself; the asynchronous upload reports it as a message instead. */
+    @Test
+    void validateReportsJsonThatIsNotAModelAs400() throws Exception {
+        mvc.perform(post("/rest/v2/validate")
+                .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .content("{\"metadata\": 5}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message", containsString("The request body is not mzTab-M JSON: ")))
+            .andExpect(jsonPath("$.message", not(containsString("The JSON file could not be read"))));
+    }
+
     /** It was System.nanoTime(), which is no point in time. */
     @Test
     void errorsCarryTheTimeTheyHappened() throws Exception {

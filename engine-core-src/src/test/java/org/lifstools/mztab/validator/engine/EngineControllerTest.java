@@ -160,8 +160,27 @@ class EngineControllerTest extends EngineContextTest {
         ValidationEvent.Outcome outcome = (ValidationEvent.Outcome) events.get(0);
         assertThat(outcome.parsed()).isFalse();
         assertThat(outcome.messages()).singleElement()
-            .satisfies(m -> assertThat(m.getMessage()).startsWith(EngineController.JSON_NOT_READ));
+            .satisfies(m -> {
+                assertThat(m.getCode()).isEqualTo(ValidationMessage.JSON_NOT_READ);
+                assertThat(m.getMessage()).startsWith(EngineController.JSON_NOT_READ);
+            });
         assertThat(events).hasSize(2);
+    }
+
+    /** Well formed JSON that is not a model: the webapp knows it by the code, not by the text. */
+    @Test
+    void jsonThatIsNotAModelIsNotParsedWithAStableCode() throws Exception {
+        List<ValidationEvent> events = events(mvc.perform(validation(file("no-model.json",
+            "{\"metadata\": 5}".getBytes(StandardCharsets.UTF_8))))
+            .andExpect(status().isOk())
+            .andReturn());
+
+        ValidationEvent.Outcome outcome = (ValidationEvent.Outcome) events.get(0);
+        assertThat(outcome.parsed()).isFalse();
+        assertThat(outcome.messages()).singleElement().satisfies(m -> {
+            assertThat(m.getCode()).isEqualTo(ValidationMessage.JSON_NOT_READ);
+            assertThat(m.getMessage()).startsWith(EngineController.JSON_NOT_READ);
+        });
     }
 
     @Test
