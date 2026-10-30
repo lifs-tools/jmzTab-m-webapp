@@ -5,39 +5,41 @@
  */
 package org.lifstools.mztab2.server.api;
 
-import org.lifstools.mztab2.model.Error;
-import org.lifstools.mztab2.model.ValidationMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
-import org.lifstools.mztab.validator.engine.api.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.service.StorageService;
-import org.lifstools.mztab.validator.webapp.service.ValidationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
+import org.lifstools.mztab.validator.webapp.engine.DeclaredVersions;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousEngineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.io.InputStream;
-import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.RequestParam;
 
+/**
+ * Validates a tab separated mzTab-M file on the request thread, through the
+ * engine of its declared version line. Nothing of it is kept.
+ */
 @Tag(name = "validatePlain", description = "The validation API for mzTab-m documents in plaintext / tsv format.")
 @RequestMapping(path = "/rest/v2")
 public interface ValidatePlainApi {
@@ -137,9 +139,6 @@ public interface ValidatePlainApi {
 
     Logger log = LoggerFactory.getLogger(ValidatePlainApi.class);
 
-    /** The name of the uploaded file in its session. */
-    String UPLOAD = "upload.mztab";
-
     default Optional<ObjectMapper> getObjectMapper() {
         return Optional.empty();
     }
@@ -154,11 +153,7 @@ public interface ValidatePlainApi {
                 r.getHeader("Accept"));
     }
 
-    default Optional<ValidationService> getValidationService() {
-        return Optional.empty();
-    }
-
-    default Optional<StorageService> getStorageService() {
+    default Optional<SynchronousEngineService> getEngineService() {
         return Optional.empty();
     }
 
@@ -167,20 +162,29 @@ public interface ValidatePlainApi {
     }
 
     @Operation(summary = "validatePlainMzTabFile",
-        description = "Validates an mzTab file in plain text representation and reports syntactic, structural, and semantic errors.",
+        description = "Validates an mzTab file in plain text representation and reports syntactic, structural, and "
+        + "semantic errors. The file's declared mzTab-version decides the validator; semantic validation uses the "
+        + "default rules of that version. A version that this instance does not validate is reported with one "
+        + "error and 422.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "mzTab file that should be validated.", required = true,
             content = {@Content(mediaType = "text/tab-separated-values", schema = @Schema(type = "string")),
                 @Content(mediaType = "text/plain", schema = @Schema(type = "string"))}))
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Validation Okay"),
-        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "200", description = "Validation Okay",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class)))),
+        @ApiResponse(responseCode = "400", description = "Invalid request",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "413", description = "The file is larger than the upload limit",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "415", description = "Unsupported content type"),
-        @ApiResponse(responseCode = "422", description = "Invalid input"),
+        @ApiResponse(responseCode = "422", description = "Invalid input",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class)))),
         @ApiResponse(responseCode = "500", description = "Unexpected error"),
-        @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted; try again after Retry-After seconds",
+        @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted, or the "
+            + "validator of the file's version is not available; try again after Retry-After seconds",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))})
     @RequestMapping(value = "/validatePlain",
         produces = {"application/json"},
@@ -202,32 +206,15 @@ public interface ValidatePlainApi {
             if (getAcceptHeader().
                 get().
                 contains("application/json")) {
-                UUID sessionId = UUID.randomUUID();
+                ValidationLevel validationLevel = levelOf(level);
+                Path upload = getRequestBodies().get().spool(getRequest().get(), ".mztab");
                 try {
-                    try (InputStream body = getRequestBodies().get().open(getRequest().get())) {
-                        getStorageService().get().write(sessionId, StorageService.SLOT.MZTABFILE, UPLOAD, body);
-                    }
-                    UserSessionFile file = new UserSessionFile(UPLOAD, sessionId);
-                    UserSessionFile mappingFile = getStorageService().
-                            get().
-                            store(ValidateApi.class.getResource(
-                                "/mappings/mzTab-M-mapping.xml"), sessionId, StorageService.SLOT.MAPPINGFILE);
-                    List<ValidationMessage> messages = getValidationService().
-                        get().
-                        validate(file,
-                            maxErrors,
-                            ValidationLevel.valueOf(level == null ? "INFO" : level.
-                                toUpperCase()), semanticValidation, mappingFile);
-                    messages = messages.subList(0, Math.min(messages.size(),
-                        maxErrors));
-                    HttpStatus status = HttpStatus.OK;
-                    if (messages.size() > 0) {
-                        status = HttpStatus.UNPROCESSABLE_ENTITY;
-                    }
-                    return new ResponseEntity<>(messages, status);
+                    List<ValidationMessage> messages = getEngineService().get().validate(upload,
+                        DeclaredVersions.of(upload), validationLevel, maxErrors, semanticValidation);
+                    return respond(messages, maxErrors);
                 } finally {
                     // the validation is synchronous: nothing of it is kept
-                    getStorageService().get().deleteAll(sessionId);
+                    SynchronousEngineService.deleteQuietly(upload);
                 }
             }
         } else {
@@ -236,6 +223,21 @@ public interface ValidatePlainApi {
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).
             build();
+    }
+
+    /**
+     * {@code error}, {@code warn} or {@code info}, in any case; {@code null} is {@code info}.
+     *
+     * @throws IllegalArgumentException for any other level (400)
+     */
+    static ValidationLevel levelOf(String level) {
+        return ValidationLevel.valueOf(level == null ? "INFO" : level.toUpperCase(Locale.ROOT));
+    }
+
+    /** At most {@code maxErrors} messages: 200 if there are none, 422 otherwise. */
+    static ResponseEntity<List<ValidationMessage>> respond(List<ValidationMessage> messages, int maxErrors) {
+        List<ValidationMessage> reported = messages.subList(0, Math.min(messages.size(), maxErrors));
+        return new ResponseEntity<>(reported, reported.isEmpty() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
 }

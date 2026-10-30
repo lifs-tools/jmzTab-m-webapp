@@ -33,13 +33,10 @@ import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
 import org.lifstools.mztab.validator.webapp.session.ValidationStatus;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /** The table cache is weighted by estimated bytes and capped in entries. */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
@@ -54,8 +51,6 @@ class SectionCacheTest {
         EngineTestSupport.register(registry);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     ValidationSessionService sessions;

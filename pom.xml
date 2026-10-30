@@ -71,7 +71,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- spring boot specific -->
         <java.version>24</java.version>
-        <jmztabm.version>1.0.8-SNAPSHOT</jmztabm.version>
         <!-- the jmzTab-m line of each validation engine -->
         <jmztabm20.version>1.0.8-SNAPSHOT</jmztabm20.version>
         <jmztabm21.version>2.1.0-SNAPSHOT</jmztabm21.version>

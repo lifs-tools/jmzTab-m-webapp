@@ -105,6 +105,44 @@ public class EngineResultReader {
         }
     }
 
+    /**
+     * Reads the stream to its end and keeps only the outcome, for a validation
+     * without a session: the section events are read and dropped, one line at
+     * a time.
+     *
+     * @throws TruncatedEngineStreamException if the stream ends before its
+     * {@code end} event
+     * @throws UncheckedIOException if the stream cannot be read or is not a
+     * validation stream
+     */
+    public ValidationEvent.Outcome readOutcome(InputStream ndjson) {
+        try {
+            BufferedReader in = new BufferedReader(new InputStreamReader(ndjson, StandardCharsets.UTF_8));
+            ValidationEvent.Outcome outcome = null;
+            String text;
+            while ((text = in.readLine()) != null) {
+                if (text.isBlank()) {
+                    continue;
+                }
+                ValidationEvent event = parse(text);
+                if (outcome == null) {
+                    if (!(event instanceof ValidationEvent.Outcome o)) {
+                        throw malformed("the first event is not the outcome");
+                    }
+                    outcome = o;
+                } else if (event instanceof ValidationEvent.Outcome) {
+                    throw malformed("a second outcome");
+                } else if (event instanceof ValidationEvent.End) {
+                    return outcome;
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("The engine's response could not be read", e);
+        }
+        log.warn("A synchronous validation: the engine's response ended before its end event");
+        throw new TruncatedEngineStreamException("The engine's response ended before its end event.");
+    }
+
     private EngineResult readStream(UUID id, InputStream ndjson, Spools spools) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(ndjson, StandardCharsets.UTF_8));
         ValidationEvent.Outcome outcome = null;

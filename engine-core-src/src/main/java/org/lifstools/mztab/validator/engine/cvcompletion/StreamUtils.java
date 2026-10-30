@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lifstools.mztab.validator.webapp.service.cvcompletion;
+package org.lifstools.mztab.validator.engine.cvcompletion;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

@@ -5,54 +5,52 @@
  */
 package org.lifstools.mztab2.server.api;
 
-import org.lifstools.mztab2.model.Error;
-import org.lifstools.mztab2.model.MzTab;
-import org.lifstools.mztab2.model.ValidationMessage;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.lifstools.mztab.validator.webapp.domain.UserSessionFile;
-import org.lifstools.mztab.validator.engine.api.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.service.StorageService;
-import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
-import org.lifstools.mztab.validator.webapp.service.ValidationService;
-import org.lifstools.mztab2.io.MzTabNonValidatingWriter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.io.ByteArrayOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
+import org.lifstools.mztab.validator.webapp.engine.DeclaredVersions;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousEngineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.servlet.http.HttpServletRequest;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
-import jakarta.validation.Valid;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.RequestParam;
 
+/**
+ * Validates an mzTab-M file in JSON representation on the request thread,
+ * through the engine of its declared version line, which reads the JSON with
+ * the model of its line. Nothing of it is kept.
+ */
 @Tag(name = "validate", description = "The validation API for mzTab-m documents in JSON format.")
 @RequestMapping(path = "/rest/v2")
 public interface ValidateApi {
 
     Logger log = LoggerFactory.getLogger(ValidateApi.class);
+
+    String NOT_JSON = "The request body is not mzTab-M JSON: ";
 
     default Optional<ObjectMapper> getObjectMapper() {
         return Optional.empty();
@@ -68,11 +66,7 @@ public interface ValidateApi {
                 r.getHeader("Accept"));
     }
 
-    default Optional<ValidationService> getValidationService() {
-        return Optional.empty();
-    }
-
-    default Optional<StorageService> getStorageService() {
+    default Optional<SynchronousEngineService> getEngineService() {
         return Optional.empty();
     }
 
@@ -80,23 +74,29 @@ public interface ValidateApi {
         return Optional.empty();
     }
 
-    String NOT_JSON = "The request body is not mzTab-M JSON: ";
-
     @Operation(summary = "validateMzTabFile",
-        description = "Validates an mzTab file in JSON representation and reports syntactic, structural, and semantic errors.",
+        description = "Validates an mzTab file in JSON representation and reports syntactic, structural, and "
+        + "semantic errors. The file's declared mzTab-version decides the validator and the model the JSON is read "
+        + "with; semantic validation uses the default rules of that version. A version that this instance does not "
+        + "validate is reported with one error and 422.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "mzTab file that should be validated.", required = true,
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MzTab.class))))
+            content = @Content(mediaType = "application/json", schema = @Schema(type = "object"))))
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Validation Okay"),
+        @ApiResponse(responseCode = "200", description = "Validation Okay",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class)))),
         @ApiResponse(responseCode = "400", description = "The request body is not mzTab-M JSON",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "413", description = "The file is larger than the upload limit",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "415", description = "Unsupported content type"),
-        @ApiResponse(responseCode = "422", description = "Invalid input"),
+        @ApiResponse(responseCode = "422", description = "Invalid input",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = ValidationMessage.class)))),
         @ApiResponse(responseCode = "500", description = "Unexpected error"),
-        @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted; try again after Retry-After seconds",
+        @ApiResponse(responseCode = "503", description = "Too many files are being validated or converted, or the "
+            + "validator of the file's version is not available; try again after Retry-After seconds",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))})
     @RequestMapping(value = "/validate",
         produces = {"application/json"},
@@ -118,42 +118,16 @@ public interface ValidateApi {
             if (getAcceptHeader().
                 get().
                 contains("application/json")) {
-                MzTab mztabfile = read(getRequestBodies().get().open(getRequest().get()), getObjectMapper().get());
-                UUID sessionId = UUID.randomUUID();
+                ValidationLevel validationLevel = ValidatePlainApi.levelOf(level);
+                Path json = getRequestBodies().get().spool(getRequest().get(), ".json");
                 try {
-                    MzTabNonValidatingWriter writer = new MzTabNonValidatingWriter();
-                    ByteArrayOutputStream stringWriter = new ByteArrayOutputStream();
-                    writer.
-                        write(new OutputStreamWriter(stringWriter, StandardCharsets.UTF_8), mztabfile);
-                    String mzTabString = stringWriter.toString(StandardCharsets.UTF_8);
-                    UserSessionFile file = getStorageService().
-                        get().
-                        store(mzTabString, sessionId, SLOT.MZTABFILE);
-                    UserSessionFile mappingFile = getStorageService().
-                        get().
-                        store(ValidateApi.class.getResource(
-                            "/mappings/mzTab-M-mapping.xml"), sessionId, SLOT.MAPPINGFILE);
-                    List<ValidationMessage> messages = getValidationService().
-                        get().
-                        validate(file,
-                            maxErrors, ValidationLevel.valueOf(
-                                level == null ? "INFO" : level.toUpperCase()),
-                            semanticValidation, mappingFile);
-                    messages = messages.subList(0, Math.min(messages.size(),
-                        maxErrors));
-                    HttpStatus status = HttpStatus.OK;
-                    if (messages.size() > 0) {
-                        status = HttpStatus.UNPROCESSABLE_ENTITY;
-                    }
-                    return new ResponseEntity<>(messages, status);
-                } catch (IOException e) {
-                    log.error(
-                        "Couldn't serialize response for content type application/json",
-                        e);
-                    return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+                    requireJsonObject(json);
+                    List<ValidationMessage> messages = getEngineService().get().validate(json,
+                        DeclaredVersions.ofJson(json), validationLevel, maxErrors, semanticValidation);
+                    return ValidatePlainApi.respond(messages, maxErrors);
                 } finally {
                     // the validation is synchronous: nothing of it is kept
-                    getStorageService().get().deleteAll(sessionId);
+                    SynchronousEngineService.deleteQuietly(json);
                 }
             }
         } else {
@@ -165,23 +139,24 @@ public interface ValidateApi {
     }
 
     /**
-     * Reads the model from a request body. The body goes to a temporary file
-     * first: Jackson would report the body being over the upload limit as
-     * unreadable JSON.
+     * Reads the whole file as a stream of tokens, holding none of it: a body
+     * that is not one well formed JSON object is a bad request, as when the
+     * webapp read the model itself. Whether the object is an mzTab-M model is
+     * for the engine to say.
      *
-     * @throws IllegalArgumentException if the body is not mzTab-M JSON
+     * @throws IllegalArgumentException if the file is not a well formed JSON object
      */
-    private static MzTab read(InputStream body, ObjectMapper objectMapper) throws IOException {
-        Path json = Files.createTempFile("mztab-validation-", ".json");
-        try {
-            try (body) {
-                Files.copy(body, json, StandardCopyOption.REPLACE_EXISTING);
+    private static void requireJsonObject(Path json) throws IOException {
+        try (JsonParser parser = new JsonFactory().createParser(json.toFile())) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                throw new IllegalArgumentException(NOT_JSON + "the body is not a JSON object.");
             }
-            return objectMapper.readValue(json.toFile(), MzTab.class);
+            parser.skipChildren();
+            if (parser.nextToken() != null) {
+                throw new IllegalArgumentException(NOT_JSON + "the body holds more than one JSON value.");
+            }
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(NOT_JSON + e.getOriginalMessage(), e);
-        } finally {
-            Files.deleteIfExists(json);
         }
     }
 

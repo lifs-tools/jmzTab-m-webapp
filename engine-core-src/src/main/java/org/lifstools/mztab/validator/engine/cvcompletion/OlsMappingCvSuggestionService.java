@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lifstools.mztab.validator.webapp.service.cvcompletion;
+package org.lifstools.mztab.validator.engine.cvcompletion;
 
-import org.lifstools.mztab.validator.webapp.service.validation.SafeCvMappingLoader;
+import org.lifstools.mztab.validator.engine.SafeCvMappingLoader;
 import org.lifstools.mztab2.cvmapping.CvMappingUtils;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
 import org.lifstools.mztab2.cvmapping.ParameterComparisonResult;
@@ -40,7 +40,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.ResourceAccessException;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 import uk.ac.ebi.pride.utilities.ols.web.service.model.Identifier;
 import uk.ac.ebi.pride.utilities.ols.web.service.model.Ontology;
@@ -75,12 +74,7 @@ public class OlsMappingCvSuggestionService {
             }
             selectorRuleLookup.put(cvMappingRule.getCvElementPath(), cvMappingRule);
         });
-        this.cvMapping.getCvReferenceList().getCvReference().stream().forEach((cvRef) -> {
-            Optional<Ontology> optOntology = resolveCv(cvRef.getCvIdentifier());
-            if (optOntology.isPresent()) {
-                ontologyLookup.put(cvRef.getCvIdentifier().toLowerCase(), optOntology.get());
-            }
-        });
+        // the ontologies of the mapping's CVs are looked up on first use: no network at startup
         this.lookupService = lookupService;
     }
 
@@ -106,14 +100,22 @@ public class OlsMappingCvSuggestionService {
         return this.cvMapping.getCvReferenceList().getCvReference();
     }
 
+    /**
+     * The ontology of a CV, asked of the Ontology Lookup Service the first
+     * time and remembered; empty if the service does not know it.
+     */
     public Optional<Ontology> resolveCv(String cvName) {
-        if(ontologyLookup.containsKey(cvName.toLowerCase())) {
-            return Optional.of(ontologyLookup.get(cvName.toLowerCase()));
-        } else {
-            Ontology onto = client.getOntology(cvName.toLowerCase());
-            ontologyLookup.put(cvName.toLowerCase(), onto);
-            return Optional.of(ontologyLookup.get(cvName.toLowerCase()));
+        String key = cvName.toLowerCase();
+        Ontology known = ontologyLookup.get(key);
+        if (known != null) {
+            return Optional.of(known);
         }
+        Ontology onto = client.getOntology(key);
+        if (onto == null) {
+            return Optional.empty();
+        }
+        ontologyLookup.put(key, onto);
+        return Optional.of(onto);
     }
     
     public List<Term> suggestParameters(String partialParamName, CvMappingRule rule, int levels) {

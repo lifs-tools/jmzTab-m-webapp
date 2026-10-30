@@ -21,10 +21,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
@@ -32,10 +30,8 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
-import org.lifstools.mztab2.io.MzTabFileParser;
-import org.lifstools.mztab2.model.MzTab;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,10 +39,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorType;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * The synchronous legacy endpoints keep nothing in storage: their files would
@@ -60,25 +53,18 @@ class LegacyValidateStorageTest {
     @TempDir
     static Path storageRoot;
 
-    @TempDir
-    Path work;
-
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     MockMvc mvc;
 
     @Autowired
     StorageService storage;
-
-    @Autowired
-    ObjectMapper objectMapper;
 
     @Test
     void validatePlainLeavesNoSessionBehind() throws Exception {
@@ -111,7 +97,7 @@ class LegacyValidateStorageTest {
 
         mvc.perform(post("/rest/v2/validate")
                 .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(parse("/metabolomics/lipidomics-example.mzTab"))))
+                .content(toJson("/metabolomics/lipidomics-example.mzTab")))
             .andExpect(status().is(oneOf(200, 422)))
             .andExpect(jsonPath("$").isArray());
 
@@ -122,12 +108,13 @@ class LegacyValidateStorageTest {
         return storage.sessions().collect(Collectors.toSet());
     }
 
-    private MzTab parse(String resource) throws IOException {
-        Path file = work.resolve("fixture.mzTab");
-        Files.write(file, resource(resource));
-        MzTabFileParser parser = new MzTabFileParser(file.toFile());
-        parser.parse(System.out, MZTabErrorType.findLevel("INFO"), 100);
-        return parser.getMZTabFile();
+    /** The JSON model of a fixture, as the engine converts it. */
+    private byte[] toJson(String resource) throws Exception {
+        return mvc.perform(post("/rest/v2/convertPlain")
+                .contentType(ConvertApiIntegrationTest.TSV).accept(MediaType.APPLICATION_JSON)
+                .content(resource(resource)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsByteArray();
     }
 
     private byte[] resource(String name) throws IOException {

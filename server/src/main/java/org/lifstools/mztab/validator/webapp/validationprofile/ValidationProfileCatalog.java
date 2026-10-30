@@ -80,6 +80,16 @@ public class ValidationProfileCatalog {
         return all.stream().filter(p -> p.id().equals(id) && p.version().equals(version)).findFirst();
     }
 
+    /**
+     * The default rules of a version line: the latest version of the profile
+     * {@code mztab-m-<line>-default}, e.g. {@code mztab-m-2.0-default}.
+     *
+     * @return empty if the catalog has no default profile for the line
+     */
+    public Optional<ValidationProfile> defaultFor(String line) {
+        return find("mztab-m-" + line + "-default", null);
+    }
+
     public URL mappingUrl(ValidationProfile p) {
         try {
             return resourceLoader.getResource(baseLocation + p.id() + "/" + p.version() + ".xml").getURL();

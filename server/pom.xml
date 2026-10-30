@@ -90,6 +90,12 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>4.12.0</version>
@@ -100,19 +106,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
             <!--<version>${spring.boot.version}</version>-->
-        </dependency>
-        <dependency>
-            <groupId>org.lifs-tools</groupId>
-            <artifactId>jmztabm-test-utils</artifactId>
-            <version>${jmztabm.version}</version>
-            <scope>test</scope>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.lifs-tools</groupId>
-            <artifactId>jmztabm-io</artifactId>
-            <type>jar</type>
-            <version>${jmztabm.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -135,11 +128,6 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>jmztabm-validation</artifactId>
-            <version>${jmztabm.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
@@ -148,15 +136,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -197,6 +176,19 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <excludes>
+                    <exclude>schema/**</exclude>
+                    <exclude>mztab-schemas/**</exclude>
+                </excludes>
+            </resource>
+            <!-- copies of jmzTab-m files, kept byte for byte (WebappCopiesTest of the engines) -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>schema/**</include>
+                    <include>mztab-schemas/**</include>
+                </includes>
             </resource>
         </resources>
         <plugins>
@@ -260,6 +252,28 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <!-- The webapp validates and converts through the engines only (NoJmzTabMArchTest);
+                         neither jmzTab-m nor the OLS client may reach its classpath, in any scope. -->
+                    <execution>
+                        <id>ban-jmztabm</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.lifs-tools:jmztabm-*</exclude>
+                                        <exclude>uk.ac.ebi.pride.utilities:*</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>The webapp must not depend on jmzTab-m or the OLS client: it validates and converts through the mzTab-M engines.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

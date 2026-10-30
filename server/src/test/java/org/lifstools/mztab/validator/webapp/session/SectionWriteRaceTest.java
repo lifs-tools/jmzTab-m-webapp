@@ -34,15 +34,12 @@ import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.sections.SectionReader;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.AopTestUtils;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * A session deleted while the engine's result is read must not leave files
@@ -62,8 +59,6 @@ class SectionWriteRaceTest {
         EngineTestSupport.register(registry);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @MockitoSpyBean
     EngineResultReader resultReader;

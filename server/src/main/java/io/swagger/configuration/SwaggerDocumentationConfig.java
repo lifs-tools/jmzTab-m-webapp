@@ -4,6 +4,7 @@ import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import org.lifstools.mztab2.server.config.MzTabSchemasCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,6 +42,8 @@ public class SwaggerDocumentationConfig {
                 .displayName("mzTab validation and conversion API.")
                 .pathsToMatch("/rest/v2/**")
                 .packagesToScan("org.lifstools.mztab2.server.api")
+                // the mzTab-M models of the engines' lines; not a bean, so it customizes this group only
+                .addOpenApiCustomizer(new MzTabSchemasCustomizer())
                 .build();
     }
 

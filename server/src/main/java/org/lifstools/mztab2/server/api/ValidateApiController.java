@@ -16,11 +16,10 @@
 package org.lifstools.mztab2.server.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.lifstools.mztab.validator.webapp.service.StorageService;
-import org.lifstools.mztab.validator.webapp.service.ValidationService;
-import org.springframework.stereotype.Controller;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
+import org.lifstools.mztab.validator.webapp.service.validation.SynchronousEngineService;
+import org.springframework.stereotype.Controller;
 
 @jakarta.annotation.Generated(value = "io.swagger.codegen.languages.SpringCodegen",
     date = "2018-01-11T19:50:29.849+01:00")
@@ -31,20 +30,16 @@ public class ValidateApiController implements ValidateApi {
 
     private final HttpServletRequest request;
 
-    private final StorageService storageService;
-
-    private final ValidationService validationService;
+    private final SynchronousEngineService engineService;
 
     private final RequestBodies requestBodies;
 
     @org.springframework.beans.factory.annotation.Autowired
     public ValidateApiController(ObjectMapper objectMapper,
-        HttpServletRequest request, StorageService storageService,
-        ValidationService validationService, RequestBodies requestBodies) {
+        HttpServletRequest request, SynchronousEngineService engineService, RequestBodies requestBodies) {
         this.objectMapper = objectMapper;
         this.request = request;
-        this.storageService = storageService;
-        this.validationService = validationService;
+        this.engineService = engineService;
         this.requestBodies = requestBodies;
     }
 
@@ -59,13 +54,8 @@ public class ValidateApiController implements ValidateApi {
     }
 
     @Override
-    public Optional<ValidationService> getValidationService() {
-        return Optional.ofNullable(validationService);
-    }
-
-    @Override
-    public Optional<StorageService> getStorageService() {
-        return Optional.ofNullable(storageService);
+    public Optional<SynchronousEngineService> getEngineService() {
+        return Optional.ofNullable(engineService);
     }
 
     @Override

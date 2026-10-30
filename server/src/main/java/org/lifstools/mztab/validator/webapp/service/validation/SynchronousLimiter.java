@@ -26,8 +26,9 @@ import org.springframework.stereotype.Component;
 /**
  * Bounds the number of synchronous validations and conversions that run at
  * once. {@code /rest/v2/validate}, {@code /validatePlain}, {@code /convert}
- * and {@code /convertPlain} answer on a request thread and hold a whole file
- * and its model; without a bound, parallel requests can exhaust the memory.
+ * and {@code /convertPlain} answer on a request thread, which waits while an engine works on the
+ * spooled file; without a bound, parallel requests can exhaust the request
+ * threads and the temporary storage.
  * Validations through {@code /rest/v2/validations} run on their own pool.
  */
 @Component

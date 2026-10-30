@@ -20,6 +20,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import org.lifstools.mztab.validator.webapp.engine.EngineBusyException;
+import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
+import org.lifstools.mztab.validator.webapp.engine.EngineUnavailableException;
 import org.lifstools.mztab.validator.webapp.service.validation.SynchronousLimiter;
 import org.lifstools.mztab2.server.api.ConvertApiController;
 import org.lifstools.mztab2.server.api.ValidateApiController;
@@ -40,9 +43,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
@@ -88,9 +95,59 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
                 HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));
     }
 
+    /** The engine of the file's line is busy: the same answer as no free slot here, with the engine's delay. */
+    @ExceptionHandler(EngineBusyException.class)
+    public ResponseEntity<ErrorResponse> engineBusy(EngineBusyException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .header(HttpHeaders.RETRY_AFTER, Long.toString(e.retryAfter().toSeconds()))
+            .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), SynchronousLimiter.BUSY, request.getRequestURI()));
+    }
+
+    @ExceptionHandler(EngineUnavailableException.class)
+    public ResponseEntity<ErrorResponse> engineUnavailable(EngineUnavailableException e, HttpServletRequest request) {
+        log.warn("{} {}: the engine for mzTab-M {} is unavailable: {}", request.getMethod(), request.getRequestURI(),
+            e.line(), e.getCause() == null ? e.getMessage() : e.getCause().toString());
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, EngineMessages.unavailable(e.line()), request);
+    }
+
     @ExceptionHandler(StorageFullException.class)
     public ResponseEntity<ErrorResponse> storageFull(StorageFullException e, HttpServletRequest request) {
         return respond(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), request);
+    }
+
+    /**
+     * A parameter outside its constraints, e.g. {@code maxErrors=501}: 400 with the common JSON shape, naming the
+     * parameter and the constraint.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
+        HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        StringBuilder message = new StringBuilder();
+        for (ParameterValidationResult result : ex.getParameterValidationResults()) {
+            String name = result.getMethodParameter().getParameterName();
+            RequestParam param = result.getMethodParameter().getParameterAnnotation(RequestParam.class);
+            if (param != null && !param.name().isEmpty()) {
+                name = param.name();
+            }
+            for (MessageSourceResolvable error : result.getResolvableErrors()) {
+                if (!message.isEmpty()) {
+                    message.append(' ');
+                }
+                message.append("Invalid value for parameter '").append(name).append("': ")
+                    .append(error.getDefaultMessage()).append('.');
+            }
+        }
+        if (message.isEmpty()) {
+            message.append("Invalid request parameters.");
+        }
+        HttpStatus badRequest = HttpStatus.BAD_REQUEST;
+        String path = request instanceof ServletWebRequest swr ? swr.getRequest().getRequestURI() : null;
+        HttpHeaders out = new HttpHeaders();
+        out.putAll(headers);
+        out.setContentType(MediaType.APPLICATION_JSON);
+        return new ResponseEntity<>(new ErrorResponse(badRequest, badRequest.getReasonPhrase(), message.toString(),
+            path), out, badRequest);
     }
 
     /** Keeps the status of standard exceptions; the body is the common JSON shape with a short message. */

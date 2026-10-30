@@ -15,7 +15,6 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,9 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * Without the microservice profile, the single-page app and the REST API must
@@ -45,12 +42,6 @@ class DefaultProfileAccessIntegrationTest {
         EngineTestSupport.register(registry);
     }
 
-    /**
-     * The webapp's own OLS client: the CV suggestions resolve the mapping's CVs at startup, and
-     * validatePlain still validates in process. Validations through the engine ask the OLS stub.
-     */
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     MockMvc mvc;

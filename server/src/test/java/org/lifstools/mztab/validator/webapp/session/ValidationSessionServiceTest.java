@@ -59,7 +59,6 @@ import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.service.validation.MappingFixtures;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.DefaultApplicationArguments;
@@ -67,10 +66,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.AopTestUtils;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * Validation sessions end to end below the REST layer: submit, the async
@@ -111,8 +108,6 @@ class ValidationSessionServiceTest {
         registry.add("engines.mztabm[1].url", () -> "http://localhost:" + closed);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @MockitoSpyBean
     EngineResultReader resultReader;

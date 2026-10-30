@@ -15,61 +15,39 @@
  */
 package org.lifstools.mztab.validator.webapp.service.validation;
 
-import info.psidev.cvmapping.CvMapping;
-import jakarta.xml.bind.JAXBContext;
-import jakarta.xml.bind.JAXBException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.helpers.DefaultHandler;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.sax.SAXSource;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
- * Loads CV mapping files with a hardened XML parser.
+ * Checks CV mapping files with a hardened XML parser before they are stored
+ * for a validation. Mapping files may be uploaded by users: a DOCTYPE
+ * declaration or an external entity is rejected, and the document must be
+ * valid against the CvMapping XSD. The engines parse the mapping themselves,
+ * with the same hardening; the webapp only decides whether to accept it.
  *
- * jmzTab-m's {@code CvMappingValidator.of(File, ...)} unmarshals with a
- * default JAXB unmarshaller, which resolves DOCTYPE declarations and
- * entities. Mapping files may be uploaded by users, so the webapp parses them
- * itself and hands jmzTab-m the resulting {@link CvMapping} via
- * {@code CvMappingValidator.of(CvMapping, ...)}.
+ * <p>The XSD, {@value #XSD}, is a copy of the one in jmzTab-m, which the webapp
+ * does not depend on; the engines' {@code WebappCopiesTest} keeps the copy
+ * equal to the XSD of their jmzTab-m.
  */
 public final class SafeCvMappingLoader {
 
-    private static final JAXBContext CONTEXT = createContext();
-    private static final String XSD = "/schema/CvMapping.xsd";
+    static final String XSD = "/schema/CvMapping.xsd";
     private static volatile Schema schema;
 
     private SafeCvMappingLoader() {
-    }
-
-    public static CvMapping load(Path file) throws IOException {
-        try (InputStream in = Files.newInputStream(file)) {
-            return load(in);
-        }
-    }
-
-    public static CvMapping load(InputStream in) {
-        try {
-            SAXSource source = new SAXSource(hardenedReader(), new InputSource(in));
-            return (CvMapping) CONTEXT.createUnmarshaller().unmarshal(source);
-        } catch (JAXBException e) {
-            throw new InvalidMappingFileException("Mapping file rejected: " + describe(e), e);
-        } catch (SAXException | ParserConfigurationException e) {
-            throw new IllegalStateException("Could not configure a secure XML parser", e);
-        }
     }
 
     /**
@@ -140,20 +118,5 @@ public final class SafeCvMappingLoader {
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         return factory.newSAXParser().getXMLReader();
-    }
-
-    /** The parser's own message, e.g. "DOCTYPE is disallowed ...", without the stack of wrappers. */
-    private static String describe(JAXBException e) {
-        Throwable cause = e.getLinkedException() != null ? e.getLinkedException() : e.getCause();
-        String message = cause != null ? cause.getMessage() : e.getMessage();
-        return message != null ? message : e.toString();
-    }
-
-    private static JAXBContext createContext() {
-        try {
-            return JAXBContext.newInstance(CvMapping.class);
-        } catch (JAXBException e) {
-            throw new ExceptionInInitializerError(e);
-        }
     }
 }

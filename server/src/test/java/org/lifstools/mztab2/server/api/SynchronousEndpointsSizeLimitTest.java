@@ -25,7 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
-import org.mockito.Answers;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,9 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * The synchronous validation and conversion endpoints take files up to the
@@ -55,10 +53,9 @@ class SynchronousEndpointsSizeLimitTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     MockMvc mvc;

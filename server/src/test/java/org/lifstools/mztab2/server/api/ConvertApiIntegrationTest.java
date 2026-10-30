@@ -43,7 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.lifstools.mztab.validator.webapp.Application;
-import org.mockito.Answers;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,9 +51,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * The conversion REST API: tab separated mzTab-M to its JSON representation
@@ -76,10 +74,8 @@ class ConvertApiIntegrationTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
-
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     MockMvc mvc;
@@ -162,6 +158,32 @@ class ConvertApiIntegrationTest {
             .andExpect(jsonPath("$[0].message_type").value("error"));
     }
 
+    /** The declared version decides the engine; this instance has none for mzTab-M 2.1. */
+    @Test
+    void convertRoutesByJsonVersion() throws Exception {
+        mvc.perform(post("/rest/v2/convert")
+                .contentType(MediaType.APPLICATION_JSON).accept(TSV)
+                .content(METADATA_ONLY.replace("2.0.0-M", "2.1.0-M")))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].message_type").value("error"))
+            .andExpect(jsonPath("$[0].message")
+                .value("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0."));
+    }
+
+    @Test
+    void convertPlainRoutesByTsvVersion() throws Exception {
+        mvc.perform(post("/rest/v2/convertPlain")
+                .contentType(TSV).accept(MediaType.APPLICATION_JSON)
+                .content(ValidateApiIntegrationTest.withVersion(resource("/metabolomics/minimal-m-2.0.mztab"),
+                    "2.1.0-M")))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].message")
+                .value("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0."));
+    }
+
     @Test
     void convertReportsUnreadableJsonAs400() throws Exception {
         mvc.perform(post("/rest/v2/convert")
@@ -188,7 +210,8 @@ class ConvertApiIntegrationTest {
     /**
      * Tab separated to JSON and back gives the same model, so that an edited
      * file can be stored without losing anything but its comment lines:
-     * jmzTab-m's writer does not write them.
+     * jmzTab-m's writer does not write them. Every file is converted as
+     * mzTab-M 2.0.
      */
     @ParameterizedTest
     @ValueSource(strings = {
@@ -200,7 +223,9 @@ class ConvertApiIntegrationTest {
         "/metabolomics/StandardMix_positive_exportSpeciesLevel.mzTab",
         "/metabolomics/xcms-msio-0.0.11-MTBLS4381-onlySMF-trimmed.mztab"})
     void roundTripKeepsTheModel(String file) throws Exception {
-        String json = toJson(resource(file));
+        // the declared version decides the engine, and this instance has only the 2.0 engine:
+        // MTBLS263.mztab declares 2.2.0-M and example_study_variable_group.mztab 2.1.0-M
+        String json = toJson(ValidateApiIntegrationTest.withVersion(resource(file), "2.0.0-M"));
         String tsv = mvc.perform(post("/rest/v2/convert")
                 .contentType(MediaType.APPLICATION_JSON).accept(TSV)
                 .content(json))

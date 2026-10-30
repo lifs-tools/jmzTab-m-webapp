@@ -74,6 +74,16 @@ class ValidationProfileCatalogTest {
     }
 
     @Test
+    void defaultForIsTheLatestDefaultProfileOfTheLine() {
+        ValidationProfileCatalog c = new ValidationProfileCatalog(mapper, loader,
+            "classpath:/validation-profiles-test/index.json");
+        assertEquals("1.10.0", c.defaultFor("2.0").orElseThrow().version());
+        assertEquals("mztab-m-2.0-default", c.defaultFor("2.0").orElseThrow().id());
+        assertTrue(c.defaultFor("2.1").isEmpty());
+        assertEquals("1.0.0", catalog().defaultFor("2.0").orElseThrow().version());
+    }
+
+    @Test
     void schemaRejectsEmptyCvMapping() {
         assertThrows(InvalidMappingFileException.class,
             () -> SafeCvMappingLoader.validateAgainstSchema("<CvMapping/>".getBytes(StandardCharsets.UTF_8)));

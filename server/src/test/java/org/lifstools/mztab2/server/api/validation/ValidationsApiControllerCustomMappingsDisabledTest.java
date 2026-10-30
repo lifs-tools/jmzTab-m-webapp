@@ -39,7 +39,6 @@ import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.Application;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
-import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -58,10 +57,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false",
     "validation.custom-mappings.enabled=false"})
@@ -77,8 +74,6 @@ class ValidationsApiControllerCustomMappingsDisabledTest {
         EngineTestSupport.register(registry);
     }
 
-    @MockitoBean(answers = Answers.RETURNS_MOCKS)
-    OLSClient olsClient;
 
     @Autowired
     MockMvc mvc;

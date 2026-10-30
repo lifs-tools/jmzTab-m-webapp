@@ -18,6 +18,9 @@ package org.lifstools.mztab2.server.api;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import org.lifstools.mztab.validator.webapp.service.CappedInputStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -51,6 +54,31 @@ public class RequestBodies {
             throw new MaxUploadSizeExceededException(maxBytes);
         }
         return limit(request.getInputStream(), maxBytes);
+    }
+
+    /**
+     * The body of {@code request} as a new temporary file, which the caller
+     * deletes. Nothing of it is held in memory.
+     *
+     * @throws MaxUploadSizeExceededException if the body is larger than the
+     * upload limit; no file is left behind
+     */
+    public Path spool(HttpServletRequest request, String suffix) throws IOException {
+        InputStream body = open(request);
+        Path file;
+        try {
+            file = Files.createTempFile("mztab-request-", suffix);
+        } catch (IOException | RuntimeException e) {
+            body.close();
+            throw e;
+        }
+        try (body) {
+            Files.copy(body, file, StandardCopyOption.REPLACE_EXISTING);
+            return file;
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(file);
+            throw e;
+        }
     }
 
     /** {@code in}, throwing {@link MaxUploadSizeExceededException} once more than {@code maxBytes} are read. */

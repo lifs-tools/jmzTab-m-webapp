@@ -15,10 +15,8 @@
  */
 package org.lifstools.mztab.validator.webapp.session;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.MalformedInputException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -33,9 +31,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
-import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.engine.DeclaredVersions;
 import org.lifstools.mztab.validator.webapp.engine.EngineBusyException;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
@@ -68,8 +66,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ValidationRunner {
 
-    static final String MZTAB_1_0 = "This file declares mzTab-version 1.0. mzTab 1.0 is no longer supported; "
-        + "the validator checks mzTab-M 2.0 files.";
+    static final String MZTAB_1_0 = EngineMessages.LEGACY;
     static final String UNEXPECTED_ERROR = "The validation could not be completed because of an unexpected "
         + "server error. Please try again later.";
     /** The first delay after a busy answer; it doubles with each further one. */
@@ -195,13 +192,10 @@ public class ValidationRunner {
                 + " is missing")), ".mztab");
             Optional<String> declared = declaredVersion(upload);
             RouteDecision decision = registry.route(declared);
-            if (decision instanceof RouteDecision.Legacy legacy) {
-                return Step.done(record.rejected(legacy.declared(), ValidationMessage.error(MZTAB_1_0),
+            Optional<String> rejection = EngineMessages.rejection(decision, engines.unavailableHintUrl());
+            if (rejection.isPresent()) {
+                return Step.done(record.rejected(declared.orElse(null), ValidationMessage.error(rejection.get()),
                     clock.instant()));
-            }
-            if (decision instanceof RouteDecision.Unsupported unsupported) {
-                return Step.done(record.rejected(unsupported.declared(), ValidationMessage.error(
-                    EngineMessages.unsupported(unsupported, engines.unavailableHintUrl())), clock.instant()));
             }
             RouteDecision.Routed routed = (RouteDecision.Routed) decision;
             mapping = mappingFile(record);
@@ -281,11 +275,7 @@ public class ValidationRunner {
      * it goes to the default line, whose parser reports it.
      */
     static Optional<String> declaredVersion(Path file) throws IOException {
-        try {
-            return MzTabVersionDetector.detect(file).filter(v -> !v.isBlank());
-        } catch (MalformedInputException | JsonProcessingException e) {
-            return Optional.empty();
-        }
+        return DeclaredVersions.of(file);
     }
 
     /** The mapping as a local file, or {@code null} for structural validation only. */
