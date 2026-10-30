@@ -60,6 +60,31 @@ blockquote {
   }
 }
 
+.engines {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+
+  th,
+  td {
+    text-align: left;
+    padding: 6px 14px 6px 0;
+    border-bottom: 1px solid var(--lifs-line);
+  }
+  thead th {
+    font-family: var(--lifs-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 400;
+    color: var(--lifs-grey);
+  }
+  tbody th {
+    font-weight: 500;
+    color: var(--lifs-ink);
+  }
+}
+
 @media (max-width: 600px) {
   .hero {
     padding: 24px 16px 20px;

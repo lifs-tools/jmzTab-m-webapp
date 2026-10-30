@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PendingTasks,
+  computed,
+  inject,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,7 +22,8 @@ import { ExamplesService } from '../../api/services/examples.service';
 import { ValidationProfilesService } from '../../api/services/validation-profiles.service';
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
-import { DEFAULT_VALIDATION_PROFILE } from '../../core/validation-defaults';
+import { detectMzTabVersion, lineOf } from '../../core/mztab-version';
+import { defaultProfileFor } from '../../core/validation-defaults';
 import {
   MAPPING_TOO_LARGE,
   MAX_MAPPING_BYTES,
@@ -47,6 +56,7 @@ export class ValidatorFormComponent {
   private readonly examples = inject(ExamplesService);
   private readonly router = inject(Router);
   private readonly appInfo = inject(AppInfoStore);
+  private readonly pendingTasks = inject(PendingTasks);
 
   protected readonly NONE = NONE;
   protected readonly CUSTOM = CUSTOM;
@@ -64,16 +74,67 @@ export class ValidatorFormComponent {
   );
 
   readonly file = signal<File | null>(null);
+  /** The version the chosen file declares, as read in the browser; null if none. */
+  readonly fileVersion = signal<string | null>(null);
   readonly level = signal<Level>('INFO');
   readonly maxErrors = signal<number | null>(100);
-  readonly validationProfile = signal<string | null>(DEFAULT_VALIDATION_PROFILE);
   readonly mappingFile = signal<File | null>(null);
+
+  protected readonly info = this.appInfo.info;
+  /** The version line the file is validated as: its own, else the instance's default line. */
+  readonly activeLine = computed(() => lineOf(this.fileVersion()) ?? this.info()?.defaultLine ?? null);
+  /** Profiles of the active line; the server would reject the others for this file. */
+  protected readonly lineProfiles = computed(() => {
+    const line = this.activeLine();
+    return this.profiles().filter((p) => p.mzTabVersions?.some((v) => lineOf(v) === line));
+  });
+  /** Changes when the line or its profiles change, which resets the choice below. */
+  private readonly profileChoices = computed(
+    () => `${this.activeLine()}|${this.lineProfiles().map((p) => p.id).join(',')}`,
+  );
+  /** The chosen profile id, or null for none; reset to the line's default when the line changes. */
+  readonly validationProfile = linkedSignal<string, string | null>({
+    source: this.profileChoices,
+    computation: () => {
+      const line = this.activeLine();
+      const preferred = line ? defaultProfileFor(line) : null;
+      return this.lineProfiles().some((p) => p.id === preferred) ? preferred : null;
+    },
+  });
 
   protected readonly dragging = signal(false);
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** True while the chosen file's version is being read. */
+  protected readonly detecting = signal(false);
+  private detection = 0;
 
-  protected readonly info = this.appInfo.info;
+  /** Badge next to the file name, once its version has been read. */
+  protected readonly versionBadge = computed(() => {
+    if (!this.file() || this.detecting()) return null;
+    const declared = this.fileVersion();
+    const line = lineOf(declared);
+    if (line) return `mzTab-M ${line}`;
+    if (declared) return `mzTab-M ${declared}`;
+    const fallback = this.info()?.defaultLine;
+    return fallback ? `No version declared · validated as mzTab-M ${fallback}` : 'No version declared';
+  });
+  /**
+   * The active line when no engine for it is available, for the warning callout; the form still
+   * submits, as the server decides.
+   */
+  protected readonly unsupportedLine = computed(() => {
+    const info = this.info();
+    const line = this.activeLine();
+    if (!info || !line || this.detecting()) return null;
+    return info.engines?.some((e) => e.line === line && e.available) ? null : line;
+  });
+  /** Where the line can be tried instead; never for legacy mzTab 1.x, which no validator takes. */
+  protected readonly unavailableHint = computed(() => {
+    const line = this.unsupportedLine();
+    const url = this.info()?.unavailableHintUrl?.trim();
+    return line && url && !line.startsWith('1.') ? url : null;
+  });
   protected readonly maxUploadMb = computed(() => {
     const bytes = this.info()?.maxUploadBytes;
     return bytes ? Math.round(bytes / 1048576) : null;
@@ -90,7 +151,7 @@ export class ValidatorFormComponent {
     this.mappingFile() ? CUSTOM : (this.validationProfile() ?? NONE),
   );
   protected readonly profileHint = computed(
-    () => this.profiles().find((p) => p.id === this.validationProfile())?.description ?? '',
+    () => this.lineProfiles().find((p) => p.id === this.validationProfile())?.description ?? '',
   );
 
   protected onFileInput(event: Event): void {
@@ -124,11 +185,34 @@ export class ValidatorFormComponent {
   protected setFile(file: File | null): void {
     if (file && this.overUploadLimit(file)) {
       this.file.set(null);
+      this.detectVersion(null);
       this.error.set(fileTooLargeMessage(this.maxUploadMb() ?? undefined));
       return;
     }
     this.file.set(file);
     this.error.set(null);
+    this.detectVersion(file);
+  }
+
+  /**
+   * Reads the declared version of the file. The previous version stays until the new one is
+   * known, so a quick change between files of the same line keeps the chosen profile; a result
+   * that arrives for a file no longer chosen is dropped.
+   */
+  private detectVersion(file: File | null): void {
+    const run = ++this.detection;
+    if (!file) {
+      this.detecting.set(false);
+      this.fileVersion.set(null);
+      return;
+    }
+    this.detecting.set(true);
+    this.pendingTasks.run(async () => {
+      const version = await detectMzTabVersion(file).catch(() => null);
+      if (run !== this.detection) return;
+      this.fileVersion.set(version);
+      this.detecting.set(false);
+    });
   }
 
   private setMappingFile(file: File | null): void {
@@ -180,16 +264,21 @@ export class ValidatorFormComponent {
     );
   }
 
-  /** Validates a catalog example with the form's current options. */
-  validateExample(id: string): void {
+  /**
+   * Validates a catalog example with the form's current options. The chosen profile belongs to
+   * the active line; an example of another line gets its own line's default profile instead.
+   */
+  validateExample(id: string, mzTabVersion?: string): void {
     if (this.submitting() || !this.maxErrorsValid()) return;
+    const line = lineOf(mzTabVersion) ?? this.info()?.defaultLine ?? null;
+    const profile = line === this.activeLine() ? this.validationProfile() : line ? defaultProfileFor(line) : null;
     this.run(
       this.examples.validateExample({
         id,
         body: {
           level: this.level(),
           maxErrors: this.maxErrors(),
-          validationProfile: this.validationProfile(),
+          validationProfile: profile,
         },
       }),
     );

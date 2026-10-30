@@ -51,6 +51,18 @@
   word-break: break-all;
 }
 
+.callout__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--lifs-ink);
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
 .field-hint {
   margin-top: -8px;
 

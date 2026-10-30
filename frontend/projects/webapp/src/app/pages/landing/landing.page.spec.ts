@@ -7,12 +7,33 @@ import { ExampleDto } from '../../api/models/example-dto';
 import { LandingPage } from './landing.page';
 
 const EXAMPLES: ExampleDto[] = [
-  { id: 'lip', name: 'lipidomics-example.mzTab', section: 'example', focus: 'Lipidomics', uri: 'https://example.org/lip.mzTab' },
-  { id: 'map', name: 'mapping.xml', section: 'mapping', description: 'A mapping', uri: 'https://example.org/map.xml' },
+  {
+    id: 'lip',
+    name: 'lipidomics-example.mzTab',
+    section: 'example',
+    focus: 'Lipidomics',
+    mzTabVersion: '2.0.0-M',
+    uri: 'https://example.org/lip.mzTab',
+  },
+  {
+    id: 'mf21',
+    name: 'official-profile-mf.mztab',
+    section: 'example',
+    mzTabVersion: '2.1.0-M',
+    uri: 'https://example.org/mf21.mztab',
+  },
+  {
+    id: 'map',
+    name: 'mapping.xml',
+    section: 'mapping',
+    description: 'A mapping',
+    mzTabVersion: '2.0.0-M',
+    uri: 'https://example.org/map.xml',
+  },
 ];
 
 describe('LandingPage', () => {
-  async function render(examples: ExampleDto[] = EXAMPLES) {
+  async function render(examples: ExampleDto[] = EXAMPLES, defaultLine = '2.0') {
     await TestBed.configureTestingModule({
       imports: [LandingPage],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -22,8 +43,11 @@ describe('LandingPage', () => {
     const fixture = TestBed.createComponent(LandingPage);
     http
       .expectOne((r) => r.url.endsWith('rest/v2/app-info'))
-      .flush({ retentionDays: 7, maxUploadBytes: 67108864, customMappingsEnabled: true });
-    http.expectOne((r) => r.url.endsWith('rest/v2/validation-profiles')).flush([]);
+      .flush({ retentionDays: 7, maxUploadBytes: 67108864, customMappingsEnabled: true, defaultLine });
+    http.expectOne((r) => r.url.endsWith('rest/v2/validation-profiles')).flush([
+      { id: 'mztab-m-2.0-default', version: '1.1.0', title: '2.0 rules', mzTabVersions: ['2.0.0-M'] },
+      { id: 'mztab-m-2.1-default', version: '1.0.0', title: '2.1 rules', mzTabVersions: ['2.1.0-M'] },
+    ]);
     http.expectOne((r) => r.url.endsWith('rest/v2/examples')).flush(examples);
     await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement, http, navigate };
@@ -60,6 +84,7 @@ describe('LandingPage', () => {
       id: `e${i}`,
       name: `f${i}.mzTab`,
       section: 'example',
+      mzTabVersion: '2.0.0-M',
       uri: `https://x/${i}`,
     }));
     const { el } = await render(many);
@@ -79,6 +104,30 @@ describe('LandingPage', () => {
     expect(navigate).toHaveBeenCalledWith(['/result', 'r9']);
   });
 
+  it('shows only examples of the default line, with a link to all examples', async () => {
+    const { el } = await render();
+    expect(el.querySelector('a[href="https://example.org/lip.mzTab"]')).toBeTruthy();
+    expect(el.querySelector('a[href="https://example.org/mf21.mztab"]')).toBeNull();
+    expect(el.querySelector('a[href="/examples"]')?.textContent).toContain('All examples');
+  });
+
+  it('follows the default line of app info', async () => {
+    const { el } = await render(EXAMPLES, '2.1');
+    expect(el.querySelector('a[href="https://example.org/mf21.mztab"]')).toBeTruthy();
+    expect(el.querySelector('a[href="https://example.org/lip.mzTab"]')).toBeNull();
+    expect(el.querySelector('a[href="https://example.org/map.xml"]')).toBeNull();
+  });
+
+  it('Validate on an example sends the default profile of its line', async () => {
+    const { el, http } = await render(EXAMPLES, '2.1');
+    const btn = Array.from(el.querySelectorAll<HTMLButtonElement>('app-examples-card button')).find(
+      (b) => b.textContent?.trim() === 'Validate',
+    )!;
+    btn.click();
+    const req = http.expectOne((r) => r.url.endsWith('rest/v2/examples/mf21/validations'));
+    expect(req.request.body.validationProfile).toBe('mztab-m-2.1-default');
+  });
+
   it('links the scripting resources', async () => {
     const { el } = await render();
     expect(el.querySelector<HTMLAnchorElement>('a[href="swagger-ui/index.html"]')?.target).toBe('_blank');
@@ -88,9 +137,15 @@ describe('LandingPage', () => {
 
   it('caps 7 examples at 6 and never gives mapping entries a Validate action', async () => {
     const entries: ExampleDto[] = [
-      { id: 'm1', name: 'm1.xml', section: 'mapping', uri: 'https://x/m1' },
-      { id: 'm2', name: 'm2.xml', section: 'mapping', uri: 'https://x/m2' },
-      ...Array.from({ length: 7 }, (_, i) => ({ id: `e${i}`, name: `f${i}.mzTab`, section: 'example', uri: `https://x/${i}` })),
+      { id: 'm1', name: 'm1.xml', section: 'mapping', mzTabVersion: '2.0.0-M', uri: 'https://x/m1' },
+      { id: 'm2', name: 'm2.xml', section: 'mapping', mzTabVersion: '2.0.0-M', uri: 'https://x/m2' },
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `e${i}`,
+        name: `f${i}.mzTab`,
+        section: 'example',
+        mzTabVersion: '2.0.0-M',
+        uri: `https://x/${i}`,
+      })),
     ];
     const { el } = await render(entries);
     const items = Array.from(el.querySelectorAll('app-examples-card .example'));

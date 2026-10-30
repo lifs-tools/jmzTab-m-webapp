@@ -23,6 +23,9 @@
     @if (file(); as f) {
       <div class="drop__file">
         <span class="lifs-mono drop__name">{{ f.name }}</span>
+        @if (versionBadge(); as badge) {
+          <span class="lifs-badge" data-testid="version-badge">{{ badge }}</span>
+        }
         <span class="lifs-note">{{ size(f) }}</span>
         <button mat-button type="button" data-testid="remove-file" (click)="setFile(null)">Remove</button>
       </div>
@@ -36,6 +39,17 @@
       </span>
     }
   </div>
+
+  @if (unsupportedLine(); as line) {
+    <div class="lifs-callout lifs-callout--warn" role="status" data-testid="version-unsupported">
+      <p class="callout__text">
+        mzTab-M {{ line }} is not supported by this validator.
+        @if (unavailableHint(); as url) {
+          <a [href]="url" target="_blank" rel="noopener">It is available for testing on the development validator.</a>
+        }
+      </p>
+    </div>
+  }
 
   <div class="row">
     <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -83,7 +97,7 @@
         @if (mappingFile()) {
           <mat-option [value]="CUSTOM">Custom mapping file</mat-option>
         }
-        @for (p of profiles(); track p.id) {
+        @for (p of lineProfiles(); track p.id) {
           <mat-option [value]="p.id">{{ p.title }}</mat-option>
         }
         <mat-option [value]="NONE">None — structural validation only</mat-option>

@@ -22,6 +22,7 @@ export class LandingPage {
   private readonly appInfo = inject(AppInfoStore);
 
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
+  protected readonly defaultLine = computed(() => this.appInfo.info()?.defaultLine);
   protected readonly examples = toSignal(
     inject(ExamplesService)
       .listExamples(undefined, quietRequest())
@@ -29,7 +30,7 @@ export class LandingPage {
     { initialValue: [] as ExampleDto[] },
   );
 
-  protected validateExample(id: string): void {
-    this.form().validateExample(id);
+  protected validateExample(example: ExampleDto): void {
+    if (example.id) this.form().validateExample(example.id, example.mzTabVersion);
   }
 }

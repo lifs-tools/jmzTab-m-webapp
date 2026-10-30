@@ -13,16 +13,36 @@
   } @else if (failed()) {
     <p class="lifs-note" role="status">The examples could not be loaded. Please try again later.</p>
   } @else {
-    <section class="lifs-card" aria-labelledby="examples-title">
+    <div class="filter">
+      <span class="lifs-label" aria-hidden="true">mzTab-M version</span>
+      <mat-button-toggle-group
+        aria-label="mzTab-M version"
+        hideSingleSelectionIndicator
+        [value]="filter()"
+        (change)="onFilter($event.value)"
+      >
+        <mat-button-toggle [value]="ALL">All</mat-button-toggle>
+        @for (line of lines(); track line) {
+          <mat-button-toggle [value]="line">{{ line }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+    </div>
+
+    <section class="lifs-card" aria-labelledby="examples-title" data-testid="example-files">
       <h2 id="examples-title" class="lifs-card__title">Example files</h2>
       <ul class="list">
         @for (e of examples(); track e.id) {
           <li class="item">
             <div class="item__text">
               <a [href]="e.uri" target="_blank" rel="noopener">{{ e.name }}</a>
-              @if (e.focus) {
-                <span class="lifs-badge">{{ e.focus }}</span>
-              }
+              <span class="badges">
+                @if (e.mzTabVersion) {
+                  <span class="lifs-badge" data-testid="version">mzTab-M {{ e.mzTabVersion }}</span>
+                }
+                @if (e.focus) {
+                  <span class="lifs-badge lifs-badge--plain">{{ e.focus }}</span>
+                }
+              </span>
               @if (e.description) {
                 <span class="lifs-note">{{ e.description }}</span>
               }
@@ -45,20 +65,50 @@
       </ul>
     </section>
 
-    <section class="lifs-card" aria-labelledby="mappings-title">
-      <h2 id="mappings-title" class="lifs-card__title">Example mapping files</h2>
+    <section class="lifs-card" aria-labelledby="mappings-title" data-testid="mapping-files">
+      <h2 id="mappings-title" class="lifs-card__title">Mapping files</h2>
       <ul class="list">
+        @for (p of catalogProfiles(); track p.id + '/' + p.version) {
+          <li class="item">
+            <div class="item__text">
+              <a [href]="mappingUrl(p)" download>{{ p.title }}</a>
+              <span class="badges">
+                <span class="lifs-badge" data-testid="version">mzTab-M {{ p.mzTabVersions?.join(' · ') }}</span>
+              </span>
+              @if (p.description) {
+                <span class="lifs-note">{{ p.description }}</span>
+              }
+              <span class="lifs-note lifs-mono">{{ p.id }} · Version {{ p.version }}</span>
+            </div>
+          </li>
+        }
         @for (e of mappings(); track e.id) {
           <li class="item">
             <div class="item__text">
               <a [href]="e.uri" target="_blank" rel="noopener" download>{{ e.name }}</a>
+              @if (e.mzTabVersion) {
+                <span class="badges">
+                  <span class="lifs-badge" data-testid="version">mzTab-M {{ e.mzTabVersion }}</span>
+                </span>
+              }
               @if (e.description) {
                 <span class="lifs-note">{{ e.description }}</span>
               }
+              @if (e.createdBy || e.version) {
+                <span class="lifs-note lifs-mono">
+                  @if (e.createdBy) {
+                    Created by {{ e.createdBy }}
+                  }
+                  @if (e.version) {
+                    · Version {{ e.version }}
+                  }
+                </span>
+              }
             </div>
           </li>
-        } @empty {
-          <li class="lifs-note">No example mapping files available.</li>
+        }
+        @if (catalogProfiles().length === 0 && mappings().length === 0) {
+          <li class="lifs-note">No mapping files available.</li>
         }
       </ul>
     </section>

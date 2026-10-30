@@ -16,7 +16,7 @@
 <div class="page cols">
   <app-validator-form class="cols__main" />
   <div class="cols__side">
-    <app-examples-card [examples]="examples()" (validate)="validateExample($event)" />
+    <app-examples-card [examples]="examples()" [defaultLine]="defaultLine()" (validate)="validateExample($event)" />
     <section class="lifs-card" aria-labelledby="scripts-title">
       <h2 id="scripts-title" class="lifs-card__title">For scripts</h2>
       <p class="lifs-note">

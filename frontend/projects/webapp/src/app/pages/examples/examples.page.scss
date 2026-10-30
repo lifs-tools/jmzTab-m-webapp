@@ -53,6 +53,19 @@
   }
 }
 
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .error {
   margin: 0;
   color: var(--lifs-error);

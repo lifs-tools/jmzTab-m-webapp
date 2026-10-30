@@ -9,7 +9,7 @@
             <span class="lifs-note">{{ detail }}</span>
           }
         </div>
-        <button mat-button type="button" (click)="validate.emit(e.id!)">Validate</button>
+        <button mat-button type="button" (click)="validate.emit(e)">Validate</button>
       </li>
     }
   </ul>
@@ -28,5 +28,5 @@
       }
     </ul>
   }
-  <a routerLink="/examples">All examples →</a>
+  <a routerLink="/examples">All examples</a>
 </section>

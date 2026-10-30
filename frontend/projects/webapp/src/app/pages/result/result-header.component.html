@@ -9,7 +9,22 @@
     <h1>{{ record().fileName }}</h1>
     <div class="badges">
       @if (record().mzTabVersion) {
-        <span class="lifs-badge">mzTab-M {{ record().mzTabVersion }}</span>
+        <span
+          class="lifs-badge"
+          data-testid="version-badge"
+          [matTooltip]="engine()"
+          [attr.tabindex]="engine() ? 0 : null"
+          >mzTab-M {{ record().mzTabVersion }}</span
+        >
+      }
+      @if (record().defaultVersionApplied) {
+        <span
+          class="lifs-badge lifs-badge--plain"
+          data-testid="default-version-badge"
+          [matTooltip]="record().mzTabVersion ? '' : engine()"
+          [attr.tabindex]="!record().mzTabVersion && engine() ? 0 : null"
+          >default version</span
+        >
       }
       <span class="lifs-badge lifs-badge--plain">{{ profileBadge() }}</span>
       <span class="lifs-badge lifs-badge--plain">{{ levelBadge() }}</span>

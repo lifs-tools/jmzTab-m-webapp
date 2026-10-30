@@ -20,6 +20,48 @@
     <p class="notice" role="note">mzTab 1.0 validation was retired in version 2.0.0.</p>
   </section>
 
+  <section class="lifs-card" aria-labelledby="about-versions">
+    <h2 id="about-versions" class="lifs-card__title">mzTab-M versions</h2>
+    <p>
+      mzTab-M 2.0 is validated by jmzTab-m 1.0.x and mzTab-M 2.1 by jmzTab-m 2.1.x. Once mzTab-M 2.1 is the
+      default, 2.0 receives bug fixes only.
+    </p>
+    @if (engines().length) {
+      <table class="engines">
+        <thead>
+          <tr>
+            <th scope="col">Version</th>
+            <th scope="col">Validated by</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (engine of engines(); track engine.line) {
+            <tr>
+              <th scope="row">mzTab-M {{ engine.line }}</th>
+              <td class="lifs-mono">
+                @if (engine.jmztabmVersion) {
+                  jmzTab-m {{ engine.jmztabmVersion }}
+                } @else {
+                  —
+                }
+              </td>
+              <td>
+                @if (engine.available) {
+                  <span class="lifs-lvl lifs-lvl--ok">Available</span>
+                } @else {
+                  <span class="lifs-lvl lifs-lvl--warn">Not available right now</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="lifs-note">Version information is not available right now.</p>
+    }
+  </section>
+
   <section class="lifs-card" aria-labelledby="about-levels">
     <h2 id="about-levels" class="lifs-card__title">Validation levels</h2>
     <p>The level decides which messages are reported:</p>
@@ -96,16 +138,6 @@
         <dd>{{ i.version }}</dd>
         <dt>Build date</dt>
         <dd>{{ i.buildDate }}</dd>
-        @for (engine of i.engines; track engine.line) {
-          <dt>mzTab-M {{ engine.line }}</dt>
-          <dd>
-            @if (engine.available) {
-              jmzTab-m {{ engine.jmztabmVersion }}
-            } @else {
-              not available right now
-            }
-          </dd>
-        }
       </dl>
     } @else {
       <p class="lifs-note">Version information is not available right now.</p>

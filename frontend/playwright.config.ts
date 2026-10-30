@@ -23,7 +23,16 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * They are not part of `./mvnw verify`; run them with `npm --prefix frontend run e2e`.
  * E2E_BASE_URL overrides the address; it must end with a slash.
+ *
+ * Tests tagged `@engine-down` need the mzTab-M 2.1 engine stopped, so the default run leaves
+ * them out. Run them alone, after stopping that engine, with
+ *
+ *   E2E_ENGINE_DOWN=true npm --prefix frontend run e2e -- --grep @engine-down
+ *
+ * (a `--grep` on the command line cannot undo the project's `grepInvert`, hence the variable).
  */
+const engineDown = process.env['E2E_ENGINE_DOWN'] === 'true';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -38,5 +47,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      ...(engineDown ? { grep: /@engine-down/ } : { grepInvert: /@engine-down/ }),
+    },
+  ],
 });
