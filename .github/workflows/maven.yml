@@ -69,6 +69,19 @@ jobs:
     # mean :latest), so only the tags in jib.to.tags are pushed.
     # master: version and latest for all three. A release version (no -SNAPSHOT) leaves out the
     # engines on a jmzTab-m SNAPSHOT line, as a release build does (-DskipSnapshotEngines, spec E11).
+    # A release version is first checked to depend only on released artifacts (the release profile's
+    # requireReleaseDeps, jmzTab-m included); if it does not, this step fails and nothing is pushed.
+    - name: Check that a release version depends only on released artifacts
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      env:
+        USERNAME: ${{ github.actor }}
+        PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if [[ "$RELEASE_VERSION" == *-SNAPSHOT ]]; then
+          echo "Development version $RELEASE_VERSION: SNAPSHOT dependencies are allowed"
+        else
+          ./mvnw -B -Prelease -DskipSnapshotEngines -DskipTests validate --file pom.xml
+        fi
     - name: Build and push docker images with Maven
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       env:

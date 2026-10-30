@@ -127,7 +127,7 @@ Activate a profile with `SPRING_PROFILES_ACTIVE=microservice` or `--spring.profi
 
 ## Engines (mzTab-M 2.0 and 2.1)
 
-The engines parse, validate and convert mzTab-M files, and ask the Ontology Lookup Service during semantic validation. They have no storage, no volume and no authentication, and serve only an internal API under `/engine/v1` plus `/actuator/health` and `/actuator/info` (no context path). Both engines take the same settings.
+The engines parse, validate and convert mzTab-M files, and ask the Ontology Lookup Service during semantic validation. They have no storage, no volume and no authentication, and serve only an internal API under `/engine/v1`, its OpenAPI document at `/v3/api-docs` (springdoc), and `/actuator/health` and `/actuator/info` (no context path). Both engines take the same settings.
 
 | Property | Environment variable | Default | Meaning |
 |---|---|---|---|

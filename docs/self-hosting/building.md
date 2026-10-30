@@ -132,7 +132,7 @@ Do not run `./mvnw package -Pdocker` without `-Ddocker.image.prefix`: it tries t
 
 The LIFS project publishes its images from GitHub Actions (`.github/workflows/maven.yml`) as `docker.lifs-tools.org/lifs/mztab-validator-webapp`, `docker.lifs-tools.org/lifs/mztab-validator-engine-2.0` and `docker.lifs-tools.org/lifs/mztab-validator-engine-2.1`, tagged with the version:
 
-- a push to `master` publishes all three with the version and `latest`; a release version (without `-SNAPSHOT`) leaves out the 2.1 engine, as a release does;
+- a push to `master` publishes all three with the version and `latest`; a release version (without `-SNAPSHOT`) leaves out the 2.1 engine, as a release does, and is first checked with `./mvnw -B -Prelease -DskipSnapshotEngines -DskipTests validate`: if any dependency is still a SNAPSHOT, nothing is pushed;
 - a manual run ("Run workflow") on the integration branch `feat/validator-spa` publishes all three with the version only (e.g. `2.0.0-SNAPSHOT`), never `latest`.
 
 ## Releases
@@ -158,5 +158,13 @@ The 2.1 engine is built on jmzTab-m 2.1.0-SNAPSHOT, so it stays out of releases 
   ```
 
   Release jmzTab-m 1.0.8 first and set `jmztabm20.version` to `1.0.8`.
+
+**Bump versions without `-DskipSnapshotEngines`.** Only the release build itself takes the flag. Set the release version, and afterwards the next development version, with the 2.1 engine in the reactor, for example:
+
+```sh
+./mvnw -B versions:set -DnewVersion=2.0.0 -DgenerateBackupPoms=false
+```
+
+`engine-mztabm-2.1/pom.xml` names the version of its parent (`engine-parent`), so the bump must cover that module too. With `-DskipSnapshotEngines` the module is not part of the reactor: a tool that changes only the reactor's modules (such as the Maven Release Plugin's `release:prepare`) leaves its parent version stale, and the next default build, which includes the 2.1 engine, fails. (`versions:set` also updates modules of inactive profiles, but the flag gains nothing there either.)
 
 A release therefore publishes `lifs/mztab-validator-webapp:<version>` and `lifs/mztab-validator-engine-2.0:<version>`. Once jmzTab-m 2.1.0 is released, `engine-mztabm-2.1` moves from the `snapshot-engines` profile into the modules of every build.
