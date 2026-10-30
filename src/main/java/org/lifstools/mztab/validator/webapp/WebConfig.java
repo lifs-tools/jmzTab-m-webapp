@@ -52,8 +52,11 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(final ResourceHandlerRegistry registry) {
         registry.addResourceHandler("swagger-ui.html")
             .addResourceLocations("classpath:/META-INF/resources/");
+        // the resource chain adds the webjars-locator-lite resolver, so the
+        // templates can use version-less paths like /webjars/jquery/jquery.min.js
         registry.addResourceHandler("/webjars/**")
-            .addResourceLocations("classpath:/META-INF/resources/webjars/");
+            .addResourceLocations("classpath:/META-INF/resources/webjars/")
+            .resourceChain(true);
     }
 
     @Bean
