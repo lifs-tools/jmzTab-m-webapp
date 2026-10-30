@@ -52,8 +52,12 @@ public class EngineRegistry {
 
         }
 
-        /** An mzTab 1.x file, which is not validated any more. */
-        record Legacy(String declared) implements RouteDecision {
+        /**
+         * An mzTab 1.x file, which is not validated any more.
+         *
+         * @param supported the configured lines
+         */
+        record Legacy(String declared, Set<String> supported) implements RouteDecision {
 
         }
 
@@ -66,6 +70,8 @@ public class EngineRegistry {
     private final Map<String, EngineClient> clients;
     private final String defaultLine;
     private final Map<String, Optional<EngineInfo>> info = new ConcurrentHashMap<>();
+    /** The line each engine that serves another line than configured last reported, to warn once. */
+    private final Map<String, String> otherLines = new ConcurrentHashMap<>();
 
     @Autowired
     public EngineRegistry(EnginesProperties properties) {
@@ -107,7 +113,7 @@ public class EngineRegistry {
         }
         String version = declared.get();
         if (MzTabVersions.isLegacy(version)) {
-            return new RouteDecision.Legacy(version);
+            return new RouteDecision.Legacy(version, lines());
         }
         Optional<String> line = MzTabVersions.lineOf(version);
         if (line.isPresent() && clients.containsKey(line.get())) {
@@ -123,7 +129,11 @@ public class EngineRegistry {
         return Collections.unmodifiableMap(copy);
     }
 
-    /** Asks one engine about itself now and remembers the answer. */
+    /**
+     * Asks one engine about itself now and remembers the answer. An engine
+     * that serves another line than it is configured for (e.g. with swapped
+     * URLs) counts as unavailable, with a warning.
+     */
     public Optional<EngineInfo> refresh(String line) {
         EngineClient client = clients.get(line);
         if (client == null) {
@@ -134,6 +144,16 @@ public class EngineRegistry {
             fresh = Optional.of(client.info());
         } catch (RuntimeException e) {
             fresh = Optional.empty();
+        }
+        if (fresh.isPresent() && !line.equals(fresh.get().line())) {
+            String served = String.valueOf(fresh.get().line());
+            if (!served.equals(otherLines.put(line, served))) {
+                log.warn("The validation engine configured for mzTab-M {} serves mzTab-M {}; it is not used as "
+                    + "available. Check engines.mztabm[n].line and .url", line, served);
+            }
+            fresh = Optional.empty();
+        } else {
+            otherLines.remove(line);
         }
         Optional<EngineInfo> before = info.put(line, fresh);
         if (before != null && before.isPresent() && fresh.isEmpty()) {

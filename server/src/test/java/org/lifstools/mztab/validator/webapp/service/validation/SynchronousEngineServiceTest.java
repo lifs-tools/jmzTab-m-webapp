@@ -241,7 +241,7 @@ class SynchronousEngineServiceTest {
 
         assertThat(((SynchronousEngineService.Conversion.Rejected) conversion).messages())
             .extracting(ValidationMessage::getMessage).containsExactly("This file declares mzTab-version 1.0. "
-            + "mzTab 1.0 is no longer supported; the validator checks mzTab-M 2.0 files.");
+            + "mzTab 1.0 is no longer supported; the validator checks mzTab-M 2.0 and 2.1 files.");
         assertThat(engine20.getRequestCount() + engine21.getRequestCount()).isZero();
     }
 

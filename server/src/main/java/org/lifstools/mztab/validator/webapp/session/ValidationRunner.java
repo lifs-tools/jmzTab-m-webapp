@@ -67,7 +67,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class ValidationRunner {
 
-    static final String MZTAB_1_0 = EngineMessages.LEGACY;
     static final String UNEXPECTED_ERROR = "The validation could not be completed because of an unexpected "
         + "server error. Please try again later.";
     /** The first delay after a busy answer; it doubles with each further one. */

@@ -92,6 +92,8 @@ class ValidationRunnerTest {
     private static final String UNAVAILABLE_20
         = "The mzTab-M 2.0 validator is temporarily unavailable. Please try again later.";
     private static final String TSV_20 = "MTD\tmzTab-version\t2.0.0-M\nMTD\tmzTab-ID\tx\n";
+    private static final String MZTAB_1_0_20 = "This file declares mzTab-version 1.0. mzTab 1.0 is no longer "
+        + "supported; the validator checks mzTab-M 2.0 files.";
     private static final String TSV_21 = "MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-ID\tx\n";
 
     @TempDir
@@ -265,9 +267,23 @@ class ValidationRunnerTest {
         assertEquals(ValidationStatus.FAILED, record.status());
         assertEquals(ValidationOutcome.NOT_PARSED, record.outcome());
         assertEquals("1.0.0", record.mzTabVersion());
-        assertEquals(ValidationRunner.MZTAB_1_0, record.messages().get(0).getMessage());
+        assertEquals(MZTAB_1_0_20, record.messages().get(0).getMessage());
         assertEquals(0, engine20.validations.size());
         verify(tracker).stopped(record.id(), "validation", "fail");
+    }
+
+    /** F4: the legacy message names the lines of this instance. */
+    @Test
+    void legacyMessageNamesTheConfiguredLines() throws Exception {
+        ValidationRunner runner = runner(Duration.ofMinutes(10), null, Map.of("2.0", engine20.url(), "2.1",
+            engine21.url()));
+
+        ValidationRecord record = run(runner, "MTD\tmzTab-version\t1.0.0\n", ProfileRef.none());
+
+        assertEquals(ValidationStatus.FAILED, record.status());
+        assertEquals("This file declares mzTab-version 1.0. mzTab 1.0 is no longer supported; the validator checks "
+            + "mzTab-M 2.0 and 2.1 files.", record.messages().get(0).getMessage());
+        assertEquals(0, engine20.validations.size() + engine21.validations.size());
     }
 
     @Test
@@ -275,7 +291,7 @@ class ValidationRunnerTest {
         ValidationRecord record = run(runner(), "{\"metadata\": {\"mzTab-version\": \"1.0.0\"}}", ProfileRef.none());
 
         assertEquals(ValidationStatus.FAILED, record.status());
-        assertEquals(ValidationRunner.MZTAB_1_0, record.messages().get(0).getMessage());
+        assertEquals(MZTAB_1_0_20, record.messages().get(0).getMessage());
         assertEquals(0, engine20.validations.size());
     }
 

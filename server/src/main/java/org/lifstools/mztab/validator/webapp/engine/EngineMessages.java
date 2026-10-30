@@ -24,22 +24,29 @@ import org.springframework.lang.Nullable;
 /** The user-facing texts about version lines and engines. */
 public final class EngineMessages {
 
-    /** The one message for an mzTab 1.x file, which is not validated any more. */
-    public static final String LEGACY = "This file declares mzTab-version 1.0. mzTab 1.0 is no longer supported; "
-        + "the validator checks mzTab-M 2.0 files.";
-
     private EngineMessages() {
     }
 
     /**
-     * Why a file goes to no engine: {@link #LEGACY} for an mzTab 1.x file,
+     * The one message for an mzTab 1.x file, which is not validated any more: {@code This file declares
+     * mzTab-version 1.0. mzTab 1.0 is no longer supported; the validator checks mzTab-M <lines> files.}
+     *
+     * @param lines the configured lines
+     */
+    public static String legacy(Set<String> lines) {
+        return "This file declares mzTab-version 1.0. mzTab 1.0 is no longer supported; the validator checks "
+            + "mzTab-M " + joined(lines) + " files.";
+    }
+
+    /**
+     * Why a file goes to no engine: {@link #legacy} for an mzTab 1.x file,
      * {@link #unsupported} for a version without an engine on this instance.
      *
      * @return empty if the file goes to an engine
      */
     public static Optional<String> rejection(EngineRegistry.RouteDecision decision, @Nullable String hintUrl) {
         return switch (decision) {
-            case EngineRegistry.RouteDecision.Legacy legacy -> Optional.of(LEGACY);
+            case EngineRegistry.RouteDecision.Legacy legacy -> Optional.of(legacy(legacy.supported()));
             case EngineRegistry.RouteDecision.Unsupported unsupported -> Optional.of(unsupported(unsupported, hintUrl));
             case EngineRegistry.RouteDecision.Routed routed -> Optional.empty();
         };

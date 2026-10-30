@@ -82,7 +82,7 @@ import org.springframework.test.util.AopTestUtils;
 class ValidationSessionServiceTest {
 
     private static final String MZTAB_1_0_TEXT = "This file declares mzTab-version 1.0. mzTab 1.0 is no longer "
-        + "supported; the validator checks mzTab-M 2.0 files.";
+        + "supported; the validator checks mzTab-M 2.0 and 2.1 files.";
     private static final String RESTART_TEXT
         = "The validation was interrupted by a server restart. Please validate the file again.";
     private static final ValidationOptions STRUCTURAL = new ValidationOptions(ValidationLevel.INFO, 100, null, null);
