@@ -1,7 +1,7 @@
 # mzTab-M 2.0 and 2.1 Side by Side — Version Engines Design
 
 **Date:** 2026-10-30
-**Status:** Draft, awaiting approval by the project lead. Open questions answered 2026-10-30 (§8).
+**Status:** Approved by the project lead on 2026-10-30.
 **Builds on:** `2026-10-23-validator-spa-design.md` (the "SPA design" below) and, for the editor, `lipidcompass/docs/design/mztabm-editor/specs/standalone-editor-design.md` (the "standalone design"). Everything there that this document does not override still applies.
 
 Decisions are tagged **[decided]** where the project lead decided them and **[my call]** where the author decided and the project lead can still correct it.
