@@ -440,6 +440,18 @@
     </build>
     <profiles>
         <profile>
+            <id>snapshot-engines</id>
+            <!-- engines on a jmzTab-m SNAPSHOT line; releases build with -DskipSnapshotEngines (spec E11) -->
+            <activation>
+                <property>
+                    <name>!skipSnapshotEngines</name>
+                </property>
+            </activation>
+            <modules>
+                <module>engine-mztabm-2.1</module>
+            </modules>
+        </profile>
+        <profile>
             <id>dev</id>
             <properties>
                 <spring.profiles.active>dev</spring.profiles.active>
