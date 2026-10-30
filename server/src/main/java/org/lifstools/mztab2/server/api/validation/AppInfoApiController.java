@@ -17,7 +17,12 @@ package org.lifstools.mztab2.server.api.validation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+import java.util.Optional;
+import org.lifstools.mztab.validator.engine.api.EngineInfo;
 import org.lifstools.mztab.validator.webapp.domain.AppInfo;
+import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
+import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
@@ -35,27 +40,62 @@ public class AppInfoApiController {
 
     }
 
-    public record AppInfoDto(String version, String buildDate, String jmztabmVersion, int retentionDays,
-        long maxUploadBytes, boolean customMappingsEnabled, @Nullable AnalyticsDto analytics) {
+    /**
+     * A validation engine.
+     *
+     * @param line the mzTab-M version line
+     * @param mzTabVersions the declared versions it accepts; empty while it has not been reachable
+     * @param jmztabmVersion the jmzTab-m version it runs; null while it has not been reachable
+     * @param available whether it was reachable the last time it was asked
+     */
+    public record EngineDto(String line, List<String> mzTabVersions, @Nullable String jmztabmVersion,
+        boolean available) {
 
     }
 
-    private final AppInfoDto info;
+    public record AppInfoDto(String version, String buildDate, List<EngineDto> engines, String defaultLine,
+        @Nullable String unavailableHintUrl, int retentionDays, long maxUploadBytes, boolean customMappingsEnabled,
+        @Nullable AnalyticsDto analytics) {
 
-    public AppInfoApiController(AppInfo appInfo, @Value("${minCleanupAge:7}") int retentionDays,
+    }
+
+    private final String version;
+    private final String buildDate;
+    private final EngineRegistry engines;
+    private final String unavailableHintUrl;
+    private final int retentionDays;
+    private final long maxUploadBytes;
+    private final boolean customMappingsEnabled;
+    private final AnalyticsDto analytics;
+
+    public AppInfoApiController(AppInfo appInfo, EngineRegistry engines, EnginesProperties engineProperties,
+        @Value("${minCleanupAge:7}") int retentionDays,
         @Value("${spring.servlet.multipart.max-file-size:64MB}") DataSize maxUpload,
         @Value("${validation.custom-mappings.enabled:true}") boolean customMappingsEnabled,
         @Value("${matomo.tracker-base:}") String trackerBase) {
         String ga = appInfo.getGaId();
         // an empty ga.id means no analytics
         AnalyticsDto analytics = ga == null || ga.isBlank() ? null : new AnalyticsDto(ga.strip(), trackerBase);
-        this.info = new AppInfoDto(appInfo.getVersionNumber(), appInfo.getBuildDate(),
-            appInfo.getJmztabmVersionNumber(), retentionDays, maxUpload.toBytes(), customMappingsEnabled, analytics);
+        this.version = appInfo.getVersionNumber();
+        this.buildDate = appInfo.getBuildDate();
+        this.engines = engines;
+        String hint = engineProperties.unavailableHintUrl();
+        this.unavailableHintUrl = hint == null || hint.isBlank() ? null : hint.strip();
+        this.retentionDays = retentionDays;
+        this.maxUploadBytes = maxUpload.toBytes();
+        this.customMappingsEnabled = customMappingsEnabled;
+        this.analytics = analytics;
     }
 
-    @Operation(operationId = "getAppInfo", summary = "Returns version, limits and analytics settings")
+    @Operation(operationId = "getAppInfo", summary = "Returns version, validation engines, limits and analytics settings")
     @GetMapping(value = "/app-info", produces = MediaType.APPLICATION_JSON_VALUE)
     public AppInfoDto getAppInfo() {
-        return info;
+        List<EngineDto> engineDtos = engines.lastKnownInfo().entrySet().stream().map(e -> {
+            Optional<EngineInfo> info = e.getValue();
+            return new EngineDto(e.getKey(), info.map(EngineInfo::mzTabVersions).orElse(List.of()),
+                info.map(EngineInfo::jmztabmVersion).orElse(null), info.isPresent());
+        }).toList();
+        return new AppInfoDto(version, buildDate, engineDtos, engines.defaultLine(), unavailableHintUrl,
+            retentionDays, maxUploadBytes, customMappingsEnabled, analytics);
     }
 }

@@ -60,4 +60,14 @@ class AppInfoApiControllerTest {
             .andExpect(jsonPath("$.customMappingsEnabled").value(true))
             .andExpect(jsonPath("$.version").exists());
     }
+
+    @Test
+    void listsEnginesAndDefaultLine() throws Exception {
+        mvc.perform(get("/rest/v2/app-info")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.engines[0].line").value("2.0"))
+            .andExpect(jsonPath("$.engines[0].available").value(false))
+            .andExpect(jsonPath("$.defaultLine").value("2.0"))
+            .andExpect(jsonPath("$.unavailableHintUrl").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.jmztabmVersion").doesNotExist());
+    }
 }

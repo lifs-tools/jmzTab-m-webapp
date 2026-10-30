@@ -96,8 +96,16 @@
         <dd>{{ i.version }}</dd>
         <dt>Build date</dt>
         <dd>{{ i.buildDate }}</dd>
-        <dt>jmzTab-m</dt>
-        <dd>{{ i.jmztabmVersion }}</dd>
+        @for (engine of i.engines; track engine.line) {
+          <dt>mzTab-M {{ engine.line }}</dt>
+          <dd>
+            @if (engine.available) {
+              jmzTab-m {{ engine.jmztabmVersion }}
+            } @else {
+              not available right now
+            }
+          </dd>
+        }
       </dl>
     } @else {
       <p class="lifs-note">Version information is not available right now.</p>

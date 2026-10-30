@@ -40,9 +40,6 @@ public class AppInfo {
     @Value("${app.version.number}")
     private String versionNumber;
     
-    @Value("${jmztabm.version.number}")
-    private String jmztabmVersionNumber;
-
     @Value("${ga.id}")
     private String gaId;
     

@@ -17,7 +17,11 @@ describe('AboutPage', () => {
       .flush({
         version: '2.0.0',
         buildDate: '2026-10-01',
-        jmztabmVersion: '3.0.9',
+        engines: [
+          { line: '2.0', mzTabVersions: ['2.0.0-M'], jmztabmVersion: '3.0.9', available: true },
+          { line: '2.1', mzTabVersions: ['2.1.0-M'], available: false },
+        ],
+        defaultLine: '2.0',
         retentionDays: 7,
         customMappingsEnabled: true,
       });
@@ -28,7 +32,10 @@ describe('AboutPage', () => {
   it('shows the retirement notice and the app version', async () => {
     const el = await render();
     expect(el.textContent).toContain('mzTab 1.0 validation was retired in version 2.0.0.');
-    expect(el.textContent).toContain('3.0.9');
+    expect(el.textContent).toContain('mzTab-M 2.0');
+    expect(el.textContent).toContain('jmzTab-m 3.0.9');
+    expect(el.textContent).toContain('mzTab-M 2.1');
+    expect(el.textContent).toContain('not available right now');
     expect(el.textContent).toContain('2026-10-01');
     expect(el.textContent).toContain('kept for 7 days');
   });

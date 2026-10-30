@@ -15,6 +15,7 @@
  */
 package org.lifstools.mztab.validator.webapp;
 
+import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -38,7 +39,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableDiscoveryClient
 @SpringBootApplication
 @EnableConfigurationProperties(value = {StorageProperties.class,
-    ExampleFileConfig.class})
+    ExampleFileConfig.class, EnginesProperties.class})
 //@EnableSwagger2
 @EnableScheduling
 @ComponentScan(basePackages = {"org.lifstools.mztab2.server.invoker",

@@ -23,8 +23,14 @@
           "customMappingsEnabled" : {
             "type" : "boolean"
           },
-          "jmztabmVersion" : {
+          "defaultLine" : {
             "type" : "string"
+          },
+          "engines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EngineDto"
+            },
+            "type" : "array"
           },
           "maxUploadBytes" : {
             "format" : "int64",
@@ -33,6 +39,9 @@
           "retentionDays" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "unavailableHintUrl" : {
+            "type" : [ "string", "null" ]
           },
           "version" : {
             "type" : "string"
@@ -174,6 +183,26 @@
           }
         },
         "required" : [ "param", "prefix", "uri", "version" ],
+        "type" : "object"
+      },
+      "EngineDto" : {
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "jmztabmVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "line" : {
+            "type" : "string"
+          },
+          "mzTabVersions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
         "type" : "object"
       },
       "ErrorResponse" : {
@@ -1381,7 +1410,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Returns version, limits and analytics settings",
+        "summary" : "Returns version, validation engines, limits and analytics settings",
         "tags" : [ "app-info" ]
       }
     },
