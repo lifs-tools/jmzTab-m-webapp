@@ -16,7 +16,14 @@
 package org.lifstools.mztab.validator.webapp.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -34,8 +41,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.storage.FileSystemStorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
-import org.lifstools.mztab2.model.ValidationLocation;
-import org.lifstools.mztab2.model.ValidationMessage;
+import org.lifstools.mztab.validator.engine.api.ValidationLocation;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab2.server.config.JacksonConfiguration;
 
 class ValidationRecordStoreTest {
@@ -44,12 +52,13 @@ class ValidationRecordStoreTest {
     Path root;
 
     private ValidationRecordStore store;
+    private FileSystemStorageService storage;
 
     @BeforeEach
     void setUp() {
         StorageProperties properties = new StorageProperties();
         properties.setLocation(root.toString());
-        FileSystemStorageService storage = new FileSystemStorageService(properties);
+        storage = new FileSystemStorageService(properties);
         storage.init();
         store = new ValidationRecordStore(storage, new JacksonConfiguration().objectMapper());
     }
@@ -97,17 +106,70 @@ class ValidationRecordStoreTest {
     void keepsSuggestionRuleIdAndLocation() throws Exception {
         Instant now = Instant.now();
         UUID id = UUID.randomUUID();
-        ValidationMessage message = new ValidationMessage().code("2009").message("m").lineNumber(5L)
-            .messageType(ValidationMessage.MessageTypeEnum.ERROR).category(ValidationMessage.CategoryEnum.LOGICAL)
-            .suggestion("Add the column.").ruleId("rule-1")
-            .location(new ValidationLocation().section(ValidationLocation.SectionEnum.SML).rowIndex(3).column("reliability")
-                .metadataKey("sample[3]-species[1]").metadataGroup("sample").elementPath("/a/b"));
+        ValidationLocation location = new ValidationLocation();
+        location.setSection(ValidationLocation.Section.SML);
+        location.setRowIndex(3);
+        location.setColumn("reliability");
+        location.setMetadataKey("sample[3]-species[1]");
+        location.setMetadataGroup("sample");
+        location.setElementPath("/a/b");
+        ValidationMessage message = new ValidationMessage();
+        message.setCode("2009");
+        message.setMessage("m");
+        message.setLineNumber(5L);
+        message.setMessageType(ValidationMessage.MessageType.ERROR);
+        message.setCategory(ValidationMessage.Category.LOGICAL);
+        message.setSuggestion("Add the column.");
+        message.setRuleId("rule-1");
+        message.setLocation(location);
         store.write(ValidationRecord.queued(id, "a.mzTab", ValidationLevel.INFO, 100, ProfileRef.none(), now,
-            now.plus(Duration.ofDays(7))).running(now).finished(ValidationOutcome.FAILED, "2.0.0-M", List.of(message), null, now));
+            now.plus(Duration.ofDays(7))).running(now).finished(ValidationOutcome.FAILED, "2.0.0-M", List.of(message),
+            null, "mzTab-M 2.0 · jmzTab-m 1.0.8 (build b)", true, now));
 
-        ValidationMessage loaded = store.read(id).orElseThrow().messages().get(0);
+        ValidationRecord loaded = store.read(id).orElseThrow();
 
-        assertEquals(message, loaded);
+        assertEquals(message, loaded.messages().get(0));
+        assertEquals("mzTab-M 2.0 · jmzTab-m 1.0.8 (build b)", loaded.engine());
+        assertTrue(loaded.defaultVersionApplied());
+    }
+
+    /**
+     * A record written before validations ran through the engines (with
+     * jmzTab-m's messages, without {@code engine} and
+     * {@code defaultVersionApplied}) still reads, and its messages are served
+     * with the same JSON.
+     */
+    @Test
+    void recordWrittenBeforeTheEnginesStillReads() throws Exception {
+        byte[] before;
+        try (InputStream in = getClass().getResourceAsStream("/engine-results/record-before-engines.json")) {
+            before = in.readAllBytes();
+        }
+        UUID id = UUID.fromString("6f1c9a4e-2b7d-4c1e-9a3f-0d5e8b7c6a21");
+        storage.write(id, SLOT.RECORD, ValidationRecordStore.RECORD, new ByteArrayInputStream(before));
+
+        ValidationRecord record = store.read(id).orElseThrow();
+
+        assertEquals(ValidationStatus.FINISHED, record.status());
+        assertEquals(ValidationOutcome.FAILED, record.outcome());
+        assertEquals(ProfileRef.catalog("mztab-m-2.0-default", "1.0.0"), record.validationProfile());
+        assertNull(record.engine());
+        assertFalse(record.defaultVersionApplied());
+        assertEquals(2, record.messages().size());
+        ValidationMessage first = record.messages().get(0);
+        assertEquals(ValidationMessage.MessageType.ERROR, first.getMessageType());
+        assertEquals(ValidationMessage.Category.CROSS_CHECK, first.getCategory());
+        assertEquals(ValidationLocation.Section.SML, first.getLocation().getSection());
+        assertEquals(3, first.getLocation().getRowIndex());
+        assertEquals(1, record.counts().get(ValidationLevel.ERROR));
+        assertEquals(1, record.counts().get(ValidationLevel.WARN));
+        assertEquals(new SectionsSummary(61, new TableSize(1, 19), new TableSize(4, 12), null), record.sections());
+        ObjectMapper mapper = new JacksonConfiguration().objectMapper();
+        assertEquals(mapper.writeValueAsString(mapper.readTree(before).get("messages")),
+            mapper.writeValueAsString(record.messages()), "the messages keep their JSON");
+        JsonNode written = mapper.valueToTree(record);
+        assertTrue(written.has("engine") && written.get("engine").isNull(), written.toString());
+        assertFalse(written.get("defaultVersionApplied").asBoolean());
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

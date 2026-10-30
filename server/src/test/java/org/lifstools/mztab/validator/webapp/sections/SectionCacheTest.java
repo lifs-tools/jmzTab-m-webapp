@@ -27,6 +27,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
@@ -50,6 +51,7 @@ class SectionCacheTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)

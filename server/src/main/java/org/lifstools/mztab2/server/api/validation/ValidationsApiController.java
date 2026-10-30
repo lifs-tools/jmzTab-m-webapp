@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
+import org.lifstools.mztab.validator.engine.api.ValidationLocation;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
@@ -40,8 +42,6 @@ import org.lifstools.mztab.validator.webapp.sections.TableQuery;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
-import org.lifstools.mztab2.model.ValidationLocation;
-import org.lifstools.mztab2.model.ValidationMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -243,7 +243,7 @@ public class ValidationsApiController {
                 .append(field(m.getMessage())).append(',')
                 .append(field(m.getSuggestion())).append(',')
                 .append(field(m.getRuleId())).append(',')
-                .append(field(l == null || l.getSection() == null ? null : l.getSection().getValue())).append(',')
+                .append(field(l == null || l.getSection() == null ? null : l.getSection().value())).append(',')
                 .append(l == null || l.getRowIndex() == null ? "" : Integer.toString(l.getRowIndex() + 1)).append(',')
                 .append(field(l == null ? null : l.getColumn())).append(',')
                 .append(field(l == null ? null : l.getMetadataKey())).append(',')

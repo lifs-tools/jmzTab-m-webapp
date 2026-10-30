@@ -1322,6 +1322,12 @@
             "format" : "date-time",
             "type" : "string"
           },
+          "defaultVersionApplied" : {
+            "type" : "boolean"
+          },
+          "engine" : {
+            "type" : [ "string", "null" ]
+          },
           "expiresAt" : {
             "format" : "date-time",
             "type" : "string"

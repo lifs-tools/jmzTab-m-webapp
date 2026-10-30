@@ -16,6 +16,7 @@
 package org.lifstools.mztab2.server.api.validation;
 
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +58,7 @@ class ExamplesApiControllerTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)

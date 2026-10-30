@@ -16,6 +16,7 @@
 package org.lifstools.mztab.validator.webapp.spa;
 
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +71,7 @@ class SpaControllerTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)

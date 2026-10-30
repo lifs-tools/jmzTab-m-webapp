@@ -22,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -32,7 +30,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,10 +52,11 @@ import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
+import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
+import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.service.validation.MappingFixtures;
-import org.lifstools.mztab.validator.webapp.service.validation.MzTabMValidator;
-import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
-import org.lifstools.mztab2.model.ValidationMessage;
 import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -71,8 +72,10 @@ import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
 /**
  * Validation sessions end to end below the REST layer: submit, the async
- * runner, persistence in the storage directory and restart recovery. OLS is
- * mocked, so the test needs no network.
+ * runner with the real mzTab-M 2.0 engine ({@link EngineTestSupport}),
+ * persistence in the storage directory and restart recovery. A 2.1 line is
+ * configured whose engine is not running, so submit-time checks can see a 2.1
+ * file routed. Semantic validation in the engine asks OLS.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 class ValidationSessionServiceTest {
@@ -87,18 +90,25 @@ class ValidationSessionServiceTest {
     static Path storageRoot;
 
     @DynamicPropertySource
-    static void storage(DynamicPropertyRegistry registry) {
+    static void storage(DynamicPropertyRegistry registry) throws IOException {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
+        int closed;
+        try (ServerSocket socket = new ServerSocket(0)) {
+            closed = socket.getLocalPort();
+        }
+        registry.add("engines.mztabm[1].line", () -> "2.1");
+        registry.add("engines.mztabm[1].url", () -> "http://localhost:" + closed);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)
     OLSClient olsClient;
 
     @MockitoSpyBean
-    CvParameterLookupService lookupService;
+    EngineResultReader resultReader;
 
-    @MockitoSpyBean
-    MzTabMValidator validator;
+    @Autowired
+    EngineRegistry registry;
 
     @Autowired
     ValidationSessionService sessions;
@@ -150,6 +160,82 @@ class ValidationSessionServiceTest {
         assertEquals(record.messages().size(), record.counts().values().stream().mapToInt(Integer::intValue).sum());
         assertNotNull(record.startedAt());
         assertNotNull(record.finishedAt());
+        assertNotNull(record.engine());
+        assertTrue(record.engine().startsWith("mzTab-M 2.0 · jmzTab-m "), record.engine());
+        assertFalse(record.defaultVersionApplied());
+        assertNotNull(record.sections());
+    }
+
+    @Test
+    void jsonUploadIsValidatedLikeTsv() throws Exception {
+        ValidationRecord tsv = awaitFinal(submit("/metabolomics/lipidomics-example.mzTab", STRUCTURAL, null).id());
+        Path json = Files.createTempFile("lipidomics-example", ".json");
+        try (InputStream in = getClass().getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
+            registry.forLine("2.0").orElseThrow().tsvToJson(in, json);
+            ValidationRecord record;
+            try (InputStream body = Files.newInputStream(json)) {
+                record = awaitFinal(sessions.submit("lipidomics-example.json", body, STRUCTURAL, null).id());
+            }
+
+            assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
+            assertEquals("2.0.0-M", record.mzTabVersion());
+            assertNotNull(record.sections(), "a parsed JSON file has sections");
+            assertEquals(tsv.sections(), record.sections());
+        } finally {
+            Files.deleteIfExists(json);
+        }
+    }
+
+    @Test
+    void fileWithoutVersionIsValidatedByTheDefaultLine() throws Exception {
+        String noVersion = resource("/metabolomics/minimal-m-2.0.mztab").replace("MTD\tmzTab-version\t2.0.0-M\n", "");
+        ValidationRecord record = awaitFinal(sessions.submit("no-version.mzTab",
+            stream(noVersion), STRUCTURAL, null).id());
+
+        assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
+        assertTrue(record.defaultVersionApplied());
+        assertNull(record.mzTabVersion());
+        assertTrue(record.messages().stream().anyMatch(m -> m.getCode() != null && m.getCode().contains("2008")),
+            "a missing mzTab-version is still an error: " + record.messages());
+    }
+
+    @Test
+    void catalogProfileOfOtherLineIsRejectedAtSubmit() throws Exception {
+        Set<UUID> before = allSessions();
+        ValidationOptions options = new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-2.0-default", null);
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> sessions.submit("two-one.mzTab", stream(twoOneFile()), options, null));
+
+        assertEquals("The validation profile mztab-m-2.0-default 1.0.0 applies to mzTab-M 2.0, but the file is "
+            + "validated as mzTab-M 2.1.", e.getMessage());
+        assertEquals(before, allSessions(), "no session directory may be left behind");
+    }
+
+    @Test
+    void catalogProfileOfTheFilesLineIsAccepted() throws Exception {
+        ValidationOptions options = new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-2.0-default", null);
+        String noVersion = resource("/metabolomics/minimal-m-2.0.mztab").replace("MTD\tmzTab-version\t2.0.0-M\n", "");
+
+        // a file without a version goes to the default line, 2.0
+        ValidationRecord record = sessions.submit("no-version.mzTab", stream(noVersion), options, null);
+
+        assertEquals(ValidationStatus.QUEUED, record.status());
+        awaitFinal(record.id());
+    }
+
+    @Test
+    void customMappingIsAcceptedForAnyLine() throws Exception {
+        ValidationRecord submitted = sessions.submit("two-one.mzTab", stream(twoOneFile()), STRUCTURAL,
+            stream(resource("/validation-profiles/mztab-m-2.0-default/1.0.0.xml")));
+
+        assertEquals(ValidationStatus.QUEUED, submitted.status());
+        assertEquals(ProfileRef.custom(), submitted.validationProfile());
+        ValidationRecord record = awaitFinal(submitted.id());
+        // the 2.1 engine of this test is not running
+        assertEquals(ValidationStatus.FAILED, record.status());
+        assertEquals("The mzTab-M 2.1 validator is temporarily unavailable. Please try again later.",
+            record.failureReason());
     }
 
     @Test
@@ -162,7 +248,7 @@ class ValidationSessionServiceTest {
         assertEquals(ValidationOutcome.NOT_PARSED, record.outcome());
         assertEquals(1, record.messages().size());
         ValidationMessage message = record.messages().get(0);
-        assertEquals(ValidationMessage.MessageTypeEnum.ERROR, message.getMessageType());
+        assertEquals(ValidationMessage.MessageType.ERROR, message.getMessageType());
         assertEquals(MZTAB_1_0_TEXT, message.getMessage());
         assertEquals(1, record.counts().get(ValidationLevel.ERROR));
     }
@@ -176,8 +262,8 @@ class ValidationSessionServiceTest {
             submitted.validationProfile());
         ValidationRecord record = awaitFinal(submitted.id());
         assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
-        assertFalse(mockingDetails(lookupService).getInvocations().isEmpty(),
-            "semantic validation must use the CV lookup service");
+        assertTrue(record.messages().stream().anyMatch(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK),
+            "semantic validation reports cross_check messages: " + record.messages());
     }
 
     @Test
@@ -189,7 +275,8 @@ class ValidationSessionServiceTest {
         assertTrue(storageService.read(submitted.id(), SLOT.MAPPINGFILE, "custom-mapping.xml").isPresent());
         ValidationRecord record = awaitFinal(submitted.id());
         assertEquals(ValidationStatus.FINISHED, record.status(), "failureReason: " + record.failureReason());
-        verify(validator).validateAndParse(any(), any(), anyInt(), any(Path.class));
+        assertTrue(record.messages().stream().anyMatch(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK),
+            "the custom mapping must reach the engine: " + record.messages());
     }
 
     @Test
@@ -248,7 +335,7 @@ class ValidationSessionServiceTest {
             entered.countDown();
             release.await(30, TimeUnit.SECONDS);
             return invocation.callRealMethod();
-        }).when(validator).validateAndParse(any(), any(), anyInt(), any());
+        }).when(resultReader).read(any(), any());
         // the target, not the @Async proxy: both calls run on the test threads and contend for the record
         ValidationRunner target = AopTestUtils.getTargetObject(runner);
         CountDownLatch start = new CountDownLatch(1);
@@ -257,8 +344,8 @@ class ValidationSessionServiceTest {
         threads.forEach(Thread::start);
         try {
             start.countDown();
-            assertTrue(entered.await(30, TimeUnit.SECONDS), "one run must reach the validator");
-            // the other run must give up while the first is still inside the validator
+            assertTrue(entered.await(30, TimeUnit.SECONDS), "one run must reach the engine");
+            // the other run must give up while the first is still reading the engine's result
             Instant deadline = Instant.now().plus(Duration.ofSeconds(30));
             while (threads.stream().allMatch(Thread::isAlive)) {
                 assertTrue(Instant.now().isBefore(deadline), "the second run did not return");
@@ -272,7 +359,7 @@ class ValidationSessionServiceTest {
         }
 
         assertEquals(ValidationStatus.FINISHED, sessions.find(id).orElseThrow().status());
-        verify(validator, times(1)).validateAndParse(any(), any(), anyInt(), any());
+        verify(resultReader, times(1)).read(any(), any());
     }
 
     @Test
@@ -471,7 +558,13 @@ class ValidationSessionServiceTest {
         return new ValidationRecord(id, "interrupted.mzTab", status, null, ValidationLevel.INFO, 100,
             new ProfileRef(ProfileRef.Kind.NONE, null, null), null, now,
             status == ValidationStatus.RUNNING ? now : null, null, now.plus(7, ChronoUnit.DAYS),
-            counts, List.of(), null, null);
+            counts, List.of(), null, null, null, false);
+    }
+
+    private String twoOneFile() throws IOException {
+        String file = resource("/metabolomics/minimal-m-2.0.mztab");
+        assertTrue(file.contains("MTD\tmzTab-version\t2.0.0-M\n"));
+        return file.replace("MTD\tmzTab-version\t2.0.0-M\n", "MTD\tmzTab-version\t2.1.0-M\n");
     }
 
     private static InputStream stream(String s) {

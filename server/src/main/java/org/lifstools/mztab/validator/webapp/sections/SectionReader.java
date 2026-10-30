@@ -47,6 +47,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class SectionReader {
 
+    /** The metadata lines of a validation, one {@link MetadataEntry} per line. */
+    public static final String METADATA_FILE = "metadata.jsonl";
     static final int MAX_PAGE_SIZE = 200;
     static final int DEFAULT_COLUMNS = 50;
     static final int MAX_COLUMNS = 200;
@@ -302,7 +304,7 @@ public class SectionReader {
     }
 
     private Optional<List<MetadataEntry>> metadataEntries(UUID id) {
-        Optional<InputStream> stream = storage.read(id, SLOT.SECTIONS, SectionWriter.METADATA_FILE);
+        Optional<InputStream> stream = storage.read(id, SLOT.SECTIONS, METADATA_FILE);
         if (stream.isEmpty()) {
             return Optional.empty();
         }

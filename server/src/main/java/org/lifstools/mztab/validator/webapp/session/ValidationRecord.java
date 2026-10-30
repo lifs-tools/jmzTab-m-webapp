@@ -22,7 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
-import org.lifstools.mztab2.model.ValidationMessage;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.springframework.lang.Nullable;
 
 /**
  * A validation session: its parameters, status and result. Persisted as
@@ -31,11 +32,18 @@ import org.lifstools.mztab2.model.ValidationMessage;
  * @param counts the number of messages per level; always holds all three levels
  * @param sections the sections of the parsed file, {@code null} if it was not parsed
  * @param failureReason why the validation ended {@link ValidationStatus#FAILED}
+ * @param engine the engine that validated the file, e.g.
+ * {@code mzTab-M 2.1 · jmzTab-m 2.1.0 (build 2026-10-30T12:00:00Z)};
+ * {@code null} until an engine has validated it, and in records written
+ * before validations ran through the engines
+ * @param defaultVersionApplied whether the file declared no
+ * {@code mzTab-version} and went to the engine of the default line
  */
 public record ValidationRecord(UUID id, String fileName, ValidationStatus status, ValidationOutcome outcome,
     ValidationLevel level, int maxErrors, ProfileRef validationProfile, String mzTabVersion, Instant createdAt,
     Instant startedAt, Instant finishedAt, Instant expiresAt, Map<ValidationLevel, Integer> counts,
-    List<ValidationMessage> messages, SectionsSummary sections, String failureReason) {
+    List<ValidationMessage> messages, SectionsSummary sections, String failureReason, @Nullable String engine,
+    boolean defaultVersionApplied) {
 
     public ValidationRecord {
         messages = messages == null ? List.of() : List.copyOf(messages);
@@ -50,35 +58,47 @@ public record ValidationRecord(UUID id, String fileName, ValidationStatus status
     public static ValidationRecord queued(UUID id, String fileName, ValidationLevel level, int maxErrors,
         ProfileRef profile, Instant createdAt, Instant expiresAt) {
         return new ValidationRecord(id, fileName, ValidationStatus.QUEUED, null, level, maxErrors, profile, null,
-            createdAt, null, null, expiresAt, null, List.of(), null, null);
+            createdAt, null, null, expiresAt, null, List.of(), null, null, null, false);
     }
 
     public ValidationRecord running(Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.RUNNING, outcome, level, maxErrors,
             validationProfile, mzTabVersion, createdAt, now, finishedAt, expiresAt, counts, messages, sections,
-            failureReason);
+            failureReason, engine, defaultVersionApplied);
     }
 
-    /** The validation ran to the end. */
+    /** Back in the queue: the engine was busy. */
+    public ValidationRecord requeued() {
+        return new ValidationRecord(id, fileName, ValidationStatus.QUEUED, outcome, level, maxErrors,
+            validationProfile, mzTabVersion, createdAt, null, finishedAt, expiresAt, counts, messages, sections,
+            failureReason, engine, defaultVersionApplied);
+    }
+
+    /**
+     * The validation ran to the end.
+     *
+     * @param validatedBy the label of the engine, see {@link #engine()}
+     * @param defaultApplied see {@link #defaultVersionApplied()}
+     */
     public ValidationRecord finished(ValidationOutcome result, String version, List<ValidationMessage> found,
-        SectionsSummary summary, Instant now) {
+        SectionsSummary summary, @Nullable String validatedBy, boolean defaultApplied, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FINISHED, result, level, maxErrors,
             validationProfile, version, createdAt, startedAt, now, expiresAt, countsOf(found), found, summary,
-            null);
+            null, validatedBy, defaultApplied);
     }
 
     /** The file was refused before parsing, with a single message that is also the failure reason. */
     public ValidationRecord rejected(String version, ValidationMessage message, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FAILED, ValidationOutcome.NOT_PARSED, level,
             maxErrors, validationProfile, version, createdAt, startedAt, now, expiresAt,
-            countsOf(List.of(message)), List.of(message), null, message.getMessage());
+            countsOf(List.of(message)), List.of(message), null, message.getMessage(), engine, defaultVersionApplied);
     }
 
     /** The validation could not be completed. */
     public ValidationRecord failed(String reason, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FAILED, outcome, level, maxErrors,
             validationProfile, mzTabVersion, createdAt, startedAt, now, expiresAt, counts, messages, sections,
-            reason);
+            reason, engine, defaultVersionApplied);
     }
 
     static Map<ValidationLevel, Integer> countsOf(List<ValidationMessage> messages) {

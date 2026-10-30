@@ -104,11 +104,29 @@ jobs:
     # The frontend build installs Node under frontend/node; the e2e tests use the same one.
     - name: Use the Maven-installed Node
       run: echo "$GITHUB_WORKSPACE/frontend/node" >> "$GITHUB_PATH"
+    # The engines first: the webapp validates through them (2.0 on 8084, 2.1 on 8085).
     - name: Start the server
       run: |
+        start_engine() {
+          line="$1"; port="$2"
+          jar=$(ls engine-mztabm-$line/target/mztab-validator-engine-$line-*.jar | grep -v '\.original$' | head -n 1)
+          nohup java -jar "$jar" --server.port=$port > "$RUNNER_TEMP/engine-$line.log" 2>&1 &
+          for i in $(seq 1 120); do
+            if curl -sf http://localhost:$port/actuator/health | grep -q '"status":"UP"'; then
+              echo "mzTab-M $line engine is up"; return 0
+            fi
+            sleep 1
+          done
+          echo "mzTab-M $line engine did not start" >&2; cat "$RUNNER_TEMP/engine-$line.log" >&2; exit 1
+        }
+        start_engine 2.0 8084
+        start_engine 2.1 8085
         jar=$(ls server/target/mztab-validator-webapp-*.jar | grep -v '\.original$' | head -n 1)
         nohup java -jar "$jar" --server.port=8083 --server.servlet.contextPath=/mztabvalidator \
-          --storage.location="$RUNNER_TEMP/storage" > "$RUNNER_TEMP/server.log" 2>&1 &
+          --storage.location="$RUNNER_TEMP/storage" \
+          "--engines.mztabm[0].line=2.0" "--engines.mztabm[0].url=http://localhost:8084" \
+          "--engines.mztabm[1].line=2.1" "--engines.mztabm[1].url=http://localhost:8085" \
+          > "$RUNNER_TEMP/server.log" 2>&1 &
         for i in $(seq 1 120); do
           if curl -sf http://localhost:8083/mztabvalidator/actuator/health | grep -q '"status":"UP"'; then
             echo "Server is up"; exit 0
@@ -137,5 +155,8 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: e2e-server-log
-        path: ${{ runner.temp }}/server.log
+        path: |
+          ${{ runner.temp }}/server.log
+          ${{ runner.temp }}/engine-2.0.log
+          ${{ runner.temp }}/engine-2.1.log
         retention-days: 7

@@ -19,10 +19,17 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
+import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
+import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
+import org.lifstools.mztab.validator.webapp.engine.EngineRegistry.RouteDecision;
 import org.lifstools.mztab.validator.webapp.service.CappedInputStream;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
@@ -52,17 +59,19 @@ public class ValidationSessionService {
     private final ValidationProfileCatalog catalog;
     private final ValidationRecordStore records;
     private final ValidationRunner runner;
+    private final EngineRegistry registry;
     private final long retentionDays;
     private final Object capacityLock = new Object();
 
     public ValidationSessionService(StorageService storage, StorageProperties storageProperties,
         ValidationProfileCatalog catalog, ValidationRecordStore records, ValidationRunner runner,
-        @Value("${minCleanupAge:7}") long retentionDays) {
+        EngineRegistry registry, @Value("${minCleanupAge:7}") long retentionDays) {
         this.storage = storage;
         this.storageProperties = storageProperties;
         this.catalog = catalog;
         this.records = records;
         this.runner = runner;
+        this.registry = registry;
         this.retentionDays = retentionDays;
     }
 
@@ -75,14 +84,17 @@ public class ValidationSessionService {
      * @param customMapping a CV mapping file uploaded instead of a catalog profile
      * @return the {@link ValidationStatus#QUEUED} record
      * @throws IllegalArgumentException for an unknown profile, a profile
-     * together with a custom mapping, or a custom mapping that is larger than
-     * 5 MB or rejected by {@link SafeCvMappingLoader}
+     * together with a custom mapping, a custom mapping that is larger than
+     * 5 MB or rejected by {@link SafeCvMappingLoader}, or a catalog profile
+     * whose versions are not of the line the file is validated as
      * @throws StorageFullException if the storage cap is reached or the
      * upload and mapping would exceed it
      */
     public ValidationRecord submit(String fileName, InputStream content, ValidationOptions options,
         @Nullable InputStream customMapping) {
-        ProfileRef profile = resolveProfile(options, customMapping != null);
+        ValidationProfile catalogProfile = catalogProfile(options, customMapping != null);
+        ProfileRef profile = catalogProfile != null ? ProfileRef.catalog(catalogProfile.id(), catalogProfile.version())
+            : customMapping != null ? ProfileRef.custom() : ProfileRef.none();
         byte[] mapping = customMapping == null ? null : readMapping(customMapping);
 
         UUID id = UUID.randomUUID();
@@ -104,14 +116,52 @@ public class ValidationSessionService {
                     }
                     storage.write(id, SLOT.MAPPINGFILE, CUSTOM_MAPPING, new ByteArrayInputStream(mapping));
                 }
-                records.write(record);
             } catch (RuntimeException e) {
                 storage.deleteAll(id);
                 throw e;
             }
         }
+        // outside the lock: detection reads the whole upload
+        try {
+            if (catalogProfile != null) {
+                checkLine(id, catalogProfile);
+            }
+            records.write(record);
+        } catch (RuntimeException e) {
+            storage.deleteAll(id);
+            throw e;
+        }
         runner.run(id);
         return record;
+    }
+
+    /**
+     * A catalog profile applies to the lines of its {@code mzTabVersions}; the
+     * file must be validated as one of them. Legacy and unsupported files are
+     * left to the runner, which rejects them with their message.
+     */
+    private void checkLine(UUID id, ValidationProfile profile) {
+        Set<String> profileLines = new LinkedHashSet<>();
+        profile.mzTabVersions().forEach(v -> MzTabVersions.lineOf(v).ifPresent(profileLines::add));
+        if (profileLines.isEmpty()) {
+            return;
+        }
+        Optional<String> declared;
+        Path copy = null;
+        try {
+            copy = ValidationRunner.toTempFile(storage.read(id, SLOT.MZTABFILE, UPLOAD).orElseThrow(
+                () -> new IllegalStateException("The upload of validation " + id + " is missing")), ".mztab");
+            declared = ValidationRunner.declaredVersion(copy);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read the upload of validation " + id, e);
+        } finally {
+            ValidationRunner.deleteQuietly(copy);
+        }
+        if (registry.route(declared) instanceof RouteDecision.Routed routed
+            && !profileLines.contains(routed.line())) {
+            throw new IllegalArgumentException(EngineMessages.profileOfOtherLine(profile.id(), profile.version(),
+                profileLines, routed.line()));
+        }
     }
 
     public Optional<ValidationRecord> find(UUID id) {
@@ -127,22 +177,23 @@ public class ValidationSessionService {
         return records.delete(id);
     }
 
-    private ProfileRef resolveProfile(ValidationOptions options, boolean customMapping) {
+    /** The catalog profile of the options, or {@code null} for none or a custom mapping. */
+    @Nullable
+    private ValidationProfile catalogProfile(ValidationOptions options, boolean customMapping) {
         String id = options.validationProfileId();
         String version = options.validationProfileVersion();
         if (id == null) {
             if (version != null) {
                 throw new IllegalArgumentException("A validation profile version needs a validation profile id.");
             }
-            return customMapping ? ProfileRef.custom() : ProfileRef.none();
+            return null;
         }
         if (customMapping) {
             throw new IllegalArgumentException(
                 "Choose either a validation profile or a custom mapping file, not both.");
         }
-        ValidationProfile profile = catalog.find(id, version).orElseThrow(() -> new IllegalArgumentException(
+        return catalog.find(id, version).orElseThrow(() -> new IllegalArgumentException(
             "Unknown validation profile: " + id + (version == null ? "" : " " + version)));
-        return ProfileRef.catalog(profile.id(), profile.version());
     }
 
     private static byte[] readMapping(InputStream in) {

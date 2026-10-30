@@ -29,7 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
-import org.lifstools.mztab.validator.webapp.sections.SectionWriter;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
+import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
+import org.lifstools.mztab.validator.webapp.sections.SectionReader;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.mockito.Answers;
@@ -42,7 +44,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.AopTestUtils;
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient;
 
-/** A session deleted while its sections are written must not leave files behind. */
+/**
+ * A session deleted while the engine's result is read must not leave files
+ * behind: the reader writes the sections outside the session's lock and
+ * recreates the deleted session's directory. Runs against the real mzTab-M 2.0
+ * engine ({@link EngineTestSupport}).
+ */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 class SectionWriteRaceTest {
 
@@ -52,13 +59,14 @@ class SectionWriteRaceTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)
     OLSClient olsClient;
 
     @MockitoSpyBean
-    SectionWriter sectionWriter;
+    EngineResultReader resultReader;
 
     @Autowired
     ValidationRunner runner;
@@ -84,9 +92,9 @@ class SectionWriteRaceTest {
         AtomicBoolean deleted = new AtomicBoolean();
         doAnswer(invocation -> {
             deleted.set(sessions.delete(id));
-            // the real writer recreates SECTIONS/ of the deleted session
+            // the real reader recreates SECTIONS/ of the deleted session
             return invocation.callRealMethod();
-        }).when(sectionWriter).write(any(), any());
+        }).when(resultReader).read(any(), any());
 
         // the target, not the @Async proxy: runs on this thread
         ValidationRunner target = AopTestUtils.getTargetObject(runner);
@@ -94,6 +102,7 @@ class SectionWriteRaceTest {
 
         assertTrue(deleted.get(), "the session must have been deleted while running");
         assertTrue(storage.read(id, SLOT.SECTIONS, "sml.jsonl").isEmpty());
+        assertTrue(storage.read(id, SLOT.SECTIONS, SectionReader.METADATA_FILE).isEmpty());
         assertFalse(storage.sessions().anyMatch(id::equals));
     }
 }

@@ -1,0 +1,63 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab.validator.webapp.engine;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
+import org.springframework.lang.Nullable;
+
+/** The user-facing texts about version lines and engines. */
+public final class EngineMessages {
+
+    private EngineMessages() {
+    }
+
+    /**
+     * {@code This file declares mzTab-version <declared>. This validator supports mzTab-M <lines>.} and, with a
+     * hint URL, where the line of the declared version can be tried.
+     */
+    public static String unsupported(EngineRegistry.RouteDecision.Unsupported decision, @Nullable String hintUrl) {
+        StringBuilder text = new StringBuilder("This file declares mzTab-version ").append(decision.declared())
+            .append(". This validator supports mzTab-M ").append(joined(decision.supported())).append('.');
+        Optional<String> line = MzTabVersions.lineOf(decision.declared());
+        if (hintUrl != null && !hintUrl.isBlank() && line.isPresent()) {
+            text.append(" mzTab-M ").append(line.get()).append(" is available for testing on the development "
+                + "validator: ").append(hintUrl.strip());
+        }
+        return text.toString();
+    }
+
+    /** {@code The mzTab-M <line> validator is temporarily unavailable. Please try again later.} */
+    public static String unavailable(String line) {
+        return "The mzTab-M " + line + " validator is temporarily unavailable. Please try again later.";
+    }
+
+    /**
+     * {@code The validation profile <id> <version> applies to mzTab-M <lines>, but the file is validated as
+     * mzTab-M <line>.}
+     */
+    public static String profileOfOtherLine(String id, String version, Set<String> profileLines, String line) {
+        return "The validation profile " + id + " " + version + " applies to mzTab-M " + joined(profileLines)
+            + ", but the file is validated as mzTab-M " + line + ".";
+    }
+
+    /** Lines joined with {@code " and "}, e.g. {@code 2.0 and 2.1}. */
+    static String joined(Set<String> lines) {
+        return String.join(" and ", List.copyOf(lines));
+    }
+}

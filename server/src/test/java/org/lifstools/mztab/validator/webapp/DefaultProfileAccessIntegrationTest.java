@@ -42,6 +42,7 @@ class DefaultProfileAccessIntegrationTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
     }
 
     @MockitoBean(answers = Answers.RETURNS_MOCKS)

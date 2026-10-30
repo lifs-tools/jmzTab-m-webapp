@@ -72,6 +72,23 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Orders the reactor only: the server tests start the jar of the mzTab-M 2.0 engine
+             (EngineTestSupport), so it must be packaged first. A pom-typed dependency still brings the
+             engine's dependencies transitively; the wildcard exclusion keeps jmzTab-m off the server's
+             classpath. -->
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>mztab-validator-engine-2.0</artifactId>
+            <version>${project.version}</version>
+            <type>pom</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -210,6 +227,8 @@
                 <configuration>
                     <systemPropertyVariables>
                         <openapi.update>${openapi.update}</openapi.update>
+                        <!-- started by EngineTestSupport; exists after package of engine-mztabm-2.0 -->
+                        <engine20.jar>${project.basedir}/../engine-mztabm-2.0/target/mztab-validator-engine-2.0-${project.version}.jar</engine20.jar>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
