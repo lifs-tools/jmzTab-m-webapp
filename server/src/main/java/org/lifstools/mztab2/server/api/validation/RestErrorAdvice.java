@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 import org.lifstools.mztab.validator.webapp.engine.EngineBusyException;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineUnavailableException;
@@ -86,6 +87,9 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     /** The {@code error} of a 422 for a file over a cap of the editor (lines, or cells in a line). */
     public static final String TOO_LARGE_FOR_EDITOR = "too_large";
+
+    /** The message of a 503 for a run that found the background queue full. */
+    static final String QUEUE_FULL = "Too many files are being checked. Please try again in a moment.";
 
     /** When a client may retry a request that found no free slot. */
     static final String RETRY_AFTER_SECONDS = "5";
@@ -164,6 +168,16 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
             .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
                 HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));
+    }
+
+    /** The background executor has no room for another run (e.g. a working copy's check): retry shortly. */
+    @ExceptionHandler(RejectedExecutionException.class)
+    public ResponseEntity<ErrorResponse> queueFull(RejectedExecutionException e, HttpServletRequest request) {
+        log.warn("{} {}: the background queue is full: {}", request.getMethod(), request.getRequestURI(),
+            e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
+            .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), QUEUE_FULL, request.getRequestURI()));
     }
 
     @ExceptionHandler(StorageFullException.class)

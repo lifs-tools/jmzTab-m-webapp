@@ -272,6 +272,37 @@ class WorkingCopiesApiTest {
         assertArrayEquals(example(), file.getResponse().getContentAsByteArray());
     }
 
+    /**
+     * An edit batch is read strictly: a misspelt or unknown property, a missing revision or operations, a null
+     * for a number and a missing field of an operation are refused (400) and change nothing; a field documented as
+     * optional (the position of RenameColumn) may be left out.
+     */
+    @Test
+    void editBatchIsReadStrictly() throws Exception {
+        String id = validation("strict.mzTab", example());
+        create(id);
+        String url = BASE + "/" + id + "/edits";
+        String set = "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"x\"}";
+        for (String bad : new String[]{
+            // "postion" is not "position": not silently the first column of the name
+            edits(0, "{\"op\":\"DeleteColumn\",\"header\":\"SMH\",\"name\":\"SML_ID\",\"postion\":2}"),
+            "{\"operations\":[" + set + "]}",
+            "{\"revision\":null,\"operations\":[" + set + "]}",
+            "{\"revision\":0}",
+            "{\"revision\":0,\"operations\":[" + set + "],\"extra\":1}",
+            edits(0, "{\"op\":\"SetMetadataValue\",\"value\":\"x\"}"),
+            edits(0, "{\"op\":\"SetMetadataValue\",\"line\":null,\"value\":\"x\"}")}) {
+            mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(bad))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith(
+                    "The edit batch could not be read")));
+        }
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.revision").value(0));
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(0,
+                "{\"op\":\"RenameColumn\",\"header\":\"SMH\",\"name\":\"uri\",\"newName\":\"uri2\"}")))
+            .andExpect(status().isOk());
+    }
+
     @Test
     void staleEditIs409() throws Exception {
         String id = validation("stale.mzTab", example());

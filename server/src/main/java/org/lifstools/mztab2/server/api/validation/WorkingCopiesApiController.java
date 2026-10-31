@@ -16,7 +16,13 @@
 package org.lifstools.mztab2.server.api.validation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.AnnotationIntrospector;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
+import com.fasterxml.jackson.databind.introspect.AnnotatedParameter;
+import com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -86,7 +92,7 @@ public class WorkingCopiesApiController {
     private final WorkingCopyReader reader;
     private final QuickFixService quickFixes;
     private final RequestBodies bodies;
-    private final ObjectMapper json;
+    private final ObjectReader editBatches;
 
     public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, QuickFixService quickFixes,
         RequestBodies bodies, ObjectMapper json) {
@@ -94,7 +100,39 @@ public class WorkingCopiesApiController {
         this.reader = reader;
         this.quickFixes = quickFixes;
         this.bodies = bodies;
-        this.json = json;
+        this.editBatches = strict(json).readerFor(EditBatch.class);
+    }
+
+    /**
+     * The mapper for edit batches: an unknown property (a misspelt {@code postion}), a null for a number and a
+     * missing field are errors, not defaults. A field is required unless it is {@code @Nullable} (e.g. the
+     * {@code position} of DeleteColumn and RenameColumn), so a batch says everything it means.
+     */
+    static ObjectMapper strict(ObjectMapper json) {
+        ObjectMapper strict = json.copy()
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
+        AnnotationIntrospector requiredUnlessNullable = new NopAnnotationIntrospector() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Boolean hasRequiredMarker(AnnotatedMember m) {
+                return m instanceof AnnotatedParameter p && !nullable(p) ? Boolean.TRUE : null;
+            }
+
+            /** {@code @Nullable} on the parameter or, for a record's canonical constructor, on its component. */
+            private boolean nullable(AnnotatedParameter p) {
+                if (p.hasAnnotation(Nullable.class)) {
+                    return true;
+                }
+                java.lang.reflect.RecordComponent[] components = p.getDeclaringClass().getRecordComponents();
+                return components != null && p.getIndex() < components.length
+                    && p.getOwner().getParameterCount() == components.length
+                    && components[p.getIndex()].isAnnotationPresent(Nullable.class);
+            }
+        };
+        return strict.setAnnotationIntrospector(AnnotationIntrospector.pair(requiredUnlessNullable,
+            json.getDeserializationConfig().getAnnotationIntrospector()));
     }
 
     @Operation(operationId = "createWorkingCopy", summary = "Creates the working copy of a validated file, or "
@@ -145,7 +183,7 @@ public class WorkingCopiesApiController {
         EditBatch batch;
         // the body is capped at the upload limit before it is read
         try (InputStream in = bodies.open(request)) {
-            batch = json.readValue(in, EditBatch.class);
+            batch = editBatches.readValue(in);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("The edit batch could not be read"
                 + (e.getLocation() == null ? "" : " at line " + e.getLocation().getLineNr() + ", column "
