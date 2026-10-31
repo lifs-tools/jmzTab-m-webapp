@@ -175,6 +175,17 @@
     "tools": []
   },
   {
+    "id": "duplicate-column",
+    "codes": ["Error-2062"],
+    "title": "Column name used more than once",
+    "explanation": "A table header names the same column more than once. The engine cannot tell which of these columns holds the value, so the table cannot be read.",
+    "fixHere": "Open the table in the editor, where the repeated column is marked in the header. Use Resolve duplicate column to keep one of the columns and delete the others, or to merge them into one column.",
+    "fixInTool": "Make the tool write each column once. If two steps of your workflow add the same column, let only one of them write it, or give the other column a name of its own.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
     "id": "undefined-in-metadata",
     "codes": ["Error-2008"],
     "title": "Used but not defined in the metadata",

@@ -107,6 +107,144 @@ class WorkingCopyEditorTest {
         assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "nope")));
     }
 
+    /** A header that names a column twice (cells 2 and 4), as a loaded file may. */
+    private static final String DUPLICATES = "SMH\tSML_ID\tname\tx\tname\r\n"
+        + "SML\t1\tPC 34:1\ta\tPC 34:1\r\n"
+        + "SML\t2\t\tb\tPC 36:2\r\n"
+        + "SML\t3\tnull\tc\t\r\n"
+        + "SML\t4\tPE 38:4\td\tPE 38:5\r\n"
+        + "SML\t5\tnull\r\n"
+        + "SML\t6\t\te\tnull";
+
+    @Test
+    void positionedDeleteAndRenameNameTheColumn() throws Exception {
+        load(DUPLICATES);
+        apply(new DeleteColumn("SMH", "name", 4));
+        assertEquals("SMH\tSML_ID\tname\tx", db.line(1).orElseThrow().text());
+        assertEquals("SML\t4\tPE 38:4\td", db.line(5).orElseThrow().text());
+        // a position that does not hold the name is refused, and nothing changes
+        long revision = db.revision();
+        assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "name", 3)));
+        assertThrows(IllegalArgumentException.class, () -> apply(new RenameColumn("SMH", "name", "label", 1)));
+        assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "name", 0)));
+        assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "name", 9)));
+        assertEquals(revision, db.revision());
+        apply(new RenameColumn("SMH", "name", "label", 2));
+        assertEquals("SMH\tSML_ID\tlabel\tx", db.line(1).orElseThrow().text());
+    }
+
+    @Test
+    void withoutAPositionTheFirstColumnOfTheNameIsUsed() throws Exception {
+        load(DUPLICATES);
+        apply(new DeleteColumn("SMH", "name"));
+        assertEquals("SMH\tSML_ID\tx\tname", db.line(1).orElseThrow().text());
+        assertEquals("SML\t1\ta\tPC 34:1", db.line(2).orElseThrow().text());
+    }
+
+    @Test
+    void noEditCreatesADuplicateColumn() throws Exception {
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertColumn("SMH", 1, "name", "f")));
+        assertThrows(IllegalArgumentException.class, () -> apply(new RenameColumn("SMH", "SML_ID", "name")));
+        // renaming a column to its own name changes nothing and is allowed
+        apply(new RenameColumn("SMH", "name", "name"));
+        assertEquals(TEXT, text());
+        // in a file that already has duplicates, renaming one of them to the name it shares is refused too
+        load(DUPLICATES);
+        assertThrows(IllegalArgumentException.class, () -> apply(new RenameColumn("SMH", "x", "name")));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertColumn("SMH", 1, "name", "f")));
+        apply(new RenameColumn("SMH", "name", "name", 4));
+        assertEquals(DUPLICATES, text());
+    }
+
+    @Test
+    void mergeColumnsKeepsAValuePerRowAndRemovesTheOthers() throws Exception {
+        load(DUPLICATES);
+        ByteArrayOutputStream before = new ByteArrayOutputStream();
+        db.writeTo(before);
+
+        apply(new MergeColumns("SMH", "name", 2, List.of(4)));
+
+        assertEquals("SMH\tSML_ID\tname\tx\r\n"
+            // both hold the same value
+            + "SML\t1\tPC 34:1\ta\r\n"
+            // the kept cell is empty: the other's value
+            + "SML\t2\tPC 36:2\tb\r\n"
+            // the kept cell is null and the other empty: null stays
+            + "SML\t3\tnull\tc\r\n"
+            // they disagree: the kept column wins
+            + "SML\t4\tPE 38:4\td\r\n"
+            // a short row
+            + "SML\t5\tnull\r\n"
+            + "SML\t6\t\te", text());
+
+        editor.undo(db, 1);
+        ByteArrayOutputStream undone = new ByteArrayOutputStream();
+        db.writeTo(undone);
+        assertArrayEquals(before.toByteArray(), undone.toByteArray());
+    }
+
+    @Test
+    void mergeIntoTheLaterColumn() throws Exception {
+        load(DUPLICATES);
+        apply(new MergeColumns("SMH", "name", 4, List.of(2)));
+        assertEquals("SMH\tSML_ID\tx\tname", db.line(1).orElseThrow().text());
+        assertEquals("SML\t1\ta\tPC 34:1", db.line(2).orElseThrow().text());
+        // neither holds a value: the kept cell stays as it is
+        assertEquals("SML\t3\tc\t", db.line(4).orElseThrow().text());
+        // the kept column wins where they disagree
+        assertEquals("SML\t4\td\tPE 38:5", db.line(5).orElseThrow().text());
+        assertEquals("SML\t5", db.line(6).orElseThrow().text());
+        assertEquals("SML\t6\te\tnull", db.line(7).orElseThrow().text());
+    }
+
+    @Test
+    void mergeFillsAKeptCellPastTheEndOfAShortRow() throws Exception {
+        load("SMH\tA\tn\tB\tn\nSML\t1\tv\n");
+        apply(new MergeColumns("SMH", "n", 4, List.of(2)));
+        assertEquals("SMH\tA\tB\tn\nSML\t1\t\tv\n", text());
+    }
+
+    @Test
+    void mergeTakesTheFirstValueAmongTheOthersInTheirOrder() throws Exception {
+        load("SMH\tA\tn\tn\tn\nSML\t1\tnull\tfirst\tsecond\nSML\t2\t\t\tonly\nSML\t3\tnull\n"
+            + "SML\t4\tnull\tshort\n");
+        apply(new MergeColumns("SMH", "n", 2, List.of(4, 3)));
+        assertEquals("SMH\tA\tn\nSML\t1\tsecond\nSML\t2\tonly\nSML\t3\tnull\nSML\t4\tshort\n", text());
+    }
+
+    @Test
+    void mergeRefusesInvalidPositions() throws Exception {
+        load(DUPLICATES);
+        for (MergeColumns bad : List.of(
+            new MergeColumns("SMH", "name", 2, List.of()),
+            new MergeColumns("SMH", "name", 2, List.of(2)),
+            new MergeColumns("SMH", "name", 2, List.of(4, 4)),
+            new MergeColumns("SMH", "name", 3, List.of(4)),
+            new MergeColumns("SMH", "name", 2, List.of(3)),
+            new MergeColumns("SMH", "name", 2, List.of(9)),
+            new MergeColumns("SML", "name", 2, List.of(4)),
+            new MergeColumns("SMH", "nope", 2, List.of(4)))) {
+            assertThrows(IllegalArgumentException.class, () -> apply(bad), bad.toString());
+        }
+        assertThrows(IllegalArgumentException.class,
+            () -> apply(new MergeColumns("SMH", "name", 2, java.util.Arrays.asList(4, null))));
+        assertEquals(0, db.revision());
+        assertEquals(DUPLICATES, text());
+    }
+
+    @Test
+    void columnOperationsDeserialiseWithAndWithoutPosition() throws Exception {
+        load(DUPLICATES);
+        String json = """
+            {"revision":0,"operations":[{"op":"DeleteColumn","header":"SMH","name":"x"},
+            {"op":"RenameColumn","header":"SMH","name":"name","newName":"n2","position":3},
+            {"op":"MergeColumns","header":"SMH","name":"name","keep":2,"others":[]}]}""";
+        EditBatch batch = new ObjectMapper().readValue(json, EditBatch.class);
+        assertEquals(new DeleteColumn("SMH", "x", null), batch.operations().get(0));
+        assertEquals(new RenameColumn("SMH", "name", "n2", 3), batch.operations().get(1));
+        assertEquals(new MergeColumns("SMH", "name", 2, List.of()), batch.operations().get(2));
+    }
+
     @Test
     void joinWithPreviousRepairsSplitRow() throws Exception {
         load("SML\t1\tPC 34:1 with\n a newline\t5\n");

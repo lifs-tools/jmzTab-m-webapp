@@ -431,6 +431,38 @@ class WorkingCopyServiceTest {
     }
 
     @Test
+    void duplicateColumnsCountTheRowsWhoseValuesDiffer() throws Exception {
+        StringBuilder text = new StringBuilder("MTD\tmzTab-version\t2.0.0-M\n"
+            + "SMH\tSML_ID\tn\tx\tn\tx\tn\t\t\n"
+            // agree; one value only; null and empty hold no value
+            + "SML\t1\ta\t1\ta\t1\ta\n"
+            + "SML\t2\ta\t1\tnull\t1\t\n"
+            + "SML\t3\tnull\t1\t\n");
+        for (int i = 0; i < 25; i++) {
+            // two of three differ, in the n columns only
+            text.append("SML\t").append(10 + i).append("\ta\t1\tb\t1\n");
+        }
+        UUID id = submit("duplicates.mzTab", text.toString());
+        copies.create(id, SourceEncoding.UTF_8);
+
+        List<DuplicateColumn> found = reader.duplicates(id, "SMH");
+
+        assertEquals(List.of("n", "x"), found.stream().map(DuplicateColumn::name).toList());
+        DuplicateColumn n = found.get(0);
+        assertEquals(List.of(2, 4, 6), n.positions());
+        assertEquals(25, n.conflictingRows());
+        assertEquals(WorkingCopyReader.MAX_DUPLICATE_SAMPLES, n.samples().size());
+        assertEquals(new DuplicateColumn.Sample(6, List.of("a", "b", "")), n.samples().get(0));
+        DuplicateColumn x = found.get(1);
+        assertEquals(List.of(3, 5), x.positions());
+        assertEquals(0, x.conflictingRows());
+        assertTrue(x.samples().isEmpty());
+        assertTrue(reader.duplicates(id, "SFH").isEmpty(), "no such header");
+        assertThrows(IllegalArgumentException.class, () -> reader.duplicates(id, "SML"));
+        assertThrows(IllegalArgumentException.class, () -> reader.duplicates(id, null));
+    }
+
+    @Test
     void deleteRemovesOnlyTheCopy() throws Exception {
         UUID id = submit("delete-copy.mzTab", example());
         copies.create(id, SourceEncoding.UTF_8);

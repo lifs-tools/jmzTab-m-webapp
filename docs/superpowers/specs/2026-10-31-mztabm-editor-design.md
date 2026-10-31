@@ -168,6 +168,7 @@ Saved validation reports of LipidCompass submissions were tallied: 169 historica
 | R8 | **The working copy's version is whatever the text declares**, re-detected after every edit, and routed like an upload. This overrides engines design §5.7 ("cannot change"), because a missing or broken `mzTab-version` line is itself a typical repair. | my call |
 | R9 | **Every edit is undoable**, and the original upload stays downloadable. | my call |
 | R10 | **The editor's UI is an Angular library project from the start** (`frontend/projects/mztabm-editor`), used by the SPA. Phase 2c only publishes it. | my call |
+| R11 | **Column names are unique within a table header.** No edit can create a second column of a name; a file loaded with duplicate names is marked in the editor, which offers to keep one of the columns or to merge them (§5.3). | project lead's requirement, 2026-10-31 |
 
 ---
 
@@ -254,7 +255,7 @@ These operations need only the line prefix and the tab layout, the same knowledg
 |---|---|
 | Metadata | Set the value of an MTD line; rename its key; insert or delete an MTD line. |
 | Table cells and rows | Set a table cell; insert, delete or move a row. |
-| Table columns | Insert, delete or rename a column. The header and every row of that section change together, so cell counts stay aligned. |
+| Table columns | Insert, delete or rename a column. The header and every row of that section change together, so cell counts stay aligned. Delete and rename can name the column by its cell index as well as by name; merge combines columns of the same name (see *Duplicate column names*). |
 | Line structure | Join a line with the previous one (an embedded newline); split a line into cells (spaces where tabs belong). |
 | Raw edit | Edit the raw text of any single line. This is the fallback for anything else, including lines without a valid prefix. |
 
@@ -262,6 +263,17 @@ These operations need only the line prefix and the tab layout, the same knowledg
 - The client sends edits **in batches**. Each batch is one undo step and one revision.
 - Every operation validates its arguments: line positions exist, columns exist, and cell text contains no tab or newline unless the operation is meant to split.
 - Operations that do not fit are refused, not clamped.
+
+**Duplicate column names** (R11, the project lead's requirement of 2026-10-31: "column names must be unique, there should be no case where there exist more than one with the same name, unless the user loads such a file. In the latter case, the editor should highlight the conflict and offer a resolution: pick a specific one, delete the others or offer a merge into one column."):
+- *No edit creates one.* Inserting a column with a name the header already has, or renaming a column to such a name, is refused (400).
+- *Cells are addressed by position, never by name.* A working copy's table page reports the cell index of every column it returns (`columnPositions`), and the editor uses it for every cell edit. Requesting a name twice returns its first and its second column, so each duplicate can be shown.
+- *Detection.* `GET /working-copies/{id}/columns/{header}/duplicates` (SMH, SFH or SEH) lists each name the first header line holds more than once, with its cell indexes, the number of rows in which at least two of these cells hold different values (a value is neither empty nor `null`), and up to 20 such rows. Empty header cells name no column. The engines report the same condition as Error-2062 (DuplicateColumnHeader); its guidance points to the resolution in the editor.
+- *Marking.* The editor's table view marks every header cell whose name occurs more than once and labels it "Duplicate column name".
+- *Resolutions* ("Resolve duplicate column"):
+  1. **Keep one, delete the others.** The user picks the column to keep; the others are deleted by position, the highest first, so the remaining positions stay valid (`DeleteColumn` with `position`; the header cell there must hold the name, else 400).
+  2. **Merge into one.** `MergeColumns(header, name, keep, others)`: in every row the kept cell keeps its value unless it is empty or `null`; then it takes the first value among `others`, in their order, that is neither. The `others` columns are then removed from the header and every row. All positions must hold the name, `keep` is not among `others`, and `others` has no repeats. The user chooses which column wins where the rows disagree (the first by default); the dialog shows how many rows disagree and examples of them.
+  3. **Cancel.**
+- Both resolutions are one batch, so one undo restores the file byte for byte (line images, as for every edit), within the usual batch budget.
 
 ### 5.4 The validation loop
 

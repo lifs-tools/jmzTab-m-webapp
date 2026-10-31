@@ -185,7 +185,7 @@ public class SectionReader {
         if (loaded.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(tablePage(section, loaded.get().header(), loaded.get().rows(), null, query));
+        return Optional.of(tablePage(section, loaded.get().header(), loaded.get().rows(), null, query, false));
     }
 
     /**
@@ -193,18 +193,20 @@ public class SectionReader {
      *
      * @param rows every row has at least as many cells as {@code header}
      * @param lineNumbers the line of each row, for {@link TableRow#lineNumber()}; null for none
+     * @param positions whether to report {@link TablePage#columnPositions()}; a name requested again selects the
+     * next column of that name, so a header with duplicate names can be paged column by column
      * @throws IllegalArgumentException for an unknown column, more than
      * {@value #MAX_COLUMNS} requested columns or invalid paging
      */
     public static TablePage tablePage(Section section, List<String> header, List<String[]> rows,
-        @Nullable long[] lineNumbers, TableQuery query) {
+        @Nullable long[] lineNumbers, TableQuery query, boolean positions) {
         checkPaging(query.page(), query.size());
         if (query.columns().size() > MAX_COLUMNS) {
             throw new IllegalArgumentException("At most " + MAX_COLUMNS + " columns can be requested.");
         }
         int[] columns = query.columns().isEmpty()
             ? java.util.stream.IntStream.range(0, Math.min(DEFAULT_COLUMNS, header.size())).toArray()
-            : query.columns().stream().mapToInt(c -> columnIndex(header, c)).toArray();
+            : requestedColumns(header, query.columns());
         int sortColumn = query.sort() == null ? -1 : columnIndex(header, query.sort());
         List<ColumnFilter> allFilters = new ArrayList<>(query.filters());
         query.rawFilters().forEach(raw -> allFilters.add(resolveFilter(header, raw)));
@@ -233,7 +235,28 @@ public class SectionReader {
             page.add(new TableRow(index, cells, lineNumbers == null ? null : lineNumbers[index]));
         }
         List<String> returned = Arrays.stream(columns).mapToObj(header::get).toList();
-        return new TablePage(section, query.page(), query.size(), matching.size(), header, returned, page);
+        List<Integer> cellIndexes = positions ? Arrays.stream(columns).map(c -> c + 1).boxed().toList() : null;
+        return new TablePage(section, query.page(), query.size(), matching.size(), header, returned, page,
+            cellIndexes);
+    }
+
+    /** The header index of each requested column; the n-th request of a name selects its n-th column. */
+    private static int[] requestedColumns(List<String> header, List<String> requested) {
+        int[] columns = new int[requested.size()];
+        java.util.Map<String, Integer> next = new java.util.HashMap<>();
+        for (int i = 0; i < requested.size(); i++) {
+            String name = requested.get(i);
+            int first = columnIndex(header, name);
+            int from = next.getOrDefault(name, first);
+            int index = from;
+            while (index < header.size() && !header.get(index).equals(name)) {
+                index++;
+            }
+            // more requests than columns of the name: the first again
+            columns[i] = index < header.size() ? index : first;
+            next.put(name, columns[i] + 1);
+        }
+        return columns;
     }
 
     /** Splits at the first {@code :} whose prefix is an exact column name; column names may contain {@code :}. */

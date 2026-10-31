@@ -401,6 +401,10 @@
             },
             "name" : {
               "type" : "string"
+            },
+            "position" : {
+              "format" : "int32",
+              "type" : [ "integer", "null" ]
             }
           },
           "type" : "object"
@@ -419,6 +423,46 @@
           "type" : "object"
         } ]
       },
+      "DuplicateColumn" : {
+        "properties" : {
+          "conflictingRows" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "positions" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "samples" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateColumnSample"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "DuplicateColumnSample" : {
+        "properties" : {
+          "lineNumber" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "values" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "EditBatch" : {
         "properties" : {
           "operations" : {
@@ -433,6 +477,8 @@
                 "$ref" : "#/components/schemas/InsertLine"
               }, {
                 "$ref" : "#/components/schemas/JoinWithPrevious"
+              }, {
+                "$ref" : "#/components/schemas/MergeColumns"
               }, {
                 "$ref" : "#/components/schemas/MoveRow"
               }, {
@@ -810,6 +856,32 @@
           }
         },
         "type" : "object"
+      },
+      "MergeColumns" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "header" : {
+              "type" : "string"
+            },
+            "keep" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "name" : {
+              "type" : "string"
+            },
+            "others" : {
+              "items" : {
+                "format" : "int32",
+                "type" : "integer"
+              },
+              "type" : "array"
+            }
+          },
+          "type" : "object"
+        } ]
       },
       "MetadataEntry" : {
         "properties" : {
@@ -1804,6 +1876,10 @@
             },
             "newName" : {
               "type" : "string"
+            },
+            "position" : {
+              "format" : "int32",
+              "type" : [ "integer", "null" ]
             }
           },
           "type" : "object"
@@ -3189,6 +3265,14 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "columnPositions" : {
+            "description" : "For a working copy: the cell index in the line (the prefix is cell 0) of each returned column, parallel to columns; absent for a validation's sections",
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
           },
           "columns" : {
             "items" : {
@@ -4608,6 +4692,44 @@
           }
         },
         "summary" : "Returns a working copy: revision, version, counts and its validation",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/columns/{header}/duplicates" : {
+      "get" : {
+        "operationId" : "getWorkingCopyDuplicateColumns",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SMH, SFH or SEH",
+          "in" : "path",
+          "name" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DuplicateColumn"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the column names that a header (SMH, SFH or SEH) of a working copy holds more than once: their cell indexes, the number of rows whose values differ between them, and up to 20 of those rows",
         "tags" : [ "working-copies" ]
       }
     },

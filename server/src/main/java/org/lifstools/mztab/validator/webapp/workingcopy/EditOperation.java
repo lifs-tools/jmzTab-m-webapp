@@ -15,8 +15,11 @@
  */
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import java.util.List;
+import org.springframework.lang.Nullable;
 
 /**
  * A text edit of a working copy. Line numbers are 1-based and refer to the
@@ -35,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(value = EditOperation.InsertColumn.class, name = "InsertColumn"),
     @JsonSubTypes.Type(value = EditOperation.DeleteColumn.class, name = "DeleteColumn"),
     @JsonSubTypes.Type(value = EditOperation.RenameColumn.class, name = "RenameColumn"),
+    @JsonSubTypes.Type(value = EditOperation.MergeColumns.class, name = "MergeColumns"),
     @JsonSubTypes.Type(value = EditOperation.JoinWithPrevious.class, name = "JoinWithPrevious"),
     @JsonSubTypes.Type(value = EditOperation.SplitCells.class, name = "SplitCells"),
     @JsonSubTypes.Type(value = EditOperation.SetRawLine.class, name = "SetRawLine")})
@@ -63,14 +67,52 @@ public sealed interface EditOperation {
     record MoveRow(long line, long before) implements EditOperation {
     }
 
-    /** Inserts a column at cell index {@code position} in a SMH, SFH or SEH header and its rows. */
+    /**
+     * Inserts a column at cell index {@code position} in a SMH, SFH or SEH header and its rows. The header must
+     * not have a column of that name yet.
+     */
     record InsertColumn(String header, int position, String name, String fill) implements EditOperation {
     }
 
-    record DeleteColumn(String header, String name) implements EditOperation {
+    /**
+     * Deletes a column from the header and every row. With {@code position} (a cell index), the header cell there
+     * must hold {@code name}; without, the first column of that name is deleted.
+     */
+    record DeleteColumn(String header, String name, @Nullable Integer position) implements EditOperation {
+
+        @JsonCreator
+        public DeleteColumn {
+        }
+
+        public DeleteColumn(String header, String name) {
+            this(header, name, null);
+        }
     }
 
-    record RenameColumn(String header, String name, String newName) implements EditOperation {
+    /**
+     * Renames a column; no other column may have the new name. With {@code position} (a cell index), the header
+     * cell there must hold {@code name}; without, the first column of that name is renamed.
+     */
+    record RenameColumn(String header, String name, String newName, @Nullable Integer position)
+        implements EditOperation {
+
+        @JsonCreator
+        public RenameColumn {
+        }
+
+        public RenameColumn(String header, String name, String newName) {
+            this(header, name, newName, null);
+        }
+    }
+
+    /**
+     * Merges columns of the same name into the one at cell index {@code keep}. In every row, the kept cell keeps
+     * its value unless it is empty or {@code null}; then it takes the first value among {@code others}, in the given
+     * order, that is neither. The {@code others} columns are then removed from the header and every row. Every
+     * position must hold {@code name} in the header; {@code keep} is not among {@code others}, which has no
+     * duplicates.
+     */
+    record MergeColumns(String header, String name, int keep, List<Integer> others) implements EditOperation {
     }
 
     /** Appends the line to the previous one with no separator. */

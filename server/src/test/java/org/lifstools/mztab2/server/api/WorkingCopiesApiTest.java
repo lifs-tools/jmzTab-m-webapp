@@ -170,6 +170,64 @@ class WorkingCopiesApiTest {
     }
 
     @Test
+    void duplicateColumnsArePagedByPositionAndMerged() throws Exception {
+        byte[] content;
+        try (InputStream in = WorkingCopiesApiTest.class
+            .getResourceAsStream("/workingcopy/engine-duplicate-column.mzTab")) {
+            content = in.readAllBytes();
+        }
+        String id = validation("duplicate.mzTab", content);
+        create(id);
+        String copy = BASE + "/" + id;
+        String name = "opt_global_lipid_category";
+
+        // each returned column carries its cell index; a name requested twice selects both of its columns
+        mvc.perform(get(copy + "/tables/sml").param("columns", "SML_ID", name, name))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.columns.length()").value(3))
+            .andExpect(jsonPath("$.columnPositions[0]").value(1))
+            .andExpect(jsonPath("$.columnPositions[1]").value(17))
+            .andExpect(jsonPath("$.columnPositions[2]").value(20))
+            .andExpect(jsonPath("$.rows[0].cells[1]").value("Sphingolipids"))
+            .andExpect(jsonPath("$.rows[0].cells[2]").value("SP"));
+        // a validation's table has no positions
+        mvc.perform(get("/rest/v2/validations/" + validation("plain.mzTab", example()) + "/tables/sml"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.columnPositions").doesNotExist());
+
+        mvc.perform(get(copy + "/columns/SMH/duplicates")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].name").value(name))
+            .andExpect(jsonPath("$[0].positions[0]").value(17))
+            .andExpect(jsonPath("$[0].positions[1]").value(20))
+            .andExpect(jsonPath("$[0].conflictingRows").value(1))
+            .andExpect(jsonPath("$[0].samples[0].lineNumber").value(71))
+            .andExpect(jsonPath("$[0].samples[0].values[0]").value("Sphingolipids"))
+            .andExpect(jsonPath("$[0].samples[0].values[1]").value("SP"));
+        mvc.perform(get(copy + "/columns/SFH/duplicates")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get(copy + "/columns/SML/duplicates")).andExpect(status().isBadRequest());
+        mvc.perform(get(copy + "/columns/smh/duplicates")).andExpect(status().isBadRequest());
+
+        // edits that would name the column at the wrong position, or create another duplicate, are refused
+        mvc.perform(post(copy + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0,
+            "{\"op\":\"DeleteColumn\",\"header\":\"SMH\",\"name\":\"" + name + "\",\"position\":18}")))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post(copy + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0,
+            "{\"op\":\"RenameColumn\",\"header\":\"SMH\",\"name\":\"uri\",\"newName\":\"smiles\"}")))
+            .andExpect(status().isBadRequest());
+
+        mvc.perform(post(copy + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0,
+            "{\"op\":\"MergeColumns\",\"header\":\"SMH\",\"name\":\"" + name + "\",\"keep\":17,"
+                + "\"others\":[20]}")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.revision").value(1));
+        mvc.perform(get(copy + "/columns/SMH/duplicates")).andExpect(jsonPath("$.length()").value(0));
+        MvcResult file = mvc.perform(get(copy + "/file")).andExpect(status().isOk()).andReturn();
+        assertArrayEquals(example(), file.getResponse().getContentAsByteArray());
+    }
+
+    @Test
     void staleEditIs409() throws Exception {
         String id = validation("stale.mzTab", example());
         create(id);

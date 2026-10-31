@@ -60,7 +60,9 @@ import org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.*;
  * Choices: a cell index is 0 for the prefix; {@code SetCell} may address an
  * existing cell or the one just past the end (which appends), a larger index is
  * rejected. Where several header lines of one kind exist, column operations use
- * the first and apply to every row of that kind. Deleting the unterminated last line
+ * the first and apply to every row of that kind. No operation creates a second
+ * column of a name a header already has; a file loaded with such columns is
+ * repaired with a positioned {@code DeleteColumn} or with {@code MergeColumns}. Deleting the unterminated last line
  * leaves the new last line with its ending. Limits: 5,000 operations per batch,
  * 100,000 characters per cell, 1,000,000 per line; a tab only in
  * {@code SetRawLine} and {@code InsertLine} text; a CR or LF nowhere.
@@ -312,6 +314,7 @@ public final class WorkingCopyEditor {
             case InsertColumn o -> insertColumn(r, o);
             case DeleteColumn o -> deleteColumn(r, o);
             case RenameColumn o -> renameColumn(r, o);
+            case MergeColumns o -> mergeColumns(r, o);
             case JoinWithPrevious o -> join(r, o.line());
             case SplitCells o -> splitCells(r, o.line());
             case SetRawLine o -> setRaw(r, o.line(), o.text());
@@ -528,6 +531,37 @@ public final class WorkingCopyEditor {
         throw new IllegalArgumentException("There is no column " + name + " in " + header.section());
     }
 
+    /** The cell index of the column: {@code position} if given (it must hold the name), else the first match. */
+    private static int columnIndex(Line header, String name, Integer position) {
+        if (position == null) {
+            return columnIndex(header, name);
+        }
+        return positionOf(header, name, position);
+    }
+
+    private static int positionOf(Line header, String name, int position) {
+        if (name == null) {
+            throw new IllegalArgumentException("A column name is required");
+        }
+        if (position < 1 || position >= header.cells().size()) {
+            throw new IllegalArgumentException("A column position must be between 1 and " + (header.cells().size() - 1));
+        }
+        if (!header.cells().get(position).equals(name)) {
+            throw new IllegalArgumentException("Column " + position + " of " + header.section() + " is not " + name);
+        }
+        return position;
+    }
+
+    /** Refuses a name that a column of the header other than {@code except} (a cell index, or -1) already has. */
+    private static void requireUnique(Line header, String name, int except) {
+        for (int i = 1; i < header.cells().size(); i++) {
+            if (i != except && header.cells().get(i).equals(name)) {
+                throw new IllegalArgumentException(header.section() + " already has a column " + name
+                    + "; a column name can be used once");
+            }
+        }
+    }
+
     private void insertColumn(Recorder r, InsertColumn o) {
         String rows = rowSection(o.header());
         name(o.name());
@@ -536,6 +570,7 @@ public final class WorkingCopyEditor {
         if (o.position() < 1 || o.position() > header.cells().size()) {
             throw new IllegalArgumentException("A column position must be between 1 and " + header.cells().size());
         }
+        requireUnique(header, o.name(), -1);
         List<String> hc = new ArrayList<>(header.cells());
         hc.add(o.position(), o.name());
         r.replace(header.number(), rebuild(header.number(), hc, header.eol()));
@@ -552,7 +587,7 @@ public final class WorkingCopyEditor {
     private void deleteColumn(Recorder r, DeleteColumn o) {
         String rows = rowSection(o.header());
         Line header = firstOf(r.db, o.header());
-        int idx = columnIndex(header, o.name());
+        int idx = columnIndex(header, o.name(), o.position());
         List<String> hc = new ArrayList<>(header.cells());
         hc.remove(idx);
         r.replace(header.number(), rebuild(header.number(), hc, header.eol()));
@@ -569,10 +604,73 @@ public final class WorkingCopyEditor {
         rowSection(o.header());
         name(o.newName());
         Line header = firstOf(r.db, o.header());
-        int idx = columnIndex(header, o.name());
+        int idx = columnIndex(header, o.name(), o.position());
+        if (!o.newName().equals(o.name())) {
+            requireUnique(header, o.newName(), idx);
+        }
         List<String> hc = new ArrayList<>(header.cells());
         hc.set(idx, o.newName());
         r.replace(header.number(), rebuild(header.number(), hc, header.eol()));
+    }
+
+    /** Empty and {@code null} cells hold no value. */
+    static boolean noValue(String cell) {
+        return cell.isEmpty() || cell.equals("null");
+    }
+
+    private void mergeColumns(Recorder r, MergeColumns o) {
+        String rows = rowSection(o.header());
+        Line header = firstOf(r.db, o.header());
+        int keep = positionOf(header, o.name(), o.keep());
+        if (o.others() == null || o.others().isEmpty()) {
+            throw new IllegalArgumentException("A merge needs at least one other column");
+        }
+        List<Integer> others = new ArrayList<>();
+        for (Integer other : o.others()) {
+            if (other == null) {
+                throw new IllegalArgumentException("A column position is required");
+            }
+            positionOf(header, o.name(), other);
+            if (other == keep) {
+                throw new IllegalArgumentException("The kept column cannot also be merged into itself");
+            }
+            if (others.contains(other)) {
+                throw new IllegalArgumentException("Column " + other + " is named twice in the merge");
+            }
+            others.add(other);
+        }
+        // removed from the right, so that the positions still to remove stay where they are
+        List<Integer> removal = new ArrayList<>(others);
+        removal.sort(Collections.reverseOrder());
+        List<String> hc = new ArrayList<>(header.cells());
+        removal.forEach(p -> hc.remove((int) p));
+        r.replace(header.number(), rebuild(header.number(), hc, header.eol()));
+        forEachRow(r, rows, l -> {
+            List<String> cells = new ArrayList<>(l.cells());
+            String kept = keep < cells.size() ? cells.get(keep) : "";
+            String value = kept;
+            if (noValue(kept)) {
+                for (int other : others) {
+                    String candidate = other < cells.size() ? cells.get(other) : "";
+                    if (!noValue(candidate)) {
+                        value = candidate;
+                        break;
+                    }
+                }
+            }
+            if (!value.equals(kept)) {
+                while (cells.size() <= keep) {
+                    cells.add("");
+                }
+                cells.set(keep, value);
+            }
+            for (int p : removal) {
+                if (p < cells.size()) {
+                    cells.remove(p);
+                }
+            }
+            return cells;
+        });
     }
 
     /** Rewrites every line of the section; replacing in place keeps the numbering stable while paging. */

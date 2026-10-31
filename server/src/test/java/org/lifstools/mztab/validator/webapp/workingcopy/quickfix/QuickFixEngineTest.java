@@ -185,6 +185,34 @@ class QuickFixEngineTest {
         fixesIt("engine-remove-unused-cv.mzTab", "remove-unused-cv", "Warn-3014", true, null);
     }
 
+    /**
+     * A header that names a column twice is reported as Error-2062; merging the two columns (no quick fix, the
+     * editor's duplicate-column resolution) removes the message.
+     */
+    @Test
+    void mergingDuplicateColumnsFixesTheMessage() throws Exception {
+        String file = "engine-duplicate-column.mzTab";
+        UUID id = submit(file, resource(file).getBytes(StandardCharsets.UTF_8));
+        copies.create(id, SourceEncoding.UTF_8);
+        WorkingCopyValidation before = validate(id, 0, false);
+        ValidationMessage duplicate = before.messages().get(indexOf(before, "Error-2062")).message();
+        assertEquals(70L, duplicate.getLineNumber());
+        List<org.lifstools.mztab.validator.webapp.workingcopy.DuplicateColumn> found = reader.duplicates(id, "SMH");
+        assertEquals(1, found.size());
+        assertEquals(List.of(17, 20), found.get(0).positions());
+
+        copies.edit(id, new org.lifstools.mztab.validator.webapp.workingcopy.EditBatch(0, List.of(
+            new org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.MergeColumns("SMH",
+                found.get(0).name(), 17, List.of(20)))));
+
+        WorkingCopyValidation after = validate(id, 1, false);
+        assertFalse(has(after.messages(), "Error-2062"), "still reported: " + after.messages());
+        assertTrue(after.fixed().stream().anyMatch(m -> same(m, duplicate)), "not among the fixed: " + after.fixed());
+        assertTrue(after.messages().stream().map(TrackedMessage::message)
+            .noneMatch(m -> m.getMessageType() == ValidationMessage.MessageType.ERROR), "errors: " + after.messages());
+        assertTrue(reader.duplicates(id, "SMH").isEmpty());
+    }
+
     @Test
     void reencodeLatin1() throws Exception {
         String text = resource("engine-remove-empty-parameter.mzTab").replace("ISAS-2018-1234", "IS\u00e9S-2018-1234");

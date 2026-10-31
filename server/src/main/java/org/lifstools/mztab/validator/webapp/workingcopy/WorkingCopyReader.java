@@ -56,6 +56,11 @@ public class WorkingCopyReader {
     /** The most lines one {@link #lines} call returns. */
     public static final int MAX_LINES = 1000;
 
+    /** The most conflicting rows {@link #duplicates} returns per column name. */
+    public static final int MAX_DUPLICATE_SAMPLES = 20;
+
+    private static final Map<String, String> ROWS = Map.of("SMH", "SML", "SFH", "SMF", "SEH", "SME");
+
     private static final Map<Section, String> HEADER = Map.of(Section.SML, "SMH", Section.SMF, "SFH",
         Section.SME, "SEH");
 
@@ -120,7 +125,69 @@ public class WorkingCopyReader {
             }
         }
         long[] lineNumbers = numbers.stream().mapToLong(Long::longValue).toArray();
-        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query));
+        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query, true));
+    }
+
+    /**
+     * The column names that the first line of a header holds more than once, in the order of their first column;
+     * empty header cells name no column. Only the tab layout is used: a value is any cell that is neither empty
+     * nor {@code null}.
+     *
+     * @param header SMH, SFH or SEH
+     * @return empty if the header has no duplicate names or the copy has no such header
+     * @throws IllegalArgumentException for another header
+     */
+    public List<DuplicateColumn> duplicates(UUID id, String header) {
+        String rows = header == null ? null : ROWS.get(header);
+        if (rows == null) {
+            throw new IllegalArgumentException("header must be SMH, SFH or SEH.");
+        }
+        return copies.guard(id, () -> duplicates(copies.db(id).linesOf(header, rows), header));
+    }
+
+    private static List<DuplicateColumn> duplicates(List<Line> lines, String header) {
+        Line head = lines.stream().filter(l -> l.section().equals(header)).findFirst().orElse(null);
+        if (head == null) {
+            return List.of();
+        }
+        Map<String, List<Integer>> byName = new java.util.LinkedHashMap<>();
+        for (int i = 1; i < head.cells().size(); i++) {
+            // empty cells (often trailing tabs) name no column
+            if (!head.cells().get(i).isEmpty()) {
+                byName.computeIfAbsent(head.cells().get(i), k -> new ArrayList<>()).add(i);
+            }
+        }
+        List<DuplicateColumn> found = new ArrayList<>();
+        for (Map.Entry<String, List<Integer>> e : byName.entrySet()) {
+            List<Integer> positions = e.getValue();
+            if (positions.size() < 2) {
+                continue;
+            }
+            long conflicting = 0;
+            List<DuplicateColumn.Sample> samples = new ArrayList<>();
+            for (Line l : lines) {
+                if (l.section().equals(header)) {
+                    continue;
+                }
+                List<String> values = new ArrayList<>(positions.size());
+                java.util.Set<String> distinct = new java.util.HashSet<>();
+                for (int p : positions) {
+                    String v = p < l.cells().size() ? l.cells().get(p) : "";
+                    values.add(v);
+                    if (!WorkingCopyEditor.noValue(v)) {
+                        distinct.add(v);
+                    }
+                }
+                if (distinct.size() >= 2) {
+                    conflicting++;
+                    if (samples.size() < MAX_DUPLICATE_SAMPLES) {
+                        samples.add(new DuplicateColumn.Sample(l.number(), values));
+                    }
+                }
+            }
+            found.add(new DuplicateColumn(e.getKey(), List.copyOf(positions), conflicting, samples));
+        }
+        return found;
     }
 
     /**

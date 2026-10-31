@@ -15,7 +15,10 @@
  */
 package org.lifstools.mztab.validator.webapp.sections;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 /**
  * A page of a table section.
@@ -24,8 +27,13 @@ import java.util.List;
  * @param totalRows the number of rows after filtering
  * @param allColumns every column of the table
  * @param columns the returned columns
+ * @param columnPositions for a working copy: the cell index in the line (the prefix is cell 0) of each returned
+ * column, parallel to {@code columns}; absent for a validation's sections
  */
 public record TablePage(Section section, int page, int size, long totalRows, List<String> allColumns,
-    List<String> columns, List<TableRow> rows) {
+    List<String> columns, List<TableRow> rows,
+    @Schema(nullable = true, description = "For a working copy: the cell index in the line (the prefix is cell 0) "
+        + "of each returned column, parallel to columns; absent for a validation's sections")
+    @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable List<Integer> columnPositions) {
 
 }

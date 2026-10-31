@@ -41,6 +41,7 @@ import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
 import org.lifstools.mztab.validator.webapp.sections.TablePage;
 import org.lifstools.mztab.validator.webapp.sections.TableQuery;
+import org.lifstools.mztab.validator.webapp.workingcopy.DuplicateColumn;
 import org.lifstools.mztab.validator.webapp.workingcopy.EditBatch;
 import org.lifstools.mztab.validator.webapp.workingcopy.Line;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
@@ -249,6 +250,15 @@ public class WorkingCopiesApiController {
         TableQuery query = new TableQuery(page, size, sort == null || sort.isBlank() ? null : sort, descending,
             List.of(), columns == null ? List.of() : columns, rawFilters);
         return reader.table(uuid, s, query).orElseThrow(() -> new NoSuchWorkingCopyException("No such table."));
+    }
+
+    @Operation(operationId = "getWorkingCopyDuplicateColumns", summary = "Lists the column names that a header "
+        + "(SMH, SFH or SEH) of a working copy holds more than once: their cell indexes, the number of rows whose "
+        + "values differ between them, and up to 20 of those rows")
+    @GetMapping(value = "/{id}/columns/{header}/duplicates", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<DuplicateColumn> getWorkingCopyDuplicateColumns(@PathVariable("id") String id,
+        @Parameter(description = "SMH, SFH or SEH") @PathVariable("header") String header) {
+        return reader.duplicates(parse(id), header);
     }
 
     @Operation(operationId = "getWorkingCopyLines", summary = "Returns raw lines of a working copy: count lines "
