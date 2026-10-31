@@ -119,7 +119,10 @@ export class EditPage {
     this.store.messages().map((t) => t.message ?? { category: 'format', code: '', message: '' }),
   );
   protected readonly states = computed(() => this.store.messages().map((t) => t.state));
-  protected readonly quickFixState = computed<QuickFixState>(() => (this.store.current() ? 'ready' : 'checking'));
+  /** A failed request for a check leaves the buttons usable: a preview then asks for the check again. */
+  protected readonly quickFixState = computed<QuickFixState>(() =>
+    this.store.current() || this.store.checkFailed() ? 'ready' : 'checking',
+  );
   protected readonly readUpTo = computed(() => {
     const v = this.validation();
     return v && !v.parsed && v.readUpTo ? v.readUpTo : null;
@@ -348,9 +351,13 @@ export class EditPage {
 
   // ---- undo, redo, downloads ----
 
-  /** Ctrl+Z undoes and Ctrl+Shift+Z redoes, unless the focus is in a field (where they edit its text). */
+  /**
+   * Ctrl+Z undoes and Ctrl+Shift+Z redoes, unless the focus is in a field (where they edit its text) or a dialog
+   * is open (a preview or a column resolution would then describe a text that changed under it).
+   */
   protected onShortcut(event: KeyboardEvent): void {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'z') return;
+    if (this.dialog.openDialogs.length) return;
     const target = event.target as HTMLElement | null;
     if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
     if (this.store.view() !== 'ready') return;

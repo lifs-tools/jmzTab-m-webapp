@@ -196,5 +196,16 @@ describe('GuidancePanelComponent', () => {
       fixture.detectChanges();
       expect(Array.from(el.querySelectorAll('mark')).map((m) => m.textContent)).toEqual(['12.5']);
     });
+
+    it('highlights every cell of a column name the header holds more than once', () => {
+      const line = 'SML	7	Sphingolipids	12.5	SP';
+      const messages = [{ ...MESSAGES[0], location: { section: 'sml' as const, column: 'opt_global_category', row_index: 6 } }];
+      const { fixture, el } = render({ messages: [0], lines: [{ lineNumber: 12, text: line, truncated: false }] }, messages);
+      fixture.componentInstance.headers.set(
+        new Map([['SML', ['SML_ID', 'opt_global_category', 'theoretical_neutral_mass', 'opt_global_category']]]),
+      );
+      fixture.detectChanges();
+      expect(Array.from(el.querySelectorAll('mark')).map((m) => m.textContent)).toEqual(['Sphingolipids', 'SP']);
+    });
   });
 });

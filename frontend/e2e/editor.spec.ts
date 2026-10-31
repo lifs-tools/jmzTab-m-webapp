@@ -23,6 +23,8 @@ import { awaitEnd, chooseFile, chooseNoProfile, FIXTURES, MZTAB_20, submitAndAwa
 const FIX_ME = join(FIXTURES, 'fix-me.mzTab');
 /** A valid mzTab-M 2.0 file whose line 11 is broken in two: line 12 has no prefix. */
 const BROKEN_LINE = join(FIXTURES, 'broken-line.mzTab');
+/** lipidomics-example.mzTab with opt_global_lipid_category twice in SMH (cells 17 and 20); the row disagrees. */
+const DUPLICATE_COLUMN = join(FIXTURES, 'duplicate-column.mzTab');
 
 /** Structural validation through the API, as a script would start one. */
 async function validate(request: APIRequestContext, file: string, name: string): Promise<string> {
@@ -142,6 +144,39 @@ test('unchangedDownloadIsIdentical', async ({ page, request }) => {
   await expect(page).toHaveURL(new RegExp(`/mztabvalidator/edit/${id}$`));
   await awaitCheck(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
+  expect(readFileSync(await download.path()).equals(readFileSync(MZTAB_20))).toBe(true);
+  await request.delete(`rest/v2/validations/${id}`);
+});
+
+test('duplicateColumnIsMergedAndItsMessageGoes', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const id = await validate(request, DUPLICATE_COLUMN, 'duplicate-column.mzTab');
+  await openEditor(page, id);
+  const messages = page.getByRole('region', { name: 'Messages' });
+  await expect(messages.locator('.grp--error')).toHaveCount(1);
+  await expect(messages).toContainText('Column name used more than once');
+
+  await page.getByRole('tab', { name: /Summary/ }).click();
+  const duplicates = page.locator('mztabm-table-view th.col--dup');
+  await expect(duplicates).toHaveCount(2);
+  await expect(duplicates.first()).toContainText('Duplicate column name');
+  await page.getByRole('button', { name: 'Resolve duplicate column opt_global_lipid_category' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('appears 2 times in this table: column 17 and column 20');
+  await dialog.getByLabel('Merge them into one column').check();
+  await expect(dialog.getByTestId('conflicts')).toContainText('In 1 row the columns hold different values');
+  await expect(dialog.locator('.samples tbody tr')).toHaveText(/71\s*Sphingolipids\s*SP/);
+  await dialog.getByRole('button', { name: 'Merge the columns' }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(page.getByTestId('run-status')).toContainText('Checking your latest changes…');
+  await awaitCheck(page);
+  await expect(messages.locator('.grp--error')).toHaveCount(0);
+  await expect(duplicates).toHaveCount(0);
+  await expect(page.getByTestId('fixed').locator('summary')).toHaveText('Fixed since the last check (1)');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
+  // the first column won, so the file is the example again, with the column once
   expect(readFileSync(await download.path()).equals(readFileSync(MZTAB_20))).toBe(true);
   await request.delete(`rest/v2/validations/${id}`);
 });

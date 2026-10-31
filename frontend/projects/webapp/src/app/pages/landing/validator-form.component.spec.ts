@@ -509,6 +509,36 @@ describe('ValidatorFormComponent', () => {
       vi.useRealTimers();
     });
 
+    it('stops waiting when the validation is gone, and shows its result page', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      const req = await openToFix();
+      vi.useFakeTimers();
+      req.flush({ id: 'v1', status: 'QUEUED' }, { status: 202, statusText: 'Accepted' });
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS);
+      poll().flush({ message: 'gone' }, { status: 404, statusText: 'Not Found' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(navigate).toHaveBeenCalledWith(['/result', 'v1']);
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS * 3);
+      expect(http.match((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/v1')).length).toBe(0);
+      vi.useRealTimers();
+    });
+
+    it('stops waiting when the form goes away', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      const req = await openToFix();
+      vi.useFakeTimers();
+      req.flush({ id: 'v1', status: 'QUEUED' }, { status: 202, statusText: 'Accepted' });
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS);
+      poll().flush({ id: 'v1', status: 'RUNNING' });
+      fixture.destroy();
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS * 3);
+      expect(http.match((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/v1')).length).toBe(0);
+      expect(navigate).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
     it('shows the inline error, as Validate does, when the upload is refused', async () => {
       await render();
       await choose('input[data-testid=file-input]', mzTab());

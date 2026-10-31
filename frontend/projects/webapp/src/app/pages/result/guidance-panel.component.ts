@@ -46,8 +46,8 @@ export function cellsOf(
   const parts = text.split('\t');
   const header = headers?.get(parts[0]);
   if (column && header && DATA_PREFIXES.has(parts[0])) {
-    const at = header.indexOf(column) + 1;
-    return parts.map((t, i) => ({ text: t, highlight: at > 0 && i === at }));
+    // cell i holds header column i - 1; a name the header holds more than once marks each of its cells
+    return parts.map((t, i) => ({ text: t, highlight: i > 0 && header[i - 1] === column }));
   }
   return parts.map((t) => ({ text: t, highlight: !!column && t === column }));
 }

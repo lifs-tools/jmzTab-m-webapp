@@ -125,6 +125,14 @@
         @if (store.validating()) {
           <mat-progress-bar mode="indeterminate" aria-label="Checking the file" />
         }
+        @if (store.checkFailed()) {
+          <div class="lifs-callout lifs-callout--error check-failed" role="alert" data-testid="check-failed">
+            <div>
+              The file could not be checked.
+              <button mat-stroked-button type="button" (click)="store.validate(false)">Retry</button>
+            </div>
+          </div>
+        }
         @if (failure(); as reason) {
           <div class="lifs-callout lifs-callout--error" role="alert"><div>{{ reason }}</div></div>
         }

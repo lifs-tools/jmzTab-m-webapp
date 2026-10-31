@@ -5,11 +5,12 @@ import {
   AsyncSubject,
   Observable,
   Subject,
-  Subscription,
   catchError,
   concatMap,
   defer,
   exhaustMap,
+  finalize,
+  from,
   map,
   of,
   switchMap,
@@ -36,8 +37,9 @@ export const POLL_MS = 1000;
 
 export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
-export const CHECK_FAILED = 'The file could not be checked. Please try again.';
+export const CHECK_FAILED = 'The file could not be checked.';
 export const JSON_NOT_READY = 'JSON is offered once the latest changes are checked and have no errors.';
+export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.';
 
 export type EditOps = NonNullable<EditBatch['operations']>;
 type View = 'loading' | 'ready' | 'notFound' | 'notUtf8' | 'error';
@@ -50,6 +52,16 @@ export class NotCheckedYet extends Error {
 }
 
 const statusOf = (err: unknown) => (err instanceof HttpErrorResponse ? err.status : undefined);
+
+/** The server's reason in a JSON error body, e.g. why an edit was refused (400). */
+export function serverMessage(err: unknown): string | null {
+  const body = err instanceof HttpErrorResponse ? err.error : null;
+  const message = typeof body === 'object' && body ? (body as { message?: unknown }).message : undefined;
+  return typeof message === 'string' && message.trim() ? message : null;
+}
+
+/** A poll that found the copy gone (404). */
+const GONE = 'gone' as const;
 
 /**
  * The state of one working copy and every request on it. The edit page provides it; the document views reach it
@@ -80,6 +92,8 @@ export class WorkingCopyStore {
   private readonly inFlight = signal(0);
   private readonly idlePending = signal(false);
   readonly saving = computed(() => this.inFlight() > 0);
+  /** The last request for a check failed (not a run that failed: the request itself); Retry asks again. */
+  readonly checkFailed = signal(false);
 
   readonly validation = computed(() => this.info()?.validation ?? null);
   /** The messages of the last ended run, each NEW or OPEN against the run before. */
@@ -95,6 +109,7 @@ export class WorkingCopyStore {
   readonly validating = computed(() => {
     const v = this.validation();
     if (this.idlePending() || this.saving()) return true;
+    if (this.checkFailed()) return false;
     if (!v) return this.view() === 'ready';
     return v.status === 'RUNNING' || !!v.stale || v.revision !== this.info()?.revision;
   });
@@ -119,7 +134,9 @@ export class WorkingCopyStore {
 
   private readonly jobs = new Subject<() => Observable<unknown>>();
   private readonly idle = new Subject<boolean>();
-  private poll?: Subscription;
+  /** Each value starts polling anew: the previous poll, and a read it has in flight, are cancelled. */
+  private readonly polls = new Subject<void>();
+  private polling = false;
   /** The version the last ended run checked the text as; a change is announced. */
   private lastVersion: string | null | undefined;
 
@@ -133,6 +150,28 @@ export class WorkingCopyStore {
       .subscribe((fire) => {
         this.idlePending.set(false);
         if (fire) this.validate(false);
+      });
+    this.polls
+      .pipe(
+        switchMap(() =>
+          defer(() => {
+            this.polling = true;
+            return timer(POLL_MS, POLL_MS).pipe(
+              exhaustMap(() =>
+                this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+                  catchError((err: unknown) => of(statusOf(err) === 404 ? GONE : null)),
+                ),
+              ),
+              takeWhile((info) => info === null || (info !== GONE && info.validation?.status === 'RUNNING'), true),
+              finalize(() => (this.polling = false)),
+            );
+          }),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((info) => {
+        if (info === GONE) this.view.set('notFound');
+        else if (info) this.setInfo(info);
       });
   }
 
@@ -186,10 +225,14 @@ export class WorkingCopyStore {
 
   // ---- edits ----
 
-  /** Applies one batch; completes when it is accepted. A 409 reloads (and the error is passed on). */
-  edit(ops: EditOps): Observable<WorkingCopyInfo> {
-    return this.enqueue(() =>
-      this.api.editWorkingCopy({ id: this.id(), body: { revision: this.revision(), operations: ops } }),
+  /**
+   * Applies one batch; completes when it is accepted. A 409 reloads (and the error is passed on). `reload` tells
+   * every view to read again (the batch changed more than the view that made it shows, e.g. the columns).
+   */
+  edit(ops: EditOps, reload = false): Observable<WorkingCopyInfo> {
+    return this.enqueue(
+      () => this.api.editWorkingCopy({ id: this.id(), body: { revision: this.revision(), operations: ops } }),
+      reload,
     );
   }
 
@@ -241,6 +284,7 @@ export class WorkingCopyStore {
           },
           error: (err: unknown) => {
             if (statusOf(err) === 409) this.conflict();
+            if (statusOf(err) === 404) this.view.set('notFound');
             result.error(err);
           },
           finalize: () => this.inFlight.update((n) => n - 1),
@@ -250,8 +294,11 @@ export class WorkingCopyStore {
     return result.asObservable();
   }
 
+  /** Undo or redo failed: a conflict reloads and a vanished copy shows "not found"; else the server's reason. */
   private failed(err: unknown): void {
-    if (statusOf(err) !== 409) this.notices.next(SAVE_FAILED);
+    const status = statusOf(err);
+    if (status === 409 || status === 404) return;
+    this.notices.next((status === 400 && serverMessage(err)) || SAVE_FAILED);
   }
 
   /** The copy changed elsewhere: read it again and let the views reload. */
@@ -265,7 +312,7 @@ export class WorkingCopyStore {
           this.changed.next();
           this.notices.next(CONFLICT_NOTICE);
         },
-        error: () => this.view.set('error'),
+        error: (err: unknown) => this.view.set(statusOf(err) === 404 ? 'notFound' : 'error'),
       });
   }
 
@@ -274,19 +321,32 @@ export class WorkingCopyStore {
     this.api
       .getWorkingCopy({ id: this.id() }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: (info) => this.setInfo(info, true), error: () => undefined });
+      .subscribe({
+        next: (info) => this.setInfo(info, true),
+        error: (err: unknown) => {
+          if (statusOf(err) === 404) this.view.set('notFound');
+        },
+      });
   }
 
   // ---- validation ----
 
-  /** Requests a run (semantic: also the CV rules of the session's profile) and follows it until it ends. */
+  /**
+   * Requests a run (semantic: also the CV rules of the session's profile) and follows it until it ends. Its
+   * answer restarts polling, so a read sent before it (which may still show the previous run) cannot end the
+   * poll. A failed request leaves {@link checkFailed} set until the next request.
+   */
   validate(semantic: boolean): void {
+    this.checkFailed.set(false);
     this.api
       .validateWorkingCopy({ id: this.id(), semantic }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (info) => this.setInfo(info),
-        error: () => this.notices.next(CHECK_FAILED),
+        next: (info) => this.setInfo(info, false, true),
+        error: (err: unknown) => {
+          if (statusOf(err) === 404) this.view.set('notFound');
+          else this.checkFailed.set(true);
+        },
       });
   }
 
@@ -308,35 +368,31 @@ export class WorkingCopyStore {
   }
 
   /**
-   * Takes a new state of the copy. An answer older than the one shown (a poll that crossed an edit) is dropped,
-   * unless `force` (a reload after a conflict, which may go back). Starts or stops polling, and announces a
-   * version change when a run has ended.
+   * Takes a new state of the copy, unless it is older than the one shown, which a slow answer can be:
+   * - a lower copy revision (a poll that crossed an edit);
+   * - for the same copy revision, an ended run of a lower revision than the running one shown (a poll that
+   *   crossed the request for the next run).
+   * `force` (a reload after a conflict) takes it anyway, as it may go back. Starts polling while a run is
+   * RUNNING (`restartPoll`: anew), and announces a version change when a run has ended.
    */
-  private setInfo(info: WorkingCopyInfo, force = false): void {
+  private setInfo(info: WorkingCopyInfo, force = false, restartPoll = false): void {
     const shown = this.info();
-    if (!force && shown && (info.revision ?? 0) < (shown.revision ?? 0)) return;
+    if (!force && shown && this.isOlder(info, shown)) return;
     this.info.set(info);
     const v = info.validation;
     if (v?.status === 'RUNNING') {
-      this.startPolling();
+      if (restartPoll || !this.polling) this.polls.next();
     } else if (v) {
       this.announceVersion(info.mzTabVersion ?? null);
     }
   }
 
-  private startPolling(): void {
-    if (this.poll && !this.poll.closed) return;
-    this.poll = timer(POLL_MS, POLL_MS)
-      .pipe(
-        exhaustMap(() =>
-          this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(catchError(() => of(null))),
-        ),
-        takeWhile((info) => info === null || info.validation?.status === 'RUNNING', true),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((info) => {
-        if (info) this.setInfo(info);
-      });
+  private isOlder(info: WorkingCopyInfo, shown: WorkingCopyInfo): boolean {
+    if ((info.revision ?? 0) !== (shown.revision ?? 0)) return (info.revision ?? 0) < (shown.revision ?? 0);
+    const now = shown.validation;
+    const next = info.validation;
+    if (now?.status !== 'RUNNING' || !next || next.status === 'RUNNING') return false;
+    return (next.revision ?? -1) < (now.revision ?? -1);
   }
 
   private announceVersion(version: string | null): void {
@@ -361,16 +417,41 @@ export class WorkingCopyStore {
 
   // ---- downloads ----
 
-  /** The JSON of the current text; a 409 (no longer valid) reads the copy again, which disables the button. */
+  /**
+   * The JSON of the current text. A 409 (no longer valid) reads the copy again, which disables the button; a
+   * 404 shows "not found"; any other failure is said with the server's reason when it gives one.
+   */
   downloadJson(): Observable<Blob> {
     return this.api.downloadWorkingCopy$Json({ id: this.id(), format: 'json' }, quietRequest()).pipe(
       catchError((err: unknown) => {
-        if (statusOf(err) === 409) {
+        const status = statusOf(err);
+        if (status === 409) {
           this.notices.next(JSON_NOT_READY);
           this.reload();
+        } else if (status === 404) {
+          this.view.set('notFound');
+        } else {
+          blobMessage(err).subscribe((m) => this.notices.next(m ?? JSON_FAILED));
         }
         return throwError(() => err);
       }),
     );
   }
+}
+
+/** The server's reason in an error body that came as a Blob (a download's error is read as one). */
+function blobMessage(err: unknown): Observable<string | null> {
+  const body = err instanceof HttpErrorResponse ? err.error : null;
+  if (!(body instanceof Blob)) return of(serverMessage(err));
+  return defer(() => from(body.text())).pipe(
+    map((text) => {
+      try {
+        const m = (JSON.parse(text) as { message?: unknown }).message;
+        return typeof m === 'string' && m.trim() ? m : null;
+      } catch {
+        return null;
+      }
+    }),
+    catchError(() => of(null)),
+  );
 }

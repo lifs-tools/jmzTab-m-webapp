@@ -73,6 +73,32 @@ describe('QuickFixDialogComponent', () => {
     expect(el.querySelector('[data-testid=fix-count]')?.textContent).toBe('Fixes 1 problem');
   });
 
+  it('says that only the first changed lines are shown when the server cut the list', () => {
+    const lines = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ lineNumber: i + 1, before: `SML\t${i}`, after: `SML\t${i}\tnull` }));
+    const op = (o: string) => ({ op: o }) as never;
+    const hint = (preview: QuickFixPreview) => {
+      TestBed.resetTestingModule();
+      return render(preview).el.textContent?.includes('Only the first changed lines are shown.');
+    };
+    // 200 lines listed and one column insert, which changes every row: cut
+    expect(hint({ ...PREVIEW, occurrences: 1, changes: lines(200), batch: { revision: 3, operations: [op('InsertColumn')] } })).toBe(true);
+    // 200 lines for 250 problems: cut
+    expect(hint({ ...PREVIEW, occurrences: 250, changes: lines(200), batch: { revision: 3, operations: Array(250).fill(op('DeleteLine')) } })).toBe(true);
+    // exactly 200 problems on 200 lines: complete
+    expect(hint({ ...PREVIEW, occurrences: 200, changes: lines(200), batch: { revision: 3, operations: Array(200).fill(op('DeleteLine')) } })).toBe(false);
+    // fewer lines than the cap are always complete, even when a line takes two operations
+    expect(hint({ ...PREVIEW, occurrences: 3, changes: lines(3), batch: { revision: 3, operations: Array(6).fill(op('JoinWithPrevious')) } })).toBe(false);
+  });
+
+  it("shows the server's reason when the fix is refused", () => {
+    const { fixture, el, apply, result } = render();
+    apply().click();
+    result.error(new HttpErrorResponse({ status: 400, error: { message: 'There is no line 6' } }));
+    fixture.detectChanges();
+    expect(el.querySelector('[role=alert]')?.textContent).toContain('There is no line 6');
+  });
+
   it('shows an error and stays open when the fix is refused, closes on a conflict', () => {
     const { fixture, el, ref, result, apply } = render();
     apply().click();

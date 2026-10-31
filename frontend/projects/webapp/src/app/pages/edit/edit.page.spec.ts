@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Component } from '@angular/core';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
@@ -11,7 +13,10 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
 import { EditPage, isUnreadable } from './edit.page';
-import { CONFLICT_NOTICE, IDLE_MS, POLL_MS } from './working-copy.store';
+import { CHECK_FAILED, CONFLICT_NOTICE, IDLE_MS, POLL_MS, WorkingCopyStore } from './working-copy.store';
+
+@Component({ template: '<p>a dialog</p>' })
+class SomeDialogComponent {}
 
 const APP_INFO: AppInfoDto = {
   retentionDays: 7,
@@ -384,6 +389,119 @@ describe('EditPage', () => {
     postValidation().flush(info({ revision: 2, validation: done({ revision: 2 }) }));
     await vi.advanceTimersByTimeAsync(POLL_MS);
     http.match((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).forEach((r) => r.flush(info({ revision: 2, validation: done({ revision: 2 }) })));
+  });
+
+  it('a poll that crossed the request for the next run cannot end the check', async () => {
+    vi.useFakeTimers();
+    // run 1 checks revision 4; the copy is at revision 5 already
+    const { fixture, el } = await open(info({ revision: 5, validation: done({ status: 'RUNNING', revision: 4 }) }), 'CATALOG');
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    const late = getInfo();
+    // the request for run 2 (as the idle timer or "Check CV rules" make it)
+    fixture.debugElement.injector.get(WorkingCopyStore).validate(true);
+    postValidation().flush(info({ revision: 5, validation: done({ status: 'RUNNING', revision: 5, semantic: true }) }));
+    await settle(fixture);
+    // the answer to the request for run 2 restarts polling: the read sent before it is dropped
+    expect(late.cancelled).toBe(true);
+    expect(el.querySelector('[data-testid=run-status]')?.textContent).toContain('Checking your latest changes…');
+
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    getInfo().flush(info({ revision: 5, validation: done({ revision: 5, semantic: true }) }));
+    await settle(fixture);
+    expect(el.querySelector('[data-testid=run-status]')?.textContent).not.toContain('Checking your latest changes…');
+  });
+
+  it('a failed request for a check says so and offers Retry', async () => {
+    const ctx = await render();
+    http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
+    await settle(ctx.fixture);
+    postValidation().flush({ message: 'down' }, { status: 503, statusText: 'Unavailable' });
+    await settle(ctx.fixture);
+    answerDocs();
+    const callout = ctx.el.querySelector<HTMLElement>('[data-testid=check-failed]')!;
+    expect(callout.getAttribute('role')).toBe('alert');
+    expect(callout.textContent).toContain(CHECK_FAILED);
+    expect(ctx.el.querySelector('[data-testid=run-status]')?.textContent).not.toContain('Checking your latest changes…');
+
+    [...callout.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Retry')!.click();
+    await settle(ctx.fixture);
+    expect(ctx.el.querySelector('[data-testid=check-failed]')).toBeNull();
+    postValidation().flush(info({ validation: done({ status: 'DONE' }) }));
+    await settle(ctx.fixture);
+  });
+
+  it('shows "not found" when the copy is gone while polling or on an edit', async () => {
+    vi.useFakeTimers();
+    const first = await open(info({ validation: done({ status: 'RUNNING' }) }));
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    getInfo().flush({ message: 'gone' }, { status: 404, statusText: 'Not Found' });
+    await settle(first.fixture);
+    expect(first.el.textContent).toContain('File not found');
+    // and the poll stops
+    await vi.advanceTimersByTimeAsync(POLL_MS * 3);
+    expect(http.match((r) => r.method === 'GET' && r.url.endsWith('rest/v2/working-copies/abc')).length).toBe(0);
+
+    vi.useRealTimers();
+    TestBed.resetTestingModule();
+    const second = await open();
+    (await editThroughSource(second.fixture)).flush({ message: 'gone' }, { status: 404, statusText: 'Not Found' });
+    await settle(second.fixture);
+    expect(second.el.textContent).toContain('File not found');
+    expect(overlayText()).not.toContain('could not be saved');
+  });
+
+  it("says why the JSON download failed, with the server's reason", async () => {
+    const { fixture, el } = await open();
+    button(el, 'download-json').click();
+    http
+      .expectOne((r) => r.url.endsWith('working-copies/abc/file') && r.params.get('format') === 'json')
+      .flush(new Blob([JSON.stringify({ message: 'The storage is full.' })]), { status: 500, statusText: 'Error' });
+    for (let i = 0; i < 5; i++) await settle(fixture);
+    expect(overlayText()).toContain('The storage is full.');
+  });
+
+  it('ignores Ctrl+Z while a dialog is open', async () => {
+    const { fixture } = await open(info({ revision: 3, canUndo: true }));
+    const ref = TestBed.inject(MatDialog).open(SomeDialogComponent);
+    await settle(fixture);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(http.match((r) => r.url.endsWith('/undo')).length).toBe(0);
+    ref.close();
+    await settle(fixture);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    http.expectOne((r) => r.url.endsWith('working-copies/abc/undo')).flush(info({ revision: 4 }));
+    await settle(fixture);
+  });
+
+  it('column edits make every view read again; a refused edit carries the reason', async () => {
+    const { fixture } = await open();
+    const { DocumentSource } = await import('@lifs-tools/mztabm-editor');
+    const source = fixture.debugElement.injector.get(DocumentSource);
+
+    let failure: unknown;
+    source.applyEdits!([{ op: 'MergeColumns', header: 'SMH', name: 'n', keep: 3, others: [7] }]).subscribe({
+      error: (e: unknown) => (failure = e),
+    });
+    await settle(fixture);
+    postEdit().flush({ message: 'Column 7 of SMH is not n' }, { status: 400, statusText: 'Bad Request' });
+    await settle(fixture);
+    expect(failure).toEqual({ status: 400, detail: 'Column 7 of SMH is not n' });
+
+    source.applyEdits!([{ op: 'DeleteColumn', header: 'SMH', name: 'n', position: 7 }]).subscribe();
+    await settle(fixture);
+    postEdit().flush(info({ revision: 1, canUndo: true }));
+    await settle(fixture);
+    expect(answerDocs()).toBeGreaterThan(0);
+
+    let found: unknown;
+    source.duplicateColumns!('SFH').subscribe((d) => (found = d));
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/columns/SFH/duplicates'))
+      .flush([{ name: 'n', positions: [3, 7], conflictingRows: 0, samples: [] }]);
+    expect(found).toEqual([{ name: 'n', positions: [3, 7], conflictingRows: 0, samples: [] }]);
+    await vi.waitFor(() => undefined);
+    http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).forEach((r) => r.flush(info({ revision: 1 })));
   });
 
   it('shows the retention, the save state and the version', async () => {

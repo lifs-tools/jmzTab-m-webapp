@@ -1,13 +1,15 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   PendingTasks,
   computed,
   inject,
   linkedSignal,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -59,6 +61,7 @@ export class ValidatorFormComponent {
   private readonly validations = inject(ValidationsService);
   private readonly examples = inject(ExamplesService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly appInfo = inject(AppInfoStore);
   private readonly pendingTasks = inject(PendingTasks);
 
@@ -311,7 +314,13 @@ export class ValidatorFormComponent {
     this.submitting.set(true);
     this.opening.set(fix);
     this.error.set(null);
-    request.pipe(switchMap((record) => (fix ? this.awaitFinal(record) : of(record)))).subscribe({
+    request
+      .pipe(
+        switchMap((record) => (fix ? this.awaitFinal(record) : of(record))),
+        // leaving the page stops the wait
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
       next: (record) => {
         // a result that cannot be opened (failed without messages) is shown as after Validate
         this.router.navigate(fix && canFix(record) ? ['/edit', record.id] : ['/result', record.id]);
@@ -324,12 +333,19 @@ export class ValidatorFormComponent {
     });
   }
 
-  /** The record once FINISHED or FAILED; network failures while waiting are tolerated. */
+  /**
+   * The record once FINISHED or FAILED; network failures while waiting are tolerated. A validation that is gone
+   * (404) ends the wait as a failed one, so the result page says it was not found.
+   */
   private awaitFinal(created: ValidationRecord): Observable<ValidationRecord> {
     const id = created.id ?? '';
     return timer(FIX_POLL_MS, FIX_POLL_MS).pipe(
       exhaustMap(() =>
-        this.validations.getValidation({ id }, quietRequest()).pipe(catchError(() => of(undefined))),
+        this.validations.getValidation({ id }, quietRequest()).pipe(
+          catchError((err: unknown) =>
+            of(err instanceof HttpErrorResponse && err.status === 404 ? ({ ...created, status: 'FAILED', messages: [] } as ValidationRecord) : undefined),
+          ),
+        ),
       ),
       filter((r): r is ValidationRecord => r?.status === 'FINISHED' || r?.status === 'FAILED'),
       take(1),

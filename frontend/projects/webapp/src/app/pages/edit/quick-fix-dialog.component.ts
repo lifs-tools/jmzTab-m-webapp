@@ -5,7 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
-import { WorkingCopyStore } from './working-copy.store';
+import { WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** One changed line of the preview, its tabs shown as →; null text: the line is added or removed. */
 interface Change {
@@ -15,6 +15,11 @@ interface Change {
 }
 
 const show = (text: string | null | undefined) => (text == null ? null : text.replaceAll('\t', '→'));
+
+/** The server lists at most this many changed lines of a preview. */
+export const MAX_PREVIEW_CHANGES = 200;
+/** Operations that change every row of a table: one of them can change more lines than are listed. */
+const ROW_WIDE = new Set(['InsertColumn', 'DeleteColumn', 'MergeColumns']);
 
 /**
  * The before/after preview of a quick fix. "Apply" posts the previewed batch through the store, which validates
@@ -41,10 +46,17 @@ export class QuickFixDialogComponent {
     const n = this.preview.occurrences ?? 0;
     return n === 1 ? 'Fixes 1 problem' : `Fixes ${n.toLocaleString('en')} problems`;
   });
-  /** The preview lists at most 200 lines; the batch may change more. */
+  /**
+   * The server lists at most {@link MAX_PREVIEW_CHANGES} lines. A full list was cut when the batch does more than
+   * it shows: more operations or problems than lines, or an operation on every row.
+   */
   protected readonly more = computed(() => {
-    const ops = this.preview.batch?.operations?.length ?? 0;
-    return ops > this.changes().length ? 'Only the first changed lines are shown.' : null;
+    const shown = this.changes().length;
+    if (shown < MAX_PREVIEW_CHANGES) return null;
+    const ops = this.preview.batch?.operations ?? [];
+    const cut =
+      ops.length > shown || (this.preview.occurrences ?? 0) > shown || ops.some((o) => ROW_WIDE.has(o.op ?? ''));
+    return cut ? 'Only the first changed lines are shown.' : null;
   });
 
   protected apply(): void {
@@ -60,7 +72,8 @@ export class QuickFixDialogComponent {
           this.ref.close(null);
           return;
         }
-        this.error.set('The fix could not be applied. Please try again.');
+        const reason = err instanceof HttpErrorResponse && err.status === 400 ? serverMessage(err) : null;
+        this.error.set(reason ?? 'The fix could not be applied. Please try again.');
       },
     });
   }
