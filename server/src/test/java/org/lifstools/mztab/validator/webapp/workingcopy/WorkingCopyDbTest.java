@@ -274,9 +274,11 @@ class WorkingCopyDbTest {
             try {
                 assertTrue(out.started.await(10, java.util.concurrent.TimeUnit.SECONDS));
                 long start = System.nanoTime();
-                // a write transaction, as an edit batch is, commits while the export waits
+                // a write transaction, as an edit batch is, commits while the export waits;
+                // line 2500 lies in a page the export has not read yet, so only a snapshot
+                // keeps the change out of the export
                 db.inTransaction(() -> {
-                    db.replaceLine(2, CopyText.line(2, "MTD\tchanged\tz", "\n"));
+                    db.replaceLine(2500, CopyText.line(2500, "MTD\tchanged\tz", "\n"));
                     db.setRevision(1);
                     return null;
                 });
@@ -289,7 +291,7 @@ class WorkingCopyDbTest {
             export.get(10, java.util.concurrent.TimeUnit.SECONDS);
             // the export is the text of one snapshot: the one it started on
             assertEquals(before, out.bytes.toString(StandardCharsets.UTF_8));
-            assertEquals("MTD\tchanged\tz", db.line(2).orElseThrow().text());
+            assertEquals("MTD\tchanged\tz", db.line(2500).orElseThrow().text());
         }
     }
 
