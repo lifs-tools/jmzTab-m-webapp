@@ -31,7 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public interface StorageService {
     
-    public static enum SLOT {MZTABFILE, MAPPINGFILE, RECORD, SECTIONS};
+    public static enum SLOT {MZTABFILE, MAPPINGFILE, RECORD, SECTIONS, WORKINGCOPY};
 
     void init();
 
@@ -79,6 +79,18 @@ public interface StorageService {
      * @throws IllegalArgumentException for an unsafe name, as in {@link #write}
      */
     Optional<InputStream> read(UUID sessionId, SLOT slot, String name);
+
+    /**
+     * The path of a file in the slot of a session, for code that needs a real
+     * file (a database). Creates the slot directory; the file itself is not
+     * created.
+     *
+     * @throws IllegalArgumentException for an unsafe name, as in {@link #write}
+     */
+    Path localFile(UUID sessionId, SLOT slot, String name);
+
+    /** Sets the modification time of the session directory to now, which restarts its retention. */
+    void touch(UUID sessionId);
 
     /** The ids of all sessions currently in storage. */
     Stream<UUID> sessions();

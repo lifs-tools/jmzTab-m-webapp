@@ -135,4 +135,26 @@ class FileSystemStorageServiceTest {
     private static InputStream stream(String s) {
         return new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8));
     }
+
+    @Test
+    void touchUpdatesSessionDirectoryTime() throws IOException {
+        UUID id = UUID.randomUUID();
+        storage.write(id, SLOT.RECORD, "r.json", stream("x"));
+        Path sessionDir = root.resolve(id.toString());
+        Files.setLastModifiedTime(sessionDir, FileTime.from(Instant.now().minus(Duration.ofDays(30))));
+
+        storage.touch(id);
+
+        assertTrue(Duration.between(Files.getLastModifiedTime(sessionDir).toInstant(), Instant.now())
+            .compareTo(Duration.ofMinutes(1)) < 0);
+    }
+
+    @Test
+    void localFileRejectsUnsafeNames() {
+        UUID id = UUID.randomUUID();
+        assertThrows(IllegalArgumentException.class, () -> storage.localFile(id, SLOT.WORKINGCOPY, "../x"));
+        Path p = storage.localFile(id, SLOT.WORKINGCOPY, "copy.db");
+        assertEquals(root.resolve(id.toString()).resolve("WORKINGCOPY").resolve("copy.db"), p);
+        assertTrue(Files.isDirectory(p.getParent()));
+    }
 }

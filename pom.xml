@@ -94,6 +94,7 @@
         <jacoco.version>0.8.16</jacoco.version>
         <bootstrap.version>4.6.2</bootstrap.version>
         <jquery.version>3.7.1</jquery.version>
+        <sqlite-jdbc.version>3.50.3.0</sqlite-jdbc.version>
         <assembly.dir>${project.artifactId}</assembly.dir>
         <frontend.skip>false</frontend.skip>
         <openapi.update>false</openapi.update>

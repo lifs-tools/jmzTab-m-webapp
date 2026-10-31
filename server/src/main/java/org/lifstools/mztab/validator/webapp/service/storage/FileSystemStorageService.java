@@ -348,6 +348,26 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
+    public Path localFile(UUID sessionId, SLOT slot, String name) {
+        Path file = slotFile(sessionId, slot, name);
+        try {
+            Files.createDirectories(file.getParent());
+        } catch (IOException e) {
+            throw new StorageException("Failed to create " + slot + " for session " + sessionId, e);
+        }
+        return file;
+    }
+
+    @Override
+    public void touch(UUID sessionId) {
+        try {
+            Files.setLastModifiedTime(buildSessionPath(sessionId), FileTime.from(Instant.now()));
+        } catch (IOException e) {
+            throw new StorageException("Failed to touch session " + sessionId, e);
+        }
+    }
+
+    @Override
     public Stream<UUID> sessions() {
         if (!Files.isDirectory(rootLocation)) {
             return Stream.empty();

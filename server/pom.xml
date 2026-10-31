@@ -28,6 +28,15 @@
             <artifactId>mztab-validator-frontend</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>${sqlite-jdbc.version}</version>
+        </dependency>
         <!--SpringFox dependencies -->
         <!--        <dependency>
             <groupId>io.springfox</groupId>
