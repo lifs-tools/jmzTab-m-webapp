@@ -297,6 +297,44 @@
     </build>
     <profiles>
         <profile>
+            <!-- With the 2.1 engine in the reactor (root profile snapshot-engines, active unless
+                 -DskipSnapshotEngines): the server tests start its jar too (EngineTestSupport.registerBoth,
+                 e.g. QuickFixEngineTest), so it is packaged first. Ordering only, as for the 2.0 engine. -->
+            <id>snapshot-engine-tests</id>
+            <activation>
+                <property>
+                    <name>!skipSnapshotEngines</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.lifs-tools</groupId>
+                    <artifactId>mztab-validator-engine-2.1</artifactId>
+                    <version>${project.version}</version>
+                    <type>pom</type>
+                    <scope>test</scope>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>*</groupId>
+                            <artifactId>*</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <engine21.jar>${project.basedir}/../engine-mztabm-2.1/target/mztab-validator-engine-2.1-${project.version}.jar</engine21.jar>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <!-- -Dgroups=performance selects the excluded tests, so nothing is excluded then -->
             <id>test-groups-selected</id>
             <activation>

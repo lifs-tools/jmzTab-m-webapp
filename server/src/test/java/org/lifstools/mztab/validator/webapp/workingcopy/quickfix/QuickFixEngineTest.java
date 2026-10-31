@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -31,6 +32,8 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
@@ -54,10 +57,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * The quick fixes against the real mzTab-M 2.0 engine: each fixture has the
- * problem of one fix; the preview batch is applied and the engine must no
- * longer report the message. (Only the 2.0 engine is available to the tests;
- * the fixtures are 2.0 files.)
+ * The quick fixes against the real mzTab-M engines, 2.0 and 2.1 (spec section 6): each fixture has the
+ * problem of one fix; the preview batch is applied and the engine must no longer report the message. The
+ * fixtures are 2.0 files; for the 2.1 engine their {@code mzTab-version} line says {@code 2.1.0-M}, which routes
+ * them there. The 2.1 cases run whenever the build has the 2.1 engine (it is left out only with
+ * {@code -DskipSnapshotEngines}).
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @ExtendWith(AwaitAsyncValidations.class)
@@ -72,7 +76,7 @@ class QuickFixEngineTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
-        EngineTestSupport.register(registry);
+        EngineTestSupport.registerBoth(registry);
     }
 
     @Autowired
@@ -91,6 +95,29 @@ class QuickFixEngineTest {
         try (InputStream in = QuickFixEngineTest.class.getResourceAsStream("/workingcopy/" + name)) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    /** The fixture as a file of {@code line}: its version line names that line's version. */
+    private static String resource(String name, String line) throws IOException {
+        String text = resource(name);
+        if (line.equals("2.0")) {
+            return text;
+        }
+        String version = "MTD\tmzTab-version\t2.0.0-M";
+        assertTrue(text.contains(version), name);
+        return text.replace(version, "MTD\tmzTab-version\t" + line + ".0-M");
+    }
+
+    /** The engine of {@code line} is in this build; 2.0 always is. */
+    private static void requireEngine(String line) {
+        assumeTrue(line.equals("2.0") || EngineTestSupport.has21(),
+            "the mzTab-M 2.1 engine is not built (-DskipSnapshotEngines)");
+    }
+
+    /** Asserts that the session was validated by the engine of {@code line}. */
+    private void validatedBy(UUID id, String line) {
+        String engine = sessions.find(id).orElseThrow().engine();
+        assertTrue(engine != null && engine.startsWith("mzTab-M " + line + " "), "validated by " + engine);
     }
 
     private UUID submit(String name, byte[] content) throws InterruptedException {
@@ -139,8 +166,10 @@ class QuickFixEngineTest {
      * and checks that this message is among the fixed ones and no longer reported. Without a follow-up, no
      * error may remain and the file must be read to its end; with one, the follow-up code is reported.
      */
-    private void fixesIt(String file, String fixId, String typeCode, boolean semantic, String next) throws Exception {
-        UUID id = submit(file, resource(file).getBytes(StandardCharsets.UTF_8));
+    private void fixesIt(String line, String file, String fixId, String typeCode, boolean semantic, String next)
+        throws Exception {
+        UUID id = submit(file, resource(file, line).getBytes(StandardCharsets.UTF_8));
+        validatedBy(id, line);
         copies.create(id, SourceEncoding.UTF_8);
         WorkingCopyValidation before = validate(id, 0, semantic);
         int message = indexOf(before, typeCode);
@@ -172,27 +201,32 @@ class QuickFixEngineTest {
             && java.util.Objects.equals(a.getMessage(), b.getMessage());
     }
 
-    @Test
-    void eachFixRemovesItsMessage() throws Exception {
-        fixesIt("engine-remove-empty-parameter.mzTab", "remove-empty-parameter", "Error-1012", false, null);
-        fixesIt("engine-normalise-doi.mzTab", "normalise-doi", "Error-1014", false, null);
-        fixesIt("engine-join-broken-line.mzTab", "join-broken-line", "Error-1000", false, null);
-        fixesIt("engine-split-mtd-line.mzTab", "split-mtd-line", "Error-1008", false, null);
-        fixesIt("engine-add-mandatory-column.mzTab", "add-mandatory-column", "Error-1004", false, null);
-        fixesIt("engine-add-missing-metadata.mzTab", "add-missing-metadata", "Error-2008", false,
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void eachFixRemovesItsMessage(String line) throws Exception {
+        requireEngine(line);
+        fixesIt(line, "engine-remove-empty-parameter.mzTab", "remove-empty-parameter", "Error-1012", false, null);
+        fixesIt(line, "engine-normalise-doi.mzTab", "normalise-doi", "Error-1014", false, null);
+        fixesIt(line, "engine-join-broken-line.mzTab", "join-broken-line", "Error-1000", false, null);
+        fixesIt(line, "engine-split-mtd-line.mzTab", "split-mtd-line", "Error-1008", false, null);
+        fixesIt(line, "engine-add-mandatory-column.mzTab", "add-mandatory-column", "Error-1004", false, null);
+        fixesIt(line, "engine-add-missing-metadata.mzTab", "add-missing-metadata", "Error-2008", false,
             // the inserted line has an empty value, which the engine reports in turn: the value is the user's to give
             "Error-1008");
-        fixesIt("engine-remove-unused-cv.mzTab", "remove-unused-cv", "Warn-3014", true, null);
+        fixesIt(line, "engine-remove-unused-cv.mzTab", "remove-unused-cv", "Warn-3014", true, null);
     }
 
     /**
      * A header that names a column twice is reported as Error-2062; merging the two columns (no quick fix, the
      * editor's duplicate-column resolution) removes the message.
      */
-    @Test
-    void mergingDuplicateColumnsFixesTheMessage() throws Exception {
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void mergingDuplicateColumnsFixesTheMessage(String line) throws Exception {
+        requireEngine(line);
         String file = "engine-duplicate-column.mzTab";
-        UUID id = submit(file, resource(file).getBytes(StandardCharsets.UTF_8));
+        UUID id = submit(file, resource(file, line).getBytes(StandardCharsets.UTF_8));
+        validatedBy(id, line);
         copies.create(id, SourceEncoding.UTF_8);
         WorkingCopyValidation before = validate(id, 0, false);
         ValidationMessage duplicate = before.messages().get(indexOf(before, "Error-2062")).message();
@@ -230,11 +264,14 @@ class QuickFixEngineTest {
         assertTrue(e.getMessage().contains("WINDOWS_1252"), e.getMessage());
     }
 
-    @Test
-    void allFixesEveryMessageOfTheGroup() throws Exception {
-        String text = resource("engine-remove-empty-parameter.mzTab")
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void allFixesEveryMessageOfTheGroup(String line) throws Exception {
+        requireEngine(line);
+        String text = resource("engine-remove-empty-parameter.mzTab", line)
             .replace("[MS, MS:1001838, SRM quantitation analysis, ]", "[, , , ]");
         UUID id = submit("two-empty.mzTab", text.getBytes(StandardCharsets.UTF_8));
+        validatedBy(id, line);
         copies.create(id, SourceEncoding.UTF_8);
         WorkingCopyValidation v = validate(id, 0, false);
         int message = indexOf(v, "Error-1012");
