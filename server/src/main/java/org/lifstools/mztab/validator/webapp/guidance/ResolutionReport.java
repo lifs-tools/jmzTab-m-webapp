@@ -26,18 +26,18 @@ public final class ResolutionReport {
     }
 
     public static String markdown(ValidationRecord record, List<Guidance> guidance) {
-        StringBuilder md = new StringBuilder("# Validation problems in ").append(record.fileName()).append("\n\n");
+        StringBuilder md = new StringBuilder("# Validation problems in ").append(oneLine(record.fileName())).append("\n\n");
         if (guidance.isEmpty()) {
             return md.append("No problems were found.\n").toString();
         }
         for (Guidance g : guidance) {
-            md.append("## ").append(g.title()).append(" (").append(g.messages().size()).append(")\n\n");
-            md.append(g.explanation()).append("\n\n");
+            md.append("## ").append(oneLine(g.title())).append(" (").append(g.messages().size()).append(")\n\n");
+            md.append(oneLine(g.explanation())).append("\n\n");
             if (g.cause() != null && !g.cause().isBlank()) {
-                md.append("Cause: ").append(g.cause()).append("\n\n");
+                md.append("Cause: ").append(oneLine(g.cause())).append("\n\n");
             }
             md.append("**Fix in the tool that wrote the file:** ")
-                .append(g.toolFixInTool() != null ? g.toolFixInTool() : g.fixInTool()).append("\n\n");
+                .append(oneLine(g.toolFixInTool() != null ? g.toolFixInTool() : g.fixInTool())).append("\n\n");
             if (!g.lines().isEmpty()) {
                 md.append("Lines: ").append(g.lines().stream().map(l -> Long.toString(l.lineNumber()))
                     .collect(Collectors.joining(", "))).append("\n\n");
@@ -45,6 +45,11 @@ public final class ResolutionReport {
             }
         }
         return md.toString();
+    }
+
+    /** Text outside the fenced block stays on its line: the file name and the catalog text may hold line breaks. */
+    private static String oneLine(String text) {
+        return text.replaceAll("[\\r\\n]+", " ");
     }
 
     private static String fence(List<QuotedLine> lines) {

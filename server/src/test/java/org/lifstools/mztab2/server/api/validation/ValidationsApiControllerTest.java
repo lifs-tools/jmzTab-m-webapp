@@ -88,6 +88,9 @@ class ValidationsApiControllerTest {
     @Autowired
     MockMvc mvc;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    ValidationSessionService sessionSpy;
+
     @Autowired
     ObjectMapper json;
 
@@ -259,6 +262,35 @@ class ValidationsApiControllerTest {
             .andReturn();
         assertTrue(r.getResponse().getContentAsString(StandardCharsets.UTF_8)
             .contains("# Validation problems in md.mzTab"));
+    }
+
+    @Test
+    void guidanceIsNotRecomputedForAnEndedValidation() throws Exception {
+        String id = createFrom("cached.mzTab", emptyParameterFile());
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk());
+        try (var files = Files.walk(storageRoot)) {
+            for (Path p : files.filter(f -> f.getFileName().toString().equals("upload.mztab")).toList()) {
+                Files.delete(p);
+            }
+        }
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.guidance[0].entryId").value("empty-parameter"))
+            .andExpect(jsonPath("$.guidance[0].lines[0].lineNumber").isNumber());
+    }
+
+    @Test
+    void markdownReportOfAnUnfinishedValidationIs409() throws Exception {
+        UUID id = UUID.randomUUID();
+        var queued = org.lifstools.mztab.validator.webapp.session.ValidationRecord.queued(id, "q.mzTab",
+            org.lifstools.mztab.validator.engine.api.ValidationLevel.INFO, 100,
+            new org.lifstools.mztab.validator.webapp.session.ProfileRef(
+                org.lifstools.mztab.validator.webapp.session.ProfileRef.Kind.NONE, null, null),
+            java.time.Instant.now(), java.time.Instant.now().plusSeconds(60));
+        org.mockito.Mockito.doReturn(java.util.Optional.of(queued)).when(sessionSpy).find(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "md"))
+            .andExpect(status().isConflict());
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "csv"))
+            .andExpect(status().isOk());
     }
 
     @Test

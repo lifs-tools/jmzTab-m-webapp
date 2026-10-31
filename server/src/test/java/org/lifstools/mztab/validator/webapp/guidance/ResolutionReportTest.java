@@ -57,4 +57,20 @@ class ResolutionReportTest {
     void reportOfACleanFileSaysSo() {
         assertTrue(ResolutionReport.markdown(record(), List.of()).contains("No problems were found."));
     }
+
+    @Test
+    void aQuotedFenceCannotCloseTheBlock() {
+        Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "F", null, null, false, null, null, List.of(0),
+            List.of(new QuotedLine(3, "a ``` b", false)));
+        String md = ResolutionReport.markdown(record(), List.of(g));
+        assertTrue(md.indexOf("```", md.indexOf("```") + 3) == md.lastIndexOf("```"), md);
+    }
+
+    @Test
+    void aFileNameWithNewlineStaysOneHeading() {
+        ValidationRecord r = ValidationRecord.queued(UUID.randomUUID(), "a\n## injected.mzTab", ValidationLevel.INFO,
+            100, new ProfileRef(ProfileRef.Kind.NONE, null, null), Instant.now(), Instant.now());
+        String md = ResolutionReport.markdown(r, List.of());
+        assertTrue(md.startsWith("# Validation problems in a ## injected.mzTab\n"), md);
+    }
 }

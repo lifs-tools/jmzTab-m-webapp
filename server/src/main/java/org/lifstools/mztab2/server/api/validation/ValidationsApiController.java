@@ -27,7 +27,9 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.UUID;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
@@ -78,6 +80,17 @@ public class ValidationsApiController {
     private final GuidanceResolver guidance;
     private final UploadLines uploads;
     private final boolean customMappingsEnabled;
+
+    /** Guidance of ended validations, which do not change any more; not persisted. */
+    private static final int GUIDANCE_CACHE_SIZE = 256;
+    private final Map<UUID, List<Guidance>> guidanceCache = new LinkedHashMap<>(16, 0.75f, true) {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, List<Guidance>> eldest) {
+            return size() > GUIDANCE_CACHE_SIZE;
+        }
+    };
 
     public ValidationsApiController(ValidationSessionService sessions, SectionReader sections,
         GuidanceResolver guidance, UploadLines uploads,
@@ -139,15 +152,29 @@ public class ValidationsApiController {
         if (record.messages().isEmpty()) {
             return List.of();
         }
+        synchronized (guidanceCache) {
+            List<Guidance> cached = guidanceCache.get(record.id());
+            if (cached != null) {
+                return cached;
+            }
+        }
         String line = MzTabVersions.lineOf(record.mzTabVersion()).orElse(null);
-        return guidance.resolve(record.messages(), line, uploads.softwareNames(record.id()),
+        List<Guidance> resolved = guidance.resolve(record.messages(), line, uploads.softwareNames(record.id()),
             numbers -> uploads.lines(record.id(), numbers));
+        synchronized (guidanceCache) {
+            guidanceCache.put(record.id(), resolved);
+        }
+        return resolved;
     }
 
     @Operation(operationId = "deleteValidation", summary = "Deletes a validation and its stored data")
     @DeleteMapping("/validations/{id}")
     public ResponseEntity<Void> deleteValidation(@PathVariable("id") String id) {
-        if (!sessions.delete(parse(id))) {
+        UUID uuid = parse(id);
+        synchronized (guidanceCache) {
+            guidanceCache.remove(uuid);
+        }
+        if (!sessions.delete(uuid)) {
             throw new UnknownValidationException();
         }
         return ResponseEntity.noContent().build();
@@ -168,6 +195,9 @@ public class ValidationsApiController {
         headers.setContentDisposition(ContentDisposition.attachment()
             .filename(download, ascii ? null : StandardCharsets.UTF_8).build());
         if (f.equals("md")) {
+            if (record.status() != ValidationStatus.FINISHED && record.status() != ValidationStatus.FAILED) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "The validation has not finished yet.");
+            }
             List<Guidance> resolved = guidanceOf(record);
             return ResponseEntity.ok().headers(headers).contentType(new MediaType("text", "markdown", StandardCharsets.UTF_8))
                 .body(ResolutionReport.markdown(record, resolved == null ? List.of() : resolved));

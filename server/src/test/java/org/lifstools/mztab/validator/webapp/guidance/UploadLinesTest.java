@@ -70,4 +70,21 @@ class UploadLinesTest {
         assertEquals(Map.of(), lines.lines(session, Set.of(1L)));
         assertEquals(List.of(), lines.softwareNames(session));
     }
+
+    @Test
+    void aVeryLongLineIsCutAndLaterLinesKeepTheirNumbers() {
+        String file = "first\r\n" + "x".repeat(5_000_000) + "\rthird\n\nfifth";
+        Map<Long, String> lines = with(file).lines(session, Set.of(1L, 2L, 3L, 5L));
+        assertEquals("first", lines.get(1L));
+        assertEquals(GuidanceResolver.MAX_LINE_CHARS + 1, lines.get(2L).length());
+        assertEquals("third", lines.get(3L));
+        assertEquals("fifth", lines.get(5L));
+    }
+
+    @Test
+    void softwareNamesStopAtTheEndOfTheMetadata() {
+        String file = "COM\tnote\n\nMTD\tsoftware[1]\t[MS, MS:1, First, 1]\n"
+            + "SMH\tx\nMTD\tsoftware[2]\t[MS, MS:2, Second, 1]\n";
+        assertEquals(List.of("First"), with(file).softwareNames(session));
+    }
 }

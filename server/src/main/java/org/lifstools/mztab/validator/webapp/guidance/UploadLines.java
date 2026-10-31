@@ -75,6 +75,10 @@ public class UploadLines {
     public List<String> softwareNames(UUID session) {
         List<String> names = new ArrayList<>();
         scan(session, (number, text) -> {
+            // the metadata section ends at the first line that is not MTD, COM or blank
+            if (!text.isBlank() && !text.startsWith("MTD") && !text.startsWith("COM")) {
+                return false;
+            }
             Matcher m = SOFTWARE.matcher(text);
             if (m.matches()) {
                 nameOf(m.group(1).strip()).ifPresent(names::add);
@@ -112,6 +116,9 @@ public class UploadLines {
         boolean visit(long number, String text);
     }
 
+    /** At most this many characters of a line are kept: one more than the quote limit, so a cut can be seen. */
+    static final int KEPT_CHARS = GuidanceResolver.MAX_LINE_CHARS + 1;
+
     private void scan(UUID session, LineVisitor visitor) {
         Optional<InputStream> in = storage.read(session, SLOT.MZTABFILE, UPLOAD);
         if (in.isEmpty()) {
@@ -120,12 +127,34 @@ public class UploadLines {
         // InputStreamReader replaces malformed input, so a file in another encoding does not fail
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in.get(), StandardCharsets.UTF_8))) {
             long number = 0;
-            String text;
-            while ((text = reader.readLine()) != null) {
-                number++;
-                if (!visitor.visit(number, text)) {
-                    return;
+            StringBuilder line = new StringBuilder();
+            boolean any = false;
+            boolean afterCr = false;
+            int c;
+            while ((c = reader.read()) != -1) {
+                if (c == '\n' && afterCr) {
+                    afterCr = false;
+                    continue;
                 }
+                afterCr = c == '\r';
+                if (c == '\n' || c == '\r') {
+                    number++;
+                    String text = line.toString();
+                    line.setLength(0);
+                    any = false;
+                    if (!visitor.visit(number, text)) {
+                        return;
+                    }
+                } else {
+                    any = true;
+                    // a line can be as long as the upload: the rest of a long line is skipped, not kept
+                    if (line.length() < KEPT_CHARS) {
+                        line.append((char) c);
+                    }
+                }
+            }
+            if (any) {
+                visitor.visit(number + 1, line.toString());
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read the upload of validation " + session, e);
