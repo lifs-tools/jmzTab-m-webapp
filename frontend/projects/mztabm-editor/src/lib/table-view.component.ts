@@ -71,6 +71,8 @@ interface Editing {
 }
 
 const FILTER_DEBOUNCE_MS = 300;
+/** The most columns one table request may name (the server's limit). */
+export const MAX_REQUESTED_COLUMNS = 200;
 const SAVE_ERROR = 'This change could not be saved.';
 const nf = new Intl.NumberFormat('en');
 
@@ -120,6 +122,8 @@ export class TableViewComponent {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly pickerOpen = signal(false);
+  /** Why the chosen columns were not applied. */
+  protected readonly pickError = signal<string | null>(null);
 
   /** Editable mode: the cell that holds the table's one tab stop (page positions), the cell being edited. */
   protected readonly editable = computed(() => !this.isReadonly() && !!this.source.applyEdits);
@@ -535,13 +539,28 @@ export class TableViewComponent {
     this.resetColumnsState();
   }
 
+  /**
+   * Shows the chosen columns. A source with positions is asked for every column of each chosen name; more than
+   * one request can name are refused here, with the count, and the picker stays open to choose fewer.
+   */
   protected applyPick(cols: string[]): void {
+    if (this.positional()) {
+      const n = positionsOf(this.allColumns(), cols).length;
+      if (n > MAX_REQUESTED_COLUMNS) {
+        this.pickError.set(
+          `The chosen names stand for ${nf.format(n)} columns of the table; up to ${MAX_REQUESTED_COLUMNS} can be shown at once. Choose fewer names.`,
+        );
+        return;
+      }
+    }
+    this.pickError.set(null);
     this.picked.set(cols);
     this.pickerOpen.set(false);
     this.resetColumnsState();
   }
 
   protected resetPick(): void {
+    this.pickError.set(null);
     this.picked.set(null);
     this.windowStart.set(0);
     this.pickerOpen.set(false);

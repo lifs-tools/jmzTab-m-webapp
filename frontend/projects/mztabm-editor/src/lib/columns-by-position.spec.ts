@@ -128,6 +128,33 @@ describe('TableViewComponent columns by position', () => {
     expect(q.columns).toBeUndefined();
   });
 
+  it('refuses a pick of more columns than one request can ask for, and says so', async () => {
+    // "x" names 210 columns: with SML_ID and a, the pick would ask for 212 positions
+    const all = ['SML_ID', 'a', ...Array.from({ length: 210 }, () => 'x')];
+    const src = new EditableFakeDocumentSource();
+    const { el, settle } = await render(page([1, 2, 3], all), src);
+    el.querySelector<HTMLButtonElement>('.pick-open')!.click();
+    await settle();
+    el.querySelector<HTMLButtonElement>('.pick-apply')!.click();
+    await settle();
+    src.noneTable();
+    const alert = el.querySelector('[data-testid=pick-error]')!;
+    expect(alert.textContent).toContain('212 columns');
+    expect(alert.textContent).toContain('up to 200');
+    // the picker stays open to choose fewer
+    expect(el.querySelector('.picker')).toBeTruthy();
+    const box = [...el.querySelectorAll<HTMLLabelElement>('.picker label')]
+      .find((l) => l.textContent?.trim() === 'x')!
+      .querySelector<HTMLInputElement>('input')!;
+    box.checked = false;
+    box.dispatchEvent(new Event('change'));
+    await settle();
+    el.querySelector<HTMLButtonElement>('.pick-apply')!.click();
+    await settle();
+    expect(src.oneTable().args.q.positions).toEqual([1, 2]);
+    expect(el.querySelector('[data-testid=pick-error]')).toBeNull();
+  });
+
   it('asks a source without positions by name, as before', async () => {
     const src = new FakeDocumentSource();
     const { settle, heads, next } = await render(page(FIRST_WINDOW, WIDE, false), src);

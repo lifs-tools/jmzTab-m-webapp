@@ -19,8 +19,11 @@
     [selected]="pickerSeed()"
     (applied)="applyPick($event)"
     (reset)="resetPick()"
-    (closed)="pickerOpen.set(false)"
+    (closed)="pickerOpen.set(false); pickError.set(null)"
   />
+  @if (pickError(); as msg) {
+    <div class="callout" role="alert" data-testid="pick-error"><div>{{ msg }}</div></div>
+  }
 }
 
 <div class="bar">
