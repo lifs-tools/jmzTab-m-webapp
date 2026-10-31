@@ -124,6 +124,20 @@ public class GuidanceResolver {
             f.getSuggestion(), List.copyOf(g.indexes), quoted);
     }
 
+    private static final int MAX_TOOL_NAME_CHARS = 200;
+
+    /** The file controls the name: cut at 200 chars plus an ellipsis, never inside a surrogate pair. */
+    static String capName(String name) {
+        if (name.length() <= MAX_TOOL_NAME_CHARS) {
+            return name;
+        }
+        int end = MAX_TOOL_NAME_CHARS;
+        if (Character.isHighSurrogate(name.charAt(end - 1)) && Character.isLowSurrogate(name.charAt(end))) {
+            end--;
+        }
+        return name.substring(0, end) + "…";
+    }
+
     /** The matching variant's fix and the file's software name that matched it, or null. */
     @Nullable
     private static String[] toolVariant(GuidanceEntry e, List<String> softwareNames) {
@@ -131,7 +145,7 @@ public class GuidanceResolver {
             Pattern p = Pattern.compile(t.software(), Pattern.CASE_INSENSITIVE);
             for (String s : softwareNames) {
                 if (p.matcher(s).find()) {
-                    return new String[] {t.fixInTool(), s};
+                    return new String[] {t.fixInTool(), capName(s)};
                 }
             }
         }

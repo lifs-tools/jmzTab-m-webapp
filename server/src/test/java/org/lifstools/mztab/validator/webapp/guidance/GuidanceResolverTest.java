@@ -75,6 +75,18 @@ class GuidanceResolverTest {
     }
 
     @Test
+    void capsAHugeToolName() {
+        String huge = "LipidCompass curation script" + "x".repeat(10_000);
+        String name = resolver.resolve(List.of(param(1)), "2.0", List.of(huge), n -> Map.of()).get(0).toolName();
+        assertEquals(201, name.length());
+        assertTrue(name.endsWith("…"));
+        // a surrogate pair straddling the cut is not split
+        String pair = "LipidCompass curation script" + "x".repeat(171) + "\uD83D\uDE00" + "y".repeat(50);
+        String cut = resolver.resolve(List.of(param(1)), "2.0", List.of(pair), n -> Map.of()).get(0).toolName();
+        assertFalse(Character.isHighSurrogate(cut.charAt(cut.length() - 2)));
+    }
+
+    @Test
     void fallsBackToJmzTabTexts() {
         ValidationMessage m = msg("[Error-9999] line 3: strange", "Something strange happened", 3);
         m.setCause("Because.");
