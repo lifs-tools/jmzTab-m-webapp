@@ -1,0 +1,86 @@
+:host {
+  --_line: color-mix(in srgb, var(--mztabm-color-text-muted) 30%, transparent);
+  --_row: color-mix(in srgb, var(--mztabm-color-text-muted) 15%, transparent);
+  --_dis: color-mix(in srgb, var(--mztabm-color-text-muted) 55%, transparent);
+  --_ctl: color-mix(in srgb, var(--mztabm-color-text-muted) 45%, transparent);
+  font-family: var(--mztabm-font-family);
+  display: block;
+}
+.entries {
+  margin: 0;
+}
+.entry {
+  display: grid;
+  grid-template-columns: minmax(120px, 280px) 1fr;
+  gap: 4px 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--_row);
+  font-size: 13.5px;
+}
+.entry--hl {
+  background: var(--mztabm-highlight);
+  box-shadow: inset 3px 0 0 var(--mztabm-highlight-border);
+  padding-left: 8px;
+  color: var(--mztabm-color-text);
+
+  .key {
+    color: var(--mztabm-color-text);
+  }
+}
+.entry:focus-visible {
+  outline: 2px solid var(--mztabm-highlight-border);
+  outline-offset: -2px;
+}
+.key {
+  font-family: var(--mztabm-font-mono);
+  font-size: 12px;
+  color: var(--mztabm-color-text-muted);
+  overflow-wrap: anywhere;
+}
+.value {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+@media (max-width: 600px) {
+  .entry {
+    grid-template-columns: 1fr;
+  }
+}
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  align-items: center;
+  font-family: var(--mztabm-font-mono);
+  font-size: 11px;
+  color: var(--mztabm-color-text-muted);
+  padding: 8px 2px;
+
+  button {
+    border: 0;
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--mztabm-color-primary);
+    cursor: pointer;
+    padding: 4px 8px;
+
+    &:disabled {
+      color: var(--_dis);
+      cursor: default;
+    }
+  }
+}
+
+// on the panel element, which belongs to the tab component's own template
+.panel--hl {
+  outline: 2px solid var(--mztabm-highlight-border);
+  outline-offset: -2px;
+}
+.note {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--mztabm-color-text-muted);
+  margin: 0;
+}

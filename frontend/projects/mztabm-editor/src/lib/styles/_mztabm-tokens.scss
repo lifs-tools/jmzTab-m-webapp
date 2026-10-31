@@ -1,0 +1,40 @@
+// Design tokens of the mztabm-editor library. The library's styles use only these --mztabm-* properties.
+//
+// Each token defaults to its --lifs-* counterpart, so a host that already loads the LIFS tokens (the validator
+// webapp) needs no extra setup beyond including this mixin. A standalone host either defines --lifs-* too or
+// sets the --mztabm-* properties itself, which wins over these defaults when set on a more specific element.
+//
+// Mapping (library token -> LIFS token):
+//   --mztabm-color-primary     -> --lifs-primary
+//   --mztabm-color-surface     -> --lifs-paper
+//   --mztabm-color-text        -> --lifs-ink
+//   --mztabm-color-text-muted  -> --lifs-grey
+//   --mztabm-color-error       -> --lifs-error
+//   --mztabm-color-warn        -> --lifs-warn
+//   --mztabm-color-info        -> --lifs-info
+//   --mztabm-color-ok          -> --lifs-ok
+//   --mztabm-highlight         -> --lifs-highlight
+//   --mztabm-highlight-border  -> --lifs-highlight-border
+//   --mztabm-font-family       -> --lifs-sans
+//   --mztabm-font-mono         -> --lifs-mono
+//   --mztabm-radius            -> --lifs-radius-none (the views are square, as on lifs-tools.org)
+//
+// Rules, borders and disabled text are mixed from these tokens in the components (color-mix), so they need
+// no tokens of their own.
+@mixin tokens {
+  :root {
+    --mztabm-color-primary: var(--lifs-primary);
+    --mztabm-color-surface: var(--lifs-paper);
+    --mztabm-color-text: var(--lifs-ink);
+    --mztabm-color-text-muted: var(--lifs-grey);
+    --mztabm-color-error: var(--lifs-error);
+    --mztabm-color-warn: var(--lifs-warn);
+    --mztabm-color-info: var(--lifs-info);
+    --mztabm-color-ok: var(--lifs-ok);
+    --mztabm-highlight: var(--lifs-highlight);
+    --mztabm-highlight-border: var(--lifs-highlight-border);
+    --mztabm-font-family: var(--lifs-sans);
+    --mztabm-font-mono: var(--lifs-mono);
+    --mztabm-radius: var(--lifs-radius-none);
+  }
+}

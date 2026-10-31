@@ -60,8 +60,8 @@
                         </goals>
                         <phase>test</phase>
                         <configuration>
-                            <!-- the test script runs ng test in non-watch mode: jsdom, no browser, exits when done -->
-                            <arguments>run test</arguments>
+                            <!-- test:all runs ng test for the webapp and the mztabm-editor library in non-watch mode: jsdom, no browser, exits when done -->
+                            <arguments>run test:all</arguments>
                         </configuration>
                     </execution>
                 </executions>

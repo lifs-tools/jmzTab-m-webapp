@@ -1,15 +1,15 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
-import { TablePage } from '../../api/models/table-page';
-import { TableHighlight, TableTabComponent } from './table-tab.component';
+import { DocSection, DocTablePage, DocumentSource } from './document-source';
+import { TableHighlight, TableViewComponent } from './table-view.component';
+import { FakeDocumentSource, Pending, TableArgs } from './testing/fake-document-source';
 
 const ALL = Array.from({ length: 120 }, (_, i) => (i === 0 ? 'SML_ID' : `col[${i}]`));
 const WIDE = Array.from({ length: 130 }, (_, i) => `col${i}`);
 const hl = (over: Partial<TableHighlight>): TableHighlight => ({ rows: [], focusRow: null, column: null, header: false, moveFocus: true, ...over });
 
-function page(over: Partial<TablePage> = {}): TablePage {
+function page(over: Partial<DocTablePage> = {}): DocTablePage {
   const columns = over.columns ?? ALL.slice(0, 50);
   return {
     section: 'SML',
@@ -23,18 +23,26 @@ function page(over: Partial<TablePage> = {}): TablePage {
   };
 }
 
-describe('TableTabComponent', () => {
-  let http: HttpTestingController;
+/** The views take their inputs from a template, as in the apps; assigning inputs after createComponent hides bugs. */
+@Component({
+  imports: [TableViewComponent],
+  template: `<mztabm-table-view [section]="section()" [highlight]="highlight()" />`,
+})
+class HostComponent {
+  readonly section = signal<DocSection>('sml');
+  readonly highlight = signal<TableHighlight | null>(null);
+}
+
+describe('TableViewComponent', () => {
+  let src: FakeDocumentSource;
 
   function render() {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
-    http = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(TableTabComponent);
-    fixture.componentRef.setInput('validationId', 'abc');
-    fixture.componentRef.setInput('section', 'sml');
+    src = new FakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const next = (): TestRequest => http.expectOne((r) => r.url.includes('/validations/abc/tables/sml'));
+    const next = (): Pending<TableArgs, DocTablePage> => src.oneTable();
     const settle = async () => {
       fixture.detectChanges();
       await fixture.whenStable();
@@ -48,8 +56,8 @@ describe('TableTabComponent', () => {
   it('requestsOnlyTheColumnWindow', async () => {
     const { el, next, settle } = render();
     const first = next();
-    expect(first.request.params.has('columns')).toBe(false);
-    first.flush(page());
+    expect(first.args.q.columns).toBeUndefined();
+    first.reply(page());
     await settle();
     expect(el.querySelectorAll('thead tr:first-child th').length).toBe(50);
     expect(el.querySelector('.window')?.textContent).toContain('Columns 1–50 of 120');
@@ -59,60 +67,60 @@ describe('TableTabComponent', () => {
     el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!.click();
     await settle();
     const second = next();
-    expect(second.request.params.get('columns')).toBe([ALL[0], ...ALL.slice(50, 100)].join(','));
-    expect(second.request.params.get('page')).toBe('0');
-    second.flush(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
+    expect(second.args.q.columns?.join(',')).toBe([ALL[0], ...ALL.slice(50, 100)].join(','));
+    expect(second.args.q.page).toBe(0);
+    second.reply(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
     await settle();
     expect(el.querySelector('.window')?.textContent).toContain('Columns 51–100 of 120');
   });
 
   it('sort click requests sort and descending', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     const sortBtn = () => el.querySelectorAll<HTMLButtonElement>('thead .sort')[1];
     sortBtn().click();
     await settle();
     let r = next();
-    expect(r.request.params.get('sort')).toBe(ALL[1]);
-    expect(r.request.params.get('descending')).toBe('false');
-    r.flush(page());
+    expect(r.args.q.sort).toBe(ALL[1]);
+    expect(r.args.q.descending).toBe(false);
+    r.reply(page());
     await settle();
     sortBtn().click();
     await settle();
     r = next();
-    expect(r.request.params.get('descending')).toBe('true');
-    r.flush(page());
+    expect(r.args.q.descending).toBe(true);
+    r.reply(page());
     await settle();
     sortBtn().click();
     await settle();
     r = next();
-    expect(r.request.params.has('sort')).toBe(false);
-    r.flush(page());
+    expect(r.args.q.sort).toBeFalsy();
+    r.reply(page());
   });
 
   it('column filter is debounced and sent as filter=COL:text', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     vi.useFakeTimers();
     const input = el.querySelectorAll<HTMLInputElement>('thead input')[1];
     input.value = 'a:b,c';
     input.dispatchEvent(new Event('input'));
     vi.advanceTimersByTime(299);
-    http.expectNone((r) => r.url.includes('/tables/sml'));
+    src.noneTable();
     vi.advanceTimersByTime(2);
     vi.useRealTimers();
     await settle();
     const r = next();
-    expect(r.request.params.getAll('filter')).toEqual([`${ALL[1]}:a:b,c`]);
-    expect(r.request.params.get('page')).toBe('0');
-    r.flush(page());
+    expect(r.args.q.filters).toEqual([{ column: ALL[1], text: 'a:b,c' }]);
+    expect(r.args.q.page).toBe(0);
+    r.reply(page());
   });
 
-  it('encodes plus signs, spaces and percent in filters', async () => {
+  it('hands filter text over verbatim: plus signs, spaces and percent', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     vi.useFakeTimers();
     const input = el.querySelectorAll<HTMLInputElement>('thead input')[1];
@@ -122,17 +130,17 @@ describe('TableTabComponent', () => {
     vi.useRealTimers();
     await settle();
     const r = next();
-    expect(r.request.urlWithParams).toContain('filter=col%5B1%5D%3A%5BM%2BH%5D%2B%205%25');
-    r.flush(page());
+    expect(r.args.q.filters).toEqual([{ column: 'col[1]', text: '[M+H]+ 5%' }]);
+    r.reply(page());
   });
 
   it('shows an inline error on 400', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!.click();
     await settle();
-    next().flush({}, { status: 400, statusText: 'Bad Request' });
+    next().fail(400);
     await settle();
     expect(el.querySelector('[role="alert"]')).toBeTruthy();
     expect(el.querySelectorAll('tbody tr').length).toBe(1);
@@ -141,23 +149,23 @@ describe('TableTabComponent', () => {
     expect(el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!.disabled).toBe(false);
     expect(el.querySelector<HTMLButtonElement>('button[aria-label="Previous columns"]')!.disabled).toBe(true);
     expect(el.querySelectorAll('thead tr:first-child th').length).toBe(50);
-    http.expectNone((r) => r.url.includes('/tables/sml'));
+    src.noneTable();
   });
 
   it('lets a failed shift be repeated', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     const nextCols = () => el.querySelector<HTMLButtonElement>('button[aria-label="Next columns"]')!;
     nextCols().click();
     await settle();
-    next().flush({}, { status: 500, statusText: 'Server Error' });
+    next().fail(500);
     await settle();
     nextCols().click();
     await settle();
     const again = next();
-    expect(again.request.params.get('columns')).toBe([ALL[0], ...ALL.slice(50, 100)].join(','));
-    again.flush(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
+    expect(again.args.q.columns?.join(',')).toBe([ALL[0], ...ALL.slice(50, 100)].join(','));
+    again.reply(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
     await settle();
     expect(el.querySelector('[role="alert"]')).toBeNull();
     expect(el.querySelector('.window')?.textContent).toContain('Columns 51–100 of 120');
@@ -165,11 +173,11 @@ describe('TableTabComponent', () => {
 
   it('offers a retry when the first load fails', async () => {
     const { el, next, settle } = render();
-    next().flush({}, { status: 500, statusText: 'Server Error' });
+    next().fail(500);
     await settle();
     el.querySelector<HTMLButtonElement>('.retry')!.click();
     await settle();
-    next().flush(page());
+    next().reply(page());
     await settle();
     expect(el.querySelectorAll('tbody tr').length).toBe(1);
     expect(el.querySelector('[role="alert"]')).toBeNull();
@@ -177,7 +185,7 @@ describe('TableTabComponent', () => {
 
   it('does not refetch an equal query', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     el.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]')!.click();
     vi.useFakeTimers();
@@ -187,12 +195,12 @@ describe('TableTabComponent', () => {
     vi.advanceTimersByTime(301);
     vi.useRealTimers();
     await settle();
-    http.expectNone((r) => r.url.includes('/tables/sml'));
+    src.noneTable();
   });
 
   it('picker caps the selection at 50 and keeps the first column', async () => {
     const { el, next, settle } = render();
-    next().flush(page());
+    next().reply(page());
     await settle();
     el.querySelector<HTMLButtonElement>('.pick-open')!.click();
     await settle();
@@ -211,38 +219,38 @@ describe('TableTabComponent', () => {
     el.querySelector<HTMLButtonElement>('.pick-apply')!.click();
     await settle();
     const r = next();
-    const cols = r.request.params.get('columns')!.split(',');
+    const cols = r.args.q.columns!;
     expect(cols.length).toBe(50);
     expect(cols[0]).toBe('SML_ID');
     expect(cols).toContain(ALL[60]);
     expect(cols).not.toContain(ALL[10]);
-    r.flush(page({ columns: cols }));
+    r.reply(page({ columns: cols }));
     await settle();
     expect(el.querySelector('.window')).toBeNull();
   });
 
   describe('highlight', () => {
     const setHl = async (ctx: ReturnType<typeof render>, h: TableHighlight | null) => {
-      ctx.fixture.componentRef.setInput('highlight', h);
+      ctx.fixture.componentInstance.highlight.set(h);
       await ctx.settle();
     };
     const rowsAt = (idx: number[], columns: string[]) => idx.map((index) => ({ index, cells: columns.map((_, i) => `v${i}`) }));
 
     it('clears filters and sort and opens the page of the row', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       ctx.el.querySelectorAll<HTMLButtonElement>('thead .sort')[1].click();
       await ctx.settle();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
       const r = ctx.next();
-      expect(r.request.params.get('page')).toBe('2');
-      expect(r.request.params.has('sort')).toBe(false);
-      expect(r.request.params.has('filter')).toBe(false);
+      expect(r.args.q.page).toBe(2);
+      expect(r.args.q.sort).toBeFalsy();
+      expect(r.args.q.filters ?? []).toEqual([]);
       const cols = ALL.slice(0, 50);
-      r.flush(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
+      r.reply(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
       await ctx.settle();
       expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
       expect(document.activeElement?.closest('tr')?.classList.contains('row--hl')).toBe(true);
@@ -250,11 +258,11 @@ describe('TableTabComponent', () => {
 
     it('opens the row without taking the focus when the jump does not move it', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID', moveFocus: false }));
       const cols = ALL.slice(0, 50);
-      ctx.next().flush(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
+      ctx.next().reply(page({ page: 2, columns: cols, rows: rowsAt([100, 120], cols) }));
       await ctx.settle();
       expect(ctx.el.querySelectorAll('.row--hl').length).toBe(1);
       expect(ctx.el.querySelector('[data-hl-focus]')).toBeTruthy();
@@ -263,13 +271,13 @@ describe('TableTabComponent', () => {
 
     it('moves the column window to show a far column', async () => {
       const ctx = render();
-      ctx.next().flush(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
+      ctx.next().reply(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
       await ctx.settle();
       await setHl(ctx, hl({ rows: [0], focusRow: 0, column: 'col120' }));
       const r = ctx.next();
-      expect(r.request.params.get('columns')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
+      expect(r.args.q.columns?.join(',')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
       const cols = ['col0', ...WIDE.slice(100, 130)];
-      r.flush(page({ allColumns: WIDE, columns: cols, rows: rowsAt([0], cols) }));
+      r.reply(page({ allColumns: WIDE, columns: cols, rows: rowsAt([0], cols) }));
       await ctx.settle();
       expect(ctx.el.querySelectorAll('.cell--hl').length).toBe(1);
       expect(ctx.el.querySelector('.window')?.textContent).toContain('Columns 101–130 of 130');
@@ -279,30 +287,30 @@ describe('TableTabComponent', () => {
       const ctx = render();
       const first = ctx.next();
       await setHl(ctx, hl({ rows: [0], focusRow: 0, column: 'col120' }));
-      first.flush(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
+      first.reply(page({ allColumns: WIDE, columns: WIDE.slice(0, 50) }));
       await ctx.settle();
       const r = ctx.next();
-      expect(r.request.params.get('columns')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
-      r.flush(page({ allColumns: WIDE, columns: ['col0', ...WIDE.slice(100, 130)] }));
+      expect(r.args.q.columns?.join(',')).toBe(['col0', ...WIDE.slice(100, 150)].join(','));
+      r.reply(page({ allColumns: WIDE, columns: ['col0', ...WIDE.slice(100, 130)] }));
     });
 
     it('drops a picked column set that hides the column', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       ctx.el.querySelector<HTMLButtonElement>('.pick-open')!.click();
       await ctx.settle();
       ctx.el.querySelector<HTMLButtonElement>('.pick-apply')!.click();
       await ctx.settle();
       const picked = ctx.next();
-      picked.flush(page({ columns: ALL.slice(0, 50) }));
+      picked.reply(page({ columns: ALL.slice(0, 50) }));
       await ctx.settle();
       // the picked set is the first window, so it hides col[60]
       expect(ctx.el.querySelector('.window')).toBeNull();
       await setHl(ctx, hl({ rows: [0], focusRow: 0, column: ALL[60] }));
       const r = ctx.next();
-      expect(r.request.params.get('columns')).toBe(ALL[0] + ',' + ALL.slice(50, 100).join(','));
-      r.flush(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
+      expect(r.args.q.columns?.join(',')).toBe(ALL[0] + ',' + ALL.slice(50, 100).join(','));
+      r.reply(page({ columns: [ALL[0], ...ALL.slice(50, 100)] }));
       await ctx.settle();
       expect(ctx.el.querySelector('.window')?.textContent).toContain('Columns 51–100 of 120');
     });
@@ -310,7 +318,7 @@ describe('TableTabComponent', () => {
     it('tints rows, outlines the cell and counts rows on other pages', async () => {
       const ctx = render();
       const cols = ALL.slice(0, 50);
-      ctx.next().flush(page({ rows: rowsAt([0, 1, 2], cols) }));
+      ctx.next().reply(page({ rows: rowsAt([0, 1, 2], cols) }));
       await ctx.settle();
       await setHl(ctx, hl({ rows: [1, 2, 300], focusRow: 1, column: ALL[3] }));
       expect(ctx.el.querySelectorAll('.row--hl').length).toBe(2);
@@ -321,7 +329,7 @@ describe('TableTabComponent', () => {
 
     it('highlights a header cell', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       await setHl(ctx, hl({ column: ALL[2], header: true }));
       const ths = ctx.el.querySelectorAll('thead tr:first-child th.col--hl');
@@ -331,40 +339,40 @@ describe('TableTabComponent', () => {
 
     it('jumps again for a new highlight object and shows the error when the jump fails', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
-      ctx.next().flush({}, { status: 500, statusText: 'Server Error' });
+      ctx.next().fail(500);
       await ctx.settle();
       expect(ctx.el.querySelector('[role="alert"]')).toBeTruthy();
-      http.expectNone((r) => r.url.includes('/tables/sml'));
+      src.noneTable();
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
-      expect(ctx.next().request.params.get('page')).toBe('2');
+      expect(ctx.next().args.q.page).toBe(2);
     });
 
     it('a typed filter still in its debounce does not undo the jump', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       vi.useFakeTimers();
       const input = ctx.el.querySelectorAll<HTMLInputElement>('thead input')[1];
       input.value = 'x';
       input.dispatchEvent(new Event('input'));
       vi.advanceTimersByTime(100);
-      ctx.fixture.componentRef.setInput('highlight', hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
+      ctx.fixture.componentInstance.highlight.set(hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
       ctx.fixture.detectChanges();
       vi.advanceTimersByTime(400);
       vi.useRealTimers();
       await ctx.settle();
       const r = ctx.next();
-      expect(r.request.params.get('page')).toBe('2');
-      expect(r.request.params.has('filter')).toBe(false);
-      r.flush(page({ page: 2 }));
+      expect(r.args.q.page).toBe(2);
+      expect(r.args.q.filters ?? []).toEqual([]);
+      r.reply(page({ page: 2 }));
     });
 
     it('does not steal focus after the user pages while the jump loads', async () => {
       const ctx = render();
-      ctx.next().flush(page());
+      ctx.next().reply(page());
       await ctx.settle();
       await setHl(ctx, hl({ rows: [120], focusRow: 120, column: 'SML_ID' }));
       const jumpReq = ctx.next();
@@ -372,7 +380,7 @@ describe('TableTabComponent', () => {
       await ctx.settle();
       expect(jumpReq.cancelled).toBe(true);
       const cols = ALL.slice(0, 50);
-      ctx.next().flush(page({ page: 3, columns: cols, rows: rowsAt([120], cols) }));
+      ctx.next().reply(page({ page: 3, columns: cols, rows: rowsAt([120], cols) }));
       await ctx.settle();
       expect(ctx.el.contains(document.activeElement)).toBe(false);
     });

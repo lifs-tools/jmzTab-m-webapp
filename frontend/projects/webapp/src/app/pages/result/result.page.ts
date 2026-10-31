@@ -24,8 +24,8 @@ import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
 import { DocTab, DocTarget, MessageGroup, occurrenceLabel, targetOf } from './message-groups';
 import { MessagesTabComponent, MessagesViewState, ShowRequest } from './messages-tab.component';
-import { MetadataHighlight, MetadataTabComponent } from './metadata-tab.component';
-import { TableHighlight, TableTabComponent } from './table-tab.component';
+import { DocumentSource, MetadataHighlight, MetadataViewComponent, TableHighlight, TableViewComponent } from '@lifs-tools/mztabm-editor';
+import { ResultDocumentSource } from './result-document-source';
 import { ResultBannerComponent } from './result-banner.component';
 import { ResultHeaderComponent } from './result-header.component';
 
@@ -64,14 +64,14 @@ const WIDE_QUERY = '(min-width: 1100px)';
     MatProgressBarModule,
     RouterLink,
     MessagesTabComponent,
-    MetadataTabComponent,
-    TableTabComponent,
+    MetadataViewComponent,
+    TableViewComponent,
     ResultBannerComponent,
     ResultHeaderComponent,
   ],
   templateUrl: './result.page.html',
   styleUrl: './result.page.scss',
-  providers: [MessagesViewState],
+  providers: [MessagesViewState, ResultDocumentSource, { provide: DocumentSource, useExisting: ResultDocumentSource }],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResultPage {
@@ -83,6 +83,8 @@ export class ResultPage {
   private readonly appInfo = inject(AppInfoStore);
   /** Kept here so the messages tab's filters, page and view survive its re-creation. */
   private readonly messagesView = inject(MessagesViewState);
+  /** What the library's document views read from: this result. Set before the views exist. */
+  private readonly docSource = inject(ResultDocumentSource);
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
 
   protected readonly view = signal<View>('loading');
@@ -256,6 +258,7 @@ export class ResultPage {
       this.view.set(isNotFound(p) ? 'notFound' : 'error');
       return;
     }
+    this.docSource.validationId = p.record.id ?? '';
     this.record.set(p.record);
     this.view.set('ready');
     if (!this.tabHandled && p.record.status === 'FINISHED') {

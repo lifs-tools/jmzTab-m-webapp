@@ -84,10 +84,10 @@
 
             <ng-template #docPane let-tab>
               @if (tab === 'metadata') {
-                <app-metadata-tab [validationId]="rec.id ?? ''" [highlight]="metadataHighlight()" />
+                <mztabm-metadata-view [highlight]="metadataHighlight()" />
               } @else {
                 @for (sec of [tab]; track sec) {
-                  <app-table-tab [validationId]="rec.id ?? ''" [section]="sectionOf(sec)" [highlight]="tableHighlight()" />
+                  <mztabm-table-view [section]="sectionOf(sec)" [highlight]="tableHighlight()" />
                 }
               }
             </ng-template>

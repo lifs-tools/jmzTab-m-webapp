@@ -10,9 +10,8 @@ import { BehaviorSubject, map } from 'rxjs';
 
 import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
-import { MetadataTabComponent } from './metadata-tab.component';
+import { MetadataViewComponent, TableViewComponent } from '@lifs-tools/mztabm-editor';
 import { ResultPage } from './result.page';
-import { TableTabComponent } from './table-tab.component';
 
 const BASE: ValidationRecord = {
   id: 'abc',
@@ -218,7 +217,7 @@ describe('ResultPage', () => {
     fixture.detectChanges();
     const selected = el.querySelector('[role="tab"][aria-selected="true"]')!;
     expect(selected.textContent).toContain('Metadata');
-    expect(el.querySelector('[role="tabpanel"] app-metadata-tab')).toBeTruthy();
+    expect(el.querySelector('[role="tabpanel"] mztabm-metadata-view')).toBeTruthy();
     http.expectOne((r) => r.url.endsWith('/validations/abc/metadata')).flush([]);
   });
 
@@ -396,9 +395,9 @@ describe('ResultPage', () => {
     const roleNames = (role: string) => els(`[role="${role}"]`).map(label);
     const selectedTab = () => label(el('[role="tab"][aria-selected="true"]')!);
     const tableHighlight = () =>
-      fixture.debugElement.query(By.directive(TableTabComponent))?.componentInstance.highlight();
+      fixture.debugElement.query(By.directive(TableViewComponent))?.componentInstance.highlight();
     const metadataHighlight = () =>
-      fixture.debugElement.query(By.directive(MetadataTabComponent))?.componentInstance.highlight();
+      fixture.debugElement.query(By.directive(MetadataViewComponent))?.componentInstance.highlight();
 
     /** A macrotask and a change detection pass; `whenStable` would wait for the open requests themselves. */
     const settle = async () => {
@@ -614,7 +613,7 @@ describe('ResultPage', () => {
       wide(true);
       await renderFinished(LINKED);
       await click('.chip');
-      await vi.waitFor(() => expect(document.activeElement?.closest('app-table-tab')).toBeTruthy());
+      await vi.waitFor(() => expect(document.activeElement?.closest('mztabm-table-view')).toBeTruthy());
       const prev = () => el('.stepper button[aria-label="Previous occurrence"]') as HTMLButtonElement;
       const next = () => el('.stepper button[aria-label="Next occurrence"]') as HTMLButtonElement;
       next().focus();

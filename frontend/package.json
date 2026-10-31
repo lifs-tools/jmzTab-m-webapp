@@ -9,7 +9,10 @@
     "pretest": "npm run generate:api",
     "build": "ng build webapp --configuration production",
     "watch": "ng build webapp --watch --configuration development",
-    "test": "ng test webapp --no-watch",
+    "test": "ng test webapp --no-watch && ng test mztabm-editor --no-watch",
+    "test:all": "npm test",
+    "test:webapp": "ng test webapp --no-watch",
+    "test:lib": "ng test mztabm-editor --no-watch",
     "e2e": "playwright test"
   },
   "private": true,

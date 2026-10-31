@@ -14,7 +14,7 @@
 </div>
 
 @if (pickerOpen()) {
-  <app-column-picker
+  <mztabm-column-picker
     [allColumns]="allColumns()"
     [selected]="pickerSeed()"
     (applied)="applyPick($event)"
@@ -30,7 +30,7 @@
 </div>
 
 @if (error(); as msg) {
-  <div class="lifs-callout lifs-callout--error" role="alert">
+  <div class="callout" role="alert">
     <div>
       {{ msg }}
       @if (!data()) {
@@ -110,5 +110,5 @@
     <button type="button" aria-label="Next page" [disabled]="!hasNext()" (click)="go(1)">›</button>
   </div>
 } @else if (!error() && !loading()) {
-  <p class="lifs-note">No data.</p>
+  <p class="note">No data.</p>
 }

@@ -18,10 +18,7 @@ import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansi
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { catchError, map, of, switchMap, take } from 'rxjs';
 
-import { MetadataGroup } from '../../api/models/metadata-group';
-import { MetadataPage } from '../../api/models/metadata-page';
-import { ValidationsService } from '../../api/services/validations.service';
-import { quietRequest } from '../../core/http-error.interceptor';
+import { DocMetadataGroup, DocMetadataPage, DocumentSource } from './document-source';
 
 const PAGE_SIZE = 50;
 
@@ -34,16 +31,16 @@ export interface MetadataHighlight {
   moveFocus: boolean;
 }
 
-/** Entries of one metadata group, paged by the server; created (and so loaded) only when its panel opens. */
+/** Entries of one metadata group, paged by the source; created (and so loaded) only when its panel opens. */
 @Component({
-  selector: 'app-metadata-group',
+  selector: 'mztabm-metadata-group',
   imports: [MatProgressBarModule],
   template: `
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" class="bar" aria-label="Loading metadata" />
     }
     @if (error()) {
-      <p class="lifs-note" role="alert">These entries could not be loaded.</p>
+      <p class="note" role="alert">These entries could not be loaded.</p>
     }
     @if (data(); as d) {
       <dl class="entries">
@@ -67,12 +64,11 @@ export interface MetadataHighlight {
       }
     }
   `,
-  styleUrl: './metadata-tab.component.scss',
+  styleUrl: './metadata-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MetadataGroupComponent {
-  private readonly api = inject(ValidationsService);
-  readonly validationId = input.required<string>();
+  private readonly source = inject(DocumentSource);
   readonly group = input.required<string>();
   readonly count = input.required<number>();
   readonly highlightKeys = input<readonly string[]>([]);
@@ -92,7 +88,7 @@ export class MetadataGroupComponent {
   protected readonly pageSize = PAGE_SIZE;
   protected readonly page = signal(0);
   protected readonly error = signal(false);
-  protected readonly data = signal<MetadataPage | undefined>(undefined);
+  protected readonly data = signal<DocMetadataPage | undefined>(undefined);
   protected readonly loading = signal(true);
   protected readonly pages = computed(() => Math.max(1, Math.ceil(this.count() / PAGE_SIZE)));
   protected readonly range = computed(() => {
@@ -101,14 +97,13 @@ export class MetadataGroupComponent {
   });
 
   constructor() {
-    toObservable(computed(() => ({ id: this.validationId(), group: this.group(), ...this.request() })))
+    toObservable(computed(() => ({ group: this.group(), ...this.request() })))
       .pipe(
         switchMap((q) => {
           this.loading.set(true);
           this.error.set(false);
-          const { key, ...rest } = q;
-          return this.api.getMetadataPage({ ...rest, ...(key ? { key } : {}), size: PAGE_SIZE }, quietRequest()).pipe(
-            map((d) => ({ d, byKey: !!key })),
+          return this.source.metadataPage(q.group, q.page, PAGE_SIZE, q.key ?? undefined).pipe(
+            map((d) => ({ d, byKey: !!q.key })),
             catchError(() => {
               this.error.set(true);
               return of({ d: undefined, byKey: false });
@@ -148,15 +143,17 @@ export class MetadataGroupComponent {
 
 /** One expansion panel per metadata group; the first group starts expanded, and so does the one a highlight names. */
 @Component({
-  selector: 'app-metadata-tab',
+  selector: 'mztabm-metadata-view',
   imports: [MatExpansionModule, MatProgressBarModule, MetadataGroupComponent],
-  templateUrl: './metadata-tab.component.html',
-  styleUrl: './metadata-tab.component.scss',
+  templateUrl: './metadata-view.component.html',
+  styleUrl: './metadata-view.component.scss',
+  host: { '[attr.data-readonly]': 'isReadonly()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MetadataTabComponent {
-  private readonly api = inject(ValidationsService);
-  readonly validationId = input.required<string>();
+export class MetadataViewComponent {
+  private readonly source = inject(DocumentSource);
+  /** Whether the view only shows the document; an editable host sets it to false. */
+  readonly isReadonly = input(true, { alias: 'readonly' });
   readonly highlight = input<MetadataHighlight | null>(null);
   private readonly panels = viewChildren(MatExpansionPanel);
 
@@ -170,8 +167,8 @@ export class MetadataTabComponent {
     });
   }
 
-  protected readonly groups = rxResource<MetadataGroup[], string>({
-    params: () => this.validationId(),
-    stream: ({ params }) => this.api.listMetadataGroups({ id: params }, quietRequest()),
+  protected readonly groups = rxResource<DocMetadataGroup[], null>({
+    params: () => null,
+    stream: () => this.source.metadataGroups(),
   });
 }

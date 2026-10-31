@@ -1,28 +1,38 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatExpansionPanel } from '@angular/material/expansion';
 import { By } from '@angular/platform-browser';
 
-import { MetadataHighlight, MetadataTabComponent } from './metadata-tab.component';
+import { DocumentSource } from './document-source';
+import { MetadataHighlight, MetadataViewComponent } from './metadata-view.component';
+import { FakeDocumentSource } from './testing/fake-document-source';
 
-describe('MetadataTabComponent', () => {
-  let http: HttpTestingController;
+/** The views take their inputs from a template, as in the apps; assigning inputs after createComponent hides bugs. */
+@Component({
+  imports: [MetadataViewComponent],
+  template: `<mztabm-metadata-view [highlight]="highlight()" />`,
+})
+class HostComponent {
+  readonly highlight = signal<MetadataHighlight | null>(null);
+}
 
-  function render() {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
-    http = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(MetadataTabComponent);
-    fixture.componentRef.setInput('validationId', 'abc');
+describe('MetadataViewComponent', () => {
+  let src: FakeDocumentSource;
+
+  function render(highlight: MetadataHighlight | null = null) {
+    src = new FakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
+    if (highlight) fixture.componentInstance.highlight.set(highlight); // arrives after the first render, as a jump does
     return fixture;
   }
-  const isGroups = (u: string) => /\/validations\/abc\/metadata(\?.*)?$/.test(u);
-  const isPage = (g: string) => (u: string) => u.includes(`/validations/abc/metadata/${g}`);
+  const setHighlight = (f: { componentInstance: HostComponent }, h: MetadataHighlight | null) =>
+    f.componentInstance.highlight.set(h);
 
   it('loads a metadata group only when opened', async () => {
     const fixture = render();
-    http.expectOne((r) => isGroups(r.url)).flush([
+    src.oneGroups().reply([
       { name: 'general', count: 2 },
       { name: 'instrument', count: 1 },
     ]);
@@ -34,10 +44,10 @@ describe('MetadataTabComponent', () => {
     const titles = Array.from(el.querySelectorAll('mat-panel-title')).map((t) => t.textContent?.trim());
     expect(titles).toEqual(['general (2)', 'instrument (1)']);
 
-    const general = http.expectOne((r) => isPage('general')(r.url));
-    expect(general.request.params.get('page')).toBe('0');
-    expect(general.request.params.get('size')).toBe('50');
-    general.flush({
+    const general = src.onePage('general');
+    expect(general.args.page).toBe(0);
+    expect(general.args.size).toBe(50);
+    general.reply({
       group: 'general',
       page: 0,
       size: 50,
@@ -50,14 +60,14 @@ describe('MetadataTabComponent', () => {
     fixture.detectChanges();
     expect(el.textContent).toContain('mzTab-version');
     expect(el.querySelector('.value b')).toBeNull();
-    http.expectNone((r) => isPage('instrument')(r.url));
+    src.nonePage('instrument');
 
     const headers = el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header');
     headers[1].click();
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    http.expectOne((r) => isPage('instrument')(r.url)).flush({ group: 'instrument', page: 0, size: 50, total: 1, entries: [] });
+    src.onePage('instrument').reply({ group: 'instrument', page: 0, size: 50, total: 1, entries: [] });
   });
 
   async function settle(fixture: { detectChanges(): void; whenStable(): Promise<unknown> }) {
@@ -70,9 +80,8 @@ describe('MetadataTabComponent', () => {
     Array.from({ length: n }, (_, i) => ({ lineNumber: i + 1, key: `sample[${60 + i}]-description`, value: `v${i}` }));
 
   async function renderHighlighted(highlight: MetadataHighlight) {
-    const fixture = render();
-    fixture.componentRef.setInput('highlight', highlight);
-    http.expectOne((r) => isGroups(r.url)).flush([
+    const fixture = render(highlight);
+    src.oneGroups().reply([
       { name: 'general', count: 1 },
       { name: 'sample', count: 120 },
     ]);
@@ -83,10 +92,10 @@ describe('MetadataTabComponent', () => {
   it('expands the highlighted group and asks for the page that holds the key', async () => {
     const key = 'sample[60]-description';
     const fixture = await renderHighlighted({ group: 'sample', keys: [key], focusKey: key, moveFocus: true });
-    const req = http.expectOne((r) => isPage('sample')(r.url));
-    expect(req.request.params.get('key')).toBe(key);
-    req.flush({ group: 'sample', page: 1, size: 50, total: 70, entries: [{ lineNumber: 9, key, value: 'x' }] });
-    http.expectOne((r) => isPage('general')(r.url)).flush({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
+    const req = src.onePage('sample');
+    expect(req.args.key).toBe(key);
+    req.reply({ group: 'sample', page: 1, size: 50, total: 70, entries: [{ lineNumber: 9, key, value: 'x' }] });
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
     await settle(fixture);
     await settle(fixture);
     const el = fixture.nativeElement as HTMLElement;
@@ -98,16 +107,16 @@ describe('MetadataTabComponent', () => {
   it('marks every highlighted key on the page', async () => {
     const all = entries(3);
     const fixture = await renderHighlighted({ group: 'sample', keys: all.map((e) => e.key), focusKey: null, moveFocus: true });
-    http.expectOne((r) => isPage('sample')(r.url)).flush({ group: 'sample', page: 0, size: 50, total: 3, entries: all });
-    http.expectOne((r) => isPage('general')(r.url)).flush({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
+    src.onePage('sample').reply({ group: 'sample', page: 0, size: 50, total: 3, entries: all });
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
     await settle(fixture);
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('.entry--hl').length).toBe(3);
   });
 
   it('outlines a group-only highlight', async () => {
     const fixture = await renderHighlighted({ group: 'sample', keys: [], focusKey: null, moveFocus: true });
-    http.expectOne((r) => isPage('sample')(r.url)).flush({ group: 'sample', page: 0, size: 50, total: 1, entries: [] });
-    http.expectOne((r) => isPage('general')(r.url)).flush({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
+    src.onePage('sample').reply({ group: 'sample', page: 0, size: 50, total: 1, entries: [] });
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 1, entries: [] });
     await settle(fixture);
     const panels = (fixture.nativeElement as HTMLElement).querySelectorAll('mat-expansion-panel');
     expect(panels[1].classList.contains('panel--hl')).toBe(true);
@@ -122,8 +131,8 @@ describe('MetadataTabComponent', () => {
 
   async function openedAtKey() {
     const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K, moveFocus: true });
-    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
-    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    src.onePage('sample').reply(pageOf(1, K));
+    src.onePage('general').reply(empty('general'));
     await settle(fixture);
     await settle(fixture);
     return fixture;
@@ -135,17 +144,17 @@ describe('MetadataTabComponent', () => {
     const fixture = await openedAtKey();
     buttons(fixture, 'Next page').click();
     await settle(fixture);
-    const next = http.expectOne((r) => isPage('sample')(r.url));
-    expect(next.request.params.get('key')).toBeNull();
-    next.flush(pageOf(2, 'sample[100]-x'));
+    const next = src.onePage('sample');
+    expect(next.args.key).toBeUndefined();
+    next.reply(pageOf(2, 'sample[100]-x'));
     await settle(fixture);
     const prevBtn = buttons(fixture, 'Previous page');
     prevBtn.focus();
     prevBtn.click();
     await settle(fixture);
-    const back = http.expectOne((r) => isPage('sample')(r.url));
-    expect(back.request.params.get('key')).toBeNull();
-    back.flush(pageOf(1, K));
+    const back = src.onePage('sample');
+    expect(back.args.key).toBeUndefined();
+    back.reply(pageOf(1, K));
     await settle(fixture);
     await settle(fixture);
     expect(document.activeElement).toBe(prevBtn);
@@ -155,13 +164,13 @@ describe('MetadataTabComponent', () => {
     const fixture = await openedAtKey();
     buttons(fixture, 'Next page').click();
     await settle(fixture);
-    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(2, 'sample[100]-x'));
+    src.onePage('sample').reply(pageOf(2, 'sample[100]-x'));
     await settle(fixture);
-    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
+    setHighlight(fixture, { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
     await settle(fixture);
-    const req = http.expectOne((r) => isPage('sample')(r.url));
-    expect(req.request.params.get('key')).toBe(K);
-    req.flush(pageOf(1, K));
+    const req = src.onePage('sample');
+    expect(req.args.key).toBe(K);
+    req.reply(pageOf(1, K));
     await settle(fixture);
     await settle(fixture);
     const el = fixture.nativeElement as HTMLElement;
@@ -175,15 +184,15 @@ describe('MetadataTabComponent', () => {
     header.click();
     await settle(fixture);
     expect(header.getAttribute('aria-expanded')).toBe('false');
-    fixture.componentRef.setInput('highlight', { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
+    setHighlight(fixture, { group: 'sample', keys: [K], focusKey: K, moveFocus: true });
     await settle(fixture);
     expect(header.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('scrolls to the entry without taking the focus when the jump does not move it', async () => {
     const fixture = await renderHighlighted({ group: 'sample', keys: [K], focusKey: K, moveFocus: false });
-    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
-    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    src.onePage('sample').reply(pageOf(1, K));
+    src.onePage('general').reply(empty('general'));
     await settle(fixture);
     await settle(fixture);
     const el = fixture.nativeElement as HTMLElement;
@@ -196,8 +205,8 @@ describe('MetadataTabComponent', () => {
     // The panel is still expanding: its content stays hidden, and browsers ignore focus() on hidden elements.
     const content = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.mat-expansion-panel-content')[1];
     content.style.visibility = 'hidden';
-    http.expectOne((r) => isPage('sample')(r.url)).flush(pageOf(1, K));
-    http.expectOne((r) => isPage('general')(r.url)).flush(empty('general'));
+    src.onePage('sample').reply(pageOf(1, K));
+    src.onePage('general').reply(empty('general'));
     await settle(fixture);
     await settle(fixture);
     const el = fixture.nativeElement as HTMLElement;
@@ -212,11 +221,11 @@ describe('MetadataTabComponent', () => {
   it('moves from one group to another', async () => {
     const fixture = await openedAtKey();
     const key = 'general-x';
-    fixture.componentRef.setInput('highlight', { group: 'general', keys: [key], focusKey: key, moveFocus: true });
+    setHighlight(fixture, { group: 'general', keys: [key], focusKey: key, moveFocus: true });
     await settle(fixture);
-    const req = http.expectOne((r) => isPage('general')(r.url));
-    expect(req.request.params.get('key')).toBe(key);
-    req.flush({ group: 'general', page: 0, size: 50, total: 1, entries: [{ lineNumber: 1, key, value: 'v' }] });
+    const req = src.onePage('general');
+    expect(req.args.key).toBe(key);
+    req.reply({ group: 'general', page: 0, size: 50, total: 1, entries: [{ lineNumber: 1, key, value: 'v' }] });
     await settle(fixture);
     await settle(fixture);
     const el = fixture.nativeElement as HTMLElement;

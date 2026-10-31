@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,9 +15,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { EMPTY, Observable, Subject, catchError, filter, map, of, switchMap, timer } from 'rxjs';
 
-import { TablePage } from '../../api/models/table-page';
-import { ValidationsService } from '../../api/services/validations.service';
-import { quietRequest } from '../../core/http-error.interceptor';
+import { DocSection, DocTablePage, DocumentSource } from './document-source';
 import { ColumnPickerComponent, MAX_COLUMNS } from './column-picker.component';
 
 /** The user-controlled state, restored when a request fails so the controls match the rows still shown. */
@@ -33,7 +30,7 @@ interface Snapshot {
   picked: string[] | null;
 }
 
-type Outcome = { page: TablePage; snapshot: Snapshot; key: string } | { error: string };
+type Outcome = { page: DocTablePage; snapshot: Snapshot; key: string } | { error: string };
 
 /** Rows (0-based model-list positions), a column and/or its header that a validation message points at. */
 export interface TableHighlight {
@@ -48,18 +45,20 @@ export interface TableHighlight {
 const FILTER_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat('en');
 
-/** Server-paged, sortable, filterable view of one table section (SML, SMF or SME). */
+/** Source-paged, sortable, filterable view of one table section (SML, SMF or SME). */
 @Component({
-  selector: 'app-table-tab',
+  selector: 'mztabm-table-view',
   imports: [MatProgressBarModule, ColumnPickerComponent],
-  templateUrl: './table-tab.component.html',
-  styleUrl: './table-tab.component.scss',
+  templateUrl: './table-view.component.html',
+  styleUrl: './table-view.component.scss',
+  host: { '[attr.data-readonly]': 'isReadonly()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TableTabComponent {
-  private readonly api = inject(ValidationsService);
-  readonly validationId = input.required<string>();
-  readonly section = input.required<'sml' | 'smf' | 'sme'>();
+export class TableViewComponent {
+  private readonly source = inject(DocumentSource);
+  readonly section = input.required<DocSection>();
+  /** Whether the view only shows the document; an editable host sets it to false. */
+  readonly isReadonly = input(true, { alias: 'readonly' });
   /** An event, not a value: each new object jumps to its target again, even when its fields are unchanged. */
   readonly highlight = input<TableHighlight | null>(null);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -76,7 +75,7 @@ export class TableTabComponent {
   private readonly windowStart = signal(0);
   private readonly picked = signal<string[] | null>(null);
 
-  protected readonly data = signal<TablePage | undefined>(undefined);
+  protected readonly data = signal<DocTablePage | undefined>(undefined);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly pickerOpen = signal(false);
@@ -130,14 +129,13 @@ export class TableTabComponent {
   });
 
   private readonly query = computed(() => ({
-    id: this.validationId(),
     section: this.section(),
     page: this.pageIndex(),
     size: this.size(),
     sort: this.sort(),
     descending: this.descending(),
     columns: this.columnsParam(),
-    filter: Object.entries(this.filters()).map(([col, text]) => `${col}:${text}`),
+    filters: Object.entries(this.filters()).map(([column, text]) => ({ column, text })),
     retry: this.retryNonce(),
   }));
 
@@ -156,17 +154,15 @@ export class TableTabComponent {
           const key = JSON.stringify(q);
           this.inFlightKey = key;
           const snapshot = this.snapshot();
-          return this.api
-            .getTablePage({
-              id: q.id,
-              section: q.section,
+          return this.source
+            .tablePage(q.section, {
               page: q.page,
               size: q.size,
-              ...(q.sort ? { sort: q.sort, descending: q.descending } : {}),
-              // one comma-joined value: the server splits it, and the URL stays short
-              ...(q.columns ? { columns: [q.columns.join(',')] } : {}),
-              ...(q.filter.length ? { filter: q.filter } : {}),
-            }, quietRequest())
+              sort: q.sort,
+              descending: q.descending,
+              columns: q.columns,
+              filters: q.filters,
+            })
             .pipe(
               map((page): Outcome => ({ page, snapshot, key })),
               catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),
@@ -242,8 +238,9 @@ export class TableTabComponent {
   }
 
   private describe(err: unknown): string {
-    if (err instanceof HttpErrorResponse && err.status === 400) return 'The table could not be shown for these columns or filters.';
-    if (err instanceof HttpErrorResponse && err.status === 404) return 'This table is not available.';
+    const status = typeof err === 'object' && err !== null ? (err as { status?: unknown }).status : undefined;
+    if (status === 400) return 'The table could not be shown for these columns or filters.';
+    if (status === 404) return 'This table is not available.';
     return 'The table could not be loaded. Please try again.';
   }
 

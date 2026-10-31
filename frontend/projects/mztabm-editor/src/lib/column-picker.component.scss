@@ -1,9 +1,14 @@
 :host {
+  --_line: color-mix(in srgb, var(--mztabm-color-text-muted) 30%, transparent);
+  --_row: color-mix(in srgb, var(--mztabm-color-text-muted) 15%, transparent);
+  --_dis: color-mix(in srgb, var(--mztabm-color-text-muted) 55%, transparent);
+  --_ctl: color-mix(in srgb, var(--mztabm-color-text-muted) 45%, transparent);
+  font-family: var(--mztabm-font-family);
   display: block;
 }
 .picker {
-  border: 1px solid var(--lifs-line);
-  background: #fff;
+  border: 1px solid var(--_line);
+  background: var(--mztabm-color-surface);
   padding: 12px;
   margin: 8px 0;
 }
@@ -14,7 +19,7 @@
   align-items: center;
 }
 .search input {
-  border: 1px solid #9aaab8;
+  border: 1px solid var(--_dis);
   padding: 7px 10px;
   font: inherit;
   font-size: 14px;
@@ -23,9 +28,9 @@
 }
 .count,
 .hint {
-  font-family: var(--lifs-mono);
+  font-family: var(--mztabm-font-mono);
   font-size: 11px;
-  color: var(--lifs-grey);
+  color: var(--mztabm-color-text-muted);
 }
 .hint {
   margin: 8px 0 0;
@@ -36,7 +41,7 @@
   padding: 0;
   max-height: 260px;
   overflow: auto;
-  border-top: 1px solid var(--lifs-line);
+  border-top: 1px solid var(--_line);
 
   label {
     display: flex;
@@ -48,7 +53,7 @@
   }
 }
 .name {
-  font-family: var(--lifs-mono);
+  font-family: var(--mztabm-font-mono);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -58,17 +63,17 @@
   gap: 10px;
 
   button {
-    border: 1px solid var(--lifs-primary);
-    background: #fff;
-    color: var(--lifs-primary);
+    border: 1px solid var(--mztabm-color-primary);
+    background: var(--mztabm-color-surface);
+    color: var(--mztabm-color-primary);
     padding: 7px 14px;
     font: inherit;
     font-size: 13px;
     cursor: pointer;
   }
   .primary {
-    background: var(--lifs-primary);
-    color: #fff;
+    background: var(--mztabm-color-primary);
+    color: var(--mztabm-color-surface);
   }
 }
 .visually-hidden {
@@ -77,4 +82,8 @@
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+.note {
+  font-size: 13px;
+  color: var(--mztabm-color-text-muted);
 }

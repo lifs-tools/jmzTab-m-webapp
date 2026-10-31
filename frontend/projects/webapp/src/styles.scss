@@ -1,5 +1,6 @@
 // Global styles: LIFS tokens, the Material theme, bundled fonts and icons (no CDN at runtime).
 @use 'styles/lifs-tokens';
+@use '../../mztabm-editor/src/lib/styles/mztabm-tokens';
 @use 'styles/material-theme';
 
 // Inter: app bar and footer only.
@@ -18,6 +19,7 @@
 @import 'material-symbols/outlined.css';
 
 @include lifs-tokens.tokens;
+@include mztabm-tokens.tokens;
 @include material-theme.theme;
 
 *,

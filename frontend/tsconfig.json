@@ -13,7 +13,10 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
-    "module": "preserve"
+    "module": "preserve",
+    "paths": {
+      "@lifs-tools/mztabm-editor": ["./projects/mztabm-editor/src/public-api.ts"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
@@ -28,6 +31,9 @@
     },
     {
       "path": "./projects/webapp/tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/mztabm-editor/tsconfig.spec.json"
     }
   ]
 }

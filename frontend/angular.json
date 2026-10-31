@@ -29,7 +29,9 @@
                 "input": "projects/webapp/public"
               }
             ],
-            "styles": ["projects/webapp/src/styles.scss"]
+            "styles": [
+              "projects/webapp/src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
@@ -72,6 +74,21 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
+        }
+      }
+    },
+    "mztabm-editor": {
+      "projectType": "library",
+      "root": "projects/mztabm-editor",
+      "sourceRoot": "projects/mztabm-editor/src",
+      "prefix": "mztabm",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "buildTarget": "webapp:build:development",
+            "tsConfig": "projects/mztabm-editor/tsconfig.spec.json"
+          }
         }
       }
     }

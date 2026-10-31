@@ -4,7 +4,7 @@ export const MAX_COLUMNS = 50;
 
 /** Searchable checklist over all columns; the first column is always selected, at most 50 in total. */
 @Component({
-  selector: 'app-column-picker',
+  selector: 'mztabm-column-picker',
   templateUrl: './column-picker.component.html',
   styleUrl: './column-picker.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
