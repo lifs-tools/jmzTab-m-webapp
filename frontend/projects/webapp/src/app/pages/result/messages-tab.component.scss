@@ -228,3 +228,14 @@ td.mono {
   display: flex;
   gap: 14px;
 }
+
+.guide {
+  margin-top: 8px;
+
+  summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--lifs-primary);
+    padding: 2px 0;
+  }
+}

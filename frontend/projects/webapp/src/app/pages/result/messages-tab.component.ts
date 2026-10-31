@@ -14,8 +14,10 @@ import {
   untracked,
 } from '@angular/core';
 
+import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
-import { MessageGroup, groupMessages, occurrenceLabel, targetOf } from './message-groups';
+import { GuidancePanelComponent } from './guidance-panel.component';
+import { DocTarget, MessageGroup, groupMessages, occurrenceLabel, targetOf } from './message-groups';
 
 const PAGE_SIZE = 25;
 const CHIP_LIMIT = 8;
@@ -65,6 +67,7 @@ export class MessagesViewState {
 /** Filterable, paged validation messages: grouped by rule with the fix first, or as a flat table. */
 @Component({
   selector: 'app-messages-tab',
+  imports: [GuidancePanelComponent],
   templateUrl: './messages-tab.component.html',
   styleUrl: './messages-tab.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -82,6 +85,8 @@ export class MessagesTabComponent {
   readonly profileLabel = input<string | null>(null);
   /** `MessageGroup.key` of the group currently shown in the document. */
   readonly selected = input<string | null>(null);
+  /** The record's guidance; its `messages` index into `messages()`. */
+  readonly guidance = input<readonly Guidance[] | null>(null);
   readonly show = output<ShowRequest>();
 
   protected readonly flat = this.state.flat;
@@ -110,7 +115,7 @@ export class MessagesTabComponent {
             .includes(needle)),
     );
   });
-  private readonly groups = computed(() => groupMessages(this.filtered()));
+  private readonly groups = computed(() => groupMessages(this.filtered(), this.guidance(), this.messages()));
   protected readonly total = computed(() =>
     this.flat() ? this.filtered().length : this.groups().length,
   );
@@ -228,6 +233,12 @@ export class MessagesTabComponent {
   }
   protected emit(group: MessageGroup, index: number, all: boolean): void {
     this.show.emit({ group, index, all });
+  }
+  /** A line heading in the group's guidance panel: shows the first occurrence with that target. */
+  protected jumpTo(group: MessageGroup, target: DocTarget): void {
+    const key = JSON.stringify(target);
+    const index = group.messages.findIndex((m) => JSON.stringify(targetOf(m)) === key);
+    if (index >= 0) this.emit(group, index, false);
   }
   protected go(delta: number): void {
     this.page.set(Math.min(Math.max(0, this.pageIndex() + delta), this.pageCount() - 1));

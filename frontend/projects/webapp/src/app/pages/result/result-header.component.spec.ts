@@ -67,4 +67,16 @@ describe('ResultHeaderComponent', () => {
     expect(tooltipOf('version-badge')).toBe('');
     expect(el.querySelector('[data-testid=version-badge]')!.hasAttribute('tabindex')).toBe(false);
   });
+
+  it('links the resolution report download', async () => {
+    const el = await render(RECORD);
+    const link = el.querySelector<HTMLAnchorElement>('[data-testid=resolution-report]')!;
+    expect(link.textContent).toContain('Download resolution report');
+    expect(link.getAttribute('href')).toBe('rest/v2/validations/abc/report?format=md');
+  });
+
+  it('offers no resolution report while the validation is running', async () => {
+    const el = await render({ ...RECORD, status: 'RUNNING' });
+    expect(el.querySelector('[data-testid=resolution-report]')).toBeNull();
+  });
 });

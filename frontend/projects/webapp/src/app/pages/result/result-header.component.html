@@ -35,6 +35,12 @@
       <button mat-stroked-button type="button" [matMenuTriggerFor]="reportMenu">
         Download report
       </button>
+      <a
+        mat-stroked-button
+        data-testid="resolution-report"
+        [attr.href]="reportBase() + '?format=md'"
+        >Download resolution report</a
+      >
       <mat-menu #reportMenu="matMenu">
         <a mat-menu-item [attr.href]="reportBase() + '?format=csv'">CSV</a>
         <a mat-menu-item [attr.href]="reportBase() + '?format=json'">JSON</a>

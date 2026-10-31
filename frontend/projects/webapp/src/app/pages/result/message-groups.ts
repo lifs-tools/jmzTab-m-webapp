@@ -1,3 +1,4 @@
+import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
 
 export type Level = 'error' | 'warn' | 'info';
@@ -23,6 +24,8 @@ export interface MessageGroup {
   /** The message of the first message when it has a suggestion. */
   diagnosis: string | null;
   messages: ValidationMessage[];
+  /** The fix guidance covering this group's messages, if the server resolved any. */
+  guidance?: Guidance;
 }
 
 const LEVEL_ORDER: Level[] = ['error', 'warn', 'info'];
@@ -52,14 +55,30 @@ export function groupKey(m: ValidationMessage): string {
   return `${levelOf(m)}|${typeCode(m) ?? 'msg:' + m.message}|${m.rule_id ?? ''}`;
 }
 
-/** Groups by level, type code and rule id: errors, warnings, infos; within a level by first appearance. */
-export function groupMessages(ms: readonly ValidationMessage[]): MessageGroup[] {
+/**
+ * Groups by level, type code and rule id: errors, warnings, infos; within a level by first appearance.
+ * `Guidance.messages` indexes the record's full message list, so when `ms` is a filtered subset, pass
+ * the full list as `full`; a group gets the guidance of its first message that has any.
+ */
+export function groupMessages(
+  ms: readonly ValidationMessage[],
+  guidance?: readonly Guidance[] | null,
+  full: readonly ValidationMessage[] = ms,
+): MessageGroup[] {
+  const guidanceOf = new Map<ValidationMessage, Guidance>();
+  for (const g of guidance ?? []) {
+    for (const i of g.messages ?? []) {
+      const m = full[i];
+      if (m && !guidanceOf.has(m)) guidanceOf.set(m, g);
+    }
+  }
   const groups = new Map<string, MessageGroup>();
   for (const m of ms) {
     const key = groupKey(m);
     const existing = groups.get(key);
     if (existing) {
       existing.messages.push(m);
+      existing.guidance ??= guidanceOf.get(m);
       continue;
     }
     const suggestion = m.suggestion || null;
@@ -72,6 +91,7 @@ export function groupMessages(ms: readonly ValidationMessage[]): MessageGroup[] 
       headline: suggestion ?? m.message,
       diagnosis: suggestion ? m.message : null,
       messages: [m],
+      guidance: guidanceOf.get(m),
     });
   }
   const all = [...groups.values()];

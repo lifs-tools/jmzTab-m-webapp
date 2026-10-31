@@ -92,6 +92,12 @@
             }
           }
         </div>
+        @if (c.group.guidance; as g) {
+          <details class="guide">
+            <summary>How to fix this</summary>
+            <app-guidance-panel [guidance]="g" [messages]="messages()" (jump)="jumpTo(c.group, $event)" />
+          </details>
+        }
         @if (c.targets) {
           <div class="occ" #occ>
             @for (chip of c.chips; track chip.index) {

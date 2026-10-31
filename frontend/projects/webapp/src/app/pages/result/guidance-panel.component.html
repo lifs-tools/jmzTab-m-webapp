@@ -1,0 +1,50 @@
+<section class="panel">
+  <h4 class="what">What's wrong</h4>
+  <p class="title">{{ guidance().title }}</p>
+  <p>{{ guidance().explanation }}</p>
+  @if (guidance().cause) {
+    <p class="cause">{{ guidance().cause }}</p>
+  }
+
+  @if (where().length) {
+    <h4>Where</h4>
+    <ul class="where">
+      @for (w of where(); track w.lineNumber) {
+        <li>
+          @if (w.target) {
+            <button type="button" class="loc" (click)="jump.emit(w.target)">
+              line {{ w.lineNumber }}, <code>{{ w.key }}</code>
+            </button>
+          } @else {
+            <span class="loc">line {{ w.lineNumber }}, <code>{{ w.key }}</code></span>
+          }
+          <pre class="line" data-testid="quoted-line">@for (c of w.cells; track $index) {@if ($index > 0) {<span class="tab" aria-hidden="true">→</span>}@if (c.highlight) {<mark>{{ c.text }}</mark>} @else {<span>{{ c.text }}</span>}}@if (w.truncated) {<span class="ellipsis" title="This line is longer than shown">…</span>}</pre>
+        </li>
+      }
+    </ul>
+    @if (moreLines() > 0) {
+      <p class="lifs-note more">and {{ moreLines() }} more {{ moreLines() === 1 ? 'line' : 'lines' }}</p>
+    }
+  }
+
+  <h4>Fix it here</h4>
+  <p>{{ guidance().fixHere }}</p>
+  @if (guidance().quickFix) {
+    <p class="lifs-note quick">Open the file in the editor to use the quick fix</p>
+  }
+
+  <h4>Fix it in your tool</h4>
+  @if (isVariant()) {
+    <p class="lifs-note">For the tool that wrote this file</p>
+  }
+  <p>{{ fixInTool() }}</p>
+
+  @if (guidance().stopsParsing) {
+    <p class="stops" role="note">
+      jmzTab-m stopped reading at this line, so problems further down are not reported yet.
+    </p>
+  }
+  @if (rule(); as r) {
+    <p class="rule lifs-note">Rule <code>{{ r.id }}</code>: {{ r.requirement }}</p>
+  }
+</section>

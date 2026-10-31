@@ -4,6 +4,7 @@ export function pageTitle(path: string): string {
     '/': 'Validate',
     '/examples': 'Examples',
     '/about': 'About',
+    '/problems': 'Common problems and how to fix them in your tool',
   };
   if (path.startsWith('/result/') || path.startsWith('/validate/')) {
     return 'mzTab-M Validator · Result';

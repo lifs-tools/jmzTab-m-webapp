@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, DOCUMENT, Injector, computed, inject } from '@angular/core';
 
+import { RouterLink } from '@angular/router';
+
 import { AppInfoStore } from '../core/app-info.store';
 
 interface Logo {
@@ -11,6 +13,7 @@ interface Logo {
 /** The lifs-tools.org footer: partners, funding, legal links and the copyright band. */
 @Component({
   selector: 'app-site-footer',
+  imports: [RouterLink],
   templateUrl: './site-footer.component.html',
   styleUrl: './site-footer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

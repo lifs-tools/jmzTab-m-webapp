@@ -1,0 +1,31 @@
+<section class="hero">
+  <p class="lifs-eyebrow">LIFS Tools · Report &amp; share</p>
+  <h1>Common problems and how to fix them in your tool</h1>
+  <p class="lifs-lead">
+    What the validator reports most often, what it means, and what to change in the tool that wrote your file.
+  </p>
+</section>
+
+<div class="page">
+  @if (loading()) {
+    <mat-spinner diameter="24" aria-label="Loading common problems" />
+  } @else if (failed()) {
+    <p class="lifs-note" role="status">The common problems could not be loaded. Please try again later.</p>
+  } @else {
+    @for (e of entries(); track e.id) {
+      <article class="entry lifs-card" [id]="e.id">
+        <h2>{{ e.title }}</h2>
+        <p>{{ e.explanation }}</p>
+        <h3>Fix it in your tool</h3>
+        <p>{{ e.fixInTool }}</p>
+        @for (t of e.tools ?? []; track t.software) {
+          <p class="tool">
+            <strong>{{ t.software }}:</strong> {{ t.fixInTool }}
+          </p>
+        }
+        <h3>Fix it in the editor</h3>
+        <p>{{ e.fixHere }}</p>
+      </article>
+    }
+  }
+</div>

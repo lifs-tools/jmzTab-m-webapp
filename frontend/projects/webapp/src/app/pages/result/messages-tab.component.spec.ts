@@ -260,4 +260,30 @@ describe('MessagesTabComponent', () => {
     expect(sel[0].getAttribute('aria-current')).toBe('true');
     expect(sel[0].querySelector('.fix')!.textContent).toContain(ERR_FIX);
   });
+
+  describe('guidance', () => {
+    const GUIDE = { title: 'Fix the column', explanation: 'x', fixHere: 'h', fixInTool: 't', messages: [1], lines: [] };
+    const all = [
+      msg(0, { code: '[Error-1] a', message_type: 'error' }),
+      msg(1, { code: '[Error-2] b', message_type: 'error' }),
+    ];
+
+    it('attaches guidance to its group by message index', () => {
+      const { el } = render(all, false, { guidance: [GUIDE] });
+      const panels = Array.from(el.querySelectorAll('.grp')).map(
+        (g) => g.querySelector('app-guidance-panel')?.textContent?.includes('Fix the column') ?? false,
+      );
+      // the groups are in message order; only the second message's group has guidance
+      expect(panels).toEqual([false, true]);
+    });
+
+    it('keeps the join when a filter hides messages before it', () => {
+      const { fixture, el } = render(all, false, { guidance: [GUIDE] });
+      const input = el.querySelector<HTMLInputElement>('.f-text')!;
+      input.value = 'Message number 1';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(el.querySelector('.grp app-guidance-panel')?.textContent).toContain('Fix the column');
+    });
+  });
 });

@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+
+.hero {
+  padding: 34px 32px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--lifs-line);
+}
+
+.page {
+  padding: 26px 32px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.entry {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+h3 {
+  margin: 8px 0 0;
+  font-family: var(--lifs-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 400;
+  color: var(--lifs-grey);
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}

@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AppInfoDto } from '../api/models/app-info-dto';
 import { AppInfoStore } from '../core/app-info.store';
 import { MatomoService } from '../core/matomo.service';
@@ -9,7 +10,7 @@ describe('SiteFooterComponent', () => {
   async function render(info: AppInfoDto | undefined): Promise<HTMLElement> {
     await TestBed.configureTestingModule({
       imports: [SiteFooterComponent],
-      providers: [{ provide: AppInfoStore, useValue: { info: signal(info) } }],
+      providers: [provideRouter([]), { provide: AppInfoStore, useValue: { info: signal(info) } }],
     }).compileComponents();
     const fixture = TestBed.createComponent(SiteFooterComponent);
     await fixture.whenStable();
@@ -37,9 +38,16 @@ describe('SiteFooterComponent', () => {
     expect(el.textContent).toContain(`© 2016 - ${new Date().getFullYear()} LIFS Tools Consortium`);
   });
 
+  it('links to the common problems page', async () => {
+    const el = await render(undefined);
+    const link = el.querySelector<HTMLAnchorElement>('.footer__links a[href$="/problems"]');
+    expect(link?.textContent).toContain('Common problems');
+  });
+
   it('shows the legal links opening in a new tab', async () => {
     const el = await render(undefined);
     expect(linkTexts(el)).toEqual([
+      'Common problems',
       'Imprint & Privacy Policy',
       'Impressum & Datenschutzerklärung',
       'Terms of Service',

@@ -76,6 +76,7 @@
               <app-messages-tab
                 [messages]="messages()"
                 [profileLabel]="profileLabel()"
+                [guidance]="rec.guidance ?? null"
                 [selected]="focus()?.group?.key ?? null"
                 (show)="onShow($event)"
               />

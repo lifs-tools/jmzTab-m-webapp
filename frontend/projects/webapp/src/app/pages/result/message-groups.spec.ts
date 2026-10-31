@@ -1,3 +1,4 @@
+import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { groupMessages, occurrenceLabel, targetOf, typeCode } from './message-groups';
 
@@ -71,5 +72,27 @@ describe('message-groups', () => {
     expect(occurrenceLabel(msg({ location: { section: 'mtd', metadata_key: 'sample[1]-description' } }))).toBe('sample[1]-description');
     expect(occurrenceLabel(msg({ location: { section: 'smh', column: 'abundance_assay[1]' } }))).toBe('SMH · abundance_assay[1]');
     expect(occurrenceLabel(msg({ line_number: 12 }))).toBe('line 12');
+  });
+});
+
+describe('groupMessages guidance', () => {
+  const m = (i: number, code: string): ValidationMessage => ({
+    category: 'format',
+    code,
+    message: `m${i}`,
+    message_type: 'error',
+  });
+  const g = (title: string, messages: number[]): Guidance => ({ title, messages, lines: [] });
+
+  it('attaches guidance to the group of its messages by index into the full list', () => {
+    const all = [m(0, '[Error-1] a'), m(1, '[Error-2] b'), m(2, '[Error-1] a')];
+    const groups = groupMessages([all[1], all[2]], [g('first', [0, 2]), g('second', [1])], all);
+    expect(groups.find((x) => x.typeCode === 'Error-1')!.guidance?.title).toBe('first');
+    expect(groups.find((x) => x.typeCode === 'Error-2')!.guidance?.title).toBe('second');
+  });
+
+  it('leaves the group without guidance when none matches', () => {
+    expect(groupMessages([m(0, '[Error-1] a')], [g('x', [5])])[0].guidance).toBeUndefined();
+    expect(groupMessages([m(0, '[Error-1] a')])[0].guidance).toBeUndefined();
   });
 });
