@@ -110,7 +110,12 @@ public final class WorkingCopyEditor {
                 execute(r, op);
             }
             Collections.reverse(r.inverse);
-            db.addHistory(toJson(r.forward), toJson(r.inverse));
+            String forward = toJson(r.forward);
+            String inverse = toJson(r.inverse);
+            if (forward.length() + (long) inverse.length() > Math.max(MIN_BUDGET_CHARS, 3 * textChars)) {
+                throw new IllegalArgumentException("The batch changes too much text at once; split it");
+            }
+            db.addHistory(forward, inverse);
             db.pruneHistory(MAX_UNDO, Math.max(MIN_BUDGET_CHARS, 4 * textChars));
             db.setRevision(current + 1);
             return current + 1;
@@ -180,7 +185,7 @@ public final class WorkingCopyEditor {
 
         private void spend(List<Line> lines) {
             for (Line l : lines) {
-                budget -= l.text().length() + l.eol().length();
+                budget -= jsonSize(l.text()) + jsonSize(l.eol());
             }
             if (budget < 0) {
                 throw new IllegalArgumentException("The batch changes too much text at once; split it");
@@ -221,6 +226,16 @@ public final class WorkingCopyEditor {
             forward.add(new Step("DELETE", from, count, List.of()));
             inverse.add(new Step("INSERT", from, count, old.stream().map(StoredLine::of).toList()));
         }
+    }
+
+    /** Upper bound of the JSON size of a string: control characters take 6, quote and backslash 2. */
+    static long jsonSize(String s) {
+        long n = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            n += c < 0x20 ? 6 : (c == '"' || c == '\\') ? 2 : 1;
+        }
+        return n;
     }
 
     private static void play(WorkingCopyDb db, String json) {

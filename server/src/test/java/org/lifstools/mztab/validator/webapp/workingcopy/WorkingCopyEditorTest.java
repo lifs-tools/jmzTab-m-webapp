@@ -338,4 +338,19 @@ class WorkingCopyEditorTest {
         load("MTD\t   \n");
         assertThrows(IllegalArgumentException.class, () -> apply(new SplitCells(1)));
     }
+
+    @Test
+    void budgetCountsTheSerialisedHistory() throws Exception {
+        String ctl = "\u0001".repeat(99_999);
+        String big = "MTD" + ("\t" + ctl).repeat(9) + "\n";
+        load(big);
+        List<EditOperation> ops = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            ops.add(new SetCell(1, 1, "\u0001".repeat(99_998) + (i % 2 == 0 ? "b" : "c")));
+        }
+        // about 36 M raw characters, but over 200 M once control characters are escaped
+        assertThrows(IllegalArgumentException.class, () -> apply(ops.toArray(new EditOperation[0])));
+        assertEquals(big, text());
+        assertEquals(0, db.revision());
+    }
 }
