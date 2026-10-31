@@ -233,6 +233,21 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void anOversizedMergeIsRefusedBeforeItsPositionsAreChecked() throws Exception {
+        load(DUPLICATES);
+        List<Integer> huge = new ArrayList<>();
+        for (int i = 0; i < 100_000; i++) {
+            huge.add(4);
+        }
+        long start = System.nanoTime();
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> apply(new MergeColumns("SMH", "name", 2, huge)));
+        assertTrue(System.nanoTime() - start < 1_000_000_000L, "refused quickly");
+        assertTrue(e.getMessage().contains("at most"), e.getMessage());
+        assertEquals(DUPLICATES, text());
+    }
+
+    @Test
     void columnOperationsDeserialiseWithAndWithoutPosition() throws Exception {
         load(DUPLICATES);
         String json = """

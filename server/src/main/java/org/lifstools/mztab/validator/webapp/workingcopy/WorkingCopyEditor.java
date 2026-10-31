@@ -622,11 +622,20 @@ public final class WorkingCopyEditor {
         String rows = rowSection(o.header());
         Line header = firstOf(r.db, o.header());
         int keep = positionOf(header, o.name(), o.keep());
-        if (o.others() == null || o.others().isEmpty()) {
+        List<Integer> given = o.others();
+        if (given == null || given.isEmpty()) {
             throw new IllegalArgumentException("A merge needs at least one other column");
         }
-        List<Integer> others = new ArrayList<>();
-        for (Integer other : o.others()) {
+        // checked first, so the work below is bounded by the header
+        int width = header.cells().size();
+        if (given.size() > width - 2) {
+            throw new IllegalArgumentException("A merge names at most " + (width - 2) + " other columns");
+        }
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        int[] others = new int[given.size()];
+        boolean[] removed = new boolean[width];
+        for (int i = 0; i < others.length; i++) {
+            Integer other = given.get(i);
             if (other == null) {
                 throw new IllegalArgumentException("A column position is required");
             }
@@ -634,19 +643,15 @@ public final class WorkingCopyEditor {
             if (other == keep) {
                 throw new IllegalArgumentException("The kept column cannot also be merged into itself");
             }
-            if (others.contains(other)) {
+            if (!seen.add(other)) {
                 throw new IllegalArgumentException("Column " + other + " is named twice in the merge");
             }
-            others.add(other);
+            others[i] = other;
+            removed[other] = true;
         }
-        // removed from the right, so that the positions still to remove stay where they are
-        List<Integer> removal = new ArrayList<>(others);
-        removal.sort(Collections.reverseOrder());
-        List<String> hc = new ArrayList<>(header.cells());
-        removal.forEach(p -> hc.remove((int) p));
-        r.replace(header.number(), rebuild(header.number(), hc, header.eol()));
+        r.replace(header.number(), rebuild(header.number(), without(header.cells(), removed), header.eol()));
         forEachRow(r, rows, l -> {
-            List<String> cells = new ArrayList<>(l.cells());
+            List<String> cells = l.cells();
             String kept = keep < cells.size() ? cells.get(keep) : "";
             String value = kept;
             if (noValue(kept)) {
@@ -659,18 +664,25 @@ public final class WorkingCopyEditor {
                 }
             }
             if (!value.equals(kept)) {
+                cells = new ArrayList<>(cells);
                 while (cells.size() <= keep) {
                     cells.add("");
                 }
                 cells.set(keep, value);
             }
-            for (int p : removal) {
-                if (p < cells.size()) {
-                    cells.remove(p);
-                }
-            }
-            return cells;
+            return without(cells, removed);
         });
+    }
+
+    /** The cells whose index is not marked, in one pass; indexes past the mask are kept. */
+    private static List<String> without(List<String> cells, boolean[] removed) {
+        List<String> out = new ArrayList<>(cells.size());
+        for (int i = 0; i < cells.size(); i++) {
+            if (i >= removed.length || !removed[i]) {
+                out.add(cells.get(i));
+            }
+        }
+        return out;
     }
 
     /** Rewrites every line of the section; replacing in place keeps the numbering stable while paging. */
