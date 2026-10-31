@@ -59,15 +59,14 @@ public final class EngineMessages {
 
     /**
      * {@code This file declares mzTab-version <declared>. This validator supports mzTab-M <lines>.} and, with a
-     * hint URL, where the line of the declared version can be tried.
+     * hint URL, {@code Another validator may support mzTab-M <line>: <url>}.
      */
     public static String unsupported(EngineRegistry.RouteDecision.Unsupported decision, @Nullable String hintUrl) {
         StringBuilder text = new StringBuilder("This file declares mzTab-version ").append(decision.declared())
             .append(". This validator supports mzTab-M ").append(joined(decision.supported())).append('.');
         Optional<String> line = MzTabVersions.lineOf(decision.declared());
         if (hintUrl != null && !hintUrl.isBlank() && line.isPresent()) {
-            text.append(" mzTab-M ").append(line.get()).append(" is available for testing on the development "
-                + "validator: ").append(hintUrl.strip());
+            text.append(" Another validator may support mzTab-M ").append(line.get()).append(": ").append(hintUrl.strip());
         }
         return text.toString();
     }

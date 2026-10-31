@@ -328,7 +328,7 @@ describe('ValidatorFormComponent', () => {
       expect(callout()).toBeNull();
     });
 
-    it('links the development validator for a line without engine', async () => {
+    it('links another validator for a line without engine', async () => {
       await render({
         ...INFO,
         engines: [BOTH_ENGINES![0]],
@@ -337,12 +337,12 @@ describe('ValidatorFormComponent', () => {
       await choose('input[data-testid=file-input]', mzTab21());
       expect(callout()?.textContent).toContain('mzTab-M 2.1 is not supported by this validator.');
       const link = callout()!.querySelector<HTMLAnchorElement>('a')!;
-      expect(link.textContent?.trim()).toBe('It is available for testing on the development validator.');
+      expect(link.textContent?.trim()).toBe('Another validator may support it.');
       expect(link.getAttribute('href')).toBe('https://dev.example.org/mztabvalidator/');
       expect(submitButton().disabled).toBe(false);
     });
 
-    it('says temporarily unavailable, without the development link, when the engine is down', async () => {
+    it('says temporarily unavailable, without the hint link, when the engine is down', async () => {
       await render({
         ...INFO,
         engines: [BOTH_ENGINES![0], { ...BOTH_ENGINES![1], available: false }],

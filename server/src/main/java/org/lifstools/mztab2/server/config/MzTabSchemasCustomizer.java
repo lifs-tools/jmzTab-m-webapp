@@ -50,14 +50,15 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
  * {@code #/components/schemas/X} inside it rewritten to {@code X_<suffix>}.
  * {@code ValidationMessage}, {@code ValidationLocation} and {@code Error} are
  * left out: the webapp publishes its own messages and errors. The bodies are
- * then {@code oneOf} the {@code MzTab} schemas of the lines.
+ * then {@code anyOf} the {@code MzTab} schemas of the lines: a valid body
+ * usually matches both, which {@code oneOf} would reject.
  */
 public class MzTabSchemasCustomizer implements OpenApiCustomizer {
 
     static final String LOCATION = "/mztab-schemas/";
     static final String REF_PREFIX = "#/components/schemas/";
     static final Set<String> LEFT_OUT = Set.of("ValidationMessage", "ValidationLocation", "Error");
-    /** The lines whose models are published, in the order of the {@code oneOf}s. */
+    /** The lines whose models are published, in the order of the {@code anyOf}s. */
     static final List<String> LINES = List.of("2.0", "2.1");
 
     private final Map<String, Map<String, Schema>> schemasBySuffix;
@@ -152,10 +153,10 @@ public class MzTabSchemasCustomizer implements OpenApiCustomizer {
     }
 
     @SuppressWarnings("rawtypes")
-    private static Schema oneOf(List<String> refs) {
+    private static Schema anyOf(List<String> refs) {
         List<Schema> alternatives = new ArrayList<>();
         refs.forEach(ref -> alternatives.add(new JsonSchema().$ref(ref)));
-        return new JsonSchema().oneOf(alternatives);
+        return new JsonSchema().anyOf(alternatives);
     }
 
     private static void requestBody(OpenAPI openApi, String path, List<String> refs) {
@@ -163,7 +164,7 @@ public class MzTabSchemasCustomizer implements OpenApiCustomizer {
         if (post.getRequestBody() == null) {
             throw new IllegalStateException(path + " has no request body to describe");
         }
-        json(post.getRequestBody().getContent(), path).setSchema(oneOf(refs));
+        json(post.getRequestBody().getContent(), path).setSchema(anyOf(refs));
     }
 
     private static void okResponse(OpenAPI openApi, String path, List<String> refs) {
@@ -172,7 +173,7 @@ public class MzTabSchemasCustomizer implements OpenApiCustomizer {
         if (ok == null) {
             throw new IllegalStateException(path + " has no 200 response to describe");
         }
-        json(ok.getContent(), path).setSchema(oneOf(refs));
+        json(ok.getContent(), path).setSchema(anyOf(refs));
     }
 
     private static Operation post(OpenAPI openApi, String path) {

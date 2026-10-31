@@ -105,9 +105,9 @@ class OpenApiSpecExportTest {
         assertTrue(schemas.has("MzTab_2_1"), "MzTab_2_1 is missing");
         assertFalse(schemas.has("MzTab"), "the unversioned MzTab schema is still there");
         List<String> both = List.of("#/components/schemas/MzTab_2_0", "#/components/schemas/MzTab_2_1");
-        assertEquals(both, oneOfRefs(spec.at("/paths/~1rest~1v2~1convert/post/requestBody/content/application~1json/schema")));
-        assertEquals(both, oneOfRefs(spec.at("/paths/~1rest~1v2~1validate/post/requestBody/content/application~1json/schema")));
-        assertEquals(both, oneOfRefs(spec.at("/paths/~1rest~1v2~1convertPlain/post/responses/200/content/application~1json/schema")));
+        assertEquals(both, anyOfRefs(spec.at("/paths/~1rest~1v2~1convert/post/requestBody/content/application~1json/schema")));
+        assertEquals(both, anyOfRefs(spec.at("/paths/~1rest~1v2~1validate/post/requestBody/content/application~1json/schema")));
+        assertEquals(both, anyOfRefs(spec.at("/paths/~1rest~1v2~1convertPlain/post/responses/200/content/application~1json/schema")));
         assertTrue(schemas.path("StudyVariable_2_0").path("properties").has("factors"));
         assertFalse(schemas.path("StudyVariable_2_1").path("properties").has("factors"));
         assertEquals("#/components/schemas/Parameter_2_1",
@@ -121,9 +121,9 @@ class OpenApiSpecExportTest {
         assertEquals(List.of(), dangling);
     }
 
-    private static List<String> oneOfRefs(JsonNode schema) {
+    private static List<String> anyOfRefs(JsonNode schema) {
         List<String> refs = new ArrayList<>();
-        schema.path("oneOf").forEach(s -> refs.add(s.path("$ref").asText()));
+        schema.path("anyOf").forEach(s -> refs.add(s.path("$ref").asText()));
         return refs;
     }
 

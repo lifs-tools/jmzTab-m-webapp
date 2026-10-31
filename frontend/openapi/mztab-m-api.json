@@ -3071,7 +3071,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "oneOf" : [ {
+                "anyOf" : [ {
                   "$ref" : "#/components/schemas/MzTab_2_0"
                 }, {
                   "$ref" : "#/components/schemas/MzTab_2_1"
@@ -3166,7 +3166,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "oneOf" : [ {
+                  "anyOf" : [ {
                     "$ref" : "#/components/schemas/MzTab_2_0"
                   }, {
                     "$ref" : "#/components/schemas/MzTab_2_1"
@@ -3311,7 +3311,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "oneOf" : [ {
+                "anyOf" : [ {
                   "$ref" : "#/components/schemas/MzTab_2_0"
                 }, {
                   "$ref" : "#/components/schemas/MzTab_2_1"

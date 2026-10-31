@@ -256,7 +256,7 @@ class ValidationRunnerTest {
 
         assertEquals(ValidationStatus.FAILED, record.status());
         assertEquals("This file declares mzTab-version 2.2.0-M. This validator supports mzTab-M 2.0 and 2.1."
-            + " mzTab-M 2.2 is available for testing on the development validator: "
+            + " Another validator may support mzTab-M 2.2: "
             + "https://dev.example.org/validator", record.messages().get(0).getMessage());
     }
 

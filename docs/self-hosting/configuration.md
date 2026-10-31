@@ -39,7 +39,7 @@ The webapp sends every file to the engine of its mzTab-M version: a `2.0.x-M` fi
 | `engines.mztabm[n].line` | `ENGINES_MZTABM_<n>_LINE` | `engines.mztabm[0].line=2.0` | The mzTab-M version line of the n-th engine, `MAJOR.MINOR` (`2.0`, `2.1`). Each line may have one engine. |
 | `engines.mztabm[n].url` | `ENGINES_MZTABM_<n>_URL` | `engines.mztabm[0].url=http://mztab-engine-2-0:8084` | Its base URL, `http` or `https`. The default is the compose service name of the 2.0 engine. |
 | `engines.default-line` | `ENGINES_DEFAULTLINE` | `2.0` | The engine for files that declare no `mzTab-version`. Such a file still gets Error-2008 (missing version); the default only decides which version's other checks run. The webapp does not start if no engine is configured for this line. |
-| `engines.unavailable-hint-url` | `ENGINES_UNAVAILABLEHINTURL` | empty | Where users are pointed when a version has no engine on this instance, e.g. another validator that has one. The public production instance points to the development validator. Empty: no link. |
+| `engines.unavailable-hint-url` | `ENGINES_UNAVAILABLEHINTURL` | empty | Where users are pointed when a version has no engine on this instance, e.g. another validator that has one. The message and the form say "Another validator may support mzTab-M <version>" with this link. The public production instance points to the development validator. Empty: no link. |
 | `engines.connect-timeout` | `ENGINES_CONNECTTIMEOUT` | `5s` | How long the webapp waits for a connection to an engine, and for an engine's answer about itself. |
 | `engines.job-timeout` | `ENGINES_JOBTIMEOUT` | `10m` | How long the webapp waits for an engine to finish a validation or conversion. A background validation that runs out of time ends as failed. |
 
