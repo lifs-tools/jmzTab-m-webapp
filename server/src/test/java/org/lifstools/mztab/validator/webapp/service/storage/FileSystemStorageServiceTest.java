@@ -75,6 +75,54 @@ class FileSystemStorageServiceTest {
     }
 
     @Test
+    void deleteToleratesFilesThatVanishDuringTheWalk() throws IOException {
+        UUID id = UUID.randomUUID();
+        for (String name : new String[]{"copy.db", "copy.db-wal", "copy.db-shm", "other"}) {
+            storage.write(id, SLOT.WORKINGCOPY, name, stream("x"));
+        }
+        Path dir = root.resolve(id.toString()).resolve(SLOT.WORKINGCOPY.name());
+
+        // as a closing SQLite connection does: while one file is deleted, the others disappear
+        FileSystemStorageService.deleteTree(dir, file -> {
+            try {
+                for (String name : new String[]{"copy.db-wal", "copy.db-shm", "other"}) {
+                    Files.deleteIfExists(dir.resolve(name));
+                }
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
+
+        assertTrue(Files.notExists(dir));
+        assertTrue(Files.exists(root.resolve(id.toString())));
+        // a missing tree is not an error
+        FileSystemStorageService.deleteTree(dir, file -> {
+        });
+        storage.delete(id, SLOT.WORKINGCOPY);
+    }
+
+    @Test
+    void deleteRetriesWhenAFileAppearsMeanwhile() throws IOException {
+        UUID id = UUID.randomUUID();
+        storage.write(id, SLOT.WORKINGCOPY, "copy.db", stream("x"));
+        Path dir = root.resolve(id.toString()).resolve(SLOT.WORKINGCOPY.name());
+        java.util.concurrent.atomic.AtomicBoolean once = new java.util.concurrent.atomic.AtomicBoolean();
+
+        FileSystemStorageService.deleteTree(dir, file -> {
+            try {
+                if (once.compareAndSet(false, true)) {
+                    // a late file lands in the directory after the walk has listed it
+                    Files.writeString(dir.resolve("late-wal"), "y");
+                }
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
+
+        assertTrue(Files.notExists(dir));
+    }
+
+    @Test
     void deleteRemovesOneSlotOnly() throws IOException {
         UUID id = UUID.randomUUID();
         storage.write(id, SLOT.SECTIONS, "metadata.jsonl", stream("a"));

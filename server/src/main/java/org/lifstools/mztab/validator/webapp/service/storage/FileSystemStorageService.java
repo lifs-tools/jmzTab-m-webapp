@@ -287,17 +287,80 @@ public class FileSystemStorageService implements StorageService {
     @Override
     public void deleteAll(UUID sessionId) {
         Path sessionPath = buildSessionPath(sessionId);
-        FileSystemUtils.deleteRecursively(sessionPath.toFile());
+        try {
+            deleteTree(sessionPath, p -> {
+            });
+        } catch (IOException e) {
+            log.warn("Could not delete all files of session {}", sessionId, e);
+        }
     }
 
     @Override
     public void delete(UUID sessionId, SLOT slot) {
         Path slotPath = buildSessionPath(sessionId).resolve(slot.name());
         try {
-            FileSystemUtils.deleteRecursively(slotPath);
+            deleteTree(slotPath, p -> {
+            });
         } catch (IOException e) {
             throw new StorageException("Failed to delete " + slot + " of session " + sessionId, e);
         }
+    }
+
+    private static final int DELETE_ATTEMPTS = 3;
+    private static final long DELETE_PAUSE_MS = 50;
+
+    /**
+     * Deletes a directory tree that may change while it is walked: a SQLite
+     * connection that closes meanwhile removes its {@code -wal} and
+     * {@code -shm} files. A file or directory that is already gone is
+     * fine, a missing root is not an error, and a directory that is not empty
+     * at the end (a file appeared) is retried a few times.
+     *
+     * @param beforeDelete called with each file just before it is deleted (a test hook)
+     */
+    static void deleteTree(Path root, java.util.function.Consumer<Path> beforeDelete) throws IOException {
+        IOException last = null;
+        for (int attempt = 1; attempt <= DELETE_ATTEMPTS; attempt++) {
+            try {
+                Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        beforeDelete.accept(file);
+                        Files.deleteIfExists(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                        if (exc instanceof NoSuchFileException) {
+                            return FileVisitResult.CONTINUE;
+                        }
+                        throw exc;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        if (exc != null && !(exc instanceof NoSuchFileException)) {
+                            throw exc;
+                        }
+                        Files.deleteIfExists(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                return;
+            } catch (NoSuchFileException e) {
+                return;
+            } catch (java.nio.file.DirectoryNotEmptyException e) {
+                last = e;
+                try {
+                    Thread.sleep(DELETE_PAUSE_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw last;
     }
 
     @Override
