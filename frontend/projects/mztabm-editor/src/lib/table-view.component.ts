@@ -43,7 +43,9 @@ interface Snapshot {
   picked: string[] | null;
 }
 
-type Outcome = { page: DocTablePage; snapshot: Snapshot; key: string; probe: boolean } | { error: string };
+type Outcome =
+  | { page: DocTablePage; snapshot: Snapshot; key: string; probe: boolean }
+  | { error: string; key: string; probe: boolean };
 
 /**
  * A column as the sort and the filters name it: `@` and its cell index where the source reports positions (a
@@ -111,7 +113,7 @@ export class TableViewComponent {
    * The document changed and the positions the view asks for may be out of date: the next request leaves them
    * out, and its column list (`probedColumns`) says which ones to ask for.
    */
-  private readonly columnsStale = signal(false);
+  protected readonly columnsStale = signal(false);
   private readonly probedColumns = signal<string[] | null>(null);
 
   protected readonly data = signal<DocTablePage | undefined>(undefined);
@@ -255,7 +257,7 @@ export class TableViewComponent {
             })
             .pipe(
               map((page): Outcome => ({ page, snapshot, key, probe: q.stale })),
-              catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),
+              catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err), key, probe: q.stale })),
             );
         }),
         takeUntilDestroyed(),
@@ -287,10 +289,16 @@ export class TableViewComponent {
         } else {
           this.error.set(o.error);
           this.awaitingFocus = false;
-          // the state restored is the one last shown, which a request without positions did not answer
-          this.columnsStale.set(false);
           if (this.lastGood) {
             this.restore(this.lastGood);
+          }
+          if (o.probe) {
+            // the column list is still unknown: the positions shown may be out of date, so Retry asks for the
+            // list again; until then the failed request counts as shown, so that nothing is asked by itself
+            this.shownKey = JSON.stringify(this.query());
+          } else {
+            // the state restored is the one last shown, which a request without positions did not answer
+            this.columnsStale.set(false);
           }
         }
       });

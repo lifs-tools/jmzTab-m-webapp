@@ -175,6 +175,30 @@ describe('TableViewComponent columns by position', () => {
     src.noneTable();
   });
 
+  it('a failed column-list request after a change is asked again by Retry, not by the old positions', async () => {
+    const src = new EditableFakeDocumentSource();
+    const { el, settle, heads, next } = await render(page(FIRST_WINDOW), src);
+    await next();
+    src.oneTable().reply(page(SECOND_WINDOW));
+    await settle();
+    src.changes.next();
+    await settle();
+    src.oneTable().fail(500);
+    await settle();
+    // the rows shown are kept, with the error; nothing is asked until Retry
+    expect(el.textContent).toContain('The table could not be loaded');
+    expect(heads()[1].textContent).toContain('c50');
+    src.noneTable();
+    el.querySelector<HTMLButtonElement>('button.retry')!.click();
+    await settle();
+    const probe = src.oneTable();
+    expect(probe.args.q.positions).toBeUndefined();
+    const fewer = WIDE.filter((_, i) => i !== 55);
+    probe.reply(page(FIRST_WINDOW, fewer));
+    await settle();
+    expect(src.oneTable().args.q.positions).toEqual(SECOND_WINDOW.slice(0, -1));
+  });
+
   it('after a change that moves the sorted column, drops the sort', async () => {
     const src = new EditableFakeDocumentSource();
     const { settle, heads, next } = await render(page(FIRST_WINDOW), src);

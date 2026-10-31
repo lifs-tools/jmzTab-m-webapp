@@ -33,7 +33,7 @@
   <div class="callout" role="alert">
     <div>
       {{ msg }}
-      @if (!data()) {
+      @if (!data() || columnsStale()) {
         <button type="button" class="retry" (click)="retry()">Retry</button>
       }
     </div>
