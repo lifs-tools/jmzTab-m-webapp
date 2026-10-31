@@ -111,7 +111,8 @@ public final class CopyText {
         }
         if (cur.size() > 0 || first) {
             byte[] raw = cur.toByteArray();
-            if (enc == SourceEncoding.UTF_8 && startsWithBom(raw)) {
+            // only line 1 can carry the byte order mark
+            if (first && enc == SourceEncoding.UTF_8 && startsWithBom(raw)) {
                 bom = true;
                 raw = Arrays.copyOfRange(raw, 3, raw.length);
             }

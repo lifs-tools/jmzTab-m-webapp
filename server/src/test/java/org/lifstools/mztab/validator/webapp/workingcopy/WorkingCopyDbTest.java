@@ -134,4 +134,44 @@ class WorkingCopyDbTest {
             assertEquals(2, db.lineCount());
         }
     }
+
+    @Test
+    void deleteRangeIsOverflowSafe() throws Exception {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("f.db"))) {
+            db.importLines(parsed(1, "\n"));
+            assertThrows(IllegalArgumentException.class, () -> db.deleteLines(Long.MAX_VALUE - 1, 3));
+            assertThrows(IllegalArgumentException.class, () -> db.deleteLines(2, 1));
+            assertEquals(1, db.lineCount());
+        }
+    }
+
+    @Test
+    void writeToEqualsOriginalBytes() throws Exception {
+        byte[] orig = "\uFEFFMTD\ta\r\nSML\t\t\nCOM\tx".getBytes(StandardCharsets.UTF_8);
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("g.db"))) {
+            db.importLines(CopyText.read(new ByteArrayInputStream(orig), SourceEncoding.UTF_8));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            db.writeTo(out);
+            assertArrayEquals(orig, out.toByteArray());
+        }
+    }
+
+    @Test
+    void importNumbersByPositionAndEditsAreValidated() throws Exception {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("h.db"))) {
+            CopyText.Parsed p = new CopyText.Parsed(false,
+                List.of(CopyText.line(7, "a", "\n"), CopyText.line(7, "b", "\n")));
+            db.importLines(p);
+            assertEquals("b", db.line(2).orElseThrow().text());
+            assertThrows(IllegalArgumentException.class,
+                () -> db.replaceLine(1, new Line(1, "?", List.of("a"), "\n\n")));
+            assertThrows(IllegalArgumentException.class,
+                () -> db.replaceLine(1, new Line(1, "?", List.of("a\tb"), "\n")));
+            assertThrows(IllegalArgumentException.class,
+                () -> db.insertLines(1, List.of(new Line(1, "?", List.of("a\nb"), ""))));
+            assertThrows(IllegalArgumentException.class,
+                () -> db.insertLines(1, List.of(new Line(1, "?", List.of("a\rb"), ""))));
+            assertEquals(2, db.lineCount());
+        }
+    }
 }

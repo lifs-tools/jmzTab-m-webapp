@@ -16,6 +16,7 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -51,8 +52,8 @@ import org.sqlite.SQLiteDataSource;
  * runs through {@link NamedParameterJdbcTemplate}; {@code StaticSqlTest}
  * enforces this. The schema is created in {@link #open}, from the {@code CREATE_*}
  * constants, the one place to extend. Each call takes its own connection from the data source unless it
- * runs inside {@link #inTransaction}; {@link #close()} releases nothing but
- * marks the handle unusable.
+ * runs inside {@link #inTransaction}; {@link #close()} releases nothing; it
+ * exists for try-with-resources. Transactions are IMMEDIATE.
  */
 public final class WorkingCopyDb implements AutoCloseable {
 
@@ -101,6 +102,8 @@ public final class WorkingCopyDb implements AutoCloseable {
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
         config.setBusyTimeout(5000);
+        // writers take the lock at BEGIN, so two of them wait instead of failing with SQLITE_BUSY_SNAPSHOT
+        config.setTransactionMode(SQLiteConfig.TransactionMode.IMMEDIATE);
         SQLiteDataSource ds = new SQLiteDataSource(config);
         ds.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
         WorkingCopyDb db = new WorkingCopyDb(ds);
@@ -115,12 +118,28 @@ public final class WorkingCopyDb implements AutoCloseable {
             jdbc.update(CLEAR_LINES, Map.of());
             List<Line> lines = parsed.lines();
             for (int i = 0; i < lines.size(); i += PAGE) {
-                jdbc.batchUpdate(INSERT_LINE, lines.subList(i, Math.min(i + PAGE, lines.size())).stream()
-                    .map(l -> insertParams(l.number(), l)).toArray(SqlParameterSource[]::new));
+                SqlParameterSource[] batch = new SqlParameterSource[Math.min(PAGE, lines.size() - i)];
+                for (int j = 0; j < batch.length; j++) {
+                    // numbered by position; the incoming Line.number() is not trusted
+                    batch[j] = insertParams(i + j + 1L, lines.get(i + j));
+                }
+                jdbc.batchUpdate(INSERT_LINE, batch);
             }
             setMeta(BOM_KEY, Boolean.toString(parsed.bom()));
             return null;
         });
+    }
+
+    private static void check(Line l) {
+        if (l.eol() == null || !(l.eol().isEmpty() || l.eol().equals("\n") || l.eol().equals("\r\n")
+            || l.eol().equals("\r"))) {
+            throw new IllegalArgumentException("A line ending must be LF, CRLF, CR or empty");
+        }
+        for (String cell : l.cells()) {
+            if (cell == null || cell.indexOf('\t') >= 0 || cell.indexOf('\r') >= 0 || cell.indexOf('\n') >= 0) {
+                throw new IllegalArgumentException("A cell must not contain a tab or a line break");
+            }
+        }
     }
 
     private static SqlParameterSource insertParams(long number, Line l) {
@@ -145,7 +164,11 @@ public final class WorkingCopyDb implements AutoCloseable {
         return jdbc.query(SELECT_ONE, Map.of("number", number), LINE_MAPPER).stream().findFirst();
     }
 
-    /** All lines in order, fetched page by page. */
+    /**
+     * All lines in order, fetched page by page. Not snapshot-consistent across
+     * pages unless iterated inside {@link #inTransaction}; use {@link #writeTo}
+     * to export a consistent copy.
+     */
     public Iterator<Line> allLines() {
         return new Iterator<>() {
             private long next = 1;
@@ -175,6 +198,7 @@ public final class WorkingCopyDb implements AutoCloseable {
 
     /** Replaces the content of line {@code number}; the number of {@code line} is ignored. */
     public void replaceLine(long number, Line line) {
+        check(line);
         int changed = jdbc.update(REPLACE_LINE, new MapSqlParameterSource().addValue("number", number)
             .addValue("section", line.section()).addValue("text", line.text()).addValue("eol", line.eol()));
         if (changed != 1) {
@@ -184,6 +208,7 @@ public final class WorkingCopyDb implements AutoCloseable {
 
     /** Inserts the lines so the first becomes line {@code before}; {@code before} may be lineCount + 1. */
     public void insertLines(long before, List<Line> lines) {
+        lines.forEach(WorkingCopyDb::check);
         inTransaction(() -> {
             long count = lineCount();
             if (before < 1 || before > count + 1) {
@@ -205,7 +230,7 @@ public final class WorkingCopyDb implements AutoCloseable {
     public void deleteLines(long from, int count) {
         inTransaction(() -> {
             long total = lineCount();
-            if (from < 1 || count < 1 || from + count - 1 > total) {
+            if (from < 1 || count < 1 || from > total || count > total - from + 1) {
                 throw new IllegalArgumentException("Cannot delete " + count + " lines from line " + from);
             }
             jdbc.update(DELETE_RANGE, Map.of("from", from, "to", from + count));
@@ -227,6 +252,22 @@ public final class WorkingCopyDb implements AutoCloseable {
 
     public boolean bom() {
         return Boolean.parseBoolean(meta(BOM_KEY));
+    }
+
+    /** Writes the whole copy as UTF-8; the flag and all lines come from one snapshot. */
+    public void writeTo(OutputStream out) throws IOException {
+        try {
+            inTransaction(() -> {
+                try {
+                    CopyText.write(bom(), allLines(), out);
+                    return null;
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
     }
 
     /** Runs {@code work} in one transaction; a RuntimeException rolls back and is rethrown. */

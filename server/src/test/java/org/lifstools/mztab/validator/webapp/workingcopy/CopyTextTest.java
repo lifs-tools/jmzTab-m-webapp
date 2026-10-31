@@ -87,4 +87,14 @@ class CopyTextTest {
         assertTrue(p.lines().get(2).text().contains("é"));
         assertEquals("cé\n", new String(write(p), StandardCharsets.UTF_8).substring(4));
     }
+
+    @Test
+    void bomCharacterAfterLineOneIsContent() throws IOException {
+        for (String in : new String[] {"a\n\uFEFFb", "a\n\uFEFFb\n"}) {
+            byte[] b = bytes(in);
+            CopyText.Parsed p = read(b, SourceEncoding.UTF_8);
+            assertFalse(p.bom());
+            assertArrayEquals(b, write(p));
+        }
+    }
 }
