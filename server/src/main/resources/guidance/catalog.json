@@ -1,0 +1,260 @@
+[
+  {
+    "id": "empty-parameter",
+    "codes": ["Error-1012", "Error-1013"],
+    "messagePattern": "value \"\\[\\s*,\\s*,\\s*,\\s*\\]\"",
+    "title": "Empty parameter",
+    "explanation": "The field holds a parameter with no ontology, accession, name or value. A parameter needs at least a name, so the engine cannot read this field.",
+    "fixHere": "Use the quick fix to remove the line. If the field is required, validation will then ask for it and you can fill it in.",
+    "fixInTool": "Leave optional fields out of the file when they have no value, instead of writing [, , , ].",
+    "quickFix": "remove-empty-parameter",
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "Blank template cells become [, , , ]. Fill the cell in the template, or leave the row out of the sheet."
+      }
+    ]
+  },
+  {
+    "id": "unnamed-parameter",
+    "codes": ["Error-1012", "Error-1013"],
+    "messagePattern": "value \"\\[[^,\\]]*,[^,\\]]*,\\s*,[^\\]]*\\]\"",
+    "title": "Parameter without a name",
+    "explanation": "The field holds a parameter that has a value but no name, for example [, , , 25]. A parameter is only readable when it says what the value is, so the name cannot stay empty.",
+    "fixHere": "Edit the field and enter the name of the parameter in the third position, before the value. Several lines with the same problem usually need the same name.",
+    "fixInTool": "Write a name for every parameter you export. If a value has no name, write it as a user parameter with a name of your own, for example [, , my parameter, 25].",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "Free-text values from the template become parameters with an empty name. Give the template column a name so the converter can write it into the parameter."
+      }
+    ]
+  },
+  {
+    "id": "invalid-parameter",
+    "codes": ["Error-1012"],
+    "title": "Invalid parameter",
+    "explanation": "The value of this field is not written as a parameter. A parameter has four parts in square brackets: ontology label, accession, name and value. Only the name is required.",
+    "fixHere": "Edit the field so that it reads [label, accession, name, value]. Leave out the parts you do not have, but keep the commas, and put quotes around a name that contains a comma.",
+    "fixInTool": "Write every parameter as [CV label, accession, name, value], with the name always filled in.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "Check the template cell this value came from: it must hold a term from the ontology list, not free text with commas."
+      }
+    ]
+  },
+  {
+    "id": "invalid-parameter-list",
+    "codes": ["Error-1013"],
+    "title": "Invalid list of parameters",
+    "explanation": "The value of this field is not written as a list of parameters. Each parameter has four parts in square brackets, and several parameters are separated by a vertical bar.",
+    "fixHere": "Edit the field so that every item reads [label, accession, name, value], and separate the items with |.",
+    "fixInTool": "Write lists of parameters as [CV label, accession, name, value]|[CV label, accession, name, value], with no spaces around the bar that matter and every name filled in.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
+    "id": "invalid-publication",
+    "codes": ["Error-1014"],
+    "title": "Publication not in the expected form",
+    "explanation": "A publication must be given as pubmed: followed by the PubMed id, or doi: followed by the DOI itself. A DOI written as a web address, or with the prefix twice, cannot be matched to a publication.",
+    "fixHere": "Use the quick fix to rewrite the DOI as doi:10.xxxx/yyyy. If it still fails, edit the field by hand; separate several identifiers with |.",
+    "fixInTool": "Write publications as pubmed:<id> or doi:<doi>, where the DOI starts with 10. and has no web address or second prefix in front of it.",
+    "quickFix": "normalise-doi",
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "Users paste DOIs as web addresses into the template. Strip https://doi.org/ and a leading doi: from the cell before the converter adds its own doi: prefix."
+      }
+    ]
+  },
+  {
+    "id": "invalid-email",
+    "codes": ["Error-1017"],
+    "title": "Invalid e-mail address",
+    "explanation": "An e-mail address must have the form name@server. A value that is only a domain, or has no @, cannot be used to contact the person.",
+    "fixHere": "Edit the field and enter the complete e-mail address of the contact. This cannot be fixed automatically because only you know the right address.",
+    "fixInTool": "Export the full e-mail address as name@server. If the tool does not hold it, ask for it instead of writing the domain alone.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "The contact e-mail cell of the template reached the file as the domain only. Enter the full address in the template."
+      }
+    ]
+  },
+  {
+    "id": "line-without-prefix",
+    "codes": ["Error-1000"],
+    "title": "Line does not start with a line type",
+    "explanation": "Every line of an mzTab-M file starts with a three-letter line type followed by a tab, for example MTD or SML. This line starts with something else, so the engine stops reading the file here. This often happens when a cell contains a line break and the rest of the cell lands on a line of its own.",
+    "fixHere": "If the line continues the one above, use the quick fix to join them with a space. Otherwise start the line with its line type and a tab, or delete it.",
+    "fixInTool": "Remove line breaks and tabs from cell values before writing them, for example by replacing them with a space.",
+    "quickFix": "join-broken-line",
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "missing-mandatory-column",
+    "codes": ["Error-1004"],
+    "title": "Mandatory column missing",
+    "explanation": "A table header lacks a column that every file must have. The engine reports only the first missing column and stops reading the file, so more columns may be reported after you add this one.",
+    "fixHere": "Use the quick fix to add the column to the header and to every row; fill the cells afterwards. Validate again to see whether another column is missing.",
+    "fixInTool": "Always write all mandatory columns of the table, even when every value is null. Column names are case-sensitive and separated by tabs.",
+    "quickFix": "add-mandatory-column",
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "metadata-line-malformed",
+    "codes": ["Error-1008"],
+    "title": "Metadata line is not split by tabs",
+    "explanation": "A metadata line must have exactly three parts separated by tabs: MTD, the key and the value. Here the parts are separated by spaces or one is missing, so the engine stops reading the file.",
+    "fixHere": "Use the quick fix to split the line into key and value at the first run of spaces. If the value itself was empty, enter it or delete the line.",
+    "fixInTool": "Separate MTD, the key and the value with single tab characters, and never leave the value empty.",
+    "quickFix": "split-mtd-line",
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "unknown-metadata-key",
+    "codes": ["Error-1009"],
+    "title": "Metadata key not recognised",
+    "explanation": "The key of a metadata line is not one the format defines. Keys are either plain names such as title, or have the form element[number]-property, for example sample[1]-description. The engine stops reading the file here.",
+    "fixHere": "Edit the key. Look for a typo, a missing number in square brackets, or a dash that should separate the element from its property.",
+    "fixInTool": "Write only keys the format defines, in the form element[number]-property, and number the elements from 1 without gaps.",
+    "quickFix": null,
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "empty-mandatory-cell",
+    "codes": ["Error-2000"],
+    "title": "Mandatory value is empty",
+    "explanation": "A field that every file must fill has an empty cell. Table cells may never be empty; a value that is truly absent is written as null where the column allows it.",
+    "fixHere": "Edit the field and enter the value. Only you know the right value, so there is no automatic fix.",
+    "fixInTool": "Fill every mandatory field. In tables, write null for an absent value instead of leaving the cell empty.",
+    "quickFix": null,
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "section-order",
+    "codes": ["Error-2002"],
+    "title": "Sections are in the wrong order",
+    "explanation": "The sections of an mzTab-M file must come in a fixed order and each section may occur once: metadata first, then the small molecule table, then features, then evidence. A line here belongs to a section that was already left, so the engine stops reading.",
+    "fixHere": "Move the lines named in the message so that each section is in one block, in the order metadata, small molecule, feature, evidence.",
+    "fixInTool": "Write all metadata lines first, then each table section as one block with its header line directly above its rows.",
+    "quickFix": null,
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "data-line-without-header",
+    "codes": ["Error-2004"],
+    "title": "Table row without a header line",
+    "explanation": "A table row appears before the header line that names its columns. Without the header the engine cannot tell what the cells mean, so it stops reading the file.",
+    "fixHere": "Add the header line of the table directly above its first row, or move the existing header line there.",
+    "fixInTool": "Write the header line of each table section before the first row of that section, and write it only once.",
+    "quickFix": null,
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "undefined-in-metadata",
+    "codes": ["Error-2008"],
+    "title": "Used but not defined in the metadata",
+    "explanation": "Something the file refers to, such as sample[1] in an assay or an ms_run, has no definition in the metadata. A reference needs its target, otherwise the engine cannot follow it.",
+    "fixHere": "Use the quick fix to add the missing metadata line, then fill in its value. Alternatively correct the reference if it points to the wrong number.",
+    "fixInTool": "Write a metadata definition for every element that other lines refer to, using the same number in both places.",
+    "quickFix": "add-missing-metadata",
+    "stopsParsing": true,
+    "tools": []
+  },
+  {
+    "id": "cv-term-not-allowed",
+    "codes": ["Warn-3005", "Error-3005"],
+    "title": "Term not allowed here",
+    "explanation": "The ontology term in this field is not one the validation profile accepts for it. Examples are a unit used where a tissue is expected, or a method term used as an instrument name. Whether this is a warning or an error depends on whether the rule requires the term.",
+    "fixHere": "Edit the field and replace the term with one that is allowed here; the message lists the allowed terms. Pick the term yourself: no automatic fix chooses one for you.",
+    "fixInTool": "Map the values your tool exports to terms from the ontologies the profile allows for this field, and write the term's accession and name.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
+    "id": "semantic-check-failed",
+    "codes": ["Error-3015"],
+    "title": "A term does not match its accession",
+    "explanation": "The ontology check could not be completed for a term. A common reason is that the name given does not match the accession, or that the accession belongs to a different ontology than the label says.",
+    "fixHere": "Edit the field and make label, accession and name describe the same term. Look the accession up in the ontology to see its real name.",
+    "fixInTool": "Take the accession and the name from the same ontology entry, and write the label of the ontology the accession belongs to.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
+    "id": "unused-cv",
+    "codes": ["Warn-3014"],
+    "title": "Ontology declared but never used",
+    "explanation": "The metadata declares an ontology that no parameter in the file uses. This does no harm, but it suggests that something else is missing or mislabelled.",
+    "fixHere": "Use the quick fix to remove the unused ontology declaration. If you expected it to be used, look for terms written with a different label.",
+    "fixInTool": "Declare only the ontologies your parameters actually use, or fill the parameters that should use them.",
+    "quickFix": "remove-unused-cv",
+    "stopsParsing": false,
+    "tools": [
+      {
+        "software": "LipidCompass curation",
+        "toolVersion": "0.0.7",
+        "fixInTool": "The converter declares a fixed list of ontologies. Write only those whose terms appear in the sheet."
+      }
+    ]
+  },
+  {
+    "id": "optional-field-empty",
+    "codes": ["Info-3010"],
+    "title": "Optional field has no value",
+    "explanation": "A field that the validation profile looks at is empty. It is optional, so the file stays valid, but a value here makes the file more useful to others.",
+    "fixHere": "Fill the field if you have the information; otherwise you can leave it as it is.",
+    "fixInTool": "Export this field when the information exists. Leave it out when it does not.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
+    "id": "no-feature-section",
+    "codes": ["Info-2037"],
+    "title": "No feature section",
+    "explanation": "The file has no small molecule feature table. That is fine for a file that only reports summary results, but it means readers cannot see feature-level data.",
+    "fixHere": "Nothing to do if the file is meant to hold summary results only. Otherwise add a feature table with its header line.",
+    "fixInTool": "Export the feature table when your tool has feature-level results.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  },
+  {
+    "id": "no-evidence-section",
+    "codes": ["Info-2038"],
+    "title": "No evidence section",
+    "explanation": "The file has no small molecule evidence table. That is fine for a file that only reports summary results, but it means readers cannot see how the identifications were made.",
+    "fixHere": "Nothing to do if the file is meant to hold summary results only. Otherwise add an evidence table with its header line.",
+    "fixInTool": "Export the evidence table when your tool has identification evidence.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
+  }
+]
