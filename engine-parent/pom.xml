@@ -154,6 +154,7 @@
                     <systemPropertyVariables>
                         <engine.line>${engine.line}</engine.line>
                         <openapi.update>${openapi.update}</openapi.update>
+                        <errorcodes.update>${errorcodes.update}</errorcodes.update>
                         <!-- WebappCopiesTest compares the webapp's copies of jmzTab-m files with this engine's -->
                         <webapp.dir>${project.basedir}/../server</webapp.dir>
                     </systemPropertyVariables>

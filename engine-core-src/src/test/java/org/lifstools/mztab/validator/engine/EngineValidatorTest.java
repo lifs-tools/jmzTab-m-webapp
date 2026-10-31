@@ -79,6 +79,20 @@ class EngineValidatorTest {
     }
 
     @Test
+    void messagesCarryTheCauseOfTheirCode() throws IOException {
+        String text = new String(Fixtures.ofThisLine(Fixtures.MINIMAL), java.nio.charset.StandardCharsets.UTF_8)
+            .replaceFirst("(?m)^(MTD\\tinstrument\\[1\\]-name\\t).*$", "$1not a parameter");
+        Path bad = Files.writeString(dir.resolve("bad-parameter.mztab"), text);
+
+        List<ValidationMessage> messages = validator.validate(bad, ValidationLevel.INFO, 100, null).messages();
+
+        ValidationMessage m = messages.stream().filter(x -> x.getCode().contains("Error-1012")).findFirst()
+            .orElseThrow(() -> new AssertionError("expected Error-1012, got " + messages));
+        assertEquals(new uk.ac.ebi.pride.jmztab2.utils.errors.MZTabErrorTypeMap().getType(1012).getCause()
+            .replaceFirst("^[=\\s]+", "").strip(), m.getCause());
+    }
+
+    @Test
     void unreadableFileIsReportedNotThrown() throws IOException {
         EngineValidator.Outcome outcome = validator.validate(dir.resolve("missing.mztab"), ValidationLevel.INFO,
             100, null);

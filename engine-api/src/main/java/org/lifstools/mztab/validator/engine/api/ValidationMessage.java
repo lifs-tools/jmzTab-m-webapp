@@ -31,7 +31,7 @@ import lombok.Data;
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonPropertyOrder({"code", "category", "message_type", "message", "line_number", "suggestion", "rule_id", "location"})
+@JsonPropertyOrder({"code", "category", "message_type", "message", "line_number", "suggestion", "rule_id", "location", "cause"})
 public class ValidationMessage {
 
     /** The kind of check that produced a message. */
@@ -93,6 +93,14 @@ public class ValidationMessage {
 
     @JsonProperty("location")
     private ValidationLocation location;
+
+    /**
+     * Why jmzTab-m reports this kind of message, in its own words; absent for
+     * messages without a jmzTab-m error code.
+     */
+    @Schema(types = {"string", "null"})
+    @JsonProperty("cause")
+    private String cause;
 
     /**
      * @param text the message text

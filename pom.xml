@@ -97,6 +97,7 @@
         <assembly.dir>${project.artifactId}</assembly.dir>
         <frontend.skip>false</frontend.skip>
         <openapi.update>false</openapi.update>
+        <errorcodes.update>false</errorcodes.update>
         <app.name>mztabvalidator</app.name>
         <contextPath>/${app.name}</contextPath>
         <ga.id></ga.id>

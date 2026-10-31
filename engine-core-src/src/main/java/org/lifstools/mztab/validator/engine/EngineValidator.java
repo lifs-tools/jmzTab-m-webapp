@@ -123,7 +123,9 @@ public class EngineValidator {
     private List<ValidationMessage> converted(List<org.lifstools.mztab2.model.ValidationMessage> messages) {
         List<ValidationMessage> result = new ArrayList<>(messages.size());
         for (org.lifstools.mztab2.model.ValidationMessage message : messages) {
-            result.add(messageMapper.convertValue(message, ValidationMessage.class));
+            ValidationMessage converted = messageMapper.convertValue(message, ValidationMessage.class);
+            converted.setCause(ErrorCauses.causeOf(converted.getCode()).orElse(null));
+            result.add(converted);
         }
         return result;
     }
