@@ -247,4 +247,95 @@ class WorkingCopyEditorTest {
         assertEquals(new DeleteLine(1), batch.operations().get(2));
         assertEquals(1, editor.apply(db, batch));
     }
+
+    @Test
+    void rebuiltLinesRespectTheLineLimit() throws Exception {
+        List<EditOperation> ops = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            ops.add(new SetCell(4, 3 + i, "x".repeat(100_000)));
+        }
+        assertThrows(IllegalArgumentException.class, () -> apply(ops.toArray(new EditOperation[0])));
+        assertEquals(TEXT, text());
+        assertEquals(0, db.revision());
+    }
+
+    @Test
+    void batchOverTheBudgetIsRejectedAtomically() throws Exception {
+        String big = "MTD" + ("\t" + "a".repeat(99_999)).repeat(9) + "\n";
+        load(big);
+        List<EditOperation> ops = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            ops.add(new SetCell(1, 1, (i % 2 == 0 ? "b" : "c").repeat(99_999)));
+        }
+        assertThrows(IllegalArgumentException.class, () -> apply(ops.toArray(new EditOperation[0])));
+        assertEquals(big, text());
+        assertEquals(0, db.revision());
+        assertEquals(1, apply(ops.get(0)));
+    }
+
+    @Test
+    void historyKeepsOnly100UndoableBatches() {
+        for (int i = 0; i < 101; i++) {
+            apply(new SetCell(4, 2, "v" + i));
+        }
+        int undone = 0;
+        while (editor.canUndo(db)) {
+            editor.undo(db, db.revision());
+            undone++;
+        }
+        assertEquals(100, undone);
+        assertEquals("SML\t1\tv0", db.line(4).orElseThrow().text());
+    }
+
+    @Test
+    void identicalReplacementIsNotRecorded() {
+        apply(new SetCell(4, 2, "PC 34:1"), new RenameColumn("SMH", "SML_ID", "SML_ID"),
+            new SetMetadataValue(2, "v"), new MoveRow(4, 5));
+        assertEquals("[]", db.peekUndo().orElseThrow().forward());
+    }
+
+    @Test
+    void importResetsRevisionAndHistory() throws Exception {
+        apply(new SetCell(4, 2, "a"));
+        load(TEXT);
+        assertEquals(0, db.revision());
+        assertFalse(editor.canUndo(db));
+    }
+
+    @Test
+    void mixedUndoRedoOrder() throws Exception {
+        apply(new SetCell(4, 2, "one"));
+        ByteArrayOutputStream s1 = new ByteArrayOutputStream();
+        db.writeTo(s1);
+        apply(new InsertLine(1, "MTD\tn\tm"), new DeleteLine(5));
+        ByteArrayOutputStream s2 = new ByteArrayOutputStream();
+        db.writeTo(s2);
+        apply(new InsertColumn("SMH", 1, "N", "f"), new MoveRow(2, 6));
+        ByteArrayOutputStream s3 = new ByteArrayOutputStream();
+        db.writeTo(s3);
+        long rev = db.revision();
+        rev = editor.undo(db, rev);
+        rev = editor.undo(db, rev);
+        rev = editor.redo(db, rev);
+        ByteArrayOutputStream now = new ByteArrayOutputStream();
+        db.writeTo(now);
+        assertArrayEquals(s2.toByteArray(), now.toByteArray());
+        rev = editor.undo(db, rev);
+        rev = editor.undo(db, rev);
+        rev = editor.redo(db, rev);
+        rev = editor.redo(db, rev);
+        rev = editor.redo(db, rev);
+        now.reset();
+        db.writeTo(now);
+        assertArrayEquals(s3.toByteArray(), now.toByteArray());
+    }
+
+    @Test
+    void splitCellsSkipsLeadingSpaces() throws Exception {
+        load("MTD\t a b\n");
+        apply(new SplitCells(1));
+        assertEquals(List.of("MTD", " a", "b"), db.line(1).orElseThrow().cells());
+        load("MTD\t   \n");
+        assertThrows(IllegalArgumentException.class, () -> apply(new SplitCells(1)));
+    }
 }

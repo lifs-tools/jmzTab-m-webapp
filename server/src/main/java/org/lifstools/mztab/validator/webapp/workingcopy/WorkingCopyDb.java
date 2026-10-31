@@ -76,6 +76,14 @@ public final class WorkingCopyDb implements AutoCloseable {
     private static final String HISTORY_TOP_REDO
         = "SELECT seq, forward, inverse FROM history WHERE stack = 'R' ORDER BY seq ASC LIMIT 1";
     private static final String HISTORY_MOVE = "UPDATE history SET stack = :stack WHERE seq = :seq";
+    private static final String HISTORY_CLEAR_ALL = "DELETE FROM history";
+    private static final String HISTORY_COUNT_UNDO = "SELECT COUNT(*) FROM history WHERE stack = 'U'";
+    private static final String HISTORY_CHARS
+        = "SELECT COALESCE(SUM(LENGTH(forward) + LENGTH(inverse)), 0) FROM history";
+    private static final String HISTORY_PRUNE_OLDEST = """
+        DELETE FROM history WHERE seq IN
+        (SELECT seq FROM history WHERE stack = 'U' ORDER BY seq ASC LIMIT :n)""";
+    private static final String TEXT_CHARS = "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM lines";
     private static final String REVISION_KEY = "revision";
 
     private static final String COUNT = "SELECT COUNT(*) FROM lines";
@@ -131,6 +139,9 @@ public final class WorkingCopyDb implements AutoCloseable {
     public void importLines(CopyText.Parsed parsed) {
         inTransaction(() -> {
             jdbc.update(CLEAR_LINES, Map.of());
+            // a fresh import starts at revision 0 with no history
+            jdbc.update(HISTORY_CLEAR_ALL, Map.of());
+            setRevision(0);
             List<Line> lines = parsed.lines();
             for (int i = 0; i < lines.size(); i += PAGE) {
                 SqlParameterSource[] batch = new SqlParameterSource[Math.min(PAGE, lines.size() - i)];
@@ -324,6 +335,37 @@ public final class WorkingCopyDb implements AutoCloseable {
     /** Moves an entry between the undo ('U') and redo ('R') stack. */
     public void moveHistory(long seq, boolean redoable) {
         jdbc.update(HISTORY_MOVE, Map.of("stack", redoable ? "R" : "U", "seq", seq));
+    }
+
+    /** Total characters of all line texts (without endings). */
+    public long textChars() {
+        Long n = jdbc.queryForObject(TEXT_CHARS, Map.of(), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    /**
+     * Drops the oldest undoable entries until at most {@code maxUndo} remain and
+     * the stored history has at most {@code maxChars} characters; the newest
+     * undoable entry is always kept.
+     */
+    public void pruneHistory(int maxUndo, long maxChars) {
+        inTransaction(() -> {
+            Long undo = jdbc.queryForObject(HISTORY_COUNT_UNDO, Map.of(), Long.class);
+            long n = undo == null ? 0 : undo;
+            if (n > maxUndo) {
+                jdbc.update(HISTORY_PRUNE_OLDEST, Map.of("n", n - maxUndo));
+                n = maxUndo;
+            }
+            while (n > 1) {
+                Long chars = jdbc.queryForObject(HISTORY_CHARS, Map.of(), Long.class);
+                if (chars == null || chars <= maxChars) {
+                    break;
+                }
+                jdbc.update(HISTORY_PRUNE_OLDEST, Map.of("n", 1));
+                n--;
+            }
+            return null;
+        });
     }
 
     /** Runs {@code work} in one transaction; a RuntimeException rolls back and is rethrown. */

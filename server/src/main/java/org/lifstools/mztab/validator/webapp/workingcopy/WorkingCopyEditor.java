@@ -46,12 +46,21 @@ import org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.*;
  * {@link IllegalStateException}.
  *
  * <p>
+ * Write amplification is bounded: replacing a line by identical content records
+ * nothing; the images one batch records may total at most max(64 Mi, 3 x the
+ * copy's text) characters (else {@link IllegalArgumentException}); at most 100
+ * batches stay undoable and the history is pruned, oldest first, to
+ * max(64 Mi, 4 x text) characters. {@code SplitCells} skips leading spaces of
+ * the cell (they stay in the first part) and splits at the first run of spaces
+ * after the first non-space. {@code MoveRow} moves the line with its own ending;
+ * only if the file ends without a line ending is the ending of the last line
+ * kept last (one extra replace).
+ *
+ * <p>
  * Choices: a cell index is 0 for the prefix; {@code SetCell} may address an
  * existing cell or the one just past the end (which appends), a larger index is
  * rejected. Where several header lines of one kind exist, column operations use
- * the first and apply to every row of that kind. {@code MoveRow} keeps the line
- * endings by position (only the content moves), so a moved last line does not
- * leave a missing ending in the middle. Deleting the unterminated last line
+ * the first and apply to every row of that kind. Deleting the unterminated last line
  * leaves the new last line with its ending. Limits: 5,000 operations per batch,
  * 100,000 characters per cell, 1,000,000 per line; a tab only in
  * {@code SetRawLine} and {@code InsertLine} text; a CR or LF nowhere.
@@ -61,6 +70,9 @@ public final class WorkingCopyEditor {
     public static final int MAX_OPERATIONS = 5_000;
     public static final int MAX_CELL = 100_000;
     public static final int MAX_LINE = 1_000_000;
+    /** Most undoable batches kept per copy. */
+    public static final int MAX_UNDO = 100;
+    private static final long MIN_BUDGET_CHARS = 64L << 20;
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<List<Step>> STEPS = new TypeReference<>() {
@@ -92,12 +104,14 @@ public final class WorkingCopyEditor {
         }
         return db.inTransaction(() -> {
             long current = requireRevision(db, batch.revision());
-            Recorder r = new Recorder(db);
+            long textChars = db.textChars();
+            Recorder r = new Recorder(db, Math.max(MIN_BUDGET_CHARS, 3 * textChars));
             for (EditOperation op : batch.operations()) {
                 execute(r, op);
             }
             Collections.reverse(r.inverse);
             db.addHistory(toJson(r.forward), toJson(r.inverse));
+            db.pruneHistory(MAX_UNDO, Math.max(MIN_BUDGET_CHARS, 4 * textChars));
             db.setRevision(current + 1);
             return current + 1;
         });
@@ -147,25 +161,54 @@ public final class WorkingCopyEditor {
 
     // ---- recording and playing line-level steps ----
 
-    /** Applies primitive changes to the database and records both directions. */
+    /**
+     * Applies primitive changes to the database and records both directions.
+     * Every written line is checked against the line limit, and the characters
+     * of all recorded images against a per-batch budget (R-T5c).
+     */
     private static final class Recorder {
 
         final WorkingCopyDb db;
         final List<Step> forward = new ArrayList<>();
         final List<Step> inverse = new ArrayList<>();
+        private long budget;
 
-        Recorder(WorkingCopyDb db) {
+        Recorder(WorkingCopyDb db, long budget) {
             this.db = db;
+            this.budget = budget;
+        }
+
+        private void spend(List<Line> lines) {
+            for (Line l : lines) {
+                budget -= l.text().length() + l.eol().length();
+            }
+            if (budget < 0) {
+                throw new IllegalArgumentException("The batch changes too much text at once; split it");
+            }
+        }
+
+        private static void checkLength(Line l) {
+            if (l.text().length() > MAX_LINE) {
+                throw new IllegalArgumentException("A line has at most " + MAX_LINE + " characters");
+            }
         }
 
         void replace(long n, Line line) {
+            checkLength(line);
             Line old = db.line(n).orElseThrow(() -> new IllegalArgumentException("There is no line " + n));
+            if (old.cells().equals(line.cells()) && old.eol().equals(line.eol())
+                && old.section().equals(line.section())) {
+                return;
+            }
+            spend(List.of(old, line));
             db.replaceLine(n, line);
             forward.add(new Step("REPLACE", n, 1, List.of(StoredLine.of(line))));
             inverse.add(new Step("REPLACE", n, 1, List.of(StoredLine.of(old))));
         }
 
         void insert(long before, List<Line> lines) {
+            lines.forEach(Recorder::checkLength);
+            spend(lines);
             db.insertLines(before, lines);
             forward.add(new Step("INSERT", before, lines.size(), lines.stream().map(StoredLine::of).toList()));
             inverse.add(new Step("DELETE", before, lines.size(), List.of()));
@@ -173,6 +216,7 @@ public final class WorkingCopyEditor {
 
         void delete(long from, int count) {
             List<Line> old = db.lines(from, count);
+            spend(old);
             db.deleteLines(from, count);
             forward.add(new Step("DELETE", from, count, List.of()));
             inverse.add(new Step("INSERT", from, count, old.stream().map(StoredLine::of).toList()));
@@ -345,7 +389,7 @@ public final class WorkingCopyEditor {
 
     private void moveRow(Recorder r, long line, long before) {
         long count = r.db.lineCount();
-        lineAt(r.db, line);
+        Line moved = lineAt(r.db, line);
         if (before < 1 || before > count + 1) {
             throw new IllegalArgumentException("Cannot move before line " + before);
         }
@@ -353,16 +397,23 @@ public final class WorkingCopyEditor {
         if (dest == line) {
             return;
         }
-        long lo = Math.min(line, dest);
-        long hi = Math.max(line, dest);
-        List<Line> range = r.db.lines(lo, (int) (hi - lo + 1));
-        List<List<String>> cells = new ArrayList<>();
-        range.forEach(l -> cells.add(l.cells()));
-        List<String> moved = cells.remove((int) (line - lo));
-        cells.add((int) (dest - lo), moved);
-        // the endings stay where they are, only the content moves
-        for (int i = 0; i < range.size(); i++) {
-            r.replace(lo + i, rebuild(lo + i, cells.get(i), range.get(i).eol()));
+        String terminator = terminator(r.db);
+        boolean unterminated = lineAt(r.db, count).eol().isEmpty();
+        // the line moves with its own ending; only an unterminated last line needs a fix
+        String eol = moved.eol();
+        if (unterminated && line == count) {
+            eol = terminator;
+        } else if (unterminated && dest == count) {
+            eol = "";
+        }
+        r.delete(line, 1);
+        r.insert(dest, List.of(new Line(dest, moved.section(), moved.cells(), eol)));
+        if (unterminated && line == count) {
+            Line last = lineAt(r.db, count);
+            r.replace(count, new Line(count, last.section(), last.cells(), ""));
+        } else if (unterminated && dest == count) {
+            Line prev = lineAt(r.db, count - 1);
+            r.replace(count - 1, new Line(count - 1, prev.section(), prev.cells(), terminator));
         }
     }
 
@@ -386,8 +437,12 @@ public final class WorkingCopyEditor {
             throw new IllegalArgumentException("Line " + n + " has no cell after the prefix");
         }
         String c = l.cells().get(1);
-        int start = c.indexOf(' ');
-        if (start < 1) {
+        int first = 0;
+        while (first < c.length() && c.charAt(first) == ' ') {
+            first++;
+        }
+        int start = c.indexOf(' ', first);
+        if (first == c.length() || start < 0) {
             throw new IllegalArgumentException("Cell 1 of line " + n + " has no space to split at");
         }
         int end = start;
