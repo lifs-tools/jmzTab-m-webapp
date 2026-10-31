@@ -18,6 +18,7 @@ package org.lifstools.mztab.validator.webapp.guidance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,5 +108,21 @@ class GuidanceCatalogTest {
         Set<Integer> stops = catalog.entries().stream().filter(GuidanceEntry::stopsParsing)
             .flatMap(e -> e.codes().stream()).map(GuidanceCatalog::numericPart).collect(Collectors.toSet());
         assertTrue(stops.containsAll(Set.of(1000, 1004, 1008, 1009, 2002, 2004)));
+    }
+
+    private static GuidanceCatalog load(String file) {
+        return new GuidanceCatalog(new ObjectMapper(), new DefaultResourceLoader(), "classpath:/guidance/" + file);
+    }
+
+    @Test
+    void duplicateIdFailsStartup() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> load("test-duplicate-id.json"));
+        assertTrue(e.getMessage().contains("Duplicate"), e.getMessage());
+    }
+
+    @Test
+    void invalidRegexFailsStartup() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> load("test-bad-regex.json"));
+        assertTrue(e.getMessage().contains("regex"), e.getMessage());
     }
 }

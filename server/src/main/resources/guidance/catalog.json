@@ -183,7 +183,13 @@
     "fixInTool": "Write a metadata definition for every element that other lines refer to, using the same number in both places.",
     "quickFix": "add-missing-metadata",
     "stopsParsing": true,
-    "tools": []
+    "tools": [
+      {
+        "software": "LipidDataAnalyzer",
+        "toolVersion": "2.8.0",
+        "fixInTool": "An assay refers to sample[1] in its sample_ref, but no sample[1] is written. Define every sample an assay refers to, or let the tool export the sample section."
+      }
+    ]
   },
   {
     "id": "cv-term-not-allowed",

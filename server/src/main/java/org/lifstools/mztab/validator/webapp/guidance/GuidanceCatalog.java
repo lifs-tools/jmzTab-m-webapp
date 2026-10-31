@@ -29,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.lang.Nullable;
@@ -49,6 +50,7 @@ public class GuidanceCatalog {
     private final List<GuidanceEntry> ordered;
     private final java.util.Map<String, Pattern> patterns = new java.util.HashMap<>();
 
+    @Autowired
     public GuidanceCatalog(ObjectMapper objectMapper, ResourceLoader resourceLoader,
         @Value("${guidance.catalog:classpath:/guidance/catalog.json}") String location) {
         try (InputStream in = resourceLoader.getResource(location).getInputStream()) {

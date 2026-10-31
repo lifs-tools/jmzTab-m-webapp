@@ -124,4 +124,14 @@ class GuidanceResolverTest {
         assertEquals(50, g.get(0).lines().size());
         assertEquals(50, asked.size());
     }
+
+    @Test
+    void picksTheLipidDataAnalyzerVariantOnUndefinedReferences() {
+        ValidationMessage m = msg("[Error-2008] line 9: \"sample[1]\" MUST be defined in the metadata section.",
+            "\"sample[1]\" MUST be defined in the metadata section.", 9);
+        List<Guidance> g = resolver.resolve(List.of(m), "2.0", List.of("LipidDataAnalyzer"), n -> Map.of());
+        assertEquals("undefined-in-metadata", g.get(0).entryId());
+        assertNotNull(g.get(0).toolFixInTool());
+        assertTrue(g.get(0).toolFixInTool().contains("sample[1]"));
+    }
 }
