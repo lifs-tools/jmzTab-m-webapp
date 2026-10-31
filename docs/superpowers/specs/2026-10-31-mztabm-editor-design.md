@@ -475,6 +475,28 @@ The element's inputs gain the working copy's repair mode, so a LipidCompass user
 
 Phase 2a ships on its own and is used day to day by the validator's users, so it avoids the "sixth orphan" anti-goal.
 
+### Carried into the next phase (found in the 2a review, 2026-10-31)
+
+The 2a whole-branch review found these. None blocked the merge. The next phase picks them up first; items 1 and 2 must be settled before 2a is deployed.
+
+1. **Copy runs share the validation pool.** A working-copy run uses `toolThreadPoolTaskExecutor` (CPUs − 1 threads, unbounded queue) and blocks a thread for a whole engine round trip. On a 2-CPU host, one person editing delays every other validation. Measure under load, or give copy runs their own bounded executor.
+2. **The editor's resolution report is the upload's.** "Download report of the upload" points to `/validations/{id}/report?format=md`, so its line numbers are those of the uploaded file, not of the copy. §5.9 lists a per-copy report, which the 2a plan dropped. Add `GET /working-copies/{id}/report?format=md` from the copy's current validation.
+3. **No UI to insert or move lines.** Error-2002 (lines out of order) and Error-2004 (a missing header line) can only be fixed through "Edit this line as text" or in the producing tool; the catalog says so. The server has `InsertLine` and `MoveRow`; the editor needs a way to use them, and then the catalog text for both codes goes back to "fix it here".
+4. **"Check CV rules" has no server test.** The semantic run of a working copy (mapping file, CV access) is only exercised by hand. Add a test with a local mapping and a stubbed CV lookup.
+5. **Costs that still grow with the file.**
+   - Every edit batch sums the whole copy's text size (`SUM(LENGTH(text)) FROM lines`) for the history budget. Keep a running total in `meta` instead.
+   - Every table page and filter change rebuilds the whole section in memory. It is bounded by the upload size and the 2a caps, but repeated per request. Cache the section per revision, or page in SQL.
+   - A stalled `.mzTab` download keeps its read snapshot open, which blocks WAL checkpoints, so the WAL grows with each edit until the client finishes. Put a time limit on exports.
+6. **Cleanup.**
+   - `WorkingCopyService` is about 1,000 lines. Extract the validation loop into a `WorkingCopyValidator`.
+   - A failed download link (404/409) shows the raw JSON error page. Download through the client and show the message.
+   - The header→rows section map is repeated in `WorkingCopyEditor`, `WorkingCopyReader` (twice), `QuickFixes` and `AddMandatoryColumn`. Use one shared map. The SPA's `FIXES_FOR_ALL` duplicates the server's `appliesToAll`; serve it with the guidance instead.
+7. **Small behaviours to revisit.**
+   - The panel's "Fix all N like this" counts the group's problems; the server's count appears only in the preview dialog.
+   - A single quick fix targets the message the user last showed in its group, matched by object identity, so it falls back to the guidance's first message after a recheck. Match by line and code instead.
+   - A column pick that needs more than 200 positions is refused in the browser rather than split.
+   - `EngineTestSupport.has21()` skips the 2.1 cases silently when `engine21.jar` is set but the jar is missing (e.g. `-pl server` without `-am`). Fail instead when the property is set.
+
 ---
 
 ## 7. Documentation
