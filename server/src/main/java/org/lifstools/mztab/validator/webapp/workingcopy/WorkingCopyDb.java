@@ -69,12 +69,17 @@ public final class WorkingCopyDb implements AutoCloseable {
         text TEXT NOT NULL, eol TEXT NOT NULL)""";
     private static final String CREATE_META = "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)";
 
-    /** stack is 'U' (can be undone) or 'R' (can be redone); forward and inverse are JSON step lists */
+    /**
+     * stack is 'U' (can be undone) or 'R' (can be redone); forward and inverse are JSON step lists; size is the
+     * characters the entry is charged with (forward + inverse), stored so that pruning sums numbers, not texts
+     */
     private static final String CREATE_HISTORY = """
         CREATE TABLE IF NOT EXISTS history (seq INTEGER PRIMARY KEY AUTOINCREMENT, stack TEXT NOT NULL,
-        forward TEXT NOT NULL, inverse TEXT NOT NULL)""";
+        forward TEXT NOT NULL, inverse TEXT NOT NULL, size INTEGER NOT NULL)""";
     private static final String HISTORY_ADD
-        = "INSERT INTO history (stack, forward, inverse) VALUES ('U', :forward, :inverse)";
+        = "INSERT INTO history (stack, forward, inverse, size) VALUES ('U', :forward, :inverse, :size)";
+    private static final String HISTORY_HAS_UNDO = "SELECT EXISTS (SELECT 1 FROM history WHERE stack = 'U')";
+    private static final String HISTORY_HAS_REDO = "SELECT EXISTS (SELECT 1 FROM history WHERE stack = 'R')";
     private static final String HISTORY_CLEAR_REDO = "DELETE FROM history WHERE stack = 'R'";
     private static final String HISTORY_TOP_UNDO
         = "SELECT seq, forward, inverse FROM history WHERE stack = 'U' ORDER BY seq DESC LIMIT 1";
@@ -83,8 +88,7 @@ public final class WorkingCopyDb implements AutoCloseable {
     private static final String HISTORY_MOVE = "UPDATE history SET stack = :stack WHERE seq = :seq";
     private static final String HISTORY_CLEAR_ALL = "DELETE FROM history";
     private static final String HISTORY_COUNT_UNDO = "SELECT COUNT(*) FROM history WHERE stack = 'U'";
-    private static final String HISTORY_CHARS
-        = "SELECT COALESCE(SUM(LENGTH(forward) + LENGTH(inverse)), 0) FROM history";
+    private static final String HISTORY_CHARS = "SELECT COALESCE(SUM(size), 0) FROM history";
     private static final String HISTORY_PRUNE_OLDEST = """
         DELETE FROM history WHERE seq IN
         (SELECT seq FROM history WHERE stack = 'U' ORDER BY seq ASC LIMIT :n)""";
@@ -439,9 +443,26 @@ public final class WorkingCopyDb implements AutoCloseable {
     public void addHistory(String forward, String inverse) {
         inTransaction(() -> {
             jdbc.update(HISTORY_CLEAR_REDO, Map.of());
-            jdbc.update(HISTORY_ADD, Map.of("forward", forward, "inverse", inverse));
+            jdbc.update(HISTORY_ADD, Map.of("forward", forward, "inverse", inverse,
+                "size", (long) forward.length() + inverse.length()));
             return null;
         });
+    }
+
+    /** Whether there is an entry to undo; reads no entry. */
+    public boolean hasUndo() {
+        return Boolean.TRUE.equals(jdbc.queryForObject(HISTORY_HAS_UNDO, Map.of(), Boolean.class));
+    }
+
+    /** Whether there is an entry to redo; reads no entry. */
+    public boolean hasRedo() {
+        return Boolean.TRUE.equals(jdbc.queryForObject(HISTORY_HAS_REDO, Map.of(), Boolean.class));
+    }
+
+    /** The characters the whole history is charged with: the sum of the stored sizes. */
+    public long historyChars() {
+        Long n = jdbc.queryForObject(HISTORY_CHARS, Map.of(), Long.class);
+        return n == null ? 0 : n;
     }
 
     /** The newest undoable entry, if any. */
@@ -479,8 +500,7 @@ public final class WorkingCopyDb implements AutoCloseable {
                 n = maxUndo;
             }
             while (n > 1) {
-                Long chars = jdbc.queryForObject(HISTORY_CHARS, Map.of(), Long.class);
-                if (chars == null || chars <= maxChars) {
+                if (historyChars() <= maxChars) {
                     break;
                 }
                 jdbc.update(HISTORY_PRUNE_OLDEST, Map.of("n", 1));

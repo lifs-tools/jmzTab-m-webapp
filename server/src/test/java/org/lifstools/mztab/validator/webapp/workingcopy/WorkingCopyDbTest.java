@@ -292,4 +292,30 @@ class WorkingCopyDbTest {
             assertEquals("MTD\tchanged\tz", db.line(2).orElseThrow().text());
         }
     }
+
+    @Test
+    void historyKnowsWhetherItCanUndoAndItsChargedSizeWithoutLoadingEntries() {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("size.db"))) {
+            assertFalse(db.hasUndo());
+            assertFalse(db.hasRedo());
+            assertEquals(0, db.historyChars());
+            db.addHistory("f".repeat(10), "i".repeat(5));
+            db.addHistory("g".repeat(20), "j".repeat(7));
+            assertTrue(db.hasUndo());
+            assertFalse(db.hasRedo());
+            // each entry's charged size is stored with it and summed
+            assertEquals(42, db.historyChars());
+            db.addHistory("h".repeat(6), "k".repeat(4));
+            db.moveHistory(db.peekUndo().orElseThrow().seq(), true);
+            assertTrue(db.hasUndo());
+            assertTrue(db.hasRedo());
+            assertEquals(52, db.historyChars());
+            // pruned to 40 characters: the oldest undoable entry (15) goes; the newest undoable one always stays
+            db.pruneHistory(100, 40);
+            assertTrue(db.hasUndo());
+            assertTrue(db.hasRedo());
+            assertEquals(37, db.historyChars());
+            assertEquals("j".repeat(7), db.peekUndo().orElseThrow().inverse());
+        }
+    }
 }

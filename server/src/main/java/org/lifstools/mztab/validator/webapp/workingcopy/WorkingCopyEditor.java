@@ -151,12 +151,14 @@ public final class WorkingCopyEditor {
         });
     }
 
+    /** Whether there is a change to undo; reads no history entry (undo then loads the one it plays, once). */
     public boolean canUndo(WorkingCopyDb db) {
-        return db.peekUndo().isPresent();
+        return db.hasUndo();
     }
 
+    /** Whether there is a change to redo; as {@link #canUndo}. */
     public boolean canRedo(WorkingCopyDb db) {
-        return db.peekRedo().isPresent();
+        return db.hasRedo();
     }
 
     private static long requireRevision(WorkingCopyDb db, long given) {
