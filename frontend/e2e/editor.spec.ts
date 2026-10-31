@@ -160,6 +160,20 @@ test('duplicateColumnIsMergedAndItsMessageGoes', async ({ page, request }) => {
   const duplicates = page.locator('mztabm-table-view th.col--dup');
   await expect(duplicates).toHaveCount(2);
   await expect(duplicates.first()).toContainText('Duplicate column name');
+  // the second copy (column 20) is filtered as itself, not as the first copy of its name
+  const secondCopy = page.getByRole('searchbox', { name: 'Filter opt_global_lipid_category' }).nth(1);
+  const table = page.locator('mztabm-table-view');
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('positionFilter=20%3ASphingo') && r.ok()),
+    secondCopy.fill('Sphingo'),
+  ]);
+  await expect(table).toContainText('No rows match.');
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('positionFilter=20%3ASP') && r.ok()),
+    secondCopy.fill('SP'),
+  ]);
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(table).not.toContainText('No rows match.');
   await page.getByRole('button', { name: 'Resolve duplicate column opt_global_lipid_category' }).click();
 
   const dialog = page.getByRole('dialog');

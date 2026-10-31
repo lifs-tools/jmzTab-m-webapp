@@ -131,9 +131,17 @@ export class EditPage {
     const v = this.validation();
     return v?.status === 'FAILED' ? (v.failureReason ?? 'The file could not be checked.') : null;
   });
+  /** Only for a check of the text as it is now: a run of an older text, whose recheck failed, says nothing. */
   protected readonly noProblems = computed(() => {
     const v = this.validation();
-    return !this.store.validating() && v?.status === 'DONE' && !!v.parsed && !(v.messages ?? []).length;
+    return (
+      !this.store.validating() &&
+      this.store.current() &&
+      !this.store.checkFailed() &&
+      v?.status === 'DONE' &&
+      !!v.parsed &&
+      !(v.messages ?? []).length
+    );
   });
 
   protected readonly tabs = computed(() => {

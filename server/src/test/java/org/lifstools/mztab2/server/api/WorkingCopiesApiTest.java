@@ -181,15 +181,49 @@ class WorkingCopiesApiTest {
         String copy = BASE + "/" + id;
         String name = "opt_global_lipid_category";
 
-        // each returned column carries its cell index; a name requested twice selects both of its columns
-        mvc.perform(get(copy + "/tables/sml").param("columns", "SML_ID", name, name))
+        // columns named by position: a window over the second copy shows its own values and position
+        mvc.perform(get(copy + "/tables/sml").param("positions", "1,20"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.columns.length()").value(3))
+            .andExpect(jsonPath("$.columns.length()").value(2))
+            .andExpect(jsonPath("$.columns[1]").value(name))
             .andExpect(jsonPath("$.columnPositions[0]").value(1))
+            .andExpect(jsonPath("$.columnPositions[1]").value(20))
+            .andExpect(jsonPath("$.rows[0].cells[1]").value("SP"));
+        mvc.perform(get(copy + "/tables/sml").param("positions", "17", "20"))
+            .andExpect(jsonPath("$.columnPositions[0]").value(17))
+            .andExpect(jsonPath("$.rows[0].cells[0]").value("Sphingolipids"))
+            .andExpect(jsonPath("$.rows[0].cells[1]").value("SP"));
+        // by name, a column is its first copy, and a name requested again its next one
+        mvc.perform(get(copy + "/tables/sml").param("columns", "SML_ID," + name))
             .andExpect(jsonPath("$.columnPositions[1]").value(17))
+            .andExpect(jsonPath("$.rows[0].cells[1]").value("Sphingolipids"));
+        mvc.perform(get(copy + "/tables/sml").param("columns", "SML_ID", name, name))
             .andExpect(jsonPath("$.columnPositions[2]").value(20))
-            .andExpect(jsonPath("$.rows[0].cells[1]").value("Sphingolipids"))
             .andExpect(jsonPath("$.rows[0].cells[2]").value("SP"));
+        // sort and filter by position address the second copy too
+        mvc.perform(get(copy + "/tables/sml").param("positions", "20").param("sortPosition", "20")
+                .param("positionFilter", "20:sp"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalRows").value(1));
+        mvc.perform(get(copy + "/tables/sml").param("positions", "20").param("positionFilter", "20:Sphingo"))
+            .andExpect(jsonPath("$.totalRows").value(0));
+        mvc.perform(get(copy + "/tables/sml").param("positionFilter", "17:Sphingo"))
+            .andExpect(jsonPath("$.totalRows").value(1));
+        // invalid positions are refused
+        for (String bad : new String[]{"0", "21", "1,1", "x"}) {
+            mvc.perform(get(copy + "/tables/sml").param("positions", bad)).andExpect(status().isBadRequest());
+        }
+        mvc.perform(get(copy + "/tables/sml").param("positions", String.join(",",
+                java.util.stream.IntStream.rangeClosed(1, 201).mapToObj(i -> "1").toList())))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get(copy + "/tables/sml").param("positions", "1").param("columns", "SML_ID"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get(copy + "/tables/sml").param("sortPosition", "1").param("sort", "SML_ID"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get(copy + "/tables/sml").param("sortPosition", "21")).andExpect(status().isBadRequest());
+        for (String bad : new String[]{"20", ":x", "21:x", "a:x", "0:x"}) {
+            mvc.perform(get(copy + "/tables/sml").param("positionFilter", bad)).andExpect(status().isBadRequest());
+        }
         // a validation's table has no positions
         mvc.perform(get("/rest/v2/validations/" + validation("plain.mzTab", example()) + "/tables/sml"))
             .andExpect(status().isOk())

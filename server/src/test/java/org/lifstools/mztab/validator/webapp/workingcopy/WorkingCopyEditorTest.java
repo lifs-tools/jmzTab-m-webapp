@@ -157,6 +157,61 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void lineEditsCreateNoRepeatedColumnName() throws Exception {
+        // SetCell on a header line
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> apply(new SetCell(3, 2, "SML_ID")));
+        assertTrue(e.getMessage().contains("column SML_ID"), e.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(3, 3, "name")));
+        apply(new SetCell(3, 3, ""), new SetCell(3, 4, ""));
+        apply(new SetCell(4, 2, "1"));
+        assertEquals("SML\t1\t1", db.line(4).orElseThrow().text());
+        // SetRawLine, also turning a row into a header
+        load(TEXT);
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetRawLine(3, "SMH\tSML_ID\tSML_ID")));
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetRawLine(4, "SFH\ta\ta")));
+        apply(new SetRawLine(4, "SML\t1\t1"), new SetRawLine(3, "SMH\tSML_ID\tlabel"));
+        // the repeated values of a row are no repeat the header line already had
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetRawLine(4, "SFH\t1\t1")));
+        // InsertLine of a header line
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLine(9, "SEH\tSME_ID\tSME_ID")));
+        apply(new InsertLine(9, "SEH\tSME_ID\t\t"));
+        // JoinWithPrevious whose result is a header line
+        load(TEXT);
+        apply(new InsertLine(4, "\tname"));
+        assertThrows(IllegalArgumentException.class, () -> apply(new JoinWithPrevious(4)));
+        apply(new SetRawLine(4, "\tlabel"), new JoinWithPrevious(4));
+        assertEquals("SMH\tSML_ID\tname\tlabel", db.line(3).orElseThrow().text());
+        // SplitCells whose result is a header line
+        load("SMH\tname name\nSML\tx\n");
+        e = assertThrows(IllegalArgumentException.class, () -> apply(new SplitCells(1)));
+        assertTrue(e.getMessage().contains("column name"), e.getMessage());
+        load("SMH\tSML_ID name\nSML\tx\n");
+        apply(new SplitCells(1));
+        assertEquals("SMH\tSML_ID\tname", db.line(1).orElseThrow().text());
+        // a row line may repeat values
+        load("SMH\tSML_ID\nSML\tPC 34:1 PC 34:1\n");
+        apply(new SplitCells(2));
+        assertEquals("SML\tPC\t34:1 PC 34:1", db.line(2).orElseThrow().text());
+    }
+
+    @Test
+    void repeatsAFileAlreadyHasStayEditable() throws Exception {
+        load(DUPLICATES);
+        // editing the header leaves the existing repeat as it was
+        apply(new SetCell(1, 3, "y"));
+        apply(new SetCell(1, 4, "name"));
+        apply(new SetRawLine(1, "SMH\tSML_ID\tname\tz\tname"));
+        assertEquals("SMH\tSML_ID\tname\tz\tname", db.line(1).orElseThrow().text());
+        // a third copy is refused
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(1, 3, "name")));
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(1, 5, "SML_ID")));
+        // and the repeat can be resolved
+        apply(new SetCell(1, 4, "label"));
+        assertEquals("SMH\tSML_ID\tname\tz\tlabel", db.line(1).orElseThrow().text());
+    }
+
+    @Test
     void mergeColumnsKeepsAValuePerRowAndRemovesTheOthers() throws Exception {
         load(DUPLICATES);
         ByteArrayOutputStream before = new ByteArrayOutputStream();

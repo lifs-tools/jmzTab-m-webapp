@@ -185,34 +185,70 @@ public class SectionReader {
         if (loaded.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(tablePage(section, loaded.get().header(), loaded.get().rows(), null, query, false));
+        return Optional.of(tablePage(section, loaded.get().header(), loaded.get().rows(), null, query));
     }
 
     /**
-     * One page of a table, as {@link #table(UUID, Section, TableQuery)}.
+     * One page of a table, as {@link #table(UUID, Section, TableQuery)}. A name requested again selects the next
+     * column of that name, so a header with duplicate names can be shown column by column.
      *
      * @param rows every row has at least as many cells as {@code header}
      * @param lineNumbers the line of each row, for {@link TableRow#lineNumber()}; null for none
-     * @param positions whether to report {@link TablePage#columnPositions()}; a name requested again selects the
-     * next column of that name, so a header with duplicate names can be paged column by column
      * @throws IllegalArgumentException for an unknown column, more than
      * {@value #MAX_COLUMNS} requested columns or invalid paging
      */
     public static TablePage tablePage(Section section, List<String> header, List<String[]> rows,
-        @Nullable long[] lineNumbers, TableQuery query, boolean positions) {
+        @Nullable long[] lineNumbers, TableQuery query) {
+        return tablePage(section, header, rows, lineNumbers, query, null);
+    }
+
+    /**
+     * One page of a table whose columns may also be named by position (a working copy). With {@code at}, the page
+     * reports {@link TablePage#columnPositions()}.
+     *
+     * @throws IllegalArgumentException as above, and for a position outside 1 to the number of columns, a repeated
+     * position, or a part given both by name and by position
+     */
+    public static TablePage tablePage(Section section, List<String> header, List<String[]> rows,
+        @Nullable long[] lineNumbers, TableQuery query, @Nullable PositionQuery at) {
         checkPaging(query.page(), query.size());
         if (query.columns().size() > MAX_COLUMNS) {
             throw new IllegalArgumentException("At most " + MAX_COLUMNS + " columns can be requested.");
         }
-        int[] columns = query.columns().isEmpty()
-            ? java.util.stream.IntStream.range(0, Math.min(DEFAULT_COLUMNS, header.size())).toArray()
-            : requestedColumns(header, query.columns());
-        int sortColumn = query.sort() == null ? -1 : columnIndex(header, query.sort());
+        List<Integer> positions = at == null ? null : at.positions();
+        Integer sortPosition = at == null ? null : at.sortPosition();
+        if (positions != null && !query.columns().isEmpty()) {
+            throw new IllegalArgumentException("columns and positions cannot be combined.");
+        }
+        if (sortPosition != null && query.sort() != null) {
+            throw new IllegalArgumentException("sort and sortPosition cannot be combined.");
+        }
+        int[] columns;
+        if (positions != null) {
+            columns = columnsAt(header, positions);
+        } else if (query.columns().isEmpty()) {
+            columns = java.util.stream.IntStream.range(0, Math.min(DEFAULT_COLUMNS, header.size())).toArray();
+        } else {
+            columns = requestedColumns(header, query.columns());
+        }
+        int sortColumn = sortPosition != null ? indexAt(header, sortPosition, "sortPosition")
+            : query.sort() == null ? -1 : columnIndex(header, query.sort());
         List<ColumnFilter> allFilters = new ArrayList<>(query.filters());
         query.rawFilters().forEach(raw -> allFilters.add(resolveFilter(header, raw)));
-        int[] filterColumns = allFilters.stream().mapToInt(f -> columnIndex(header, f.column())).toArray();
-        String[] needles = allFilters.stream()
-            .map(f -> f.contains() == null ? "" : f.contains().toLowerCase(Locale.ROOT)).toArray(String[]::new);
+        List<Integer> filterIndexes = new ArrayList<>();
+        allFilters.forEach(f -> filterIndexes.add(columnIndex(header, f.column())));
+        List<String> needleList = new ArrayList<>();
+        allFilters.forEach(f -> needleList.add(f.contains() == null ? "" : f.contains()));
+        for (String raw : at == null ? List.<String>of() : at.filters()) {
+            int colon = raw == null ? -1 : raw.indexOf(':');
+            if (colon < 1 || !raw.substring(0, colon).chars().allMatch(Character::isDigit) || colon > 9) {
+                throw new IllegalArgumentException("positionFilter must have the form POSITION:text.");
+            }
+            filterIndexes.add(indexAt(header, Integer.parseInt(raw.substring(0, colon)), "positionFilter"));
+            needleList.add(raw.substring(colon + 1));
+        }
+        int[] filterColumns = filterIndexes.stream().mapToInt(Integer::intValue).toArray();
+        String[] needles = needleList.stream().map(n -> n.toLowerCase(Locale.ROOT)).toArray(String[]::new);
 
         List<Integer> matching = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
@@ -235,7 +271,7 @@ public class SectionReader {
             page.add(new TableRow(index, cells, lineNumbers == null ? null : lineNumbers[index]));
         }
         List<String> returned = Arrays.stream(columns).mapToObj(header::get).toList();
-        List<Integer> cellIndexes = positions ? Arrays.stream(columns).map(c -> c + 1).boxed().toList() : null;
+        List<Integer> cellIndexes = at != null ? Arrays.stream(columns).map(c -> c + 1).boxed().toList() : null;
         return new TablePage(section, query.page(), query.size(), matching.size(), header, returned, page,
             cellIndexes);
     }
@@ -257,6 +293,34 @@ public class SectionReader {
             next.put(name, columns[i] + 1);
         }
         return columns;
+    }
+
+    /** The header index of each position, which must be a column of the header and not repeat. */
+    private static int[] columnsAt(List<String> header, List<Integer> positions) {
+        if (positions.isEmpty()) {
+            throw new IllegalArgumentException("positions must name at least one column.");
+        }
+        if (positions.size() > MAX_COLUMNS) {
+            throw new IllegalArgumentException("At most " + MAX_COLUMNS + " columns can be requested.");
+        }
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        int[] columns = new int[positions.size()];
+        for (int i = 0; i < columns.length; i++) {
+            Integer p = positions.get(i);
+            if (p != null && !seen.add(p)) {
+                throw new IllegalArgumentException("positions must not repeat a column (" + p + ").");
+            }
+            columns[i] = indexAt(header, p, "positions");
+        }
+        return columns;
+    }
+
+    /** The header index of a cell index (the prefix is cell 0, so the first column is 1). */
+    private static int indexAt(List<String> header, @Nullable Integer position, String name) {
+        if (position == null || position < 1 || position > header.size()) {
+            throw new IllegalArgumentException(name + " must be between 1 and " + header.size() + ".");
+        }
+        return position - 1;
     }
 
     /** Splits at the first {@code :} whose prefix is an exact column name; column names may contain {@code :}. */

@@ -431,6 +431,27 @@ describe('EditPage', () => {
     await settle(ctx.fixture);
   });
 
+  it('does not say "No problems found." for a check of an older text that could not be redone', async () => {
+    // the last run, without messages, checked revision 0; the copy is at revision 1
+    await expectNoVerdictAfterAFailedCheck(info({ revision: 1, validation: done({ revision: 0 }) }));
+  });
+
+  it('does not say "No problems found." while the last request for a check failed', async () => {
+    // the run is of the text as it is, but the check asked for since (with CV rules) did not start
+    await expectNoVerdictAfterAFailedCheck(info());
+  });
+
+  async function expectNoVerdictAfterAFailedCheck(copy: WorkingCopyInfo) {
+    const ctx = await open(copy);
+    ctx.fixture.debugElement.injector.get(WorkingCopyStore).validate(true);
+    for (const r of http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'))) {
+      r.flush({ message: 'down' }, { status: 503, statusText: 'Unavailable' });
+    }
+    await settle(ctx.fixture);
+    expect(ctx.el.querySelector('[data-testid=check-failed]')).not.toBeNull();
+    expect(ctx.el.querySelector('[data-testid=run-status]')?.textContent).not.toContain('No problems found.');
+  }
+
   it('shows "not found" when the copy is gone while polling or on an edit', async () => {
     vi.useFakeTimers();
     const first = await open(info({ validation: done({ status: 'RUNNING' }) }));

@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.*;
+import org.springframework.lang.Nullable;
 
 /**
  * Applies repair operations to the text of a working copy, with revisions and
@@ -371,7 +372,9 @@ public final class WorkingCopyEditor {
         } else {
             cells.set(cell, text);
         }
-        r.replace(n, rebuild(n, cells, l.eol()));
+        Line after = rebuild(n, cells, l.eol());
+        noNewRepeat(l, after);
+        r.replace(n, after);
     }
 
     private void setMetadata(Recorder r, long n, int index, String value) {
@@ -417,13 +420,17 @@ public final class WorkingCopyEditor {
                 eol = last.eol();
             }
         }
-        r.insert(before, List.of(CopyText.line(before, text, eol)));
+        Line inserted = CopyText.line(before, text, eol);
+        noNewRepeat(null, inserted);
+        r.insert(before, List.of(inserted));
     }
 
     private void setRaw(Recorder r, long n, String text) {
         Line l = lineAt(r.db, n);
         rawLine(text);
-        r.replace(n, CopyText.line(n, text, l.eol()));
+        Line after = CopyText.line(n, text, l.eol());
+        noNewRepeat(l, after);
+        r.replace(n, after);
     }
 
     private void moveRow(Recorder r, long line, long before) {
@@ -466,7 +473,9 @@ public final class WorkingCopyEditor {
         if (text.length() > MAX_LINE) {
             throw new IllegalArgumentException("A line has at most " + MAX_LINE + " characters");
         }
-        r.replace(n - 1, CopyText.line(n - 1, text, cur.eol()));
+        Line joined = CopyText.line(n - 1, text, cur.eol());
+        noNewRepeat(prev, joined);
+        r.replace(n - 1, joined);
         r.delete(n, 1);
     }
 
@@ -494,7 +503,42 @@ public final class WorkingCopyEditor {
         List<String> cells = new ArrayList<>(l.cells());
         cells.set(1, c.substring(0, start));
         cells.add(2, c.substring(end));
-        r.replace(n, rebuild(n, cells, l.eol()));
+        Line after = rebuild(n, cells, l.eol());
+        noNewRepeat(l, after);
+        r.replace(n, after);
+    }
+
+    /**
+     * Refuses a header line (SMH, SFH or SEH) that would hold a column name more often than the line did before,
+     * when that is more than once: no edit creates a repeated column name, while repeats a loaded file already has
+     * stay editable so they can be resolved. Empty cells name no column.
+     *
+     * @param before the line as it was, or {@code null} for a new line; a line that was not a header counts as none
+     */
+    private static void noNewRepeat(@Nullable Line before, Line after) {
+        if (!ROW_SECTION.containsKey(after.section())) {
+            return;
+        }
+        Map<String, Integer> had = names(before != null && ROW_SECTION.containsKey(before.section())
+            ? before : null);
+        Map<String, Integer> has = names(after);
+        for (int i = 1; i < after.cells().size(); i++) {
+            String name = after.cells().get(i);
+            int count = has.getOrDefault(name, 0);
+            if (count > 1 && count > had.getOrDefault(name, 0)) {
+                throw new IllegalArgumentException(after.section() + " would have the column " + name
+                    + " more than once; a column name can be used once");
+            }
+        }
+    }
+
+    /** How often each non-empty column name occurs in a header line. */
+    private static Map<String, Integer> names(@Nullable Line header) {
+        Map<String, Integer> counts = new java.util.HashMap<>();
+        if (header != null) {
+            header.cells().stream().skip(1).filter(c -> !c.isEmpty()).forEach(c -> counts.merge(c, 1, Integer::sum));
+        }
+        return counts;
     }
 
     // ---- columns ----

@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -40,6 +41,7 @@ import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
 import org.lifstools.mztab.validator.webapp.sections.TablePage;
+import org.lifstools.mztab.validator.webapp.sections.PositionQuery;
 import org.lifstools.mztab.validator.webapp.sections.TableQuery;
 import org.lifstools.mztab.validator.webapp.workingcopy.DuplicateColumn;
 import org.lifstools.mztab.validator.webapp.workingcopy.EditBatch;
@@ -228,6 +230,13 @@ public class WorkingCopiesApiController {
         @RequestParam(value = "sort", required = false) @Nullable String sort,
         @RequestParam(value = "descending", defaultValue = "false") boolean descending,
         @RequestParam(value = "columns", required = false) @Nullable List<String> columns,
+        @Parameter(description = "The columns by cell index (the first column is 1), comma-joined; at most 200, "
+            + "each once. Tells apart columns of the same name; cannot be combined with columns.")
+        @RequestParam(value = "positions", required = false) @Nullable List<Integer> positions,
+        @Parameter(description = "The column to sort by, by cell index; cannot be combined with sort.")
+        @RequestParam(value = "sortPosition", required = false) @Nullable Integer sortPosition,
+        @Parameter(description = "Filters of the form POSITION:text, the column by cell index; repeatable.")
+        @RequestParam(value = "positionFilter", required = false) @Nullable List<String> positionFilter,
         @Parameter(hidden = true) HttpServletRequest request) {
         UUID uuid = parse(id);
         Section s;
@@ -249,7 +258,11 @@ public class WorkingCopiesApiController {
         }
         TableQuery query = new TableQuery(page, size, sort == null || sort.isBlank() ? null : sort, descending,
             List.of(), columns == null ? List.of() : columns, rawFilters);
-        return reader.table(uuid, s, query).orElseThrow(() -> new NoSuchWorkingCopyException("No such table."));
+        // read raw, like filter: the text may hold commas
+        String[] byPosition = request.getParameterValues("positionFilter");
+        PositionQuery at = new PositionQuery(positions, sortPosition,
+            byPosition == null ? List.of() : Arrays.asList(byPosition));
+        return reader.table(uuid, s, query, at).orElseThrow(() -> new NoSuchWorkingCopyException("No such table."));
     }
 
     @Operation(operationId = "getWorkingCopyDuplicateColumns", summary = "Lists the column names that a header "

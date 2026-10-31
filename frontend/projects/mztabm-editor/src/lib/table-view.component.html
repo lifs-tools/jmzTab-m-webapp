@@ -59,14 +59,14 @@
               [class.sticky]="i === 0"
               [class.col--hl]="highlight()?.header && highlight()?.column === col"
               [class.col--dup]="isDuplicate(col)"
-              [attr.aria-sort]="ariaSort(col)"
+              [attr.aria-sort]="ariaSort(i)"
             >
-              <button type="button" class="sort" (click)="toggleSort(col)">
+              <button type="button" class="sort" (click)="toggleSort(i)">
                 <span class="col-name">{{ col }}</span>
                 @if (isDuplicate(col)) {
                   <span class="dup-mark" aria-hidden="true">dup</span><span class="vh">, Duplicate column name</span>
                 }
-                <span class="arrow" aria-hidden="true">{{ sort() === col ? (descending() ? '▼' : '▲') : '' }}</span>
+                <span class="arrow" aria-hidden="true">{{ isSorted(i) ? (descending() ? '▼' : '▲') : '' }}</span>
               </button>
             </th>
           }
@@ -79,8 +79,8 @@
                 class="filter"
                 [attr.aria-label]="'Filter ' + col"
                 placeholder="Filter"
-                [value]="filterValue(col)"
-                (input)="onFilter(col, $event)"
+                [value]="filterValue(i)"
+                (input)="onFilter(i, $event)"
               />
             </th>
           }

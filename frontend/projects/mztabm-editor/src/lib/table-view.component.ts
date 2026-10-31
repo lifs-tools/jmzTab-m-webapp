@@ -34,7 +34,7 @@ import { DuplicateNoteComponent } from './duplicate-note.component';
 interface Snapshot {
   page: number;
   size: number;
-  sort: string | null;
+  sort: ColumnKey | null;
   descending: boolean;
   draft: Record<string, string>;
   filters: Record<string, string>;
@@ -42,7 +42,13 @@ interface Snapshot {
   picked: string[] | null;
 }
 
-type Outcome = { page: DocTablePage; snapshot: Snapshot; key: string } | { error: string };
+type Outcome = { page: DocTablePage; snapshot: Snapshot; key: string; probe: boolean } | { error: string };
+
+/**
+ * A column as the sort and the filters name it: `@` and its cell index where the source reports positions (a
+ * working copy, whose header may name two columns alike), else `=` and its name.
+ */
+type ColumnKey = string;
 
 /** Rows (0-based model-list positions), a column and/or its header that a validation message points at. */
 export interface TableHighlight {
@@ -88,13 +94,19 @@ export class TableViewComponent {
   protected readonly pageSizes = [25, 50, 100];
   private readonly pageIndex = signal(0);
   protected readonly size = signal(50);
-  protected readonly sort = signal<string | null>(null);
+  protected readonly sort = signal<ColumnKey | null>(null);
   protected readonly descending = signal(false);
   /** Text typed into the filter inputs (immediate) and the debounced subset that is actually sent. */
-  protected readonly draftFilters = signal<Record<string, string>>({});
-  private readonly filters = signal<Record<string, string>>({});
+  protected readonly draftFilters = signal<Record<ColumnKey, string>>({});
+  private readonly filters = signal<Record<ColumnKey, string>>({});
   private readonly windowStart = signal(0);
   private readonly picked = signal<string[] | null>(null);
+  /**
+   * The document changed and the positions the view asks for may be out of date: the next request leaves them
+   * out, and its column list (`probedColumns`) says which ones to ask for.
+   */
+  private readonly columnsStale = signal(false);
+  private readonly probedColumns = signal<string[] | null>(null);
 
   protected readonly data = signal<DocTablePage | undefined>(undefined);
   protected readonly loading = signal(true);
@@ -107,7 +119,9 @@ export class TableViewComponent {
   protected readonly editing = signal<Editing | null>(null);
   protected readonly saveError = signal<string | null>(null);
 
-  protected readonly allColumns = computed(() => this.data()?.allColumns ?? []);
+  protected readonly allColumns = computed(() => this.probedColumns() ?? this.data()?.allColumns ?? []);
+  /** Whether the source names columns by position (a working copy); then the view does so too. */
+  private readonly positional = computed(() => !!this.data()?.columnPositions);
   /** Names the header holds more than once (empty header cells name no column), in the order they first occur. */
   protected readonly duplicates = computed(() => {
     const seen = new Set<string>();
@@ -159,26 +173,53 @@ export class TableViewComponent {
   private pendingHighlight: TableHighlight | undefined;
   private awaitingFocus = false;
 
-  /** The columns to request: nothing for the first window (the server default), otherwise explicit. */
-  private readonly columnsParam = computed(() => {
+  /**
+   * The columns to request: nothing for the first window (the server default), otherwise explicit. A source
+   * with positions is asked by position, so that a later column of a repeated name is shown as itself.
+   */
+  private readonly columnsParam = computed((): { columns?: string[]; positions?: number[] } => {
+    if (this.columnsStale()) return {};
     const picked = this.picked();
-    if (picked) return picked;
     const start = this.windowStart();
     const all = this.allColumns();
-    if (start === 0 || !all.length) return undefined;
-    return [all[0], ...all.slice(start, start + MAX_COLUMNS)];
+    if (this.positional()) {
+      if (picked) return { positions: positionsOf(all, picked) };
+      if (start === 0 || !all.length) return {};
+      const window = [];
+      for (let i = start; i < Math.min(start + MAX_COLUMNS, all.length); i++) window.push(i + 1);
+      return { positions: [1, ...window] };
+    }
+    if (picked) return { columns: picked };
+    if (start === 0 || !all.length) return {};
+    return { columns: [all[0], ...all.slice(start, start + MAX_COLUMNS)] };
   });
 
-  private readonly query = computed(() => ({
-    section: this.section(),
-    page: this.pageIndex(),
-    size: this.size(),
-    sort: this.sort(),
-    descending: this.descending(),
-    columns: this.columnsParam(),
-    filters: Object.entries(this.filters()).map(([column, text]) => ({ column, text })),
-    retry: this.retryNonce(),
-  }));
+  private readonly query = computed(() => {
+    const stale = this.columnsStale();
+    const all = this.allColumns();
+    const sort = stale ? null : this.sort();
+    const byPosition = sort?.[0] === '@';
+    const { columns, positions } = this.columnsParam();
+    return {
+      section: this.section(),
+      page: this.pageIndex(),
+      size: this.size(),
+      sort: sort === null || byPosition ? null : sort.slice(1),
+      sortPosition: byPosition ? +sort!.slice(1) : undefined,
+      descending: this.descending(),
+      columns,
+      positions,
+      filters: stale
+        ? []
+        : Object.entries(this.filters()).map(([key, text]) =>
+            key[0] === '@'
+              ? { column: all[+key.slice(1) - 1] ?? '', position: +key.slice(1), text }
+              : { column: key.slice(1), text },
+          ),
+      stale,
+      retry: this.retryNonce(),
+    };
+  });
 
   constructor() {
     effect(() => {
@@ -200,12 +241,14 @@ export class TableViewComponent {
               page: q.page,
               size: q.size,
               sort: q.sort,
+              ...(q.sortPosition ? { sortPosition: q.sortPosition } : {}),
               descending: q.descending,
               columns: q.columns,
+              ...(q.positions ? { positions: q.positions } : {}),
               filters: q.filters,
             })
             .pipe(
-              map((page): Outcome => ({ page, snapshot, key })),
+              map((page): Outcome => ({ page, snapshot, key, probe: q.stale })),
               catchError((err: unknown): Observable<Outcome> => of({ error: this.describe(err) })),
             );
         }),
@@ -214,11 +257,17 @@ export class TableViewComponent {
       .subscribe((o) => {
         this.loading.set(false);
         this.inFlightKey = undefined;
+        if ('page' in o && o.probe && this.afterProbe(o.page)) {
+          this.loading.set(true); // the request by position follows
+          return;
+        }
+        this.probedColumns.set(null);
         if ('page' in o) {
           this.error.set(null);
-          this.lastGood = o.snapshot;
-          this.shownKey = o.key;
           this.data.set(o.page);
+          // a probe shown as it is: the state it answers is the one after afterProbe
+          this.lastGood = o.probe ? this.snapshot() : o.snapshot;
+          this.shownKey = o.probe ? JSON.stringify(this.query()) : o.key;
           this.editing.set(null);
           this.clampActive();
           const pending = this.pendingHighlight;
@@ -232,6 +281,8 @@ export class TableViewComponent {
         } else {
           this.error.set(o.error);
           this.awaitingFocus = false;
+          // the state restored is the one last shown, which a request without positions did not answer
+          this.columnsStale.set(false);
           if (this.lastGood) {
             this.restore(this.lastGood);
           }
@@ -245,17 +296,56 @@ export class TableViewComponent {
         takeUntilDestroyed(),
       )
       .subscribe(() => {
-        const next: Record<string, string> = {};
+        const next: Record<ColumnKey, string> = {};
         for (const [col, text] of Object.entries(this.draftFilters())) if (text !== '') next[col] = text;
         this.filters.set(next);
         this.pageIndex.set(0);
       });
 
-    // the document changed elsewhere (undo, redo, a reload): show the page as it is now
+    // the document changed elsewhere (undo, redo, a reload): show the page as it is now; columns asked for by
+    // position may have moved, so the column list is fetched first
     this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => {
       this.editing.set(null);
+      if (this.positional() && this.usesPositions()) this.columnsStale.set(true);
       this.retry();
     });
+  }
+
+  /** Whether the view asks for anything by position beyond the source's default page. */
+  private usesPositions(): boolean {
+    return (
+      this.picked() !== null ||
+      this.windowStart() > 0 ||
+      this.sort()?.[0] === '@' ||
+      Object.keys(this.filters()).some((k) => k[0] === '@')
+    );
+  }
+
+  /**
+   * The answer to the request without positions after a change: keeps the sort and the filters whose position
+   * still holds the same column name, and the window where it still fits. Returns whether a request by position
+   * follows; if not, the answer is shown as it is.
+   */
+  private afterProbe(page: DocTablePage): boolean {
+    const before = this.allColumns();
+    const all = page.allColumns ?? [];
+    const same = (key: ColumnKey) => key[0] !== '@' || (all[+key.slice(1) - 1] ?? null) === (before[+key.slice(1) - 1] ?? null);
+    const keep = (f: Record<ColumnKey, string>) => Object.fromEntries(Object.entries(f).filter(([k]) => same(k)));
+    const sort = this.sort();
+    if (sort !== null && !same(sort)) {
+      this.sort.set(null);
+      this.descending.set(false);
+    }
+    this.filters.set(keep(this.filters()));
+    this.draftFilters.set(keep(this.draftFilters()));
+    const picked = this.picked();
+    if (picked && !picked.some((c) => all.includes(c))) this.picked.set(null);
+    if (this.windowStart() >= all.length) {
+      this.windowStart.set(Math.max(0, Math.floor((all.length - 1) / MAX_COLUMNS) * MAX_COLUMNS));
+    }
+    this.probedColumns.set(all);
+    this.columnsStale.set(false);
+    return this.usesPositions();
   }
 
   private snapshot(): Snapshot {
@@ -293,8 +383,18 @@ export class TableViewComponent {
     return 'The table could not be loaded. Please try again.';
   }
 
-  protected filterValue(col: string): string {
-    return this.draftFilters()[col] ?? '';
+  /** How the sort and the filters name the i-th shown column. */
+  private keyAt(i: number): ColumnKey {
+    const position = this.data()?.columnPositions?.[i];
+    return position != null ? `@${position}` : `=${this.columns()[i]}`;
+  }
+
+  protected filterValue(i: number): string {
+    return this.draftFilters()[this.keyAt(i)] ?? '';
+  }
+
+  protected isSorted(i: number): boolean {
+    return this.sort() === this.keyAt(i);
   }
 
   protected isDuplicate(col: string): boolean {
@@ -323,13 +423,14 @@ export class TableViewComponent {
     return row.cells?.[i] ?? '';
   }
 
-  protected ariaSort(col: string): 'ascending' | 'descending' | 'none' {
-    if (this.sort() !== col) return 'none';
+  protected ariaSort(i: number): 'ascending' | 'descending' | 'none' {
+    if (!this.isSorted(i)) return 'none';
     return this.descending() ? 'descending' : 'ascending';
   }
 
-  protected toggleSort(col: string): void {
+  protected toggleSort(i: number): void {
     this.awaitingFocus = false;
+    const col = this.keyAt(i);
     if (this.sort() !== col) {
       this.sort.set(col);
       this.descending.set(false);
@@ -342,7 +443,8 @@ export class TableViewComponent {
     this.pageIndex.set(0);
   }
 
-  protected onFilter(col: string, event: Event): void {
+  protected onFilter(i: number, event: Event): void {
+    const col = this.keyAt(i);
     this.draftFilters.update((f) => ({ ...f, [col]: (event.target as HTMLInputElement).value }));
     this.awaitingFocus = false;
     this.filterEdits.next(true);
@@ -577,4 +679,15 @@ export class TableViewComponent {
       { injector: this.injector },
     );
   }
+}
+
+/** The cell index of every column of each picked name, in the picked order; a name not in the table is left out. */
+function positionsOf(all: readonly string[], picked: readonly string[]): number[] {
+  const positions: number[] = [];
+  for (const name of new Set(picked)) {
+    all.forEach((c, i) => {
+      if (c === name) positions.push(i + 1);
+    });
+  }
+  return positions;
 }

@@ -33,6 +33,8 @@ export type DocSection = 'sml' | 'smf' | 'sme';
 /** A filter on one column: rows whose cell contains the text. */
 export interface DocColumnFilter {
   column: string;
+  /** The column's cell index, which tells apart columns of the same name; only for a source with positions. */
+  position?: number;
   text: string;
 }
 
@@ -45,6 +47,13 @@ export interface DocTableQuery {
   descending?: boolean;
   /** The columns to show, the first one always included; absent means the source's default window. */
   columns?: string[] | null;
+  /**
+   * The columns to show by cell index, instead of `columns`; only for a source whose pages report
+   * `columnPositions`. Unlike names, positions tell apart columns of the same name.
+   */
+  positions?: number[] | null;
+  /** The column to sort by, by cell index, instead of `sort`; only for a source with positions. */
+  sortPosition?: number | null;
   filters?: DocColumnFilter[];
 }
 

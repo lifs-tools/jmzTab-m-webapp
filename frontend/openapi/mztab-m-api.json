@@ -5126,6 +5126,38 @@
             "type" : [ "array", "null" ]
           }
         }, {
+          "description" : "The columns by cell index (the first column is 1), comma-joined; at most 200, each once. Tells apart columns of the same name; cannot be combined with columns.",
+          "in" : "query",
+          "name" : "positions",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
+          }
+        }, {
+          "description" : "The column to sort by, by cell index; cannot be combined with sort.",
+          "in" : "query",
+          "name" : "sortPosition",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
+        }, {
+          "description" : "Filters of the form POSITION:text, the column by cell index; repeatable.",
+          "in" : "query",
+          "name" : "positionFilter",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          }
+        }, {
           "description" : "COLUMN:text, repeatable; the column is the first ':'-prefix that is an exact column name, the rest is the text (not split at commas)",
           "in" : "query",
           "name" : "filter",

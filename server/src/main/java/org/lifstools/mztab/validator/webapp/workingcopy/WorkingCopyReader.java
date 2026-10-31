@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.lifstools.mztab.validator.webapp.sections.MetadataEntry;
 import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
+import org.lifstools.mztab.validator.webapp.sections.PositionQuery;
 import org.lifstools.mztab.validator.webapp.sections.Section;
 import org.lifstools.mztab.validator.webapp.sections.SectionReader;
 import org.lifstools.mztab.validator.webapp.sections.TablePage;
@@ -89,14 +90,21 @@ public class WorkingCopyReader {
 
     /**
      * @return empty if the copy has no header line for the section
-     * @throws IllegalArgumentException for an unknown column, too many columns or invalid paging
+     * @throws IllegalArgumentException for an unknown column, too many columns, a position outside the header, a
+     * part given both by name and by position, or invalid paging
      */
     public Optional<TablePage> table(UUID id, Section section, TableQuery query) {
-        SectionReader.checkPaging(query.page(), query.size());
-        return copies.guard(id, () -> table(copies.db(id), section, query));
+        return table(id, section, query, PositionQuery.NONE);
     }
 
-    private static Optional<TablePage> table(WorkingCopyDb db, Section section, TableQuery query) {
+    /** One page whose columns, sort column or filters may be named by position (cell index). */
+    public Optional<TablePage> table(UUID id, Section section, TableQuery query, PositionQuery at) {
+        SectionReader.checkPaging(query.page(), query.size());
+        return copies.guard(id, () -> table(copies.db(id), section, query, at));
+    }
+
+    private static Optional<TablePage> table(WorkingCopyDb db, Section section, TableQuery query,
+        PositionQuery at) {
         String header = HEADER.get(section);
         List<Line> lines = db.linesOf(header, section.name());
         List<String> columns = null;
@@ -125,7 +133,7 @@ public class WorkingCopyReader {
             }
         }
         long[] lineNumbers = numbers.stream().mapToLong(Long::longValue).toArray();
-        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query, true));
+        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query, at));
     }
 
     /**

@@ -50,10 +50,19 @@ export class WorkingCopySource extends DocumentSource {
         section,
         page: q.page,
         size: q.size,
-        ...(q.sort ? { sort: q.sort, descending: q.descending ?? false } : {}),
+        ...(q.sortPosition
+          ? { sortPosition: q.sortPosition, descending: q.descending ?? false }
+          : q.sort
+            ? { sort: q.sort, descending: q.descending ?? false }
+            : {}),
+        // positions tell apart columns of the same name, so they replace the names whenever the view has them
+        ...(q.positions ? { positions: q.positions } : {}),
         // one comma-joined value: the server splits it, and the URL stays short
-        ...(q.columns ? { columns: [q.columns.join(',')] } : {}),
-        ...(q.filters?.length ? { filter: q.filters.map((f) => `${f.column}:${f.text}`) } : {}),
+        ...(q.columns && !q.positions ? { columns: [q.columns.join(',')] } : {}),
+        ...(filtersByName(q).length ? { filter: filtersByName(q).map((f) => `${f.column}:${f.text}`) } : {}),
+        ...(filtersByPosition(q).length
+          ? { positionFilter: filtersByPosition(q).map((f) => `${f.position}:${f.text}`) }
+          : {}),
       },
       quietRequest(),
     );
@@ -78,4 +87,12 @@ export class WorkingCopySource extends DocumentSource {
   override duplicateColumns(header: DocTableHeader): Observable<DocDuplicateColumn[]> {
     return this.api.getWorkingCopyDuplicateColumns({ id: this.id, header }, quietRequest());
   }
+}
+
+function filtersByName(q: DocTableQuery) {
+  return (q.filters ?? []).filter((f) => f.position == null);
+}
+
+function filtersByPosition(q: DocTableQuery) {
+  return (q.filters ?? []).filter((f) => f.position != null);
 }
