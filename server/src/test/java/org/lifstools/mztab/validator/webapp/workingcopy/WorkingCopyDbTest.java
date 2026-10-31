@@ -232,4 +232,64 @@ class WorkingCopyDbTest {
             assertEquals(CopyText.MAX_LINES, db.lineCount());
         }
     }
+
+    /** An output that, at its first byte, says so and waits until it is released. */
+    private static final class PausingOutput extends java.io.OutputStream {
+
+        final java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        @Override
+        public void write(int b) throws IOException {
+            write(new byte[]{(byte) b}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            started.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException(e);
+            }
+            bytes.write(b, off, len);
+        }
+    }
+
+    @Test
+    void anExportPausedMidStreamDoesNotBlockAWrite() throws Exception {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("export.db"))) {
+            db.importLines(parsed(3000, "\n"));
+            String before = dump(db, false);
+            PausingOutput out = new PausingOutput();
+            java.util.concurrent.CompletableFuture<Void> export = java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    db.writeTo(out);
+                } catch (IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+            });
+            try {
+                assertTrue(out.started.await(10, java.util.concurrent.TimeUnit.SECONDS));
+                long start = System.nanoTime();
+                // a write transaction, as an edit batch is, commits while the export waits
+                db.inTransaction(() -> {
+                    db.replaceLine(2, CopyText.line(2, "MTD\tchanged\tz", "\n"));
+                    db.setRevision(1);
+                    return null;
+                });
+                assertTrue(System.nanoTime() - start < java.util.concurrent.TimeUnit.SECONDS.toNanos(2),
+                    "the write waited for the export");
+                assertEquals(1, db.revision());
+            } finally {
+                out.release.countDown();
+            }
+            export.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            // the export is the text of one snapshot: the one it started on
+            assertEquals(before, out.bytes.toString(StandardCharsets.UTF_8));
+            assertEquals("MTD\tchanged\tz", db.line(2).orElseThrow().text());
+        }
+    }
 }

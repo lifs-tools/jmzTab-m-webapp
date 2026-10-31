@@ -73,6 +73,9 @@ class WorkingCopiesApiTest {
     @Autowired
     ObjectMapper json;
 
+    @Autowired
+    org.lifstools.mztab.validator.webapp.service.StorageService storage;
+
     static byte[] example() throws Exception {
         try (InputStream in = WorkingCopiesApiTest.class
             .getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
@@ -314,6 +317,31 @@ class WorkingCopiesApiTest {
             .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("line 3")));
         mvc.perform(post(BASE).param("validation", id).param("encoding", "WINDOWS_1252"))
             .andExpect(status().isCreated());
+    }
+
+    /**
+     * While another connection holds the copy's write lock past the busy timeout, an edit answers 503 with a
+     * readable message, not 500; once the lock is gone it is accepted.
+     */
+    @Test
+    void aBusyCopyAnswers503() throws Exception {
+        String id = validation("busy.mzTab", example());
+        create(id);
+        java.nio.file.Path db = storage.existingFile(UUID.fromString(id),
+            org.lifstools.mztab.validator.webapp.service.StorageService.SLOT.WORKINGCOPY, "copy.db").orElseThrow();
+        String op = "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"x\"}";
+        try (java.sql.Connection lock = java.sql.DriverManager.getConnection("jdbc:sqlite:" + db);
+            java.sql.Statement st = lock.createStatement()) {
+            st.execute("BEGIN IMMEDIATE");
+            mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0, op)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.message").value("The file is busy with another change. Please try again in "
+                    + "a moment."));
+            st.execute("ROLLBACK");
+        }
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0, op)))
+            .andExpect(status().isOk());
     }
 
     /**

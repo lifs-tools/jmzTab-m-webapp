@@ -1046,17 +1046,29 @@ public class WorkingCopyService {
     /**
      * Runs a request on a copy. A database error after the copy's slot has
      * gone (its session was deleted during the request) is the copy not
-     * existing, not a server error.
+     * existing, not a server error; a database locked past the busy timeout
+     * is {@link WorkingCopyBusyException} (503).
      */
     <T> T guard(UUID id, Supplier<T> work) {
         try {
             return work.get();
         } catch (DataAccessException | TransactionException e) {
-            if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
-                throw new NoSuchWorkingCopyException();
-            }
-            throw e;
+            throw translate(id, e);
         }
+    }
+
+    /**
+     * A database error of a request: no copy if its slot has gone, {@link WorkingCopyBusyException} if the
+     * database stayed locked past the busy timeout (the client may retry), else the error itself.
+     */
+    private RuntimeException translate(UUID id, RuntimeException e) {
+        if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
+            return new NoSuchWorkingCopyException();
+        }
+        if (WorkingCopyBusyException.isBusy(e)) {
+            return new WorkingCopyBusyException(e);
+        }
+        return e;
     }
 
     @FunctionalInterface
@@ -1069,10 +1081,7 @@ public class WorkingCopyService {
         try {
             work.run();
         } catch (DataAccessException | TransactionException e) {
-            if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
-                throw new NoSuchWorkingCopyException();
-            }
-            throw e;
+            throw translate(id, e);
         }
     }
 

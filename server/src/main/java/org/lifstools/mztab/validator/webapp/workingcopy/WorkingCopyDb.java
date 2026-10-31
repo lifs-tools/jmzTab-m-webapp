@@ -56,7 +56,9 @@ import org.sqlite.SQLiteDataSource;
  * enforces this. The schema is created in {@link #open}, from the {@code CREATE_*}
  * constants, the one place to extend. Each call takes its own connection from the data source unless it
  * runs inside {@link #inTransaction}; {@link #close()} releases nothing; it
- * exists for try-with-resources. Transactions are IMMEDIATE.
+ * exists for try-with-resources. Transactions are IMMEDIATE, except the
+ * snapshot reads of {@link #writeTo} and {@link #writeRevisionTo}, which are
+ * DEFERRED read transactions on their own connection and never block a writer.
  */
 public final class WorkingCopyDb implements AutoCloseable {
 
@@ -121,10 +123,15 @@ public final class WorkingCopyDb implements AutoCloseable {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    /** Reads of one snapshot: DEFERRED, so they take no write lock (in WAL mode a reader never blocks a writer). */
+    private final NamedParameterJdbcTemplate readJdbc;
+    private final TransactionTemplate readTx;
 
-    private WorkingCopyDb(SQLiteDataSource ds) {
+    private WorkingCopyDb(SQLiteDataSource ds, SQLiteDataSource readDs) {
         this.jdbc = new NamedParameterJdbcTemplate(ds);
         this.tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
+        this.readJdbc = new NamedParameterJdbcTemplate(readDs);
+        this.readTx = new TransactionTemplate(new DataSourceTransactionManager(readDs));
     }
 
     /** Opens (creating if needed) the database in WAL mode with a 5 s busy timeout. */
@@ -137,7 +144,12 @@ public final class WorkingCopyDb implements AutoCloseable {
         config.setTransactionMode(SQLiteConfig.TransactionMode.IMMEDIATE);
         SQLiteDataSource ds = new SQLiteDataSource(config);
         ds.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
-        WorkingCopyDb db = new WorkingCopyDb(ds);
+        SQLiteConfig readConfig = new SQLiteConfig(config.toProperties());
+        // a snapshot read starts DEFERRED: it holds no lock a writer waits for
+        readConfig.setTransactionMode(SQLiteConfig.TransactionMode.DEFERRED);
+        SQLiteDataSource readDs = new SQLiteDataSource(readConfig);
+        readDs.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
+        WorkingCopyDb db = new WorkingCopyDb(ds, readDs);
         db.jdbc.update(CREATE_LINES, Map.of());
         db.jdbc.update(CREATE_META, Map.of());
         db.jdbc.update(CREATE_HISTORY, Map.of());
@@ -242,6 +254,11 @@ public final class WorkingCopyDb implements AutoCloseable {
      * to export a consistent copy.
      */
     public Iterator<Line> allLines() {
+        return pages(jdbc);
+    }
+
+    /** All lines in order, read page by page through {@code template}. */
+    private static Iterator<Line> pages(NamedParameterJdbcTemplate template) {
         return new Iterator<>() {
             private long next = 1;
             private Iterator<Line> page = List.<Line>of().iterator();
@@ -250,7 +267,7 @@ public final class WorkingCopyDb implements AutoCloseable {
             @Override
             public boolean hasNext() {
                 if (!page.hasNext() && !done) {
-                    List<Line> p = lines(next, PAGE);
+                    List<Line> p = template.query(SELECT_RANGE, Map.of("from", next, "count", PAGE), LINE_MAPPER);
                     done = p.size() < PAGE;
                     next += p.size();
                     page = p.iterator();
@@ -359,20 +376,13 @@ public final class WorkingCopyDb implements AutoCloseable {
         return Boolean.parseBoolean(meta(BOM_KEY));
     }
 
-    /** Writes the whole copy as UTF-8; the flag and all lines come from one snapshot. */
+    /**
+     * Writes the whole copy as UTF-8; the flag and all lines come from one snapshot. The snapshot is a read
+     * transaction that takes no write lock, so a slow reader of {@code out} (a download) never holds up an edit,
+     * undo or validation: they commit meanwhile and the export still writes the text it started on.
+     */
     public void writeTo(OutputStream out) throws IOException {
-        try {
-            inTransaction(() -> {
-                try {
-                    CopyText.write(bom(), allLines(), out);
-                    return null;
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
-        }
+        writeSnapshot(out);
     }
 
     /**
@@ -381,19 +391,31 @@ public final class WorkingCopyDb implements AutoCloseable {
      * snapshot.
      */
     public long writeRevisionTo(OutputStream out) throws IOException {
+        return writeSnapshot(out);
+    }
+
+    private long writeSnapshot(OutputStream out) throws IOException {
         try {
-            return inTransaction(() -> {
-                long revision = revision();
+            Long revision = readTx.execute(status -> {
+                // the first statement fixes the snapshot that every later one reads
+                String r = readMeta(REVISION_KEY);
+                boolean bom = Boolean.parseBoolean(readMeta(BOM_KEY));
                 try {
-                    CopyText.write(bom(), allLines(), out);
+                    CopyText.write(bom, pages(readJdbc), out);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-                return revision;
+                return r == null ? 0L : Long.parseLong(r);
             });
+            return revision == null ? 0 : revision;
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
+    }
+
+    private String readMeta(String key) {
+        return readJdbc.query(GET_META, Map.of("key", key), (rs, i) -> rs.getString(1)).stream().findFirst()
+            .orElse(null);
     }
 
     /** One undo-log entry: line-level steps (JSON) to redo a revision and to restore its before-image. */

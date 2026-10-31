@@ -33,6 +33,7 @@ import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyExcepti
 import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
 import org.lifstools.mztab.validator.webapp.workingcopy.StaleRevisionException;
 import org.lifstools.mztab.validator.webapp.workingcopy.TooLargeException;
+import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyBusyException;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -153,6 +154,16 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         log.warn("{} {}: the engine for mzTab-M {} is unavailable: {}", request.getMethod(), request.getRequestURI(),
             e.line(), e.getCause() == null ? e.getMessage() : e.getCause().toString());
         return respond(HttpStatus.SERVICE_UNAVAILABLE, EngineMessages.unavailable(e.line()), request);
+    }
+
+    /** A working copy locked by another change past the busy timeout: retry, as for a busy engine. */
+    @ExceptionHandler(WorkingCopyBusyException.class)
+    public ResponseEntity<ErrorResponse> copyBusy(WorkingCopyBusyException e, HttpServletRequest request) {
+        log.warn("{} {}: the working copy stayed locked: {}", request.getMethod(), request.getRequestURI(),
+            e.getCause() == null ? e.getMessage() : e.getCause().toString());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
+            .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(StorageFullException.class)
