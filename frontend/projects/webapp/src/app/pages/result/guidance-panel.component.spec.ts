@@ -72,10 +72,12 @@ describe('GuidancePanelComponent', () => {
   });
 
   it('prefers the tool variant and marks it as a variant', () => {
-    const { text } = render({ toolFixInTool: 'In MyTool, tick the box.' });
+    const { text } = render({ toolFixInTool: 'In MyTool, tick the box.', toolName: 'MyTool 1.2' });
     expect(text()).toContain('In MyTool, tick the box.');
     expect(text()).not.toContain('Enable the abundance export.');
-    expect(text()).toContain('For the tool that wrote this file');
+    expect(text()).toContain('For MyTool 1.2');
+    expect(text()).not.toContain('For the tool that wrote this file');
+    expect(render({ toolFixInTool: 'x' }).text()).toContain('For the tool that wrote this file');
     expect(render().text()).not.toContain('For the tool that wrote this file');
   });
 
@@ -85,6 +87,11 @@ describe('GuidancePanelComponent', () => {
     expect(line.textContent).toBe('SMF→id→abundance_assay[1]→other');
     const marks = Array.from(line.querySelectorAll('mark')).map((m) => m.textContent);
     expect(marks).toEqual(['abundance_assay[1]']);
+  });
+
+  it('uses the cell after MTD as the key of a metadata line', () => {
+    const { text } = render({ lines: [{ lineNumber: 5, text: 'MTD\tsoftware[1]\tX', truncated: false }] });
+    expect(text()).toContain('line 5, software[1]');
   });
 
   it('highlights nothing when the column is not on the line', () => {

@@ -35,7 +35,9 @@
 
   <h4>Fix it in your tool</h4>
   @if (isVariant()) {
-    <p class="lifs-note">For the tool that wrote this file</p>
+    <p class="lifs-note">
+      {{ guidance().toolName ? 'For ' + guidance().toolName : 'For the tool that wrote this file' }}
+    </p>
   }
   <p>{{ fixInTool() }}</p>
 

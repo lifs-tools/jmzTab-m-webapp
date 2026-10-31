@@ -35,12 +35,13 @@ class ResolutionReportTest {
     @Test
     void reportListsProblemsWithToolFixesAndLines() {
         Guidance g = new Guidance("empty-parameter", "Error-1012", "A parameter is empty", "Why.", "Do this here.",
-            "Do this in the tool.", "Tool specific fix.", null, false, null, null, List.of(0, 1, 2),
+            "Do this in the tool.", "Tool specific fix.", "MyTool 1.2", null, false, null, null, List.of(0, 1, 2),
             List.of(new QuotedLine(61, "MTD\ta\t[, , , ]", false), new QuotedLine(62, "MTD\tb", false),
                 new QuotedLine(70, "MTD\tc", false)));
         String md = ResolutionReport.markdown(record(), List.of(g));
         assertTrue(md.contains("# Validation problems in my.mzTab"), md);
         assertTrue(md.contains("## A parameter is empty (3)"), md);
+        assertTrue(md.contains("**Fix in the tool that wrote the file (MyTool 1.2):** Tool specific fix."), md);
         assertTrue(md.contains("Tool specific fix."), md);
         assertTrue(md.contains("Lines: 61, 62, 70"), md);
         assertTrue(md.contains("```\nMTD\ta\t[, , , ]"), md);
@@ -48,7 +49,7 @@ class ResolutionReportTest {
 
     @Test
     void fallsBackToTheGeneralToolFix() {
-        Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "General tool fix.", null, null, false, null, null,
+        Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "General tool fix.", null, null, null, false, null, null,
             List.of(0), List.of());
         assertTrue(ResolutionReport.markdown(record(), List.of(g)).contains("General tool fix."));
     }
@@ -60,7 +61,7 @@ class ResolutionReportTest {
 
     @Test
     void aQuotedFenceCannotCloseTheBlock() {
-        Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "F", null, null, false, null, null, List.of(0),
+        Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "F", null, null, null, false, null, null, List.of(0),
             List.of(new QuotedLine(3, "a ``` b", false)));
         String md = ResolutionReport.markdown(record(), List.of(g));
         assertTrue(md.indexOf("```", md.indexOf("```") + 3) == md.lastIndexOf("```"), md);

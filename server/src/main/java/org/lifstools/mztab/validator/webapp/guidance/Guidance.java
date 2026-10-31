@@ -24,13 +24,15 @@ import org.springframework.lang.Nullable;
  * @param entryId the catalog entry, or null when the jmzTab-m texts are used
  * @param typeCode the type code of the messages, e.g. {@code "Error-1012"}; empty if they have none
  * @param toolFixInTool the instruction of the matching tool variant, or null
+ * @param toolName the software name from the file's metadata that matched the tool variant, null when no
+ *     variant matched
  * @param cause jmzTab-m's cause text of the first message
  * @param suggestion jmzTab-m's fix text of the first message
  * @param messages indexes into the message list this was resolved for
  * @param lines the quoted lines of the first messages, in line order
  */
 public record Guidance(@Nullable String entryId, String typeCode, String title, String explanation,
-    String fixHere, String fixInTool, @Nullable String toolFixInTool, @Nullable String quickFix,
+    String fixHere, String fixInTool, @Nullable String toolFixInTool, @Nullable String toolName, @Nullable String quickFix,
     boolean stopsParsing, @Nullable String cause, @Nullable String suggestion, List<Integer> messages,
     List<QuotedLine> lines) {
 }

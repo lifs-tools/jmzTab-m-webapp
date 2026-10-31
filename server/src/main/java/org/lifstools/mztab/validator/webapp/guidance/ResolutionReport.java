@@ -36,8 +36,10 @@ public final class ResolutionReport {
             if (g.cause() != null && !g.cause().isBlank()) {
                 md.append("Cause: ").append(oneLine(g.cause())).append("\n\n");
             }
-            md.append("**Fix in the tool that wrote the file:** ")
-                .append(oneLine(g.toolFixInTool() != null ? g.toolFixInTool() : g.fixInTool())).append("\n\n");
+            String toolFix = g.toolFixInTool() != null ? g.toolFixInTool() : g.fixInTool();
+            md.append("**Fix in the tool that wrote the file")
+                .append(g.toolFixInTool() != null && g.toolName() != null ? " (" + oneLine(g.toolName()) + ")" : "")
+                .append(":** ").append(oneLine(toolFix)).append("\n\n");
             if (!g.lines().isEmpty()) {
                 md.append("Lines: ").append(g.lines().stream().map(l -> Long.toString(l.lineNumber()))
                     .collect(Collectors.joining(", "))).append("\n\n");

@@ -113,22 +113,26 @@ public class GuidanceResolver {
         ValidationMessage f = g.first;
         if (g.entry.isPresent()) {
             GuidanceEntry e = g.entry.get();
+            String[] variant = toolVariant(e, softwareNames);
             return new Guidance(e.id(), g.typeCode, e.title(), e.explanation(), e.fixHere(), e.fixInTool(),
-                toolVariant(e, softwareNames), e.quickFix(), e.stopsParsing(), f.getCause(), f.getSuggestion(),
+                variant == null ? null : variant[0], variant == null ? null : variant[1], e.quickFix(), e.stopsParsing(), f.getCause(), f.getSuggestion(),
                 List.copyOf(g.indexes), quoted);
         }
         String title = Objects.requireNonNullElse(f.getMessage(), g.typeCode);
         return new Guidance(null, g.typeCode, title, Objects.requireNonNullElse(f.getCause(), ""),
-            Objects.requireNonNullElse(f.getSuggestion(), ""), "", null, null, false, f.getCause(),
+            Objects.requireNonNullElse(f.getSuggestion(), ""), "", null, null, null, false, f.getCause(),
             f.getSuggestion(), List.copyOf(g.indexes), quoted);
     }
 
+    /** The matching variant's fix and the file's software name that matched it, or null. */
     @Nullable
-    private static String toolVariant(GuidanceEntry e, List<String> softwareNames) {
+    private static String[] toolVariant(GuidanceEntry e, List<String> softwareNames) {
         for (ToolVariant t : e.tools()) {
             Pattern p = Pattern.compile(t.software(), Pattern.CASE_INSENSITIVE);
-            if (softwareNames.stream().anyMatch(s -> p.matcher(s).find())) {
-                return t.fixInTool();
+            for (String s : softwareNames) {
+                if (p.matcher(s).find()) {
+                    return new String[] {t.fixInTool(), s};
+                }
             }
         }
         return null;

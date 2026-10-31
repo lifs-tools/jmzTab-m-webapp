@@ -68,8 +68,10 @@ class GuidanceResolverTest {
     void picksTheToolVariant() {
         List<Guidance> lc = resolver.resolve(List.of(param(1)), "2.0", List.of("LipidCompass curation script"), n -> Map.of());
         assertNotNull(lc.get(0).toolFixInTool());
+        assertEquals("LipidCompass curation script", lc.get(0).toolName());
         List<Guidance> mh = resolver.resolve(List.of(param(1)), "2.0", List.of("MassHunter"), n -> Map.of());
         assertNull(mh.get(0).toolFixInTool());
+        assertNull(mh.get(0).toolName());
     }
 
     @Test

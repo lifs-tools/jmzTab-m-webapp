@@ -78,6 +78,7 @@ export function groupMessages(
     const existing = groups.get(key);
     if (existing) {
       existing.messages.push(m);
+      // A group carries one guidance: the server groups by the same type code.
       existing.guidance ??= guidanceOf.get(m);
       continue;
     }

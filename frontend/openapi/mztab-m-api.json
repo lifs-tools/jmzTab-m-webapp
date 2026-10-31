@@ -608,6 +608,9 @@
           "toolFixInTool" : {
             "type" : [ "string", "null" ]
           },
+          "toolName" : {
+            "type" : [ "string", "null" ]
+          },
           "typeCode" : {
             "type" : "string"
           }
