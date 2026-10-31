@@ -183,10 +183,8 @@ public final class WorkingCopyEditor {
             this.budget = budget;
         }
 
-        private void spend(List<Line> lines) {
-            for (Line l : lines) {
-                budget -= jsonSize(l.text()) + jsonSize(l.eol());
-            }
+        private void spend(Step forwardStep, Step inverseStep) {
+            budget -= estimate(forwardStep) + estimate(inverseStep);
             if (budget < 0) {
                 throw new IllegalArgumentException("The batch changes too much text at once; split it");
             }
@@ -205,27 +203,50 @@ public final class WorkingCopyEditor {
                 && old.section().equals(line.section())) {
                 return;
             }
-            spend(List.of(old, line));
+            Step fwd = new Step("REPLACE", n, 1, List.of(StoredLine.of(line)));
+            Step inv = new Step("REPLACE", n, 1, List.of(StoredLine.of(old)));
+            spend(fwd, inv);
             db.replaceLine(n, line);
-            forward.add(new Step("REPLACE", n, 1, List.of(StoredLine.of(line))));
-            inverse.add(new Step("REPLACE", n, 1, List.of(StoredLine.of(old))));
+            forward.add(fwd);
+            inverse.add(inv);
         }
 
         void insert(long before, List<Line> lines) {
             lines.forEach(Recorder::checkLength);
-            spend(lines);
+            Step fwd = new Step("INSERT", before, lines.size(), lines.stream().map(StoredLine::of).toList());
+            Step inv = new Step("DELETE", before, lines.size(), List.of());
+            spend(fwd, inv);
             db.insertLines(before, lines);
-            forward.add(new Step("INSERT", before, lines.size(), lines.stream().map(StoredLine::of).toList()));
-            inverse.add(new Step("DELETE", before, lines.size(), List.of()));
+            forward.add(fwd);
+            inverse.add(inv);
         }
 
         void delete(long from, int count) {
             List<Line> old = db.lines(from, count);
-            spend(old);
+            Step fwd = new Step("DELETE", from, count, List.of());
+            Step inv = new Step("INSERT", from, count, old.stream().map(StoredLine::of).toList());
+            spend(fwd, inv);
             db.deleteLines(from, count);
-            forward.add(new Step("DELETE", from, count, List.of()));
-            inverse.add(new Step("INSERT", from, count, old.stream().map(StoredLine::of).toList()));
+            forward.add(fwd);
+            inverse.add(inv);
         }
+    }
+
+    /** Fixed JSON of a step: field names, the op name, two numbers of up to 20 digits, brackets, comma; rounded up. */
+    private static final long STEP_COST = 128;
+    /** Fixed JSON of a line image: field names, brackets, quotes, commas; rounded up. */
+    private static final long LINE_COST = 64;
+
+    /** An upper bound of the JSON that {@code toJson} emits for the step. */
+    static long estimate(Step step) {
+        long n = STEP_COST;
+        for (StoredLine l : step.lines()) {
+            n += LINE_COST + jsonSize(l.section()) + jsonSize(l.eol());
+            for (String c : l.cells()) {
+                n += jsonSize(c) + 3;
+            }
+        }
+        return n;
     }
 
     /** Upper bound of the JSON size of a string: control characters take 6, quote and backslash 2. */
@@ -267,7 +288,7 @@ public final class WorkingCopyEditor {
         }
     }
 
-    private static List<Step> fromJson(String json) {
+    static List<Step> fromJson(String json) {
         try {
             return JSON.readValue(json, STEPS);
         } catch (JsonProcessingException e) {

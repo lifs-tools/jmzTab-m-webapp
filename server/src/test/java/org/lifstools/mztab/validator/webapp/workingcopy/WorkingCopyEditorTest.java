@@ -353,4 +353,30 @@ class WorkingCopyEditorTest {
         assertEquals(big, text());
         assertEquals(0, db.revision());
     }
+
+    private void assertEstimateCoversStoredHistory() {
+        WorkingCopyDb.HistoryEntry e = db.peekUndo().orElseThrow();
+        long estimate = 0;
+        for (String json : List.of(e.forward(), e.inverse())) {
+            for (WorkingCopyEditor.Step s : WorkingCopyEditor.fromJson(json)) {
+                estimate += WorkingCopyEditor.estimate(s);
+            }
+        }
+        assertTrue(estimate >= e.forward().length() + e.inverse().length(),
+            estimate + " < " + (e.forward().length() + e.inverse().length()));
+    }
+
+    @Test
+    void estimateCoversTheStoredHistory() throws Exception {
+        List<EditOperation> tiny = new ArrayList<>();
+        for (int i = 0; i < 300; i++) {
+            tiny.add(new InsertLine(1, "a"));
+        }
+        apply(tiny.toArray(new EditOperation[0]));
+        assertEstimateCoversStoredHistory();
+        apply(new InsertColumn("SMH", 1, "N", "f"));
+        assertEstimateCoversStoredHistory();
+        apply(new SetCell(305, 2, "q\"\\\u0001\u001f\"x"), new InsertLine(1, "MTD\t\"k\"\t\u0002"));
+        assertEstimateCoversStoredHistory();
+    }
 }
