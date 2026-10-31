@@ -583,7 +583,7 @@ class ValidationSessionServiceTest {
         return new ValidationRecord(id, "interrupted.mzTab", status, null, ValidationLevel.INFO, 100,
             new ProfileRef(ProfileRef.Kind.NONE, null, null), null, now,
             status == ValidationStatus.RUNNING ? now : null, null, now.plus(7, ChronoUnit.DAYS),
-            counts, List.of(), null, null, null, false);
+            counts, List.of(), null, null, null, false, null);
     }
 
     private String twoOneFile() throws IOException {

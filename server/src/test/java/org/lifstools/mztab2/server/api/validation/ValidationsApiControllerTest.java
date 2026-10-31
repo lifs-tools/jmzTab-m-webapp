@@ -154,7 +154,7 @@ class ValidationsApiControllerTest {
         java.util.Set<String> fields = new java.util.TreeSet<>();
         message.fieldNames().forEachRemaining(fields::add);
         assertTrue(java.util.Set.of("code", "category", "message_type", "message", "line_number", "suggestion",
-            "rule_id", "location").containsAll(fields), "message fields: " + fields);
+            "rule_id", "location", "cause").containsAll(fields), "message fields: " + fields);
         assertTrue(java.util.List.of("error", "warn", "info").contains(message.get("message_type").asText()),
             message.toString());
         assertTrue(java.util.List.of("format", "logical", "cross_check").contains(message.get("category").asText()),
@@ -224,6 +224,48 @@ class ValidationsApiControllerTest {
             .andExpect(header().string("Content-Disposition", "attachment; filename=\"rep.mzTab-validation.json\""))
             .andExpect(jsonPath("$").isArray());
         mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "xml"))
+            .andExpect(status().isBadRequest());
+    }
+
+    private String emptyParameterFile() throws Exception {
+        String text = new String(example(), StandardCharsets.UTF_8);
+        return text.replace("[MS, MS:1000624, inductive detector, ]", "[, , , ]");
+    }
+
+    private String createFrom(String name, String content) throws Exception {
+        MockMultipartFile f = new MockMultipartFile("file", name, "text/plain", content.getBytes(StandardCharsets.UTF_8));
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(f).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+        String id = json.readTree(r.getResponse().getContentAsString()).get("id").asText();
+        awaitFinished(id);
+        return id;
+    }
+
+    @Test
+    void finishedResultCarriesGuidance() throws Exception {
+        String id = createFrom("guided.mzTab", emptyParameterFile());
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.guidance[0].entryId").value("empty-parameter"))
+            .andExpect(jsonPath("$.guidance[0].lines[0].lineNumber").isNumber());
+    }
+
+    @Test
+    void reportAsMarkdown() throws Exception {
+        String id = createFrom("md.mzTab", emptyParameterFile());
+        MvcResult r = mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "md"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Type", "text/markdown;charset=UTF-8"))
+            .andExpect(header().string("Content-Disposition", "attachment; filename=\"md.mzTab-problems.md\""))
+            .andReturn();
+        assertTrue(r.getResponse().getContentAsString(StandardCharsets.UTF_8)
+            .contains("# Validation problems in md.mzTab"));
+    }
+
+    @Test
+    void unknownReportFormatIs400() throws Exception {
+        String id = create("pdf.mzTab").get("id").asText();
+        awaitFinished(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "pdf"))
             .andExpect(status().isBadRequest());
     }
 

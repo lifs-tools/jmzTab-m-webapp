@@ -68,7 +68,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  */
 @RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
     AppInfoApiController.class, ValidationProfilesApiController.class, ConvertApiController.class, ValidateApiController.class,
-    ValidatePlainApiController.class})
+    ValidatePlainApiController.class, GuidanceApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);

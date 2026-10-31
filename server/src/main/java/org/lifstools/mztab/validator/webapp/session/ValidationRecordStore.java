@@ -103,7 +103,7 @@ class ValidationRecordStore {
     private void persist(ValidationRecord record) {
         try {
             storage.write(record.id(), SLOT.RECORD, RECORD,
-                new ByteArrayInputStream(mapper.writeValueAsBytes(record)));
+                new ByteArrayInputStream(mapper.writeValueAsBytes(record.withGuidance(null))));
         } catch (JsonProcessingException e) {
             throw new StorageException("Could not serialise the record of validation " + record.id(), e);
         }

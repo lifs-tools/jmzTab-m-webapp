@@ -182,7 +182,7 @@
     "fixHere": "Use the quick fix to add the missing metadata line, then fill in its value. Alternatively correct the reference if it points to the wrong number.",
     "fixInTool": "Write a metadata definition for every element that other lines refer to, using the same number in both places.",
     "quickFix": "add-missing-metadata",
-    "stopsParsing": true,
+    "stopsParsing": false,
     "tools": [
       {
         "software": "LipidDataAnalyzer",

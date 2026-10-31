@@ -30,9 +30,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationLocation;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.guidance.Guidance;
+import org.lifstools.mztab.validator.webapp.guidance.GuidanceResolver;
+import org.lifstools.mztab.validator.webapp.guidance.ResolutionReport;
+import org.lifstools.mztab.validator.webapp.guidance.UploadLines;
 import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
 import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
@@ -42,6 +47,7 @@ import org.lifstools.mztab.validator.webapp.sections.TableQuery;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
+import org.lifstools.mztab.validator.webapp.session.ValidationStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -69,12 +75,17 @@ public class ValidationsApiController {
 
     private final ValidationSessionService sessions;
     private final SectionReader sections;
+    private final GuidanceResolver guidance;
+    private final UploadLines uploads;
     private final boolean customMappingsEnabled;
 
     public ValidationsApiController(ValidationSessionService sessions, SectionReader sections,
+        GuidanceResolver guidance, UploadLines uploads,
         @Value("${validation.custom-mappings.enabled:true}") boolean customMappingsEnabled) {
         this.sessions = sessions;
         this.sections = sections;
+        this.guidance = guidance;
+        this.uploads = uploads;
         this.customMappingsEnabled = customMappingsEnabled;
     }
 
@@ -115,7 +126,22 @@ public class ValidationsApiController {
     @Operation(operationId = "getValidation", summary = "Returns the state and result of a validation")
     @GetMapping(value = "/validations/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ValidationRecord getValidation(@PathVariable("id") String id) {
-        return record(id);
+        ValidationRecord record = record(id);
+        return record.withGuidance(guidanceOf(record));
+    }
+
+    /** Computed on every read, never stored; null while the validation has not ended. */
+    @Nullable
+    private List<Guidance> guidanceOf(ValidationRecord record) {
+        if (record.status() != ValidationStatus.FINISHED && record.status() != ValidationStatus.FAILED) {
+            return null;
+        }
+        if (record.messages().isEmpty()) {
+            return List.of();
+        }
+        String line = MzTabVersions.lineOf(record.mzTabVersion()).orElse(null);
+        return guidance.resolve(record.messages(), line, uploads.softwareNames(record.id()),
+            numbers -> uploads.lines(record.id(), numbers));
     }
 
     @Operation(operationId = "deleteValidation", summary = "Deletes a validation and its stored data")
@@ -127,20 +153,25 @@ public class ValidationsApiController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(operationId = "getValidationReport", summary = "Downloads the validation messages as CSV or JSON")
+    @Operation(operationId = "getValidationReport", summary = "Downloads the validation messages as CSV or JSON, or the problems and how to fix them as Markdown")
     @GetMapping("/validations/{id}/report")
     public ResponseEntity<?> getValidationReport(@PathVariable("id") String id,
         @RequestParam(value = "format", defaultValue = "csv") String format) {
         ValidationRecord record = record(id);
         String f = format.toLowerCase(Locale.ROOT);
-        if (!f.equals("csv") && !f.equals("json")) {
-            throw new IllegalArgumentException("format must be csv or json.");
+        if (!f.equals("csv") && !f.equals("json") && !f.equals("md")) {
+            throw new IllegalArgumentException("format must be csv, json or md.");
         }
         HttpHeaders headers = new HttpHeaders();
-        String download = record.fileName() + "-validation." + f;
+        String download = f.equals("md") ? record.fileName() + "-problems.md" : record.fileName() + "-validation." + f;
         boolean ascii = StandardCharsets.US_ASCII.newEncoder().canEncode(download);
         headers.setContentDisposition(ContentDisposition.attachment()
             .filename(download, ascii ? null : StandardCharsets.UTF_8).build());
+        if (f.equals("md")) {
+            List<Guidance> resolved = guidanceOf(record);
+            return ResponseEntity.ok().headers(headers).contentType(new MediaType("text", "markdown", StandardCharsets.UTF_8))
+                .body(ResolutionReport.markdown(record, resolved == null ? List.of() : resolved));
+        }
         if (f.equals("json")) {
             return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_JSON)
                 .body(record.messages());

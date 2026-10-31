@@ -20,29 +20,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-/** The catalog must be constructible by Spring, not just by hand. */
-@SpringJUnitConfig({GuidanceCatalogContextTest.Config.class, GuidanceCatalog.class})
+/**
+ * The catalog must be constructible by Spring, not just by hand. The context is built by hand: a nested
+ * configuration class would be picked up by the component scan of the other Spring Boot tests.
+ */
 class GuidanceCatalogContextTest {
-
-    @Configuration
-    static class Config {
-        @Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper();
-        }
-    }
-
-    @Autowired
-    GuidanceCatalog catalog;
 
     @Test
     void springBuildsTheCatalog() {
-        assertNotNull(catalog);
-        assertTrue(catalog.entries().size() > 0);
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
+            context.register(GuidanceCatalog.class);
+            context.refresh();
+            GuidanceCatalog catalog = context.getBean(GuidanceCatalog.class);
+            assertNotNull(catalog);
+            assertTrue(catalog.entries().size() > 0);
+        }
     }
 }

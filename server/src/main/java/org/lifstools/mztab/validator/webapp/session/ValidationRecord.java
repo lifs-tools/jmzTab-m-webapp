@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.guidance.Guidance;
 import org.springframework.lang.Nullable;
 
 /**
@@ -43,7 +44,7 @@ public record ValidationRecord(UUID id, String fileName, ValidationStatus status
     ValidationLevel level, int maxErrors, ProfileRef validationProfile, String mzTabVersion, Instant createdAt,
     Instant startedAt, Instant finishedAt, Instant expiresAt, Map<ValidationLevel, Integer> counts,
     List<ValidationMessage> messages, SectionsSummary sections, String failureReason, @Nullable String engine,
-    boolean defaultVersionApplied) {
+    boolean defaultVersionApplied, @Nullable List<Guidance> guidance) {
 
     public ValidationRecord {
         messages = messages == null ? List.of() : List.copyOf(messages);
@@ -58,20 +59,20 @@ public record ValidationRecord(UUID id, String fileName, ValidationStatus status
     public static ValidationRecord queued(UUID id, String fileName, ValidationLevel level, int maxErrors,
         ProfileRef profile, Instant createdAt, Instant expiresAt) {
         return new ValidationRecord(id, fileName, ValidationStatus.QUEUED, null, level, maxErrors, profile, null,
-            createdAt, null, null, expiresAt, null, List.of(), null, null, null, false);
+            createdAt, null, null, expiresAt, null, List.of(), null, null, null, false, null);
     }
 
     public ValidationRecord running(Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.RUNNING, outcome, level, maxErrors,
             validationProfile, mzTabVersion, createdAt, now, finishedAt, expiresAt, counts, messages, sections,
-            failureReason, engine, defaultVersionApplied);
+            failureReason, engine, defaultVersionApplied, guidance);
     }
 
     /** Back in the queue: the engine was busy. */
     public ValidationRecord requeued() {
         return new ValidationRecord(id, fileName, ValidationStatus.QUEUED, outcome, level, maxErrors,
             validationProfile, mzTabVersion, createdAt, null, finishedAt, expiresAt, counts, messages, sections,
-            failureReason, engine, defaultVersionApplied);
+            failureReason, engine, defaultVersionApplied, guidance);
     }
 
     /**
@@ -84,21 +85,28 @@ public record ValidationRecord(UUID id, String fileName, ValidationStatus status
         SectionsSummary summary, @Nullable String validatedBy, boolean defaultApplied, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FINISHED, result, level, maxErrors,
             validationProfile, version, createdAt, startedAt, now, expiresAt, countsOf(found), found, summary,
-            null, validatedBy, defaultApplied);
+            null, validatedBy, defaultApplied, guidance);
     }
 
     /** The file was refused before parsing, with a single message that is also the failure reason. */
     public ValidationRecord rejected(String version, ValidationMessage message, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FAILED, ValidationOutcome.NOT_PARSED, level,
             maxErrors, validationProfile, version, createdAt, startedAt, now, expiresAt,
-            countsOf(List.of(message)), List.of(message), null, message.getMessage(), engine, defaultVersionApplied);
+            countsOf(List.of(message)), List.of(message), null, message.getMessage(), engine, defaultVersionApplied, guidance);
     }
 
     /** The validation could not be completed. */
     public ValidationRecord failed(String reason, Instant now) {
         return new ValidationRecord(id, fileName, ValidationStatus.FAILED, outcome, level, maxErrors,
             validationProfile, mzTabVersion, createdAt, startedAt, now, expiresAt, counts, messages, sections,
-            reason, engine, defaultVersionApplied);
+            reason, engine, defaultVersionApplied, guidance);
+    }
+
+    /** The record with its guidance; guidance is computed when a record is read, never stored. */
+    public ValidationRecord withGuidance(@Nullable List<Guidance> resolved) {
+        return new ValidationRecord(id, fileName, status, outcome, level, maxErrors, validationProfile, mzTabVersion,
+            createdAt, startedAt, finishedAt, expiresAt, counts, messages, sections, failureReason, engine,
+            defaultVersionApplied, resolved);
     }
 
     static Map<ValidationLevel, Integer> countsOf(List<ValidationMessage> messages) {

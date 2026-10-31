@@ -485,6 +485,104 @@
         },
         "type" : "object"
       },
+      "Guidance" : {
+        "properties" : {
+          "cause" : {
+            "type" : [ "string", "null" ]
+          },
+          "entryId" : {
+            "type" : [ "string", "null" ]
+          },
+          "explanation" : {
+            "type" : "string"
+          },
+          "fixHere" : {
+            "type" : "string"
+          },
+          "fixInTool" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/QuotedLine"
+            },
+            "type" : "array"
+          },
+          "messages" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "quickFix" : {
+            "type" : [ "string", "null" ]
+          },
+          "stopsParsing" : {
+            "type" : "boolean"
+          },
+          "suggestion" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "toolFixInTool" : {
+            "type" : [ "string", "null" ]
+          },
+          "typeCode" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "GuidanceEntry" : {
+        "properties" : {
+          "codes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "explanation" : {
+            "type" : "string"
+          },
+          "fixHere" : {
+            "type" : "string"
+          },
+          "fixInTool" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "messagePattern" : {
+            "type" : [ "string", "null" ]
+          },
+          "quickFix" : {
+            "type" : [ "string", "null" ]
+          },
+          "stopsParsing" : {
+            "type" : "boolean"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "tools" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ToolVariant"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "Instrument_2_0" : {
         "description" : "The name, source, analyzer and detector of the instruments used in the experiment. Multiple instruments are numbered [1-n].",
         "properties" : {
@@ -1464,6 +1562,21 @@
         "type" : "object",
         "x-mztab-example" : "MTD\tpublication[1]\tpubmed:21063943|doi:10.1007/978-1-60761-987-1_6\nMTD\tpublication[2]\tpubmed:20615486|doi:10.1016/j.jprot.2010.06.008\n",
         "x-mztab-serialize-by-id" : "true"
+      },
+      "QuotedLine" : {
+        "properties" : {
+          "lineNumber" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
       },
       "SampleProcessing_2_0" : {
         "description" : "A list of parameters describing a sample processing, preparation or handling step similar to a biological or analytical methods report. The order of the sample_processing items should reflect the order these processing steps were performed in. If multiple parameters are given for a step these MUST be separated by a “|”. If derivatization was performed, it MUST be reported here as a general step, e.g. 'silylation' and the actual derivatization agens MUST be specified in the Section 6.2.54 part.\n",
@@ -2824,6 +2937,20 @@
         },
         "type" : "object"
       },
+      "ToolVariant" : {
+        "properties" : {
+          "fixInTool" : {
+            "type" : "string"
+          },
+          "software" : {
+            "type" : "string"
+          },
+          "toolVersion" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
       "Uri_2_0" : {
         "description" : "A URI pointing to the file’s source data (e.g., a MetaboLights records) or an external file with more details about the study design.",
         "properties" : {
@@ -2891,6 +3018,9 @@
           "category" : {
             "enum" : [ "format", "logical", "cross_check" ],
             "type" : "string"
+          },
+          "cause" : {
+            "type" : [ "string", "null" ]
           },
           "code" : {
             "type" : "string"
@@ -2974,6 +3104,12 @@
           "finishedAt" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "guidance" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Guidance"
+            },
+            "type" : [ "array", "null" ]
           },
           "id" : {
             "format" : "uuid",
@@ -3270,6 +3406,28 @@
         },
         "summary" : "Starts a validation of an example file",
         "tags" : [ "examples" ]
+      }
+    },
+    "/rest/v2/guidance" : {
+      "get" : {
+        "operationId" : "listGuidance",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/GuidanceEntry"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the problems that come with an explanation and a fix",
+        "tags" : [ "guidance" ]
       }
     },
     "/rest/v2/validate" : {
@@ -3855,7 +4013,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Downloads the validation messages as CSV or JSON",
+        "summary" : "Downloads the validation messages as CSV or JSON, or the problems and how to fix them as Markdown",
         "tags" : [ "validations" ]
       }
     },
