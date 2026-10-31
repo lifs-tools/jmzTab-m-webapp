@@ -16,9 +16,11 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -163,6 +165,43 @@ public final class WorkingCopyDb implements AutoCloseable {
         });
     }
 
+    /**
+     * Replaces all lines and the byte order mark flag with the text read from {@code in}, streamed in chunks of
+     * {@value #PAGE} lines: memory stays bounded by one chunk, whatever the file's size. One transaction, so a
+     * refused file ({@link TooLargeException}, {@link NotUtf8Exception}) leaves the copy as it was.
+     */
+    public void importFrom(InputStream in, SourceEncoding encoding) throws IOException {
+        try {
+            inTransaction(() -> {
+                jdbc.update(CLEAR_LINES, Map.of());
+                jdbc.update(HISTORY_CLEAR_ALL, Map.of());
+                setRevision(0);
+                List<SqlParameterSource> chunk = new ArrayList<>(PAGE);
+                long[] number = {0};
+                boolean bom;
+                try {
+                    bom = CopyText.read(in, encoding, l -> {
+                        // numbered by position, as importLines does
+                        chunk.add(insertParams(++number[0], l));
+                        if (chunk.size() == PAGE) {
+                            jdbc.batchUpdate(INSERT_LINE, chunk.toArray(SqlParameterSource[]::new));
+                            chunk.clear();
+                        }
+                    });
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                if (!chunk.isEmpty()) {
+                    jdbc.batchUpdate(INSERT_LINE, chunk.toArray(SqlParameterSource[]::new));
+                }
+                setMeta(BOM_KEY, Boolean.toString(bom));
+                return null;
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
     private static void check(Line l) {
         if (l.eol() == null || !(l.eol().isEmpty() || l.eol().equals("\n") || l.eol().equals("\r\n")
             || l.eol().equals("\r"))) {
@@ -238,6 +277,15 @@ public final class WorkingCopyDb implements AutoCloseable {
         return jdbc.query(SELECT_SECTIONS, Map.of("first", first, "second", second), LINE_MAPPER);
     }
 
+    /**
+     * As {@link #linesOf}, but hands each line to {@code each} as it is read instead of collecting them: one
+     * statement and so one snapshot, with memory bounded by what {@code each} keeps.
+     */
+    public void forEachLineOf(String first, String second, java.util.function.Consumer<Line> each) {
+        jdbc.query(SELECT_SECTIONS, Map.of("first", first, "second", second),
+            (org.springframework.jdbc.core.RowCallbackHandler) rs -> each.accept(LINE_MAPPER.mapRow(rs, 0)));
+    }
+
     /** The first line of a section, e.g. the first SMH header. */
     public Optional<Line> firstOf(String section) {
         return jdbc.query(SELECT_FIRST_OF_SECTION, Map.of("section", section), LINE_MAPPER).stream().findFirst();
@@ -267,6 +315,9 @@ public final class WorkingCopyDb implements AutoCloseable {
             long count = lineCount();
             if (before < 1 || before > count + 1) {
                 throw new IllegalArgumentException("Cannot insert before line " + before);
+            }
+            if (count + lines.size() > CopyText.MAX_LINES) {
+                throw new IllegalArgumentException("A working copy has at most 2,000,000 lines.");
             }
             if (lines.isEmpty()) {
                 return null;

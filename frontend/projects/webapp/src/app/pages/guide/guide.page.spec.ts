@@ -71,6 +71,8 @@ describe('GuidePage', () => {
     expect(text).toContain('5,000');
     expect(text).toContain('100,000 characters');
     expect(text).toContain('1,000,000 characters');
+    // the caps of a file the editor opens
+    expect(text).toContain('up to 2,000,000 lines with up to 20,000 cells in a line');
     expect(text).toContain('days after your last change');
   });
 

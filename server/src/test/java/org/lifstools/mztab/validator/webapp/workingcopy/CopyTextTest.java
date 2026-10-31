@@ -97,4 +97,48 @@ class CopyTextTest {
             assertArrayEquals(b, write(p));
         }
     }
+
+    /** An endless stream of one byte: reading must stop at a cap, not consume it all. */
+    private static java.io.InputStream endless(byte b) {
+        return new java.io.InputStream() {
+            @Override
+            public int read() {
+                return b;
+            }
+        };
+    }
+
+    @Test
+    void refusesMoreLinesThanTheCapWhileReading() {
+        TooLargeException e = assertThrows(TooLargeException.class,
+            () -> CopyText.read(endless((byte) '\n'), SourceEncoding.UTF_8, l -> { }));
+        assertEquals("The file has more than 2,000,000 lines. The editor opens files of up to 2,000,000 lines.",
+            e.getMessage());
+    }
+
+    @Test
+    void refusesALineWithMoreCellsThanTheCapWhileReading() {
+        // one line that never ends: the cap stops it before the line is complete
+        TooLargeException e = assertThrows(TooLargeException.class,
+            () -> CopyText.read(endless((byte) '\t'), SourceEncoding.UTF_8, l -> { }));
+        assertEquals("Line 1 has more than 20,000 cells. The editor opens files with up to 20,000 cells per line.",
+            e.getMessage());
+    }
+
+    @Test
+    void readsUpToTheCaps() throws IOException {
+        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+        b.write(bytes("MTD" + "\t".repeat(CopyText.MAX_CELLS - 1) + "\n"));
+        for (int i = 1; i < CopyText.MAX_LINES; i++) {
+            b.write('\n');
+        }
+        long[] n = new long[2];
+        boolean bom = CopyText.read(new ByteArrayInputStream(b.toByteArray()), SourceEncoding.UTF_8, l -> {
+            n[0]++;
+            n[1] = Math.max(n[1], l.cells().size());
+        });
+        assertFalse(bom);
+        assertEquals(CopyText.MAX_LINES, n[0]);
+        assertEquals(CopyText.MAX_CELLS, n[1]);
+    }
 }

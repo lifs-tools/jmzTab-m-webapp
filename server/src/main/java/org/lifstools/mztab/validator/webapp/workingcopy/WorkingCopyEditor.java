@@ -65,7 +65,7 @@ import org.springframework.lang.Nullable;
  * column of a name a header already has; a file loaded with such columns is
  * repaired with a positioned {@code DeleteColumn} or with {@code MergeColumns}. Deleting the unterminated last line
  * leaves the new last line with its ending. Limits: 5,000 operations per batch,
- * 100,000 characters per cell, 1,000,000 per line; a tab only in
+ * 100,000 characters per cell, 1,000,000 characters and 20,000 cells per line, 2,000,000 lines per copy; a tab only in
  * {@code SetRawLine} and {@code InsertLine} text; a CR or LF nowhere.
  */
 public final class WorkingCopyEditor {
@@ -196,6 +196,10 @@ public final class WorkingCopyEditor {
         private static void checkLength(Line l) {
             if (l.text().length() > MAX_LINE) {
                 throw new IllegalArgumentException("A line has at most " + MAX_LINE + " characters");
+            }
+            // the cap of an upload holds for every edit too, so reads stay bounded by it
+            if (l.cells().size() > CopyText.MAX_CELLS) {
+                throw new IllegalArgumentException("A line has at most 20,000 cells");
             }
         }
 

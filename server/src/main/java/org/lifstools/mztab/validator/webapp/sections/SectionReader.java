@@ -192,7 +192,8 @@ public class SectionReader {
      * One page of a table, as {@link #table(UUID, Section, TableQuery)}. A name requested again selects the next
      * column of that name, so a header with duplicate names can be shown column by column.
      *
-     * @param rows every row has at least as many cells as {@code header}
+     * @param rows the cells of each row; a row may be shorter or longer than {@code header}: a missing cell reads
+     * as empty, an extra one is not shown
      * @param lineNumbers the line of each row, for {@link TableRow#lineNumber()}; null for none
      * @throws IllegalArgumentException for an unknown column, more than
      * {@value #MAX_COLUMNS} requested columns or invalid paging
@@ -266,7 +267,7 @@ public class SectionReader {
             String[] row = rows.get(index);
             List<String> cells = new ArrayList<>(columns.length);
             for (int column : columns) {
-                cells.add(row[column]);
+                cells.add(cell(row, column));
             }
             page.add(new TableRow(index, cells, lineNumbers == null ? null : lineNumbers[index]));
         }
@@ -276,23 +277,36 @@ public class SectionReader {
             cellIndexes);
     }
 
-    /** The header index of each requested column; the n-th request of a name selects its n-th column. */
+    /**
+     * The header index of each requested column; the n-th request of a name selects its n-th column. A name
+     * requested more often than the header holds it is refused.
+     */
     private static int[] requestedColumns(List<String> header, List<String> requested) {
         int[] columns = new int[requested.size()];
         java.util.Map<String, Integer> next = new java.util.HashMap<>();
         for (int i = 0; i < requested.size(); i++) {
             String name = requested.get(i);
             int first = columnIndex(header, name);
-            int from = next.getOrDefault(name, first);
-            int index = from;
+            int index = next.getOrDefault(name, first);
             while (index < header.size() && !header.get(index).equals(name)) {
                 index++;
             }
-            // more requests than columns of the name: the first again
-            columns[i] = index < header.size() ? index : first;
-            next.put(name, columns[i] + 1);
+            if (index >= header.size()) {
+                long times = requested.stream().filter(name::equals).count();
+                long held = header.stream().filter(name::equals).count();
+                throw new IllegalArgumentException("The column '" + name + "' is requested " + times
+                    + " times, but the table has only " + held + (held == 1 ? " column" : " columns")
+                    + " of that name.");
+            }
+            columns[i] = index;
+            next.put(name, index + 1);
         }
         return columns;
+    }
+
+    /** A cell of a row; a row may be shorter than the header (a working copy), and a missing cell reads as "". */
+    private static String cell(String[] row, int index) {
+        return index < row.length ? row[index] : "";
     }
 
     /** The header index of each position, which must be a column of the header and not repeat. */
@@ -336,7 +350,7 @@ public class SectionReader {
 
     private static boolean matches(String[] row, int[] filterColumns, String[] needles) {
         for (int f = 0; f < filterColumns.length; f++) {
-            if (!row[filterColumns[f]].toLowerCase(Locale.ROOT).contains(needles[f])) {
+            if (!cell(row, filterColumns[f]).toLowerCase(Locale.ROOT).contains(needles[f])) {
                 return false;
             }
         }
@@ -350,7 +364,7 @@ public class SectionReader {
     private static void sort(List<Integer> matching, List<String[]> rows, int column, boolean descending) {
         Object[] keys = new Object[rows.size()];
         for (int index : matching) {
-            keys[index] = sortKey(rows.get(index)[column]);
+            keys[index] = sortKey(cell(rows.get(index), column));
         }
         Comparator<Integer> byValue = (a, b) -> {
             Object x = keys[a];

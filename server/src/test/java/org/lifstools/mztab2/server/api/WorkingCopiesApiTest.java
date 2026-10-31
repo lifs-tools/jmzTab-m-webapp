@@ -200,6 +200,11 @@ class WorkingCopiesApiTest {
         mvc.perform(get(copy + "/tables/sml").param("columns", "SML_ID", name, name))
             .andExpect(jsonPath("$.columnPositions[2]").value(20))
             .andExpect(jsonPath("$.rows[0].cells[2]").value("SP"));
+        // a name requested more often than the header holds it is refused, not answered with its first copy
+        mvc.perform(get(copy + "/tables/sml").param("columns", name, name, name))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("The column '" + name + "' is requested 3 times, but the table "
+                + "has only 2 columns of that name."));
         // sort and filter by position address the second copy too
         mvc.perform(get(copy + "/tables/sml").param("positions", "20").param("sortPosition", "20")
                 .param("positionFilter", "20:sp"))
@@ -241,7 +246,10 @@ class WorkingCopiesApiTest {
         mvc.perform(get(copy + "/columns/SFH/duplicates")).andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get(copy + "/columns/SML/duplicates")).andExpect(status().isBadRequest());
-        mvc.perform(get(copy + "/columns/smh/duplicates")).andExpect(status().isBadRequest());
+        // the same case rules as the tables: smh is SMH
+        mvc.perform(get(copy + "/columns/smh/duplicates")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].positions[1]").value(20));
+        mvc.perform(get(copy + "/columns/sml/duplicates")).andExpect(status().isBadRequest());
 
         // edits that would name the column at the wrong position, or create another duplicate, are refused
         mvc.perform(post(copy + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(0,
@@ -306,6 +314,36 @@ class WorkingCopiesApiTest {
             .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("line 3")));
         mvc.perform(post(BASE).param("validation", id).param("encoding", "WINDOWS_1252"))
             .andExpect(status().isCreated());
+    }
+
+    /**
+     * A file over a cap of the editor is refused with 422 {@code too_large}, and no copy is left. The files are
+     * generated here: the example with one line of 20,001 cells, and the example followed by empty lines up to
+     * 2,000,001 lines.
+     */
+    @Test
+    void fileOverACapIs422TooLarge() throws Exception {
+        String example = new String(example(), StandardCharsets.UTF_8);
+        String wide = example + "COM" + "\tx".repeat(20_000) + "\n";
+        String id = validation("wide.mzTab", wide.getBytes(StandardCharsets.UTF_8));
+        long wideLine = example.lines().count() + 1;
+        mvc.perform(post(BASE).param("validation", id)).andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error").value("too_large"))
+            .andExpect(jsonPath("$.message").value("Line " + wideLine + " has more than 20,000 cells. The editor "
+                + "opens files with up to 20,000 cells per line."));
+        mvc.perform(get(BASE + "/" + id)).andExpect(status().isNotFound());
+
+        java.io.ByteArrayOutputStream tall = new java.io.ByteArrayOutputStream();
+        tall.write(example());
+        for (long n = example.lines().count(); n < 2_000_001; n++) {
+            tall.write('\n');
+        }
+        String tallId = validation("tall.mzTab", tall.toByteArray());
+        mvc.perform(post(BASE).param("validation", tallId)).andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error").value("too_large"))
+            .andExpect(jsonPath("$.message").value("The file has more than 2,000,000 lines. The editor opens files "
+                + "of up to 2,000,000 lines."));
+        mvc.perform(get(BASE + "/" + tallId)).andExpect(status().isNotFound());
     }
 
     @Test

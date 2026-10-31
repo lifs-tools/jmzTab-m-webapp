@@ -429,6 +429,7 @@ Under `/rest/v2/working-copies`:
   - column names, which must be in the header;
   - cell text, which must contain no tab or newline outside split operations;
   - batch size.
+- **Caps of a copy [final review, 2026-10-31].** A copy has at most 2,000,000 lines and a line at most 20,000 cells. A file over either cap is refused while it is read (422, error code `too_large`, a message naming the cap), before the whole file is held anywhere; the import runs in chunks. No edit goes beyond the caps (400). Table reads do not pad short rows: a missing cell reads as empty where it is read. The duplicate-column scan costs at most the cells of each row.
 - **No listing endpoint.** Copies are found only by their id.
 - **Legacy contracts are unchanged.** `/validate`, `/validatePlain`, `/convert` and `/convertPlain` stay as they are.
 - **The TypeScript client is regenerated** from the springdoc spec, and the committed spec file is updated as today.

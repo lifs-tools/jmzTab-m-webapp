@@ -138,11 +138,15 @@ class SectionStoreTest {
     @Test
     void columnSelectionFollowsRequestOrder() throws Exception {
         UUID id = finished(LIPIDOMICS).id();
-        TableQuery q = new TableQuery(0, 3, null, false, List.of(), List.of("SML_ID", "SML_ID"));
+        List<String> all = reader.table(id, Section.SML, new TableQuery(0, 1, null, false, List.of(), List.of()))
+            .orElseThrow().allColumns();
+        TableQuery q = new TableQuery(0, 3, null, false, List.of(), List.of(all.get(2), "SML_ID"));
         TablePage page = reader.table(id, Section.SML, q).orElseThrow();
 
-        assertEquals(List.of("SML_ID", "SML_ID"), page.columns());
-        assertEquals(page.rows().get(0).cells().get(0), page.rows().get(0).cells().get(1));
+        assertEquals(List.of(all.get(2), "SML_ID"), page.columns());
+        // a name the header holds once cannot be requested twice
+        assertThrows(IllegalArgumentException.class, () -> reader.table(id, Section.SML,
+            new TableQuery(0, 3, null, false, List.of(), List.of("SML_ID", "SML_ID"))));
     }
 
     @Test
@@ -252,11 +256,12 @@ class SectionStoreTest {
     @Test
     void requestedColumnsAreBounded() throws Exception {
         UUID id = finished(LIPIDOMICS).id();
-        List<String> max = java.util.Collections.nCopies(200, "SML_ID");
+        List<String> all = reader.table(id, Section.SML, new TableQuery(0, 1, null, false, List.of(), List.of()))
+            .orElseThrow().allColumns();
         List<String> tooMany = java.util.Collections.nCopies(201, "SML_ID");
 
-        assertEquals(200, reader.table(id, Section.SML,
-            new TableQuery(0, 1, null, false, List.of(), max)).orElseThrow().columns().size());
+        assertEquals(all.size(), reader.table(id, Section.SML,
+            new TableQuery(0, 1, null, false, List.of(), all)).orElseThrow().columns().size());
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> reader.table(id,
             Section.SML, new TableQuery(0, 1, null, false, List.of(), tooMany)));
         assertEquals("At most 200 columns can be requested.", e.getMessage());

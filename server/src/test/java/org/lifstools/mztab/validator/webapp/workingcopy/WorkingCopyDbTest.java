@@ -193,4 +193,43 @@ class WorkingCopyDbTest {
             assertTrue(db.peekRedo().isEmpty());
         }
     }
+
+    /** {@code n} empty lines, then (if {@code endless}) empty lines without end. */
+    private static java.io.InputStream newlines(long n, boolean endless) {
+        return new java.io.InputStream() {
+            private long left = n;
+
+            @Override
+            public int read() {
+                if (left > 0 || endless) {
+                    left--;
+                    return '\n';
+                }
+                return -1;
+            }
+        };
+    }
+
+    @Test
+    void importStreamsUpToTheLineCapAndNoEditGoesBeyondIt() throws Exception {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("cap.db"))) {
+            db.importFrom(new ByteArrayInputStream("\uFEFFMTD\ta\nCOM\tb".getBytes(StandardCharsets.UTF_8)),
+                SourceEncoding.UTF_8);
+            assertEquals(2, db.lineCount());
+            assertTrue(db.bom());
+            assertEquals("COM\tb", db.line(2).orElseThrow().text());
+
+            // an oversized file is refused while it is read, and the import leaves nothing of it
+            assertThrows(TooLargeException.class, () -> db.importFrom(newlines(0, true), SourceEncoding.UTF_8));
+            assertEquals(2, db.lineCount());
+            assertEquals("COM\tb", db.line(2).orElseThrow().text());
+
+            db.importFrom(newlines(CopyText.MAX_LINES, false), SourceEncoding.UTF_8);
+            assertEquals(CopyText.MAX_LINES, db.lineCount());
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> db.insertLines(1, List.of(CopyText.line(0, "COM\tx", "\n"))));
+            assertEquals("A working copy has at most 2,000,000 lines.", e.getMessage());
+            assertEquals(CopyText.MAX_LINES, db.lineCount());
+        }
+    }
 }

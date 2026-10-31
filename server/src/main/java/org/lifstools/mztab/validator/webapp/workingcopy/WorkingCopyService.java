@@ -254,6 +254,8 @@ public class WorkingCopyService {
      * @throws NoSuchWorkingCopyException if there is no such validation
      * @throws NotUtf8Exception for {@link SourceEncoding#UTF_8} and an upload
      * that is not UTF-8; nothing is stored
+     * @throws TooLargeException for a file of more than {@value CopyText#MAX_LINES} lines or a line of more than
+     * {@value CopyText#MAX_CELLS} cells, found while it is read; nothing is stored
      * @throws StorageFullException if less than three times the upload size is free
      * @throws IllegalArgumentException if the engine cannot convert a JSON upload
      */
@@ -288,19 +290,25 @@ public class WorkingCopyService {
             if (storageProperties.getMaxTotalBytes() - storage.totalBytes() < CREATE_OVERHEAD * size) {
                 throw new StorageFullException();
             }
-            CopyText.Parsed parsed;
+            Path text;
+            SourceEncoding textEncoding;
             if (MzTabVersionDetector.isJson(upload)) {
                 converted = toTsv(upload);
                 // the engine writes UTF-8
-                parsed = read(converted, SourceEncoding.UTF_8);
+                text = converted;
+                textEncoding = SourceEncoding.UTF_8;
             } else {
-                parsed = read(upload, encoding);
+                text = upload;
+                textEncoding = encoding;
             }
             // a copy whose creation broke off earlier is replaced
             storage.delete(id, SLOT.WORKINGCOPY);
             try {
                 WorkingCopyDb db = WorkingCopyDb.open(storage.localFile(id, SLOT.WORKINGCOPY, DB_FILE));
-                db.importLines(parsed);
+                // streamed, and refused while it is read if it exceeds a cap; the slot is then deleted below
+                try (InputStream in = Files.newInputStream(text)) {
+                    db.importFrom(in, textEncoding);
+                }
                 db.setMeta(META_GENERATION, UUID.randomUUID().toString());
                 db.setMeta(META_FILE_NAME, record.fileName());
                 db.setMeta(META_ENCODING, encoding.name());
@@ -315,7 +323,7 @@ public class WorkingCopyService {
                 db.setMeta(META_COMPLETE, "true");
                 storage.touch(id);
                 return info(id, db);
-            } catch (RuntimeException | JsonProcessingException e) {
+            } catch (RuntimeException | IOException e) {
                 deleteSlotQuietly(id);
                 throw e;
             }
@@ -335,12 +343,6 @@ public class WorkingCopyService {
         List<ValidationMessage> messages = ((Conversion.Rejected) conversion).messages();
         throw new IllegalArgumentException("The JSON file could not be converted to tab separated mzTab-M: "
             + (messages.isEmpty() ? "no reason given." : messages.get(0).getMessage()));
-    }
-
-    private static CopyText.Parsed read(Path file, SourceEncoding encoding) throws IOException {
-        try (InputStream in = Files.newInputStream(file)) {
-            return CopyText.read(in, encoding);
-        }
     }
 
     /**

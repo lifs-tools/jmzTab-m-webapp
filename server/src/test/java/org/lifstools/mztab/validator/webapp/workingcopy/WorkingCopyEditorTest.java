@@ -587,4 +587,18 @@ class WorkingCopyEditorTest {
         apply(new SetCell(305, 2, "q\"\\\u0001\u001f\"x"), new InsertLine(1, "MTD\t\"k\"\t\u0002"));
         assertEstimateCoversStoredHistory();
     }
+
+    @Test
+    void noEditGoesBeyondTheCellCap() throws Exception {
+        String wide = "COM" + "\tx".repeat(CopyText.MAX_CELLS);
+        String before = text();
+        IllegalArgumentException raw = assertThrows(IllegalArgumentException.class,
+            () -> apply(new SetRawLine(1, wide)));
+        assertEquals("A line has at most 20,000 cells", raw.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLine(1, wide)));
+        assertEquals(before, text());
+        // up to the cap is fine
+        apply(new SetRawLine(1, "COM" + "\tx".repeat(CopyText.MAX_CELLS - 1)));
+        assertEquals(CopyText.MAX_CELLS, db.line(1).orElseThrow().cells().size());
+    }
 }

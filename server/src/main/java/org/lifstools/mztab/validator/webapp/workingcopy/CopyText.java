@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Reads and writes the exact text of a file as lines of cells. Only text is
@@ -41,6 +42,12 @@ public final class CopyText {
 
     private static final Set<String> SECTIONS = Set.of("MTD", "SMH", "SML", "SFH", "SMF", "SEH", "SME", "COM");
     private static final byte[] BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+
+    /** The most lines a working copy has: an upload with more is refused, and no edit goes beyond it. */
+    public static final int MAX_LINES = 2_000_000;
+
+    /** The most cells (tab-separated parts, the prefix included) one line of a working copy has. */
+    public static final int MAX_CELLS = 20_000;
 
     /** The parsed file. */
     public record Parsed(boolean bom, List<Line> lines) {
@@ -61,13 +68,28 @@ public final class CopyText {
     }
 
     /**
-     * Splits the input on CRLF, LF and CR, keeping each ending. Only a leading
-     * UTF-8 byte order mark is stripped (and remembered), and only for UTF-8.
-     *
-     * @throws NotUtf8Exception for {@link SourceEncoding#UTF_8} when a line is
-     * not valid UTF-8
+     * As {@link #read(InputStream, SourceEncoding, Consumer)}, collecting the lines. For small inputs and tests; the
+     * service streams.
      */
     public static Parsed read(InputStream in, SourceEncoding enc) throws IOException {
+        List<Line> lines = new ArrayList<>();
+        boolean bom = read(in, enc, lines::add);
+        return new Parsed(bom, lines);
+    }
+
+    /**
+     * Splits the input on CRLF, LF and CR, keeping each ending, and hands each line to {@code sink} as soon as it
+     * is complete. Only a leading UTF-8 byte order mark is stripped (and remembered), and only for UTF-8. The caps
+     * are checked while reading, so an oversized input is refused without being read to its end: a line is
+     * refused at its {@value #MAX_CELLS}th tab, the file at line {@value #MAX_LINES} + 1.
+     *
+     * @return whether the input started with a byte order mark
+     * @throws NotUtf8Exception for {@link SourceEncoding#UTF_8} when a line is
+     * not valid UTF-8
+     * @throws TooLargeException for more than {@value #MAX_LINES} lines or more than {@value #MAX_CELLS} cells in
+     * a line
+     */
+    public static boolean read(InputStream in, SourceEncoding enc, Consumer<Line> sink) throws IOException {
         Charset charset = switch (enc) {
             case UTF_8 -> StandardCharsets.UTF_8;
             case WINDOWS_1252 -> Charset.forName("windows-1252");
@@ -76,12 +98,12 @@ public final class CopyText {
         // CR and LF never occur inside a multi-byte UTF-8 sequence, so lines can
         // be cut on the bytes and decoded one by one (which gives the bad line).
         BufferedInputStream bin = new BufferedInputStream(in, 1 << 16);
-        List<Line> lines = new ArrayList<>();
         ByteArrayOutputStream cur = new ByteArrayOutputStream();
         boolean bom = false;
         boolean first = true;
         int c;
         long n = 0;
+        int tabs = 0;
         while ((c = bin.read()) != -1) {
             if (c == '\n' || c == '\r') {
                 String eol = "\n";
@@ -95,8 +117,12 @@ public final class CopyText {
                         bin.reset();
                     }
                 }
+                if (n >= MAX_LINES) {
+                    throw TooLargeException.lines();
+                }
                 byte[] raw = cur.toByteArray();
                 cur.reset();
+                tabs = 0;
                 if (first) {
                     first = false;
                     if (enc == SourceEncoding.UTF_8 && startsWithBom(raw)) {
@@ -104,8 +130,12 @@ public final class CopyText {
                         raw = Arrays.copyOfRange(raw, 3, raw.length);
                     }
                 }
-                lines.add(line(++n, decode(raw, charset, enc, n), eol));
+                n++;
+                sink.accept(line(n, decode(raw, charset, enc, n), eol));
             } else {
+                if (c == '\t' && ++tabs >= MAX_CELLS) {
+                    throw TooLargeException.cells(n + 1);
+                }
                 cur.write(c);
             }
         }
@@ -118,10 +148,14 @@ public final class CopyText {
             }
             // an empty input has no lines; a BOM alone gives no line either
             if (raw.length > 0) {
-                lines.add(line(++n, decode(raw, charset, enc, n), ""));
+                if (n >= MAX_LINES) {
+                    throw TooLargeException.lines();
+                }
+                n++;
+                sink.accept(line(n, decode(raw, charset, enc, n), ""));
             }
         }
-        return new Parsed(bom, lines);
+        return bom;
     }
 
     private static boolean startsWithBom(byte[] raw) {

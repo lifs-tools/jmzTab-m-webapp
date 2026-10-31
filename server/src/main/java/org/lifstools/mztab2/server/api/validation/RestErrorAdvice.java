@@ -32,6 +32,7 @@ import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
 import org.lifstools.mztab.validator.webapp.workingcopy.StaleRevisionException;
+import org.lifstools.mztab.validator.webapp.workingcopy.TooLargeException;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +83,9 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     /** The {@code error} of a 422 for a file that is not UTF-8. */
     public static final String NOT_UTF8 = "not_utf8";
 
+    /** The {@code error} of a 422 for a file over a cap of the editor (lines, or cells in a line). */
+    public static final String TOO_LARGE_FOR_EDITOR = "too_large";
+
     /** When a client may retry a request that found no free slot. */
     static final String RETRY_AFTER_SECONDS = "5";
 
@@ -113,6 +117,14 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
         return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
             .body(new ErrorResponse(status, NOT_UTF8, e.getMessage(), request.getRequestURI()));
+    }
+
+    /** A copy of a file over a cap of the editor; {@code error} is {@value #TOO_LARGE_FOR_EDITOR}, the message names the cap. */
+    @ExceptionHandler(TooLargeException.class)
+    public ResponseEntity<ErrorResponse> tooLarge(TooLargeException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
+            .body(new ErrorResponse(status, TOO_LARGE_FOR_EDITOR, e.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

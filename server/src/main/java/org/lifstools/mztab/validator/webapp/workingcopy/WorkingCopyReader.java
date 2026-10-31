@@ -16,8 +16,8 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,8 +44,11 @@ import org.springframework.stereotype.Component;
  * copy.</li>
  * <li>Tables: the first {@code SMH}/{@code SFH}/{@code SEH} line is the
  * header, every {@code SML}/{@code SMF}/{@code SME} line a row; the prefix is
- * not a column. A row shorter than the header shows empty cells, cells past
- * the header are not shown (the lines view shows them).
+ * not a column. A row shorter than the header shows empty cells (read as empty
+ * where they are missing, the row is not padded), cells past the header are
+ * not shown (the lines view shows them). The copy's caps
+ * ({@link CopyText#MAX_LINES} lines, {@link CopyText#MAX_CELLS} cells a line)
+ * bound every read.
  * {@link org.lifstools.mztab.validator.webapp.sections.TableRow#lineNumber()}
  * is the row's line.</li>
  * </ul>
@@ -106,34 +109,30 @@ public class WorkingCopyReader {
     private static Optional<TablePage> table(WorkingCopyDb db, Section section, TableQuery query,
         PositionQuery at) {
         String header = HEADER.get(section);
-        List<Line> lines = db.linesOf(header, section.name());
-        List<String> columns = null;
+        List<List<String>> columns = new ArrayList<>(1);
         List<String[]> rows = new ArrayList<>();
         List<Long> numbers = new ArrayList<>();
-        for (Line l : lines) {
-            List<String> cells = l.cells().subList(1, l.cells().size());
+        // streamed: each row is kept once, as its own cells; rows are not padded to the header
+        db.forEachLineOf(header, section.name(), l -> {
+            List<String> cells = l.cells();
             if (l.section().equals(header)) {
-                if (columns == null) {
-                    columns = cells;
+                if (columns.isEmpty()) {
+                    columns.add(cells.subList(1, cells.size()));
                 }
             } else {
-                rows.add(cells.toArray(String[]::new));
+                String[] row = new String[cells.size() - 1];
+                for (int i = 1; i < cells.size(); i++) {
+                    row[i - 1] = cells.get(i);
+                }
+                rows.add(row);
                 numbers.add(l.number());
             }
-        }
-        if (columns == null) {
+        });
+        if (columns.isEmpty()) {
             return Optional.empty();
         }
-        for (int i = 0; i < rows.size(); i++) {
-            String[] row = rows.get(i);
-            if (row.length < columns.size()) {
-                String[] padded = Arrays.copyOf(row, columns.size());
-                Arrays.fill(padded, row.length, padded.length, "");
-                rows.set(i, padded);
-            }
-        }
         long[] lineNumbers = numbers.stream().mapToLong(Long::longValue).toArray();
-        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query, at));
+        return Optional.of(SectionReader.tablePage(section, columns.get(0), rows, lineNumbers, query, at));
     }
 
     /**
@@ -141,61 +140,134 @@ public class WorkingCopyReader {
      * empty header cells name no column. Only the tab layout is used: a value is any cell that is neither empty
      * nor {@code null}.
      *
-     * @param header SMH, SFH or SEH
+     * @param header SMH, SFH or SEH, in any case (as the tables endpoint accepts sml)
      * @return empty if the header has no duplicate names or the copy has no such header
      * @throws IllegalArgumentException for another header
      */
     public List<DuplicateColumn> duplicates(UUID id, String header) {
-        String rows = header == null ? null : ROWS.get(header);
+        String name = header == null ? null : header.toUpperCase(Locale.ROOT);
+        String rows = name == null ? null : ROWS.get(name);
         if (rows == null) {
             throw new IllegalArgumentException("header must be SMH, SFH or SEH.");
         }
-        return copies.guard(id, () -> duplicates(copies.db(id).linesOf(header, rows), header));
+        return copies.guard(id, () -> {
+            Collector c = new Collector(name);
+            // one statement, so one revision of the text
+            copies.db(id).forEachLineOf(name, rows, c::accept);
+            return c.result();
+        });
     }
 
-    private static List<DuplicateColumn> duplicates(List<Line> lines, String header) {
-        Line head = lines.stream().filter(l -> l.section().equals(header)).findFirst().orElse(null);
-        if (head == null) {
-            return List.of();
+    /** Package-private for tests: the duplicates of the first {@code header} line among {@code lines}. */
+    static List<DuplicateColumn> duplicates(String header, Iterable<Line> lines) {
+        Collector c = new Collector(header);
+        lines.forEach(c::accept);
+        return c.result();
+    }
+
+    /** Scans the rows once the first header line is known; rows before it (a malformed file) wait for it. */
+    private static final class Collector {
+
+        private final String header;
+        private final List<Line> early = new ArrayList<>(0);
+        private Scan scan;
+
+        Collector(String header) {
+            this.header = header;
         }
-        Map<String, List<Integer>> byName = new java.util.LinkedHashMap<>();
-        for (int i = 1; i < head.cells().size(); i++) {
-            // empty cells (often trailing tabs) name no column
-            if (!head.cells().get(i).isEmpty()) {
-                byName.computeIfAbsent(head.cells().get(i), k -> new ArrayList<>()).add(i);
-            }
-        }
-        List<DuplicateColumn> found = new ArrayList<>();
-        for (Map.Entry<String, List<Integer>> e : byName.entrySet()) {
-            List<Integer> positions = e.getValue();
-            if (positions.size() < 2) {
-                continue;
-            }
-            long conflicting = 0;
-            List<DuplicateColumn.Sample> samples = new ArrayList<>();
-            for (Line l : lines) {
-                if (l.section().equals(header)) {
-                    continue;
+
+        void accept(Line l) {
+            if (l.section().equals(header)) {
+                if (scan == null) {
+                    scan = new Scan(l);
+                    early.forEach(scan::row);
+                    early.clear();
                 }
-                List<String> values = new ArrayList<>(positions.size());
-                java.util.Set<String> distinct = new java.util.HashSet<>();
-                for (int p : positions) {
-                    String v = p < l.cells().size() ? l.cells().get(p) : "";
-                    values.add(v);
-                    if (!WorkingCopyEditor.noValue(v)) {
-                        distinct.add(v);
+            } else if (scan == null) {
+                early.add(l);
+            } else if (!scan.names.isEmpty()) {
+                scan.row(l);
+            }
+        }
+
+        List<DuplicateColumn> result() {
+            return scan == null ? List.of() : scan.result();
+        }
+    }
+
+    /**
+     * One pass over the rows for every repeated name of a header. A row costs at most its own cells: the
+     * positions of a name are ascending, so the scan of a row stops at its end, and a row allocates nothing
+     * unless it becomes a sample.
+     */
+    private static final class Scan {
+
+        final List<String> names = new ArrayList<>();
+        final List<int[]> positions = new ArrayList<>();
+        final long[] conflicting;
+        final List<List<DuplicateColumn.Sample>> samples = new ArrayList<>();
+
+        Scan(Line head) {
+            Map<String, List<Integer>> byName = new java.util.LinkedHashMap<>();
+            for (int i = 1; i < head.cells().size(); i++) {
+                // empty cells (often trailing tabs) name no column
+                if (!head.cells().get(i).isEmpty()) {
+                    byName.computeIfAbsent(head.cells().get(i), k -> new ArrayList<>()).add(i);
+                }
+            }
+            byName.forEach((name, at) -> {
+                if (at.size() >= 2) {
+                    names.add(name);
+                    positions.add(at.stream().mapToInt(Integer::intValue).toArray());
+                    samples.add(new ArrayList<>());
+                }
+            });
+            conflicting = new long[names.size()];
+        }
+
+        void row(Line l) {
+            List<String> cells = l.cells();
+            for (int n = 0; n < names.size(); n++) {
+                int[] at = positions.get(n);
+                String first = null;
+                boolean differ = false;
+                for (int p : at) {
+                    if (p >= cells.size()) {
+                        // a missing cell holds no value, nor do the later ones
+                        break;
+                    }
+                    String v = cells.get(p);
+                    if (WorkingCopyEditor.noValue(v)) {
+                        continue;
+                    }
+                    if (first == null) {
+                        first = v;
+                    } else if (!first.equals(v)) {
+                        differ = true;
+                        break;
                     }
                 }
-                if (distinct.size() >= 2) {
-                    conflicting++;
-                    if (samples.size() < MAX_DUPLICATE_SAMPLES) {
-                        samples.add(new DuplicateColumn.Sample(l.number(), values));
+                if (differ) {
+                    conflicting[n]++;
+                    if (samples.get(n).size() < MAX_DUPLICATE_SAMPLES) {
+                        List<String> values = new ArrayList<>(at.length);
+                        for (int p : at) {
+                            values.add(p < cells.size() ? cells.get(p) : "");
+                        }
+                        samples.get(n).add(new DuplicateColumn.Sample(l.number(), values));
                     }
                 }
             }
-            found.add(new DuplicateColumn(e.getKey(), List.copyOf(positions), conflicting, samples));
         }
-        return found;
+
+        List<DuplicateColumn> result() {
+            List<DuplicateColumn> found = new ArrayList<>(names.size());
+            for (int n = 0; n < names.size(); n++) {
+                found.add(new DuplicateColumn(names.get(n), java.util.Arrays.stream(positions.get(n)).boxed().toList(),
+                    conflicting[n], List.copyOf(samples.get(n))));
+            }
+            return found;
+        }
     }
 
     /**
@@ -224,10 +296,11 @@ public class WorkingCopyReader {
 
     private static List<MetadataEntry> metadataEntries(WorkingCopyDb db) {
         List<MetadataEntry> entries = new ArrayList<>();
-        for (Line l : db.linesOf("MTD", "MTD")) {
+        // streamed: only the key and value of each line are kept
+        db.forEachLineOf("MTD", "MTD", l -> {
             List<String> c = l.cells();
             entries.add(new MetadataEntry((int) l.number(), c.size() > 1 ? c.get(1) : "", c.size() > 2 ? c.get(2) : ""));
-        }
+        });
         return entries;
     }
 }
