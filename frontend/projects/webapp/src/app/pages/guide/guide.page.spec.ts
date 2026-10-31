@@ -50,6 +50,7 @@ describe('GuidePage', () => {
       'Fix this file',
       'Open a file to fix',
       'Download resolution report',
+      'Download report of the upload',
       'Resolve duplicate column',
       'Check CV rules',
       'Re-encode from Windows-1252',
@@ -86,6 +87,17 @@ describe('GuidePage', () => {
     // the caps of a file the editor opens
     expect(text).toContain('up to 2,000,000 lines with up to 20,000 cells in a line');
     expect(text).toContain('days after your last change');
+  });
+
+  it('says that the editor and the result page give the same access to the file', async () => {
+    const text = (await render()).textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain('Anyone who has the address of the result page or of the editor can open and change the file');
+    expect(text).not.toContain('Anyone who has the address of the editor can');
+  });
+
+  it('says that the report in the editor is of the upload', async () => {
+    const text = (await render()).textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain('describes your upload as it was validated, with its line numbers, not the corrected file');
   });
 
   it('names the retention of this instance', async () => {

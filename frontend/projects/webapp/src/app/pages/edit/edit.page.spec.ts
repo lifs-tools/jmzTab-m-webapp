@@ -369,6 +369,9 @@ describe('EditPage', () => {
     expect(el.querySelector('[data-testid=download-tsv]')?.getAttribute('href')).toBe('rest/v2/working-copies/abc/file?format=tsv');
     expect(el.querySelector('[data-testid=download-original]')?.getAttribute('href')).toBe('rest/v2/working-copies/abc/original');
     expect(el.querySelector('[data-testid=download-report]')?.getAttribute('href')).toBe('rest/v2/validations/abc/report?format=md');
+    // the report is of the upload, with its line numbers, not of the corrected copy
+    expect(el.querySelector('[data-testid=download-report]')?.textContent?.trim()).toBe('Download report of the upload');
+    expect(el.querySelector('[data-testid=help]')?.textContent).toContain('Download report of the upload lists the problems of your upload');
 
     // a 409 (the copy changed meanwhile) reloads it, which disables the button
     const createObjectURL = vi.fn(() => 'blob:x');

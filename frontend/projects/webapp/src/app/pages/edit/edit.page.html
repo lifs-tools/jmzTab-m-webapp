@@ -114,7 +114,7 @@
             Download JSON
           </button>
           <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
-          <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()">Download resolution report</a>
+          <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()">Download report of the upload</a>
           @if (!store.jsonReady()) {
             <span class="lifs-note">JSON is offered once the file is checked without errors.</span>
           }
@@ -131,6 +131,10 @@
             </li>
             <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
             <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
+            <li>
+              <b>Download report of the upload</b> lists the problems of your upload, with its line numbers, for the
+              tool that wrote it. It does not describe your changes.
+            </li>
           </ul>
           <p><a routerLink="/guide">Read the guide: Fixing a file</a></p>
         </details>
