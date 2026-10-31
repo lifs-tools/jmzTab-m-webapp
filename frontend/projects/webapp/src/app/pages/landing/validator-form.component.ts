@@ -14,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, exhaustMap, filter, of, switchMap, take, timer } from 'rxjs';
 
 import { ValidationProfile } from '../../api/models/validation-profile';
 import { ValidationRecord } from '../../api/models/validation-record';
@@ -22,6 +22,8 @@ import { ExamplesService } from '../../api/services/examples.service';
 import { ValidationProfilesService } from '../../api/services/validation-profiles.service';
 import { ValidationsService } from '../../api/services/validations.service';
 import { AppInfoStore } from '../../core/app-info.store';
+import { canFix } from '../../core/fixable';
+import { quietRequest } from '../../core/http-error.interceptor';
 import { detectMzTabVersion, lineOf } from '../../core/mztab-version';
 import { defaultProfileFor } from '../../core/validation-defaults';
 import {
@@ -34,6 +36,8 @@ import {
 type Level = 'INFO' | 'WARN' | 'ERROR';
 
 const NONE = 'none';
+/** "Open a file to fix" reads the validation at this interval until its result is final. */
+export const FIX_POLL_MS = 1000;
 const CUSTOM = '__custom__';
 
 /** Human-readable size, e.g. "1.2 MB". */
@@ -104,6 +108,8 @@ export class ValidatorFormComponent {
 
   protected readonly dragging = signal(false);
   protected readonly submitting = signal(false);
+  /** Which button submitted: "Open a file to fix" waits for the result, then opens the editor. */
+  protected readonly opening = signal(false);
   protected readonly error = signal<string | null>(null);
   /** True while the chosen file's version is being read. */
   protected readonly detecting = signal(false);
@@ -247,6 +253,15 @@ export class ValidatorFormComponent {
   }
 
   protected submit(): void {
+    this.submitAs(false);
+  }
+
+  /** "Open a file to fix": submits like Validate, then opens the editor once the result is final. */
+  protected openToFix(): void {
+    this.submitAs(true);
+  }
+
+  private submitAs(fix: boolean): void {
     const file = this.file();
     if (!file || !this.canSubmit()) return;
     const mapping = this.mappingFile();
@@ -268,6 +283,7 @@ export class ValidatorFormComponent {
         validationProfile: mapping ? undefined : this.validationProfile(),
         body,
       }),
+      fix,
     );
   }
 
@@ -291,18 +307,33 @@ export class ValidatorFormComponent {
     );
   }
 
-  private run(request: Observable<ValidationRecord>): void {
+  private run(request: Observable<ValidationRecord>, fix = false): void {
     this.submitting.set(true);
+    this.opening.set(fix);
     this.error.set(null);
-    request.subscribe({
+    request.pipe(switchMap((record) => (fix ? this.awaitFinal(record) : of(record)))).subscribe({
       next: (record) => {
-        this.router.navigate(['/result', record.id]);
+        // a result that cannot be opened (failed without messages) is shown as after Validate
+        this.router.navigate(fix && canFix(record) ? ['/edit', record.id] : ['/result', record.id]);
       },
       error: (err: unknown) => {
         this.submitting.set(false);
+        this.opening.set(false);
         this.error.set(this.messageFor(err));
       },
     });
+  }
+
+  /** The record once FINISHED or FAILED; network failures while waiting are tolerated. */
+  private awaitFinal(created: ValidationRecord): Observable<ValidationRecord> {
+    const id = created.id ?? '';
+    return timer(FIX_POLL_MS, FIX_POLL_MS).pipe(
+      exhaustMap(() =>
+        this.validations.getValidation({ id }, quietRequest()).pipe(catchError(() => of(undefined))),
+      ),
+      filter((r): r is ValidationRecord => r?.status === 'FINISHED' || r?.status === 'FAILED'),
+      take(1),
+    );
   }
 
   private messageFor(err: unknown): string {

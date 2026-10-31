@@ -3,15 +3,17 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
 
 import { ValidationRecord } from '../../api/models/validation-record';
+import { canFix } from '../../core/fixable';
 
 const LEVELS = { INFO: 'Info', WARN: 'Warning', ERROR: 'Error' } as const;
 
 /** Eyebrow, file name, parameter badges and the Download / Delete actions. */
 @Component({
   selector: 'app-result-header',
-  imports: [DatePipe, MatButtonModule, MatMenuModule, MatTooltipModule],
+  imports: [DatePipe, MatButtonModule, MatMenuModule, MatTooltipModule, RouterLink],
   templateUrl: './result-header.component.html',
   styleUrl: './result-header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +39,8 @@ export class ResultHeaderComponent {
     const s = this.record().status;
     return s === 'FINISHED' || s === 'FAILED';
   });
+  /** "Fix this file": the editor creates the working copy from the stored upload when it opens. */
+  protected readonly fixable = computed(() => canFix(this.record()));
   /** Relative to `<base href>`, so it works under any servlet context path. */
   protected readonly reportBase = computed(() => `rest/v2/validations/${this.record().id}/report`);
 }

@@ -75,3 +75,9 @@ mark {
   background: var(--lifs-warn-bg);
   color: var(--lifs-warn);
 }
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

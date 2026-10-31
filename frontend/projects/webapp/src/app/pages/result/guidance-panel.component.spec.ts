@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { DocTarget } from './message-groups';
-import { GuidancePanelComponent } from './guidance-panel.component';
+import { GuidancePanelComponent, QuickFixState } from './guidance-panel.component';
 
 const MESSAGES: ValidationMessage[] = [
   {
@@ -39,13 +39,19 @@ const GUIDANCE: Guidance = {
   template: `<app-guidance-panel
     [guidance]="guidance()"
     [messages]="messages()"
+    [quickFixState]="quickFixState()"
+    [headers]="headers()"
     (jump)="jumped = $event"
+    (fix)="fixed = $event"
   />`,
 })
 class HostComponent {
   readonly guidance = signal<Guidance>(GUIDANCE);
   readonly messages = signal<readonly ValidationMessage[]>(MESSAGES);
+  readonly quickFixState = signal<QuickFixState | null>(null);
+  readonly headers = signal<ReadonlyMap<string, readonly string[]> | null>(null);
   jumped: DocTarget | null = null;
+  fixed: { fixId: string; all: boolean } | null = null;
 }
 
 describe('GuidancePanelComponent', () => {
@@ -139,6 +145,56 @@ describe('GuidancePanelComponent', () => {
       tab: 'features',
       rowIndex: 0,
       column: 'abundance_assay[1]',
+    });
+  });
+
+  describe('in the editor', () => {
+    function inEditor(over: Partial<Guidance>, state: QuickFixState, messages: readonly ValidationMessage[] = MESSAGES) {
+      const ctx = render(over, messages);
+      ctx.fixture.componentInstance.quickFixState.set(state);
+      ctx.fixture.detectChanges();
+      return ctx;
+    }
+
+    it('offers the quick fix as a button instead of the hint', () => {
+      const { fixture, el, text } = inEditor({ quickFix: 'remove-empty-parameter' }, 'ready');
+      expect(text()).not.toContain('Open the file in the editor to use the quick fix');
+      el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
+      expect(fixture.componentInstance.fixed).toEqual({ fixId: 'remove-empty-parameter', all: false });
+      const all = el.querySelector<HTMLButtonElement>('button.quick-fix-all')!;
+      expect(all.textContent?.trim()).toBe('Fix all 3 like this');
+      all.click();
+      expect(fixture.componentInstance.fixed).toEqual({ fixId: 'remove-empty-parameter', all: true });
+    });
+
+    it('fixes one at a time where the fix cannot fix a group', () => {
+      const { el } = inEditor({ quickFix: 'add-missing-metadata' }, 'ready');
+      expect(el.querySelector('button.quick-fix')).toBeTruthy();
+      expect(el.querySelector('button.quick-fix-all')).toBeNull();
+      expect(inEditor({ quickFix: 'normalise-doi', messages: [0] }, 'ready').el.querySelector('button.quick-fix-all')).toBeNull();
+    });
+
+    it('disables the buttons while the latest changes are checked', () => {
+      const { el, text } = inEditor({ quickFix: 'normalise-doi' }, 'checking');
+      expect(el.querySelector<HTMLButtonElement>('button.quick-fix')!.disabled).toBe(true);
+      expect(el.querySelector<HTMLButtonElement>('button.quick-fix-all')!.disabled).toBe(true);
+      expect(text()).toContain('Checking your latest changes…');
+    });
+
+    it('offers no button for re-encoding, which is not a text edit', () => {
+      const { el } = inEditor({ quickFix: 'reencode-latin1' }, 'ready');
+      expect(el.querySelector('button.quick-fix')).toBeNull();
+    });
+
+    it('highlights the cell of a data line by the column index in the header', () => {
+      const line = 'SML	7	PC 34:1	null	12.5';
+      const messages = [{ ...MESSAGES[0], location: { section: 'sml' as const, column: 'abundance_assay[1]', row_index: 6 } }];
+      const { fixture, el } = render({ messages: [0], lines: [{ lineNumber: 12, text: line, truncated: false }] }, messages);
+      // without the header nothing on a data line is the column name
+      expect(el.querySelectorAll('mark').length).toBe(0);
+      fixture.componentInstance.headers.set(new Map([['SML', ['SML_ID', 'chemical_name', 'theoretical_neutral_mass', 'abundance_assay[1]']]]));
+      fixture.detectChanges();
+      expect(Array.from(el.querySelectorAll('mark')).map((m) => m.textContent)).toEqual(['12.5']);
     });
   });
 });

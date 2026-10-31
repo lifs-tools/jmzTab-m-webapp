@@ -14,6 +14,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/result/result.page').then((m) => m.ResultPage),
   },
   {
+    path: 'edit/:id',
+    title: pageTitle('/edit/:id'),
+    loadComponent: () => import('./pages/edit/edit.page').then((m) => m.EditPage),
+  },
+  {
     path: 'about',
     title: pageTitle('/about'),
     loadComponent: () => import('./pages/about/about.page').then((m) => m.AboutPage),

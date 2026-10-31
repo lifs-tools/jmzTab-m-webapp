@@ -29,7 +29,35 @@
 
   <h4>Fix it here</h4>
   <p>{{ guidance().fixHere }}</p>
-  @if (guidance().quickFix) {
+  @if (editorFix(); as fixId) {
+    <div class="quick-actions">
+      <button
+        mat-flat-button
+        type="button"
+        class="quick-fix"
+        [attr.data-fix]="fixId"
+        [disabled]="quickFixState() === 'checking'"
+        (click)="fix.emit({ fixId, all: false })"
+      >
+        Preview the quick fix
+      </button>
+      @if (allCount() > 0) {
+        <button
+          mat-stroked-button
+          type="button"
+          class="quick-fix-all"
+          [attr.data-fix]="fixId"
+          [disabled]="quickFixState() === 'checking'"
+          (click)="fix.emit({ fixId, all: true })"
+        >
+          Fix all {{ allCount() }} like this
+        </button>
+      }
+      @if (quickFixState() === 'checking') {
+        <span class="lifs-note" role="status">Checking your latest changes…</span>
+      }
+    </div>
+  } @else if (guidance().quickFix && quickFixState() === null) {
     <p class="lifs-note quick">Open the file in the editor to use the quick fix</p>
   }
 

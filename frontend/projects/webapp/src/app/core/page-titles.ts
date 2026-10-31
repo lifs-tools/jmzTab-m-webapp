@@ -9,5 +9,8 @@ export function pageTitle(path: string): string {
   if (path.startsWith('/result/') || path.startsWith('/validate/')) {
     return 'mzTab-M Validator · Result';
   }
+  if (path.startsWith('/edit/')) {
+    return 'mzTab-M Validator · Fix a file';
+  }
   return `mzTab-M Validator · ${routes[path] ?? 'Not found'}`;
 }

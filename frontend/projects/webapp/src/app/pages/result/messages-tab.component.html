@@ -50,6 +50,9 @@
           <tr>
             <td>
               <span [class]="'lifs-lvl lifs-lvl--' + row.cls">{{ row.level }}</span>
+              @if (row.isNew) {
+                <span class="new-badge">New</span>
+              }
             </td>
             <td class="mono">{{ row.line }}</td>
             <td>{{ row.category }}</td>
@@ -71,6 +74,9 @@
         <div class="row">
           <span [class]="'lifs-lvl lifs-lvl--' + c.cls">{{ c.level }}</span>
           <span class="fix" [id]="fixId">{{ c.group.headline }}</span>
+          @if (c.isNew) {
+            <span class="new-badge">New</span>
+          }
           @if (c.count > 1) {
             <span class="count">{{ c.count }} occurrences</span>
           }
@@ -95,7 +101,14 @@
         @if (c.group.guidance; as g) {
           <details class="guide">
             <summary>How to fix this</summary>
-            <app-guidance-panel [guidance]="g" [messages]="messages()" (jump)="jumpTo(c.group, $event)" />
+            <app-guidance-panel
+              [guidance]="g"
+              [messages]="messages()"
+              [quickFixState]="quickFixState()"
+              [headers]="headers()"
+              (jump)="jumpTo(c.group, $event)"
+              (fix)="emitFix(g, $event)"
+            />
           </details>
         }
         @if (c.targets) {

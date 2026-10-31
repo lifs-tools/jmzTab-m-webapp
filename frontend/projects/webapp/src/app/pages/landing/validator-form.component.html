@@ -149,14 +149,23 @@
 
   <div class="row">
     <button mat-flat-button type="submit" [disabled]="!canSubmit()">
-      @if (submitting()) {
+      @if (submitting() && !opening()) {
         <mat-spinner diameter="18" aria-label="Submitting" />
       }
       Validate
     </button>
+    <button mat-stroked-button type="button" data-testid="open-to-fix" [disabled]="!canSubmit()" (click)="openToFix()">
+      @if (opening()) {
+        <mat-spinner diameter="18" aria-label="Validating before the editor opens" />
+      }
+      Open a file to fix
+    </button>
     <span class="lifs-note">Semantic checks look up CV terms in EBI OLS.</span>
   </div>
 
+  @if (opening()) {
+    <p class="lifs-note" role="status">Checking the file; the editor opens when the check is done.</p>
+  }
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }

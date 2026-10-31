@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 
 import { AppInfoDto } from '../../api/models/app-info-dto';
 import { ValidationProfile } from '../../api/models/validation-profile';
-import { ValidatorFormComponent } from './validator-form.component';
+import { FIX_POLL_MS, ValidatorFormComponent } from './validator-form.component';
 
 const PROFILES: ValidationProfile[] = [
   {
@@ -464,5 +464,59 @@ describe('ValidatorFormComponent', () => {
     req.flush({ id: 'r1' }, { status: 202, statusText: 'Accepted' });
     await fixture.whenStable();
     expect(navigate).toHaveBeenCalledWith(['/result', 'r1']);
+  });
+
+  describe('Open a file to fix', () => {
+    const fixButton = () => el.querySelector<HTMLButtonElement>('[data-testid=open-to-fix]')!;
+    async function openToFix(): Promise<TestRequest> {
+      fixButton().click();
+      await fixture.whenStable();
+      return http.expectOne((r) => r.url.endsWith('rest/v2/validations') && r.method === 'POST');
+    }
+    const poll = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/v1'));
+    afterEach(() => vi.useRealTimers());
+
+    it('submits like Validate and opens the editor once the result is final', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      const req = await openToFix();
+      vi.useFakeTimers();
+      expect(req.request.params.get('validationProfile')).toBe('mztab-m-2.0-default');
+      expect((req.request.body as FormData).get('file')).toBeTruthy();
+      req.flush({ id: 'v1', status: 'QUEUED' }, { status: 202, statusText: 'Accepted' });
+      fixture.detectChanges();
+      expect(el.textContent).toContain('the editor opens when the check is done');
+      expect(fixButton().disabled).toBe(true);
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS);
+      poll().flush({ id: 'v1', status: 'RUNNING' });
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS);
+      poll().flush({ id: 'v1', status: 'FINISHED', messages: [] });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(navigate).toHaveBeenCalledWith(['/edit', 'v1']);
+      vi.useRealTimers();
+    });
+
+    it('opens a failed result with messages in the editor, one without on the result page', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      const req = await openToFix();
+      vi.useFakeTimers();
+      req.flush({ id: 'v1' }, { status: 202, statusText: 'Accepted' });
+      await vi.advanceTimersByTimeAsync(FIX_POLL_MS);
+      poll().flush({ id: 'v1', status: 'FAILED', messages: [] });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(navigate).toHaveBeenCalledWith(['/result', 'v1']);
+      vi.useRealTimers();
+    });
+
+    it('shows the inline error, as Validate does, when the upload is refused', async () => {
+      await render();
+      await choose('input[data-testid=file-input]', mzTab());
+      (await openToFix()).flush('', { status: 413, statusText: 'Payload Too Large' });
+      fixture.detectChanges();
+      expect(el.querySelector('[role=alert]')?.textContent).toContain('The file is larger than 64 MB.');
+      expect(fixButton().disabled).toBe(false);
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 });

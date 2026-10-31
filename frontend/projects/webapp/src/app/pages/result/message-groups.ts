@@ -99,8 +99,8 @@ export function groupMessages(
   return LEVEL_ORDER.flatMap((level) => all.filter((g) => g.level === level));
 }
 
-/** The prefix before the first `[`, else `general`. */
-function groupOf(key: string): string {
+/** The metadata group of a key: the prefix before the first `[`, else `general` (as the server groups). */
+export function groupOf(key: string): string {
   const bracket = key.indexOf('[');
   return bracket > 0 ? key.slice(0, bracket) : 'general';
 }

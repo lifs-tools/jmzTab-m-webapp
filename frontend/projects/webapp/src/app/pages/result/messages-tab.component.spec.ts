@@ -1,7 +1,9 @@
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { ValidationMessage } from '../../api/models/validation-message';
-import { MessagesTabComponent } from './messages-tab.component';
+import { FixRequest, MessagesTabComponent, ShowRequest } from './messages-tab.component';
+import { Guidance } from '../../api/models/guidance';
 
 function msg(i: number, over: Partial<ValidationMessage> = {}): ValidationMessage {
   return {
@@ -285,5 +287,61 @@ describe('MessagesTabComponent', () => {
       fixture.detectChanges();
       expect(el.querySelector('.grp app-guidance-panel')?.textContent).toContain('Fix the column');
     });
+  });
+});
+
+@Component({
+  imports: [MessagesTabComponent],
+  template: `<app-messages-tab
+    [messages]="messages()"
+    [states]="states()"
+    [guidance]="guidance()"
+    [quickFixState]="'ready'"
+    [lineChips]="true"
+    (show)="shown = $event"
+    (fix)="fixed = $event"
+  />`,
+})
+class EditorHostComponent {
+  readonly messages = signal<ValidationMessage[]>([]);
+  readonly states = signal<('NEW' | 'OPEN')[] | null>(null);
+  readonly guidance = signal<Guidance[] | null>(null);
+  shown: ShowRequest | null = null;
+  fixed: FixRequest | null = null;
+}
+
+describe('MessagesTabComponent in the editor', () => {
+  const broken = msg(1, { code: '[Error-1000] x', message: 'No prefix', message_type: 'error', line_number: 12 });
+  const doi = msg(2, { code: '[Error-1014] x', message: 'Not a DOI', message_type: 'error', line_number: 5 });
+
+  function render(messages: ValidationMessage[], states: ('NEW' | 'OPEN')[], guidance: Guidance[] = []) {
+    const fixture = TestBed.createComponent(EditorHostComponent);
+    fixture.componentInstance.messages.set(messages);
+    fixture.componentInstance.states.set(states);
+    fixture.componentInstance.guidance.set(guidance);
+    fixture.detectChanges();
+    return { fixture, el: fixture.nativeElement as HTMLElement };
+  }
+
+  it('marks groups with a new message', () => {
+    const { el } = render([broken, doi], ['OPEN', 'NEW']);
+    const cards = Array.from(el.querySelectorAll('.grp'));
+    expect(cards[0].querySelector('.new-badge')).toBeNull();
+    expect(cards[1].querySelector('.new-badge')?.textContent).toBe('New');
+  });
+
+  it('gives a message without a document place a chip for its line', () => {
+    const { fixture, el } = render([broken], ['OPEN']);
+    const chip = el.querySelector<HTMLButtonElement>('.chip')!;
+    expect(chip.textContent?.trim()).toBe('line 12');
+    chip.click();
+    expect(fixture.componentInstance.shown?.index).toBe(0);
+  });
+
+  it('asks for the quick fix of the guidance\'s first message, by its index in the whole list', () => {
+    const g: Guidance = { typeCode: 'Error-1014', title: 'DOI', explanation: 'x', fixHere: 'y', fixInTool: 'z', quickFix: 'normalise-doi', messages: [1], lines: [] };
+    const { fixture, el } = render([broken, doi], ['OPEN', 'OPEN'], [g]);
+    el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
+    expect(fixture.componentInstance.fixed).toEqual({ fixId: 'normalise-doi', messageIndex: 1, all: false });
   });
 });

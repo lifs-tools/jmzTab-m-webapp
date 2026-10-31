@@ -16,7 +16,7 @@ import {
 
 import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
-import { GuidancePanelComponent } from './guidance-panel.component';
+import { GuidancePanelComponent, QuickFixState } from './guidance-panel.component';
 import { DocTarget, MessageGroup, groupMessages, occurrenceLabel, targetOf } from './message-groups';
 
 const PAGE_SIZE = 25;
@@ -29,6 +29,13 @@ const CATEGORY_LABEL: Record<ValidationMessage['category'], string> = {
   logical: 'Logical',
   cross_check: 'Cross-check',
 };
+
+/** A quick fix to preview, for message `messageIndex` of `messages` (the whole list, as the guidance indexes it). */
+export interface FixRequest {
+  fixId: string;
+  messageIndex: number;
+  all: boolean;
+}
 
 export interface ShowRequest {
   group: MessageGroup;
@@ -88,6 +95,15 @@ export class MessagesTabComponent {
   /** The record's guidance; its `messages` index into `messages()`. */
   readonly guidance = input<readonly Guidance[] | null>(null);
   readonly show = output<ShowRequest>();
+  /** The editor's state of each message against the run before, aligned with `messages`. */
+  readonly states = input<readonly ('NEW' | 'OPEN' | undefined)[] | null>(null);
+  /** Set by the editor, which offers quick fixes in the guidance panels. */
+  readonly quickFixState = input<QuickFixState | null>(null);
+  /** The editor's table headers by line prefix, for the guidance panels' quoted lines. */
+  readonly headers = input<ReadonlyMap<string, readonly string[]> | null>(null);
+  /** The editor shows every line: a message without a document target gets a chip for its line. */
+  readonly lineChips = input(false);
+  readonly fix = output<FixRequest>();
 
   protected readonly flat = this.state.flat;
   private readonly expanded = this.state.expanded;
@@ -116,6 +132,15 @@ export class MessagesTabComponent {
     );
   });
   private readonly groups = computed(() => groupMessages(this.filtered(), this.guidance(), this.messages()));
+  /** The messages the editor marks as new since the run before. */
+  private readonly fresh = computed(() => {
+    const states = this.states();
+    const all = this.messages();
+    return new Set(states ? all.filter((_, i) => states[i] === 'NEW') : []);
+  });
+  private hasLine(m: ValidationMessage): boolean {
+    return this.lineChips() && m.line_number != null && m.line_number > 0;
+  }
   protected readonly total = computed(() =>
     this.flat() ? this.filtered().length : this.groups().length,
   );
@@ -130,6 +155,7 @@ export class MessagesTabComponent {
         cls: LEVEL_CLASS[this.levelOf(m)],
         level: this.levelOf(m).toUpperCase(),
         line: m.line_number != null && m.line_number >= 0 ? String(m.line_number) : '—',
+        isNew: this.fresh().has(m),
         category: CATEGORY_LABEL[m.category] ?? m.category,
         location: occurrenceLabel(m),
         message: m.message,
@@ -145,7 +171,7 @@ export class MessagesTabComponent {
           .map((m, index) => ({
             index,
             label: occurrenceLabel(m),
-            hasTarget: targetOf(m) !== null,
+            hasTarget: targetOf(m) !== null || this.hasLine(m),
           }))
           .filter((c) => c.hasTarget);
         const code = group.typeCode?.match(/(\d+)\s*$/)?.[1];
@@ -161,6 +187,7 @@ export class MessagesTabComponent {
           more: Math.max(0, chips.length - shown),
           targets: chips.length,
           first: chips[0]?.index ?? 0,
+          isNew: group.messages.some((m) => this.fresh().has(m)),
         };
       });
   });
@@ -239,6 +266,11 @@ export class MessagesTabComponent {
     const key = JSON.stringify(target);
     const index = group.messages.findIndex((m) => JSON.stringify(targetOf(m)) === key);
     if (index >= 0) this.emit(group, index, false);
+  }
+  /** The guidance's first message is the one a single fix is previewed for. */
+  protected emitFix(guidance: Guidance, fix: { fixId: string; all: boolean }): void {
+    const messageIndex = guidance.messages?.[0];
+    if (messageIndex != null) this.fix.emit({ fixId: fix.fixId, messageIndex, all: fix.all });
   }
   protected go(delta: number): void {
     this.page.set(Math.min(Math.max(0, this.pageIndex() + delta), this.pageCount() - 1));

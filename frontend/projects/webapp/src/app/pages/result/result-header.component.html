@@ -31,6 +31,9 @@
     </div>
   </div>
   <div class="head__actions">
+    @if (fixable()) {
+      <a mat-flat-button data-testid="fix-this-file" [routerLink]="['/edit', record().id]">Fix this file</a>
+    }
     @if (record().status === 'FINISHED') {
       <button mat-stroked-button type="button" [matMenuTriggerFor]="reportMenu">
         Download report

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatTooltip } from '@angular/material/tooltip';
 import { By } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
 
 import { ValidationRecord } from '../../api/models/validation-record';
 import { ResultHeaderComponent } from './result-header.component';
@@ -23,7 +24,7 @@ describe('ResultHeaderComponent', () => {
   let fixture: ComponentFixture<ResultHeaderComponent>;
 
   async function render(record: ValidationRecord) {
-    await TestBed.configureTestingModule({ imports: [ResultHeaderComponent] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [ResultHeaderComponent], providers: [provideRouter([])] }).compileComponents();
     fixture = TestBed.createComponent(ResultHeaderComponent);
     fixture.componentRef.setInput('record', record);
     fixture.detectChanges();
@@ -78,5 +79,22 @@ describe('ResultHeaderComponent', () => {
   it('offers no resolution report while the validation is running', async () => {
     const el = await render({ ...RECORD, status: 'RUNNING' });
     expect(el.querySelector('[data-testid=resolution-report]')).toBeNull();
+  });
+
+  it('offers Fix this file once the result is final', async () => {
+    const el = await render(RECORD);
+    const fix = el.querySelector<HTMLAnchorElement>('[data-testid=fix-this-file]')!;
+    expect(fix.textContent?.trim()).toBe('Fix this file');
+    expect(fix.getAttribute('href')).toBe('/edit/abc');
+  });
+
+  it('offers Fix this file for a failed run only when it has messages', async () => {
+    const failed = { ...RECORD, status: 'FAILED' as const };
+    expect((await render({ ...failed, messages: [] })).querySelector('[data-testid=fix-this-file]')).toBeNull();
+    TestBed.resetTestingModule();
+    const el = await render({ ...failed, messages: [{ category: 'format', code: 'x', message: 'y' }] });
+    expect(el.querySelector('[data-testid=fix-this-file]')).toBeTruthy();
+    TestBed.resetTestingModule();
+    expect((await render({ ...RECORD, status: 'RUNNING' })).querySelector('[data-testid=fix-this-file]')).toBeNull();
   });
 });

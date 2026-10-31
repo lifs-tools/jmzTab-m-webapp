@@ -1,0 +1,30 @@
+<h2 mat-dialog-title>{{ preview.title }}</h2>
+<mat-dialog-content>
+  <p class="lifs-note count" data-testid="fix-count">{{ count() }}</p>
+  <ol class="changes" aria-label="Changed lines">
+    @for (c of changes(); track $index) {
+      <li class="change">
+        <span class="line">line {{ c.lineNumber }}</span>
+        @if (c.before !== null) {
+          <div class="before"><span class="visually-hidden">Before: </span><del>{{ c.before }}</del></div>
+        }
+        @if (c.after !== null) {
+          <div class="after"><span class="visually-hidden">After: </span><ins>{{ c.after }}</ins></div>
+        } @else {
+          <div class="after removed">The line is removed.</div>
+        }
+      </li>
+    }
+  </ol>
+  @if (more(); as m) {
+    <p class="lifs-note">{{ m }}</p>
+  }
+  <p class="lifs-note">→ stands for a tab. You can undo the fix.</p>
+  @if (error(); as msg) {
+    <p class="lifs-callout lifs-callout--error" role="alert">{{ msg }}</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" [mat-dialog-close]="null" [disabled]="applying()">Cancel</button>
+  <button mat-flat-button type="button" class="apply" [disabled]="applying()" (click)="apply()">Apply</button>
+</mat-dialog-actions>

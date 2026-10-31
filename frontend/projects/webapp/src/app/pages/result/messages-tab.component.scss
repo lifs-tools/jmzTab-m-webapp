@@ -239,3 +239,15 @@ td.mono {
     padding: 2px 0;
   }
 }
+.new-badge {
+  margin-left: 6px;
+  font-family: var(--lifs-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--lifs-radius-sm);
+  border: 1px solid var(--lifs-primary);
+  color: var(--lifs-primary);
+  background: var(--lifs-tint);
+}
