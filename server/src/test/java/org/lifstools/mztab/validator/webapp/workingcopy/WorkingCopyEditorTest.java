@@ -1,0 +1,250 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab.validator.webapp.workingcopy;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.*;
+
+class WorkingCopyEditorTest {
+
+    private static final String TEXT = "COM\tc\nMTD\tkey\tv\n"
+        + "SMH\tSML_ID\tname\n"
+        + "SML\t1\tPC 34:1\n"
+        + "SML\t2\tPC 36:2\n"
+        + "SML\t3\tPE 38:4\n"
+        + "SFH\tSMF_ID\tx\n"
+        + "SMF\t1\ta\n";
+
+    @TempDir
+    Path dir;
+    WorkingCopyDb db;
+    final WorkingCopyEditor editor = new WorkingCopyEditor();
+
+    @BeforeEach
+    void setUp() throws Exception {
+        db = WorkingCopyDb.open(dir.resolve("e.db"));
+        load(TEXT);
+    }
+
+    @AfterEach
+    void tearDown() {
+        db.close();
+    }
+
+    private void load(String text) throws Exception {
+        db.importLines(CopyText.read(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)),
+            SourceEncoding.UTF_8));
+    }
+
+    private String text() throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        db.writeTo(out);
+        return out.toString(StandardCharsets.UTF_8);
+    }
+
+    private long apply(EditOperation... ops) {
+        return editor.apply(db, new EditBatch(db.revision(), List.of(ops)));
+    }
+
+    @Test
+    void setCellChangesOneCell() throws Exception {
+        assertEquals(1, apply(new SetCell(4, 2, "PC 35:1")));
+        assertEquals(TEXT.replace("PC 34:1", "PC 35:1"), text());
+        assertEquals(2, apply(new SetCell(4, 3, "extra")));
+        assertEquals("SML\t1\tPC 35:1\textra", db.line(4).orElseThrow().text());
+    }
+
+    @Test
+    void metadataValueAndKey() throws Exception {
+        apply(new SetMetadataValue(2, "w"), new RenameMetadataKey(2, "k2"));
+        assertEquals("MTD\tk2\tw", db.line(2).orElseThrow().text());
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetMetadataValue(4, "x")));
+    }
+
+    @Test
+    void insertColumnAlignsEveryRow() {
+        apply(new InsertColumn("SMH", 2, "opt_global_x", "null"));
+        assertEquals("SMH\tSML_ID\topt_global_x\tname", db.line(3).orElseThrow().text());
+        for (int n = 4; n <= 6; n++) {
+            assertEquals(4, db.line(n).orElseThrow().cells().size());
+            assertEquals("null", db.line(n).orElseThrow().cells().get(2));
+        }
+        assertEquals("SMF\t1\ta", db.line(8).orElseThrow().text());
+    }
+
+    @Test
+    void deleteAndRenameColumn() {
+        apply(new RenameColumn("SMH", "name", "label"));
+        assertEquals("SMH\tSML_ID\tlabel", db.line(3).orElseThrow().text());
+        apply(new DeleteColumn("SMH", "SML_ID"));
+        assertEquals("SMH\tlabel", db.line(3).orElseThrow().text());
+        assertEquals("SML\tPC 34:1", db.line(4).orElseThrow().text());
+        assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "nope")));
+    }
+
+    @Test
+    void joinWithPreviousRepairsSplitRow() throws Exception {
+        load("SML\t1\tPC 34:1 with\n a newline\t5\n");
+        apply(new JoinWithPrevious(2));
+        assertEquals(1, db.lineCount());
+        assertEquals("SML\t1\tPC 34:1 with a newline\t5", db.line(1).orElseThrow().text());
+        assertEquals("SML", db.line(1).orElseThrow().section());
+    }
+
+    @Test
+    void splitCellsAtSpaces() throws Exception {
+        load("MTD\tstudy_variable[1]-assay_refs assay[1], assay[2]\n");
+        apply(new SplitCells(1));
+        assertEquals(List.of("MTD", "study_variable[1]-assay_refs", "assay[1], assay[2]"),
+            db.line(1).orElseThrow().cells());
+        assertThrows(IllegalArgumentException.class, () -> apply(new SplitCells(1)));
+    }
+
+    @Test
+    void insertDeleteMoveSetRaw() throws Exception {
+        apply(new InsertLine(2, "MTD\tnew\tvalue"));
+        assertEquals("MTD\tnew\tvalue", db.line(2).orElseThrow().text());
+        apply(new SetRawLine(2, "MTD\tother\tthing"));
+        apply(new MoveRow(2, 5));
+        assertEquals("MTD\tother\tthing", db.line(4).orElseThrow().text());
+        assertEquals("MTD\tkey\tv", db.line(2).orElseThrow().text());
+        apply(new DeleteLine(4));
+        assertEquals(TEXT, text());
+    }
+
+    @Test
+    void appendingToUnterminatedTextKeepsTheEndingRule() throws Exception {
+        load("MTD\ta\tb\nMTD\tc\td");
+        apply(new InsertLine(3, "MTD\te\tf"));
+        assertEquals("MTD\ta\tb\nMTD\tc\td\nMTD\te\tf", text());
+        apply(new MoveRow(1, 4));
+        assertEquals("MTD\tc\td\nMTD\te\tf\nMTD\ta\tb", text());
+    }
+
+    @Test
+    void undoRedoRestoreExactly() throws Exception {
+        load("COM\tx\r\nMTD\tkey\tv\r\nSMH\tA\tB\r\nSML\t1\tPC 34:1 with\r\n a newline\t5\r\nSML\t2\t3");
+        ByteArrayOutputStream before = new ByteArrayOutputStream();
+        db.writeTo(before);
+        apply(new JoinWithPrevious(5), new InsertColumn("SMH", 1, "N", "f"));
+        apply(new DeleteLine(2), new MoveRow(1, 4));
+        apply(new SetCell(1, 1, "z"), new InsertLine(5, "MTD\tq"));
+        ByteArrayOutputStream after = new ByteArrayOutputStream();
+        db.writeTo(after);
+        assertEquals(3, db.revision());
+        assertTrue(editor.canUndo(db));
+        assertFalse(editor.canRedo(db));
+        assertEquals(4, editor.undo(db, 3));
+        assertEquals(5, editor.undo(db, 4));
+        assertEquals(6, editor.undo(db, 5));
+        ByteArrayOutputStream undone = new ByteArrayOutputStream();
+        db.writeTo(undone);
+        assertArrayEquals(before.toByteArray(), undone.toByteArray());
+        assertFalse(editor.canUndo(db));
+        assertTrue(editor.canRedo(db));
+        assertThrows(IllegalStateException.class, () -> editor.undo(db, 6));
+        editor.redo(db, 6);
+        editor.redo(db, 7);
+        assertEquals(9, editor.redo(db, 8));
+        ByteArrayOutputStream redone = new ByteArrayOutputStream();
+        db.writeTo(redone);
+        assertArrayEquals(after.toByteArray(), redone.toByteArray());
+        assertFalse(editor.canRedo(db));
+        assertThrows(IllegalStateException.class, () -> editor.redo(db, 9));
+    }
+
+    @Test
+    void newBatchClearsRedo() {
+        apply(new SetCell(4, 2, "a"));
+        editor.undo(db, 1);
+        assertTrue(editor.canRedo(db));
+        apply(new SetCell(4, 2, "b"));
+        assertFalse(editor.canRedo(db));
+        assertTrue(editor.canUndo(db));
+    }
+
+    @Test
+    void staleRevisionIsRefused() throws Exception {
+        apply(new SetCell(4, 2, "a"));
+        StaleRevisionException e = assertThrows(StaleRevisionException.class,
+            () -> editor.apply(db, new EditBatch(0, List.of(new SetCell(4, 2, "b")))));
+        assertEquals(1, e.expected());
+        assertEquals(0, e.actual());
+        assertThrows(StaleRevisionException.class, () -> editor.undo(db, 0));
+        assertEquals(TEXT.replace("PC 34:1", "a"), text());
+        assertEquals(1, db.revision());
+    }
+
+    @Test
+    void refusesOutOfRangeAndForbiddenText() throws Exception {
+        List<EditOperation> bad = List.of(new SetCell(0, 1, "x"), new SetCell(9, 1, "x"), new SetCell(4, 0, "x"),
+            new SetCell(4, 9, "x"), new SetCell(4, 1, "a\tb"), new SetCell(4, 1, "a\nb"), new SetCell(4, 1, "a\rb"),
+            new SetCell(4, 1, "x".repeat(100_001)), new SetRawLine(4, "a\nb"), new InsertLine(1, "a\rb"),
+            new InsertLine(10, "x"), new InsertLine(0, "x"), new DeleteLine(9), new MoveRow(1, 10), new MoveRow(1, 0),
+            new MoveRow(9, 1), new JoinWithPrevious(1), new SetMetadataValue(2, "a\tb"),
+            new InsertColumn("SML", 1, "n", "f"), new InsertColumn("SMH", 0, "n", "f"),
+            new InsertColumn("SMH", 4, "n", "f"), new InsertColumn("SMH", 1, "a\tb", "f"),
+            new InsertColumn("SMH", 1, "n", "a\nb"), new DeleteColumn("SMH", "unknown"),
+            new RenameColumn("SMH", "unknown", "x"), new RenameColumn("SMH", "name", "a\tb"),
+            new SetRawLine(4, "x".repeat(1_000_001)), new SplitCells(4));
+        for (EditOperation op : bad) {
+            assertThrows(IllegalArgumentException.class, () -> apply(op), op.toString());
+            assertEquals(TEXT, text(), op.toString());
+            assertEquals(0, db.revision());
+        }
+        List<EditOperation> many = new ArrayList<>();
+        for (int i = 0; i < 5001; i++) {
+            many.add(new SetCell(4, 2, "x"));
+        }
+        assertThrows(IllegalArgumentException.class, () -> editor.apply(db, new EditBatch(0, many)));
+        assertThrows(IllegalArgumentException.class, () -> editor.apply(db, new EditBatch(0, List.of())));
+        assertEquals(TEXT, text());
+        many.remove(0);
+        assertEquals(1, editor.apply(db, new EditBatch(0, many)));
+    }
+
+    @Test
+    void batchIsAtomic() throws Exception {
+        assertThrows(IllegalArgumentException.class,
+            () -> apply(new SetCell(4, 2, "changed"), new DeleteLine(99)));
+        assertEquals(TEXT, text());
+        assertEquals(0, db.revision());
+        assertFalse(editor.canUndo(db));
+    }
+
+    @Test
+    void jsonBatchDeserialises() throws Exception {
+        String json = """
+            {"revision":0,"operations":[{"op":"SetCell","line":4,"cell":2,"text":"J"},
+            {"op":"InsertColumn","header":"SMH","position":1,"name":"n","fill":"f"},{"op":"DeleteLine","line":1}]}""";
+        EditBatch batch = new ObjectMapper().readValue(json, EditBatch.class);
+        assertEquals(new SetCell(4, 2, "J"), batch.operations().get(0));
+        assertEquals(new DeleteLine(1), batch.operations().get(2));
+        assertEquals(1, editor.apply(db, batch));
+    }
+}

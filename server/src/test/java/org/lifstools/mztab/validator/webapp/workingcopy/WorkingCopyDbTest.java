@@ -174,4 +174,23 @@ class WorkingCopyDbTest {
             assertEquals(2, db.lineCount());
         }
     }
+
+    @Test
+    void historyIsAStackWithRedoDroppedByNewEntries() {
+        try (WorkingCopyDb db = WorkingCopyDb.open(dir.resolve("h.db"))) {
+            assertEquals(0, db.revision());
+            db.setRevision(3);
+            assertEquals(3, db.revision());
+            assertTrue(db.peekUndo().isEmpty());
+            db.addHistory("f1", "i1");
+            db.addHistory("f2", "i2");
+            WorkingCopyDb.HistoryEntry top = db.peekUndo().orElseThrow();
+            assertEquals("i2", top.inverse());
+            db.moveHistory(top.seq(), true);
+            assertEquals("i1", db.peekUndo().orElseThrow().inverse());
+            assertEquals("f2", db.peekRedo().orElseThrow().forward());
+            db.addHistory("f3", "i3");
+            assertTrue(db.peekRedo().isEmpty());
+        }
+    }
 }

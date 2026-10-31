@@ -64,6 +64,20 @@ public final class WorkingCopyDb implements AutoCloseable {
         text TEXT NOT NULL, eol TEXT NOT NULL)""";
     private static final String CREATE_META = "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)";
 
+    /** stack is 'U' (can be undone) or 'R' (can be redone); forward and inverse are JSON step lists */
+    private static final String CREATE_HISTORY = """
+        CREATE TABLE IF NOT EXISTS history (seq INTEGER PRIMARY KEY AUTOINCREMENT, stack TEXT NOT NULL,
+        forward TEXT NOT NULL, inverse TEXT NOT NULL)""";
+    private static final String HISTORY_ADD
+        = "INSERT INTO history (stack, forward, inverse) VALUES ('U', :forward, :inverse)";
+    private static final String HISTORY_CLEAR_REDO = "DELETE FROM history WHERE stack = 'R'";
+    private static final String HISTORY_TOP_UNDO
+        = "SELECT seq, forward, inverse FROM history WHERE stack = 'U' ORDER BY seq DESC LIMIT 1";
+    private static final String HISTORY_TOP_REDO
+        = "SELECT seq, forward, inverse FROM history WHERE stack = 'R' ORDER BY seq ASC LIMIT 1";
+    private static final String HISTORY_MOVE = "UPDATE history SET stack = :stack WHERE seq = :seq";
+    private static final String REVISION_KEY = "revision";
+
     private static final String COUNT = "SELECT COUNT(*) FROM lines";
     private static final String SELECT_RANGE
         = "SELECT number, section, text, eol FROM lines WHERE number >= :from ORDER BY number LIMIT :count";
@@ -109,6 +123,7 @@ public final class WorkingCopyDb implements AutoCloseable {
         WorkingCopyDb db = new WorkingCopyDb(ds);
         db.jdbc.update(CREATE_LINES, Map.of());
         db.jdbc.update(CREATE_META, Map.of());
+        db.jdbc.update(CREATE_HISTORY, Map.of());
         return db;
     }
 
@@ -268,6 +283,47 @@ public final class WorkingCopyDb implements AutoCloseable {
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
+    }
+
+    /** One undo-log entry: line-level steps (JSON) to redo a revision and to restore its before-image. */
+    public record HistoryEntry(long seq, String forward, String inverse) {
+    }
+
+    private static final RowMapper<HistoryEntry> HISTORY_MAPPER
+        = (rs, i) -> new HistoryEntry(rs.getLong("seq"), rs.getString("forward"), rs.getString("inverse"));
+
+    /** The current revision; 0 after import. */
+    public long revision() {
+        String v = meta(REVISION_KEY);
+        return v == null ? 0 : Long.parseLong(v);
+    }
+
+    public void setRevision(long revision) {
+        setMeta(REVISION_KEY, Long.toString(revision));
+    }
+
+    /** Records a new revision as undoable and drops everything that could be redone. */
+    public void addHistory(String forward, String inverse) {
+        inTransaction(() -> {
+            jdbc.update(HISTORY_CLEAR_REDO, Map.of());
+            jdbc.update(HISTORY_ADD, Map.of("forward", forward, "inverse", inverse));
+            return null;
+        });
+    }
+
+    /** The newest undoable entry, if any. */
+    public Optional<HistoryEntry> peekUndo() {
+        return jdbc.query(HISTORY_TOP_UNDO, Map.of(), HISTORY_MAPPER).stream().findFirst();
+    }
+
+    /** The entry undone most recently, if any. */
+    public Optional<HistoryEntry> peekRedo() {
+        return jdbc.query(HISTORY_TOP_REDO, Map.of(), HISTORY_MAPPER).stream().findFirst();
+    }
+
+    /** Moves an entry between the undo ('U') and redo ('R') stack. */
+    public void moveHistory(long seq, boolean redoable) {
+        jdbc.update(HISTORY_MOVE, Map.of("stack", redoable ? "R" : "U", "seq", seq));
     }
 
     /** Runs {@code work} in one transaction; a RuntimeException rolls back and is rethrown. */
