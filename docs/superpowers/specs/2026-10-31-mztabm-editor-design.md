@@ -443,6 +443,7 @@ Under `/rest/v2/working-copies`:
 - **Editor route** `edit/:workingCopyId` (2a). It uses the result page's split layout and linking, with these additions:
   - editable metadata values and table cells;
   - a raw-line editor for lines without a valid prefix or with the wrong number of parts, showing the line with its tabs made visible;
+  - **Edit this line as text [final review, 2026-10-31]:** for any message with a line number, a button opens that line in the raw-line editor (server `SetRawLine`). It opens by itself for a table row whose number of cells differs from its header's. A table row reports its `cellCount`; a cell past the end of a short row is shown empty but cannot be set (the server would refuse it), so clicking it opens the line as text. The guidance of Error-1009, Error-2002 and Error-2004 names this button and promises no insert or move of lines;
   - a quick-fix button on message cards, with the preview;
   - a fixed / new / still-open status per message, and how far the parser got;
   - undo and redo;

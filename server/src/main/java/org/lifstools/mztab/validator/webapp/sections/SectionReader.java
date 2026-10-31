@@ -269,7 +269,8 @@ public class SectionReader {
             for (int column : columns) {
                 cells.add(cell(row, column));
             }
-            page.add(new TableRow(index, cells, lineNumbers == null ? null : lineNumbers[index]));
+            page.add(lineNumbers == null ? new TableRow(index, cells)
+                : new TableRow(index, cells, lineNumbers[index], row.length + 1));
         }
         List<String> returned = Arrays.stream(columns).mapToObj(header::get).toList();
         List<Integer> cellIndexes = at != null ? Arrays.stream(columns).map(c -> c + 1).boxed().toList() : null;

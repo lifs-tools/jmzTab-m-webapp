@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { QUICK_FIX_PREVIEW_LABEL } from '../../core/quick-fix-labels';
+import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
@@ -239,6 +240,102 @@ describe('EditPage', () => {
     const editor = el.querySelector('mztabm-raw-line-editor')!;
     expect(editor.textContent).toContain('Line 12');
     expect(editor.querySelector<HTMLInputElement>('input')!.value).toBe('identification of lipids→→');
+  });
+
+  const chipOf = (el: HTMLElement, label: string) =>
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.chip')).find((c) => c.textContent?.trim() === label)!;
+  const linesReq = (from: number) =>
+    http.expectOne((r) => r.url.endsWith('working-copies/abc/lines') && r.params.get('from') === `${from}`);
+
+  it('offers to edit the line of any message as text', async () => {
+    const { fixture, el } = await open(info({ validation: done({ messages: [{ message: msg(), state: 'OPEN' }] }) }));
+    expect(el.querySelector('[data-testid=edit-as-text]')).toBeNull();
+    chipOf(el, 'instrument[1]-detector').click();
+    await settle(fixture);
+    answerDocs();
+    linesReq(23).flush([
+      { number: 23, section: 'MTD', cells: ['MTD', 'instrument[1]-name', 'x'], eol: '\n' },
+      { number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' },
+      { number: 25, section: 'MTD', cells: ['MTD', 'cv[1]-label', 'MS'], eol: '\n' },
+    ]);
+    await settle(fixture);
+    // a line the metadata view shows: no editor until asked
+    expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+    const asText = button(el, 'edit-as-text');
+    expect(asText.textContent?.trim()).toBe(EDIT_LINE_AS_TEXT);
+    expect(el.querySelector('[data-testid=line-actions]')?.textContent).toContain('Line 24');
+    asText.click();
+    await settle(fixture);
+    const one = linesReq(24);
+    expect(one.request.params.get('count')).toBe('1');
+    one.flush([{ number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' }]);
+    await settle(fixture);
+    const editor = el.querySelector('mztabm-raw-line-editor')!;
+    expect(editor.textContent).toContain('Line 24');
+    expect(editor.querySelector<HTMLInputElement>('input')!.value).toBe('MTD→instrument[1]-detector→[,,,]');
+    expect(el.querySelector('[data-testid=edit-as-text]')).toBeNull();
+  });
+
+  it('opens a table row whose cell count differs from its header as text', async () => {
+    const shortRow = msg({ code: '[Error-2001] line 70: x', message: 'Row 1 has 3 cells', line_number: 70, location: undefined });
+    const { fixture, el } = await open(info({ validation: done({ messages: [{ message: shortRow, state: 'OPEN' }] }) }));
+    chipOf(el, 'line 70').click();
+    await settle(fixture);
+    linesReq(69).flush([
+      { number: 69, section: 'SMH', cells: ['SMH', 'SML_ID', 'a', 'b'], eol: '\n' },
+      { number: 70, section: 'SML', cells: ['SML', '1', 'x'], eol: '\n' },
+      { number: 71, section: 'SML', cells: ['SML', '2', 'y', 'z'], eol: '\n' },
+    ]);
+    await settle(fixture);
+    const header = http.expectOne((r) => r.url.endsWith('working-copies/abc/tables/sml') && r.params.get('size') === '1');
+    header.flush({ section: 'SML', page: 0, size: 1, totalRows: 2, allColumns: ['SML_ID', 'a', 'b'], columns: ['SML_ID'], rows: [] });
+    await settle(fixture);
+    const editor = el.querySelector('mztabm-raw-line-editor')!;
+    expect(editor.textContent).toContain('Line 70');
+    expect(editor.querySelector<HTMLInputElement>('input')!.value).toBe('SML→1→x');
+  });
+
+  it('keeps a table row of the header\'s length in the table', async () => {
+    const row = msg({ code: '[Error-2001] line 71: x', message: 'x', line_number: 71, location: undefined });
+    const { fixture, el } = await open(info({ validation: done({ messages: [{ message: row, state: 'OPEN' }] }) }));
+    chipOf(el, 'line 71').click();
+    await settle(fixture);
+    linesReq(70).flush([
+      { number: 70, section: 'SML', cells: ['SML', '1', 'x'], eol: '\n' },
+      { number: 71, section: 'SML', cells: ['SML', '2', 'y', 'z'], eol: '\n' },
+    ]);
+    await settle(fixture);
+    http
+      .expectOne((r) => r.url.endsWith('working-copies/abc/tables/sml') && r.params.get('size') === '1')
+      .flush({ section: 'SML', page: 0, size: 1, totalRows: 2, allColumns: ['SML_ID', 'a', 'b'], columns: ['SML_ID'], rows: [] });
+    await settle(fixture);
+    expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+    expect(button(el, 'edit-as-text')).toBeTruthy();
+  });
+
+  it('edits a short row as text when a cell past its end is clicked', async () => {
+    const { fixture, el } = await open();
+    el.querySelector<HTMLButtonElement>('#edit-tab-summary')!.click();
+    await settle(fixture);
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/tables/sml'))
+      .flush({
+        section: 'SML',
+        page: 0,
+        size: 50,
+        totalRows: 1,
+        allColumns: ['SML_ID', 'a', 'b'],
+        columns: ['SML_ID', 'a', 'b'],
+        columnPositions: [1, 2, 3],
+        rows: [{ index: 0, lineNumber: 70, cellCount: 3, cells: ['1', 'x', ''] }],
+      });
+    await settle(fixture);
+    el.querySelectorAll<HTMLElement>('tbody tr td')[2].click();
+    await settle(fixture);
+    linesReq(70).flush([{ number: 70, section: 'SML', cells: ['SML', '1', 'x'], eol: '\n' }]);
+    await settle(fixture);
+    expect(el.querySelector('mztabm-raw-line-editor')?.textContent).toContain('Line 70');
+    expect(http.match((r) => r.method === 'POST').length).toBe(0);
   });
 
   it('decides which lines the raw editor takes', () => {
@@ -542,6 +639,8 @@ describe('EditPage', () => {
     expect(help.textContent).toContain(`press ${QUICK_FIX_PREVIEW_LABEL} to see`);
     expect(help.textContent).toContain('Fix all N like this');
     expect(help.textContent).not.toContain('Fix it here');
+    expect(help.textContent).toContain(`press ${EDIT_LINE_AS_TEXT} to open it as text`);
+    expect(help.textContent).toContain('a table row with the wrong number of cells');
     expect(help.querySelector('a')?.getAttribute('href')).toBe('/guide');
   });
 

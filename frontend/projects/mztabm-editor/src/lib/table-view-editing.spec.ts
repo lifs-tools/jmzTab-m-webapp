@@ -27,11 +27,17 @@ function page(over: Partial<DocTablePage> = {}): DocTablePage {
 
 @Component({
   imports: [TableViewComponent],
-  template: `<mztabm-table-view section="sml" [readonly]="readonly()" [highlight]="highlight()" />`,
+  template: `<mztabm-table-view
+    section="sml"
+    [readonly]="readonly()"
+    [highlight]="highlight()"
+    (editLineAsText)="asText.push($event)"
+  />`,
 })
 class HostComponent {
   readonly readonly = signal(false);
   readonly highlight = signal<TableHighlight | null>(null);
+  readonly asText: number[] = [];
 }
 
 describe('TableViewComponent editing', () => {
@@ -82,6 +88,30 @@ describe('TableViewComponent editing', () => {
     src.noneTable();
     expect(cell(1, 3).textContent?.trim()).toBe('PC 34:1');
     expect(document.activeElement).toBe(cell(1, 3));
+  });
+
+  it('sends a cell past the end of a short row to the line editor, not to SetCell', async () => {
+    const short = page();
+    // line 40 has the prefix and three cells; the page shows "" for the cells it does not have
+    short.rows![0] = { ...short.rows![0], cellCount: 4 };
+    const { fixture, el, settle, cell } = await render(short);
+    cell(0, 2).click(); // cell 3: in the line
+    await settle();
+    expect(cell(0, 2).querySelector('input.cell-input')).toBeTruthy();
+    key(cell(0, 2).querySelector('input')!, 'Escape');
+    await settle();
+    cell(0, 4).click(); // cell 5: past the end of the line
+    await settle();
+    expect(el.querySelector('input.cell-input')).toBeNull();
+    expect(fixture.componentInstance.asText).toEqual([40]);
+    key(cell(0, 4), 'Enter');
+    await settle();
+    expect(fixture.componentInstance.asText).toEqual([40, 40]);
+    src.noneEdit();
+    // a row of a full line is edited in place
+    cell(1, 4).click();
+    await settle();
+    expect(cell(1, 4).querySelector('input.cell-input')).toBeTruthy();
   });
 
   it('Escape cancels an edit', async () => {

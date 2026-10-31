@@ -3307,6 +3307,11 @@
       },
       "TableRow" : {
         "properties" : {
+          "cellCount" : {
+            "description" : "For a working copy: the number of cells the row's line has, the prefix included; a cell index at or beyond it is a cell the line does not have",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
           "cells" : {
             "items" : {
               "type" : "string"

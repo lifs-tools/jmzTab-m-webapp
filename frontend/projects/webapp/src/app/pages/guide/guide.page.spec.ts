@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { QUICK_FIX_PREVIEW_LABEL } from '../../core/quick-fix-labels';
+import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 import { pageTitle } from '../../core/page-titles';
 import { GuidePage } from './guide.page';
 
@@ -63,6 +64,14 @@ describe('GuidePage', () => {
     const text = (await render()).textContent!.replace(/\s+/g, ' ');
     expect(text).toContain(`Press ${QUICK_FIX_PREVIEW_LABEL} to see`);
     expect(text).toContain('Fix all N like this');
+  });
+
+  it('says which lines open as text, and that the editor does not move lines', async () => {
+    const text = (await render()).textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain(`press ${EDIT_LINE_AS_TEXT} to open it as text`);
+    expect(text).toContain('a table row with more or fewer cells than its header');
+    expect(text).toContain('a cell past the end of a short row');
+    expect(text).toContain('The editor cannot insert or move lines');
   });
 
   it('states the limits and the retention rule', async () => {

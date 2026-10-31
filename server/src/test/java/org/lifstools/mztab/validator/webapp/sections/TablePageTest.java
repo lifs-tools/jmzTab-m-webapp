@@ -41,6 +41,9 @@ class TablePageTest {
         assertEquals(List.of("1", "", ""), page.rows().get(0).cells());
         assertEquals(List.of("2", "z", "w"), page.rows().get(1).cells());
         assertEquals(List.of("3", "", ""), page.rows().get(2).cells());
+        // a working copy's row says how many cells its line has (the prefix included), so a view can tell a
+        // missing cell from an empty one
+        assertEquals(List.of(2, 6, 3), page.rows().stream().map(TableRow::cellCount).toList());
 
         TablePage byName = SectionReader.tablePage(Section.SML, HEADER, rows, lines, query("c", List.of("SML_ID", "c"),
             List.of()));
@@ -59,6 +62,8 @@ class TablePageTest {
         TablePage twice = SectionReader.tablePage(Section.SML, HEADER, rows, null, query(null, List.of("a", "a"),
             List.of()));
         assertEquals(List.of("x", "w"), twice.rows().get(0).cells());
+        // a validation's rows have no lines: no count
+        assertEquals(null, twice.rows().get(0).cellCount());
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> SectionReader.tablePage(Section.SML, HEADER, rows, null, query(null, List.of("a", "b", "a", "a"),
                 List.of())));

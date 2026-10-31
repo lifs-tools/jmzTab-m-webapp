@@ -63,6 +63,11 @@ export interface DocTableRow {
   cells?: string[];
   /** 1-based line of the row in the document text; present for editable documents, absent for results. */
   lineNumber?: number | null;
+  /**
+   * For an editable document: the number of cells in the line, its prefix included. A row shorter than its
+   * header shows "" for the cells it does not have; those cannot be set one by one.
+   */
+  cellCount?: number | null;
 }
 
 /** One page of a table section. */

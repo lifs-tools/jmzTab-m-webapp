@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { QUICK_FIX_PREVIEW_LABEL, quickFixAllLabel } from '../../core/quick-fix-labels';
+import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -16,7 +17,7 @@ import {
   TableHighlight,
   TableViewComponent,
 } from '@lifs-tools/mztabm-editor';
-import { map } from 'rxjs';
+import { Observable, map, of, tap } from 'rxjs';
 
 import { InsertLine } from '../../api/models/insert-line';
 import { Line } from '../../api/models/line';
@@ -35,6 +36,8 @@ import { NotCheckedYet, WorkingCopyStore } from './working-copy.store';
 
 const DAY_MS = 86_400_000;
 const PREFIXES = ['SML', 'SMF', 'SME'] as const;
+type Prefix = (typeof PREFIXES)[number];
+const isPrefix = (s: string | undefined): s is Prefix => (PREFIXES as readonly (string | undefined)[]).includes(s);
 const SECTION_OF: Record<(typeof PREFIXES)[number], 'sml' | 'smf' | 'sme'> = { SML: 'sml', SMF: 'smf', SME: 'sme' };
 const count = (n: number | undefined) => (n ?? 0).toLocaleString('en');
 
@@ -96,6 +99,7 @@ export function isUnreadable(line: Line, prev?: Line, next?: Line): boolean {
 export class EditPage {
   protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;
   protected readonly allLabel = quickFixAllLabel('N');
+  protected readonly editLineAsTextLabel = EDIT_LINE_AS_TEXT;
   protected readonly store = inject(WorkingCopyStore);
   private readonly api = inject(WorkingCopiesService);
   private readonly appInfo = inject(AppInfoStore);
@@ -172,6 +176,8 @@ export class EditPage {
   });
   protected readonly selected = signal<string | null>(null);
   protected readonly rawLine = signal<RawLine | null>(null);
+  /** The line of the message shown last, which "Edit this line as text" opens in the raw line editor. */
+  protected readonly shownLine = signal<number | null>(null);
 
   /** Table headers by prefix, for the cells of quoted data lines; read for the sections the guidance quotes. */
   protected readonly headers = signal<ReadonlyMap<string, readonly string[]>>(new Map());
@@ -196,6 +202,7 @@ export class EditPage {
       )
       .subscribe((id) => {
         this.rawLine.set(null);
+        this.shownLine.set(null);
         this.metadataHighlight.set(null);
         this.tableJump.set(null);
         this.selected.set(null);
@@ -214,15 +221,20 @@ export class EditPage {
     });
   }
 
-  private readHeader(id: string, prefix: (typeof PREFIXES)[number]): void {
+  private readHeader(id: string, prefix: Prefix): void {
     if (!id || this.headersAsked.has(prefix)) return;
     this.headersAsked.add(prefix);
-    this.api
-      .getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, quietRequest())
-      .subscribe({
-        next: (page) => this.headers.update((h) => new Map(h).set(prefix, page.allColumns ?? [])),
-        error: () => undefined,
-      });
+    this.headerOf(id, prefix).subscribe({ error: () => undefined });
+  }
+
+  /** The column names of a table's header, read once per document state. */
+  private headerOf(id: string, prefix: Prefix): Observable<readonly string[]> {
+    const known = this.headers().get(prefix);
+    if (known) return of(known);
+    return this.api.getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, quietRequest()).pipe(
+      map((page) => page.allColumns ?? []),
+      tap((columns) => this.headers.update((h) => new Map(h).set(prefix, columns))),
+    );
   }
 
   // ---- the document ----
@@ -262,8 +274,13 @@ export class EditPage {
     const target = targetOf(m);
     if (target) this.jump(target, req);
     const line = m.line_number;
-    if (line != null && line > 0) this.inspect(line, !target);
-    else this.rawLine.set(null);
+    if (line != null && line > 0) {
+      this.shownLine.set(line);
+      this.inspect(line, !target);
+    } else {
+      this.shownLine.set(null);
+      this.rawLine.set(null);
+    }
   }
 
   private jump(t: DocTarget, req: ShowRequest): void {
@@ -285,13 +302,15 @@ export class EditPage {
   }
 
   /**
-   * Reads the line (and its neighbours) of a message. A line the views cannot show opens the raw line editor; an
-   * MTD line of a message without a document target is shown in the metadata.
+   * Reads the line (and its neighbours) of a message. A line the views cannot show, or a table row whose number
+   * of cells differs from its header's, opens the raw line editor; an MTD line of a message without a document
+   * target is shown in the metadata.
    */
   private inspect(n: number, jumpByLine: boolean): void {
     const run = ++this.inspection;
+    const id = this.store.id();
     const from = Math.max(1, n - 1);
-    this.api.getWorkingCopyLines({ id: this.store.id(), from, count: n - from + 2 }, quietRequest()).subscribe({
+    this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({
       next: (lines) => {
         if (run !== this.inspection) return;
         const at = (k: number) => lines.find((l) => l.number === k);
@@ -305,6 +324,18 @@ export class EditPage {
           return;
         }
         this.rawLine.set(null);
+        if (isPrefix(line.section)) {
+          // the header has the prefix and its column names; the row, the prefix and one cell per column
+          this.headerOf(id, line.section).subscribe({
+            next: (header) => {
+              if (run === this.inspection && (line.cells ?? []).length !== header.length + 1) {
+                this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t') });
+              }
+            },
+            error: () => undefined,
+          });
+          return;
+        }
         const key = line.cells?.[1];
         if (jumpByLine && line.section === 'MTD' && key) {
           this.docTab.set('metadata');
@@ -314,6 +345,22 @@ export class EditPage {
       },
       error: () => {
         if (run === this.inspection) this.rawLine.set(null);
+      },
+    });
+  }
+
+  /** "Edit this line as text", or a cell past the end of a short row: the line opens in the raw line editor. */
+  protected editAsText(n: number): void {
+    const run = ++this.inspection;
+    this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({
+      next: (lines) => {
+        const line = lines.find((l) => l.number === n);
+        if (run === this.inspection && line) this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t') });
+      },
+      error: () => {
+        if (run === this.inspection) {
+          this.snackBar.open('The line could not be read. Please try again.', 'Dismiss', { duration: 8000 });
+        }
       },
     });
   }

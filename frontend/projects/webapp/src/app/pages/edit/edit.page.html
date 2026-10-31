@@ -120,7 +120,10 @@
           <ul>
             <li>Click a cell or a metadata value to change it. Enter saves, Escape cancels.</li>
             <li>Open a message and press <b>{{ previewLabel }}</b> to see a before and after. Where a fix applies to many lines, <b>{{ allLabel }}</b> does them all.</li>
-            <li>A line the editor cannot show opens as text. → stands for a tab.</li>
+            <li>
+              A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
+              message with a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text. → stands for a tab.
+            </li>
             <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
             <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
           </ul>
@@ -185,6 +188,16 @@
           </section>
 
           <div class="doc">
+            @if (shownLine(); as n) {
+              @if (rawLine()?.lineNumber !== n) {
+                <p class="line-actions" data-testid="line-actions">
+                  <span class="lifs-mono">Line {{ n }}</span>
+                  <button mat-stroked-button type="button" data-testid="edit-as-text" (click)="editAsText(n)">
+                    {{ editLineAsTextLabel }}
+                  </button>
+                </p>
+              }
+            }
             @if (rawLine(); as raw) {
               <mztabm-raw-line-editor
                 class="raw"
@@ -218,7 +231,12 @@
                 <mztabm-metadata-view [readonly]="false" [highlight]="metadataHighlight()" />
               } @else {
                 @for (sec of [docTab()]; track sec) {
-                  <mztabm-table-view [section]="sectionOf(sec)" [readonly]="false" [highlight]="tableHighlight()" />
+                  <mztabm-table-view
+                    [section]="sectionOf(sec)"
+                    [readonly]="false"
+                    [highlight]="tableHighlight()"
+                    (editLineAsText)="editAsText($event)"
+                  />
                 }
               }
             </div>

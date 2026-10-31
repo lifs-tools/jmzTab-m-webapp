@@ -68,6 +68,22 @@ class GuidanceCatalogTest {
         }
     }
 
+    /**
+     * The "fix here" of the problems that stop the read at a line describes what the editor can do: edit that
+     * line as text (its button, "Edit this line as text"). There is no UI to insert or move lines, so none is
+     * promised.
+     */
+    @Test
+    void lineProblemsPointToTheLineEditorAndPromiseNoMove() {
+        for (String id : List.of("unknown-metadata-key", "section-order", "data-line-without-header")) {
+            GuidanceEntry e = catalog.entries().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+            assertTrue(e.fixHere().contains("Edit this line as text"), id + ": " + e.fixHere());
+            for (String promise : List.of("Move the lines", "move the existing", "Add the header line")) {
+                assertFalse(e.fixHere().contains(promise), id + ": " + e.fixHere());
+            }
+        }
+    }
+
     @Test
     void everyEntryHasBothFixes() {
         for (GuidanceEntry e : catalog.entries()) {

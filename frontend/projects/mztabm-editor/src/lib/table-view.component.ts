@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   untracked,
 } from '@angular/core';
@@ -87,6 +88,11 @@ export class TableViewComponent {
   readonly isReadonly = input(true, { alias: 'readonly' });
   /** An event, not a value: each new object jumps to its target again, even when its fields are unchanged. */
   readonly highlight = input<TableHighlight | null>(null);
+  /**
+   * The line number of a row whose clicked cell is past the end of its line: the host edits it as text, since a
+   * cell that the line does not have cannot be set.
+   */
+  readonly editLineAsText = output<number>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly dialog = inject(MatDialog);
@@ -601,7 +607,13 @@ export class TableViewComponent {
   }
 
   private startEdit(r: number, i: number): void {
-    if (this.rows()[r]?.lineNumber == null) return;
+    const row = this.rows()[r];
+    if (row?.lineNumber == null) return;
+    if (row.cellCount != null && this.cellOf(i) >= row.cellCount) {
+      this.active.set({ row: r, col: i });
+      this.editLineAsText.emit(row.lineNumber);
+      return;
+    }
     this.saveError.set(null);
     this.active.set({ row: r, col: i });
     this.editing.set({ row: r, col: i, error: null });
@@ -641,10 +653,7 @@ export class TableViewComponent {
     this.editing.set(null);
     this.focusActive();
     if (text === this.cell(row, e.col)) return;
-    // the page says where each column is in the line; without it, cell 0 is the prefix and header column n is
-    // cell n + 1, counted over all columns
-    const column = this.columns()[e.col];
-    const cell = page.columnPositions?.[e.col] ?? this.allColumns().indexOf(column) + 1;
+    const cell = this.cellOf(e.col);
     if (cell < 1) return;
     const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text };
     this.patch(row, e.col, text);
@@ -656,6 +665,14 @@ export class TableViewComponent {
         this.retry();
       },
     });
+  }
+
+  /**
+   * The cell index in the line of the i-th shown column: the page says where each column is; without it, cell 0
+   * is the prefix and header column n is cell n + 1, counted over all columns.
+   */
+  private cellOf(i: number): number {
+    return this.data()?.columnPositions?.[i] ?? this.allColumns().indexOf(this.columns()[i]) + 1;
   }
 
   private patch(row: DocTableRow, col: number, text: string): void {
