@@ -42,7 +42,7 @@ describe('QuickFixDialogComponent', () => {
     const fixture = TestBed.createComponent(QuickFixDialogComponent);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const apply = () => Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Apply')!;
+    const apply = () => el.querySelector<HTMLButtonElement>('button.apply')!;
     return { fixture, el, store, ref, result, apply };
   }
 
@@ -69,8 +69,15 @@ describe('QuickFixDialogComponent', () => {
   });
 
   it('counts one problem in the singular', () => {
-    const { el } = render({ ...PREVIEW, occurrences: 1 });
+    const { el, apply } = render({ ...PREVIEW, occurrences: 1 });
     expect(el.querySelector('[data-testid=fix-count]')?.textContent).toBe('Fixes 1 problem');
+    expect(apply().textContent?.trim()).toBe('Apply');
+  });
+
+  it("names the server's count of the problems on the button that applies them all", () => {
+    expect(render().apply().textContent?.trim()).toBe('Apply to all 2');
+    TestBed.resetTestingModule();
+    expect(render({ ...PREVIEW, occurrences: 1234 }).apply().textContent?.trim()).toBe('Apply to all 1,234');
   });
 
   it('says that only the first changed lines are shown when the server cut the list', () => {

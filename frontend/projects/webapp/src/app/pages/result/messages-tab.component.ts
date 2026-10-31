@@ -104,6 +104,8 @@ export class MessagesTabComponent {
   /** The editor shows every line: a message without a document target gets a chip for its line. */
   readonly lineChips = input(false);
   readonly fix = output<FixRequest>();
+  /** The message of each group (by key) the user showed last: the one a single quick fix is for. */
+  private readonly actedOn = new Map<string, ValidationMessage>();
 
   protected readonly flat = this.state.flat;
   private readonly expanded = this.state.expanded;
@@ -259,6 +261,8 @@ export class MessagesTabComponent {
     });
   }
   protected emit(group: MessageGroup, index: number, all: boolean): void {
+    const m = group.messages[index];
+    if (m) this.actedOn.set(group.key, m);
     this.show.emit({ group, index, all });
   }
   /** A line heading in the group's guidance panel: shows the first occurrence with that target. */
@@ -267,9 +271,15 @@ export class MessagesTabComponent {
     const index = group.messages.findIndex((m) => JSON.stringify(targetOf(m)) === key);
     if (index >= 0) this.emit(group, index, false);
   }
-  /** The guidance's first message is the one a single fix is previewed for. */
-  protected emitFix(guidance: Guidance, fix: { fixId: string; all: boolean }): void {
-    const messageIndex = guidance.messages?.[0];
+  /**
+   * A fix is previewed for the message of the group the user showed last, if the guidance covers it; else for the
+   * guidance's first message.
+   */
+  protected emitFix(group: MessageGroup, guidance: Guidance, fix: { fixId: string; all: boolean }): void {
+    const covered = guidance.messages ?? [];
+    const last = this.actedOn.get(group.key);
+    const acted = last ? covered.find((i) => this.messages()[i] === last) : undefined;
+    const messageIndex = acted ?? covered[0];
     if (messageIndex != null) this.fix.emit({ fixId: fix.fixId, messageIndex, all: fix.all });
   }
   protected go(delta: number): void {

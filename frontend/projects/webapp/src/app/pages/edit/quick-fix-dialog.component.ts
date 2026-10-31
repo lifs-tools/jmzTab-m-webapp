@@ -46,6 +46,11 @@ export class QuickFixDialogComponent {
     const n = this.preview.occurrences ?? 0;
     return n === 1 ? 'Fixes 1 problem' : `Fixes ${n.toLocaleString('en')} problems`;
   });
+  /** "Apply to all N", with the server's count of the problems the batch fixes, where it fixes more than one. */
+  protected readonly applyLabel = computed(() => {
+    const n = this.preview.occurrences ?? 0;
+    return n > 1 ? `Apply to all ${n.toLocaleString('en')}` : 'Apply';
+  });
   /**
    * The server lists at most {@link MAX_PREVIEW_CHANGES} lines. A full list was cut when the batch does more than
    * it shows: more operations or problems than lines, or an operation on every row.

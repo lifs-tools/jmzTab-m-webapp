@@ -344,4 +344,26 @@ describe('MessagesTabComponent in the editor', () => {
     el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
     expect(fixture.componentInstance.fixed).toEqual({ fixId: 'normalise-doi', messageIndex: 1, all: false });
   });
+
+  it('asks for the quick fix of the message the user showed last in that group', () => {
+    const doi2 = msg(3, { code: '[Error-1014] x', message: 'Not a DOI', message_type: 'error', line_number: 6 });
+    const doi3 = msg(4, { code: '[Error-1014] x', message: 'Not a DOI', message_type: 'error', line_number: 7 });
+    const g: Guidance = { typeCode: 'Error-1014', title: 'DOI', explanation: 'x', fixHere: 'y', fixInTool: 'z', quickFix: 'normalise-doi', messages: [1, 2, 3], lines: [] };
+    const { fixture, el } = render([broken, doi, doi2, doi3], ['OPEN', 'OPEN', 'OPEN', 'OPEN'], [g]);
+    const chip = (label: string) =>
+      Array.from(el.querySelectorAll<HTMLButtonElement>('.chip')).find((c) => c.textContent?.trim() === label)!;
+    chip('line 6').click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
+    expect(fixture.componentInstance.fixed).toEqual({ fixId: 'normalise-doi', messageIndex: 2, all: false });
+    chip('line 7').click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
+    expect(fixture.componentInstance.fixed).toEqual({ fixId: 'normalise-doi', messageIndex: 3, all: false });
+    // a message of another group does not change which one this group's fix is for
+    chip('line 12').click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('button.quick-fix')!.click();
+    expect(fixture.componentInstance.fixed?.messageIndex).toBe(3);
+  });
 });

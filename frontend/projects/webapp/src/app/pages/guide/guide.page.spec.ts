@@ -64,6 +64,9 @@ describe('GuidePage', () => {
     const text = (await render()).textContent!.replace(/\s+/g, ' ');
     expect(text).toContain(`Press ${QUICK_FIX_PREVIEW_LABEL} to see`);
     expect(text).toContain('Fix all N like this');
+    // the dialog names the server's count of the problems a fix covers, and a single fix is for the shown message
+    expect(text).toContain('Apply to all N');
+    expect(text).toContain('the problem you showed last');
   });
 
   it('says which lines open as text, and that the editor does not move lines', async () => {

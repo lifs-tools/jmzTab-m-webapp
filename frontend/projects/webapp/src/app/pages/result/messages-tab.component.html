@@ -107,7 +107,7 @@
               [quickFixState]="quickFixState()"
               [headers]="headers()"
               (jump)="jumpTo(c.group, $event)"
-              (fix)="emitFix(g, $event)"
+              (fix)="emitFix(c.group, g, $event)"
             />
           </details>
         }
