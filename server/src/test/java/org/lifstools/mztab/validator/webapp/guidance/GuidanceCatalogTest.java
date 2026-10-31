@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.lifstools.mztab.validator.webapp.workingcopy.quickfix.QuickFixes;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.springframework.core.io.DefaultResourceLoader;
 
@@ -54,6 +55,15 @@ class GuidanceCatalogTest {
         for (GuidanceEntry e : catalog.entries()) {
             for (String code : e.codes()) {
                 assertTrue(known.contains(GuidanceCatalog.numericPart(code)), e.id() + ": " + code);
+            }
+        }
+    }
+
+    @Test
+    void everyQuickFixIdExists() {
+        for (GuidanceEntry e : catalog.entries()) {
+            if (e.quickFix() != null) {
+                assertTrue(QuickFixes.ids().contains(e.quickFix()), e.id() + ": " + e.quickFix());
             }
         }
     }

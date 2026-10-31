@@ -1,0 +1,4 @@
+MTD	mzTab-version	2.0.0-M
+MTD	publication[1]	doi:https://doi.org/10.1/x|doi:doi:10.2/y|pubmed:123
+MTD	publication[2]	pubmed:123|doi:10.3/z
+MTD	publication[3]	doi:http://dx.doi.org/10.4/w

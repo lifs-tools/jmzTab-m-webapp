@@ -1,0 +1,9 @@
+MTD	mzTab-version	2.0.0-M
+MTD	mzTab-ID	QF-6
+MTD	assay[1]	d
+MTD	assay[1]-sample_ref	sample[1]
+MTD	sample[2]	b
+MTD	sample[2]-description	c
+MTD	ms_run[1]-location	file:///x
+SMH	SML_ID
+SML	1

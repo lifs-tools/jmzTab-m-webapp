@@ -381,6 +381,17 @@ public class WorkingCopyService {
     }
 
     /**
+     * Runs {@code work} on the database of an existing copy, for read-only
+     * callers outside this package such as the quick fixes. A copy deleted
+     * meanwhile is answered as no copy.
+     *
+     * @throws NoSuchWorkingCopyException if there is no copy
+     */
+    public <T> T read(UUID id, java.util.function.Function<WorkingCopyDb, T> work) {
+        return guard(id, () -> work.apply(db(id)));
+    }
+
+    /**
      * The database of an existing copy, opened for one request.
      *
      * @throws NoSuchWorkingCopyException if there is no complete copy

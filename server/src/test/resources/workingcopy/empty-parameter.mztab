@@ -1,0 +1,6 @@
+MTD	mzTab-version	2.0.0-M
+MTD	mzTab-ID	QF-1
+MTD	instrument[1]-detector	[, , , ]
+MTD	instrument[1]-source	[MS, MS:1, , ]
+MTD	instrument[2]-detector	[, , , ] | [,,,]
+MTD	description	[, , , ]x

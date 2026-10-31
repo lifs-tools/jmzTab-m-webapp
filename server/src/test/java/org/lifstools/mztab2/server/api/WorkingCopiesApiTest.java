@@ -263,4 +263,64 @@ class WorkingCopiesApiTest {
         mvc.perform(get(BASE + "/" + id)).andExpect(status().isNotFound());
         mvc.perform(post(BASE + "/" + id + "/validations")).andExpect(status().isNotFound());
     }
+
+    @Test
+    void quickFixPreviewEndpoint() throws Exception {
+        String text = new String(example(), StandardCharsets.UTF_8)
+            .replace("[MS, MS:1000624, inductive detector, ]", "[, , , ]");
+        String id = validation("quickfix.mzTab", text.getBytes(StandardCharsets.UTF_8));
+        create(id);
+        String url = BASE + "/" + id + "/quick-fixes/remove-empty-parameter";
+
+        mvc.perform(get(url).param("message", "0")).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("Validate the current revision first."));
+        mvc.perform(post(BASE + "/" + id + "/validations")).andExpect(status().isAccepted());
+        JsonNode copy;
+        long end = System.currentTimeMillis() + 60_000;
+        do {
+            Thread.sleep(50);
+            copy = json.readTree(mvc.perform(get(BASE + "/" + id)).andReturn().getResponse().getContentAsString());
+        } while (!"DONE".equals(copy.at("/validation/status").asText()) && System.currentTimeMillis() < end);
+        int message = -1;
+        for (int i = 0; i < copy.at("/validation/messages").size(); i++) {
+            if (copy.at("/validation/messages/" + i + "/message/code").asText().contains("Error-1012")) {
+                message = i;
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(message >= 0, copy.toString());
+
+        mvc.perform(get(url).param("message", Integer.toString(message)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.fixId").value("remove-empty-parameter"))
+            .andExpect(jsonPath("$.revision").value(0))
+            .andExpect(jsonPath("$.occurrences").value(1))
+            .andExpect(jsonPath("$.changes[0].lineNumber").value(24))
+            .andExpect(jsonPath("$.changes[0].after").doesNotExist())
+            .andExpect(jsonPath("$.batch.revision").value(0))
+            .andExpect(jsonPath("$.batch.operations[0].op").value("DeleteLine"));
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.revision").value(0))
+            .andExpect(jsonPath("$.canUndo").value(false));
+        mvc.perform(get(url).param("message", Integer.toString(message)).param("all", "true"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.occurrences").value(1));
+        mvc.perform(get(url)).andExpect(status().isBadRequest());
+        mvc.perform(get(url).param("message", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(get(url).param("message", "9999")).andExpect(status().isBadRequest());
+        mvc.perform(get(url).param("message", "x")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/" + id + "/quick-fixes/no-such-fix").param("message", "0"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/" + id + "/quick-fixes/reencode-latin1").param("message", "0"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("WINDOWS_1252")));
+        mvc.perform(get(BASE + "/00000000-0000-0000-0000-000000000000/quick-fixes/normalise-doi")
+            .param("message", "0")).andExpect(status().isNotFound());
+
+        // apply it, then the preview of the old revision is stale
+        String batch = json.readTree(mvc.perform(get(url).param("message", Integer.toString(message)))
+            .andReturn().getResponse().getContentAsString()).get("batch").toString();
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(batch))
+            .andExpect(status().isOk());
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(batch))
+            .andExpect(status().isConflict());
+        mvc.perform(get(url).param("message", Integer.toString(message))).andExpect(status().isConflict());
+    }
 }

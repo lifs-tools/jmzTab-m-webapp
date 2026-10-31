@@ -48,6 +48,8 @@ import org.lifstools.mztab.validator.webapp.workingcopy.SourceEncoding;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyInfo;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyReader;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyService;
+import org.lifstools.mztab.validator.webapp.workingcopy.quickfix.QuickFixPreview;
+import org.lifstools.mztab.validator.webapp.workingcopy.quickfix.QuickFixService;
 import org.lifstools.mztab2.server.api.RequestBodies;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -79,13 +81,15 @@ public class WorkingCopiesApiController {
 
     private final WorkingCopyService copies;
     private final WorkingCopyReader reader;
+    private final QuickFixService quickFixes;
     private final RequestBodies bodies;
     private final ObjectMapper json;
 
-    public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, RequestBodies bodies,
-        ObjectMapper json) {
+    public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, QuickFixService quickFixes,
+        RequestBodies bodies, ObjectMapper json) {
         this.copies = copies;
         this.reader = reader;
+        this.quickFixes = quickFixes;
         this.bodies = bodies;
         this.json = json;
     }
@@ -148,6 +152,21 @@ public class WorkingCopiesApiController {
             throw new IllegalArgumentException("An edit batch is required.");
         }
         return copies.edit(uuid, batch);
+    }
+
+    @Operation(operationId = "previewWorkingCopyQuickFix", summary = "Previews a quick fix for a message of the "
+        + "copy's last validation without changing the copy; post the batch to the edits endpoint to apply it. 409 "
+        + "unless the last validation is finished, of the current revision and not stale; 400 if the fix does not "
+        + "apply to the message, cannot be applied to a group, would need more than 5000 operations, or is not a "
+        + "text edit (reencode-latin1: re-create the copy with encoding=WINDOWS_1252)")
+    @GetMapping(value = "/{id}/quick-fixes/{fixId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public QuickFixPreview previewWorkingCopyQuickFix(@PathVariable("id") String id,
+        @PathVariable("fixId") String fixId,
+        @Parameter(description = "An index into the messages of the copy's last validation")
+        @RequestParam("message") int message,
+        @Parameter(description = "Whether to fix every message of the same guidance group")
+        @RequestParam(value = "all", defaultValue = "false") boolean all) {
+        return quickFixes.preview(parse(id), fixId, message, all);
     }
 
     @Operation(operationId = "undoWorkingCopy", summary = "Reverts the newest change; 409 if the revision is stale "

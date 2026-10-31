@@ -1,0 +1,10 @@
+MTD	mzTab-version	2.0.0-M
+MTD	cv[1]-label	MS
+MTD	cv[1]-uri	http://ms
+MTD	cv[2]-label	UO
+MTD	cv[2]-full_name	Units
+MTD	cv[2]-uri	http://uo
+MTD	cv[3]-label	NCIT
+MTD	cv[3]-uri	http://ncit
+MTD	cv[3]-version	1
+MTD	description	d

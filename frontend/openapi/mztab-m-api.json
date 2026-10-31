@@ -793,6 +793,21 @@
         },
         "type" : "object"
       },
+      "LineChange" : {
+        "properties" : {
+          "after" : {
+            "type" : [ "string", "null" ]
+          },
+          "before" : {
+            "type" : [ "string", "null" ]
+          },
+          "lineNumber" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "MetadataEntry" : {
         "properties" : {
           "key" : {
@@ -1729,6 +1744,34 @@
         "type" : "object",
         "x-mztab-example" : "MTD\tpublication[1]\tpubmed:21063943|doi:10.1007/978-1-60761-987-1_6\nMTD\tpublication[2]\tpubmed:20615486|doi:10.1016/j.jprot.2010.06.008\n",
         "x-mztab-serialize-by-id" : "true"
+      },
+      "QuickFixPreview" : {
+        "properties" : {
+          "batch" : {
+            "$ref" : "#/components/schemas/EditBatch"
+          },
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LineChange"
+            },
+            "type" : "array"
+          },
+          "fixId" : {
+            "type" : "string"
+          },
+          "occurrences" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       },
       "QuotedLine" : {
         "properties" : {
@@ -4806,6 +4849,58 @@
           }
         },
         "summary" : "Downloads the file as it was uploaded",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/quick-fixes/{fixId}" : {
+      "get" : {
+        "operationId" : "previewWorkingCopyQuickFix",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fixId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "An index into the messages of the copy's last validation",
+          "in" : "query",
+          "name" : "message",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Whether to fix every message of the same guidance group",
+          "in" : "query",
+          "name" : "all",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuickFixPreview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Previews a quick fix for a message of the copy's last validation without changing the copy; post the batch to the edits endpoint to apply it. 409 unless the last validation is finished, of the current revision and not stale; 400 if the fix does not apply to the message, cannot be applied to a group, would need more than 5000 operations, or is not a text edit (reencode-latin1: re-create the copy with encoding=WINDOWS_1252)",
         "tags" : [ "working-copies" ]
       }
     },
