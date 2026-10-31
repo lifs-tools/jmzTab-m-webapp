@@ -1,0 +1,137 @@
+<section class="hero">
+  <p class="lifs-eyebrow">LIFS Tools · Report &amp; share</p>
+  <h1>Fixing a file</h1>
+  <p class="lifs-lead">
+    How to read what the validator reports, correct your mzTab-M file in the browser, and take the corrected file
+    with you.
+  </p>
+</section>
+
+<div class="page lifs-prose">
+  <section class="lifs-card" aria-labelledby="guide-result">
+    <h2 id="guide-result" class="lifs-card__title">Read a result and its guidance</h2>
+    <p>
+      Validate your file on the <a routerLink="/">start page</a>. The result lists what jmzTab-m found. Messages of
+      the same kind are grouped, so a problem that repeats on many lines appears once, with a count.
+    </p>
+    <p>
+      Open a group to see its guidance. It says what the problem means, what to change in the tool that wrote the
+      file, and what you can do here. Choose <b>Show first →</b> to see where the problem is.
+    </p>
+    <p>
+      The most frequent problems are explained on the <a routerLink="/problems">Common problems</a> page, with
+      the steps for some tools.
+    </p>
+    <p>
+      To correct the file here, press <b>Fix this file</b> on the result page. On the start page, choose a file and
+      press <b>Open a file to fix</b>; the editor opens when the result is ready.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-fixing">
+    <h2 id="guide-fixing" class="lifs-card__title">Fix a file in place</h2>
+    <p>
+      The editor works on a copy of your upload. Your original is never changed. Everything you do is a change to
+      the text of the copy, and the validator checks the text again; it does not guess what you meant.
+    </p>
+    <h3>Edit a value</h3>
+    <p>
+      Click a cell of a table, or a value in the metadata, and type. Press Enter to save the change. Press Escape
+      to drop it. One edit can change one cell. A cell can hold up to 100,000 characters.
+    </p>
+    <h3>Fix a line the editor cannot show</h3>
+    <p>
+      A line that cannot be shown as metadata or as a table row opens in a text field with its raw text. Tabs are
+      shown as →. Change the text and press <b>Save line</b>, or press <b>Delete this line</b>. A line can hold up
+      to 1,000,000 characters.
+    </p>
+    <h3>Use a quick fix</h3>
+    <p>
+      For some problems the guidance offers a quick fix. You always see a before and after of every changed line
+      first, and nothing changes until you press <b>Apply</b>. A quick fix never chooses a term, a unit or a value
+      for you. These quick fixes exist:
+    </p>
+    <ul>
+      <li>remove an empty parameter</li>
+      <li>write a DOI as doi:10.xxxx/yyyy</li>
+      <li>join a line that was broken in two</li>
+      <li>split a metadata line whose key and value are separated by spaces instead of a tab</li>
+      <li>add a column that the file must have</li>
+      <li>add a missing metadata line, for you to fill in</li>
+      <li>remove a controlled vocabulary entry that nothing uses</li>
+    </ul>
+    <h3>Resolve a duplicate column</h3>
+    <p>
+      When a table has two columns with the same name, the column is marked <b>dup</b>. Choose
+      <b>Resolve duplicate column</b>. You can keep one column and delete the others, or merge them into one
+      column. A merge keeps the value of the column you choose in each row; where it is empty or <code>null</code>,
+      the first other value that is neither is used. The dialog shows the rows whose values differ before you
+      apply it.
+    </p>
+    <p>You cannot rename a column to a name that another column already has, or insert one.</p>
+    <h3>Undo and redo</h3>
+    <p>
+      <b>Undo</b> and <b>Redo</b> (Ctrl+Z and Ctrl+Shift+Z) step through your changes. The last 100 steps are kept,
+      and a very large change may reduce that number. One batch of changes can hold up to 5,000 edits.
+    </p>
+    <h3>Checking your changes</h3>
+    <p>
+      After 1.5 seconds without a change, the editor checks the structure again and shows which problems are
+      <em>new</em> and which are <em>fixed</em>. The mzTab-M version is read again from the text, so a change to
+      the version line is picked up. The rules for controlled vocabulary terms are checked when you press
+      <b>Check CV rules</b>, because they need the EBI Ontology Lookup Service and can take longer.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-stopped">
+    <h2 id="guide-stopped" class="lifs-card__title">When jmzTab-m stops reading</h2>
+    <p>
+      If a line is broken badly enough, jmzTab-m cannot go on. The editor then says
+      <b>jmzTab-m stopped reading at line N</b>. Only the problems above that line are reported, so more can appear
+      once you fix it. This is why a short list of problems can grow after your first fix. Fix the line it names
+      first. You can still read and edit the lines below it.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-downloads">
+    <h2 id="guide-downloads" class="lifs-card__title">Downloads and the resolution report</h2>
+    <ul>
+      <li><b>Download .mzTab</b> is the corrected file, exactly as it is in the editor.</li>
+      <li>
+        <b>Download JSON</b> is offered once the file is checked without errors. It is made from the corrected text.
+      </li>
+      <li><b>Download original</b> is your upload, unchanged.</li>
+      <li>
+        <b>Download resolution report</b> is a Markdown file named after your file, ending in
+        <code>-problems.md</code>. It lists each problem with its explanation and how to fix it in your tool. You
+        can send it to the person who produced the file, or keep it with your records.
+      </li>
+    </ul>
+    <p>Use the resolution report when the cause is in the tool that wrote the file. Fixing it only here would repeat the problem next time.</p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-retention">
+    <h2 id="guide-retention" class="lifs-card__title">How long your file is kept</h2>
+    <p>
+      The upload, its result and the corrected copy are
+      @if (info()?.retentionDays; as days) {
+        kept for {{ days }} days after your last change
+      } @else {
+        kept for a number of days after your last change
+      }
+      and then deleted. A change to the copy starts the time again. Anyone who has the address of the editor can
+      open and change the file, so share it with care. You can delete a result earlier on its result page.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-encoding">
+    <h2 id="guide-encoding" class="lifs-card__title">Files that are not UTF-8</h2>
+    <p>
+      mzTab-M files are UTF-8. If your file is not, the editor says so and names the first line with a character it
+      cannot read. If your tool wrote the file as Windows-1252 or Latin-1, press
+      <b>Re-encode from Windows-1252</b>. The corrected file is then UTF-8. Look at accented letters and symbols
+      such as µ afterwards; if they look wrong, the file used a different encoding and should be exported again
+      from your tool.
+    </p>
+  </section>
+</div>

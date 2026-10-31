@@ -4,6 +4,8 @@ Nils Hoffmann &lt;nils.hoffmann@isas.de&gt;
 image:https://travis-ci.org/lifs-tools/jmzTab-m-webapp.svg?branch=master["Build Status", link="https://travis-ci.org/lifs-tools/jmzTab-m-webapp"]
 image:https://img.shields.io/github/release/lifs-tools/jmzTab-m-webapp.svg["Latest Release", link="https://github.com/lifs-tools/jmzTab-m-webapp/releases/latest"] image:https://zenodo.org/badge/120903476.svg["DOI", link="https://zenodo.org/badge/latestdoi/120903476"]
 
+Besides validating, the web application helps you fix a file: each problem comes with guidance, and the editor corrects cells, metadata values, broken lines and duplicate columns in the browser, with quick fixes that show a before and after, undo and redo, and a resolution report to take back to the tool that wrote the file. See "Fixing a file" in the application, or `docs/release-notes/2.0.0.md`.
+
 This project provides a validator implementation and web application for the https://github.com/HUPO-PSI/mzTab[mzTab-M standard for metabolomics], versions 2.0 and (on the development validator) 2.1. Each mzTab-M version is validated by the reference implementation of that version, https://github.com/lifs-tools/jmzTab-m[jmzTab-m] 1.0.x for 2.0 and 2.1.x for 2.1, running as a separate engine service next to the web application. Support for mzTab 1.0 (proteomics) was retired in version 2.0.0; please use an earlier 1.0.x release for those files.
 
 == Using the LIFS Web application

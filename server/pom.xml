@@ -14,6 +14,8 @@
     <properties>
         <!-- the main class of the executable jar and of the image -->
         <start-class>org.lifstools.mztab.validator.webapp.Application</start-class>
+        <!-- test groups left out of the default run (JUnit tags) -->
+        <excluded.test.groups>performance</excluded.test.groups>
     </properties>
 
 
@@ -231,6 +233,8 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!-- the large-file measurements run only with -Dgroups=performance -->
+                    <excludedGroups>${excluded.test.groups}</excludedGroups>
                     <systemPropertyVariables>
                         <openapi.update>${openapi.update}</openapi.update>
                         <!-- started by EngineTestSupport; exists after package of engine-mztabm-2.0 -->
@@ -292,6 +296,18 @@
         </plugins>
     </build>
     <profiles>
+        <profile>
+            <!-- -Dgroups=performance selects the excluded tests, so nothing is excluded then -->
+            <id>test-groups-selected</id>
+            <activation>
+                <property>
+                    <name>groups</name>
+                </property>
+            </activation>
+            <properties>
+                <excluded.test.groups></excluded.test.groups>
+            </properties>
+        </profile>
         <profile>
             <id>docker</id>
             <build>

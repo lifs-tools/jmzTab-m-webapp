@@ -115,6 +115,18 @@
           }
         </div>
 
+        <details class="help" data-testid="help">
+          <summary>How to fix this file</summary>
+          <ul>
+            <li>Click a cell or a metadata value to change it. Enter saves, Escape cancels.</li>
+            <li>Choose <b>Fix it here</b> in a message for a quick fix. You see a before and after first.</li>
+            <li>A line the editor cannot show opens as text. → stands for a tab.</li>
+            <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
+            <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
+          </ul>
+          <p><a routerLink="/guide">Read the guide: Fixing a file</a></p>
+        </details>
+
         <div class="status" role="status" aria-live="polite" data-testid="run-status">
           @if (store.validating()) {
             <span>Checking your latest changes…</span>

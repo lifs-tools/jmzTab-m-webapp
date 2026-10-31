@@ -137,6 +137,7 @@ Each validation gets a directory named after its id below `storage.location`, ho
 
 - **Retention.** Every night at 11 pm (`oldFileMaintenanceSchedule`), directories older than `minCleanupAge` days (default 7) are deleted. A result link stops working then.
 - **Quota.** While all files take up at least `storage.max-total-bytes` (default 10 GiB), new validations answer 503 and the form shows an error. Size the volume above the quota: a validation that is accepted may still add its files.
+- **Working copies** (the editor) live in the directory of their validation and follow the same rules: they are deleted `minCleanupAge` days after their last change, not after the upload. A copy that is used every week does not expire. Creating one needs about three times the size of the upload free below `storage.max-total-bytes`; a 32 MB file needs roughly 100 MB. The copy itself is about the size of the file, plus the undo history, which is bounded. Opening a 31 MB file took under a second on a development machine (design document, section 9).
 - **Backups** are optional: results are temporary by design. Back up the volume if you want links to survive the loss of a host.
 - **Several instances** must not share one directory.
 

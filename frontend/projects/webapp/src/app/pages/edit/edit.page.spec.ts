@@ -533,6 +533,14 @@ describe('EditPage', () => {
     expect(button(el, 'save-state').textContent?.trim()).toBe('Saved');
   });
 
+  it('has inline help that links to the guide', async () => {
+    const { el } = await open();
+    const help = el.querySelector('[data-testid=help]')!;
+    expect(help.querySelector('summary')?.textContent?.trim()).toBe('How to fix this file');
+    expect(help.textContent).toContain('last 100 steps');
+    expect(help.querySelector('a')?.getAttribute('href')).toBe('/guide');
+  });
+
   it('undoes and redoes with the buttons and Ctrl+Z / Ctrl+Shift+Z outside inputs', async () => {
     const { fixture, el } = await open(info({ revision: 3, canUndo: true, canRedo: true }));
     const key = (target: EventTarget, shift = false) =>

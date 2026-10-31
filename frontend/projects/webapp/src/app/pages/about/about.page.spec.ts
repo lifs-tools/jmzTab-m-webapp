@@ -57,6 +57,15 @@ describe('AboutPage', () => {
     );
   });
 
+  it('describes the editor and links the guide and the problems page', async () => {
+    const el = await render();
+    const section = el.querySelector('[aria-labelledby=about-editor]')!;
+    expect(section.querySelector('h2')?.textContent?.trim()).toBe('Fixing a file');
+    expect(section.textContent).toContain('Your original upload is never changed.');
+    expect(section.querySelector('a[href="/guide"]')).toBeTruthy();
+    expect(section.querySelector('a[href="/problems"]')).toBeTruthy();
+  });
+
   it('links mzTab-M and jmzTab-m', async () => {
     const el = await render();
     expect(el.querySelector('a[href="https://github.com/HUPO-PSI/mzTab"]')).toBeTruthy();

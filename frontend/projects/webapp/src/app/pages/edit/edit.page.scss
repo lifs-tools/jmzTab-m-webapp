@@ -145,3 +145,20 @@ h1 {
     padding: 20px 16px 24px;
   }
 }
+
+.help {
+  font-size: 13.5px;
+  color: var(--lifs-ink);
+
+  summary {
+    cursor: pointer;
+  }
+  ul {
+    margin: 6px 0;
+    padding-left: 20px;
+    line-height: 1.6;
+  }
+  p {
+    margin: 0;
+  }
+}

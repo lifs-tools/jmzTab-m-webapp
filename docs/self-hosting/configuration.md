@@ -30,6 +30,18 @@ The sections up to [Health and info endpoints](#health-and-info-endpoints) are t
 | `oldFileMaintenanceSchedule` | `0 0 23 * * *` (11 pm daily) | When the cleanup runs: a Spring cron expression (seconds, minutes, hours, day of month, month, day of week), in the time zone of the JVM. |
 | `sections.cache.max-bytes` | `268435456` (256 MiB) | Size of the in-memory cache for the table and metadata data shown on the result page. |
 
+### Working copies (the editor)
+
+"Fix this file" and "Open a file to fix" create a working copy of an upload. It is not configured separately; it uses the settings above.
+
+- **Where it lives.** In the directory of the validation, in a slot named `WORKINGCOPY`, as one SQLite database file (`copy.db`) that holds the exact text of the file line by line, the undo history and the last validation. The upload stays untouched in its own slot. Deleting a result deletes its copy.
+- **Retention.** The same as the result: `minCleanupAge` days after the last change. Every edit, undo and redo starts the time again. The nightly cleanup (`oldFileMaintenanceSchedule`) removes the whole directory.
+- **Quota.** The copy counts against `storage.max-total-bytes`. Creating a copy needs about three times the size of the upload free (`storage.max-total-bytes` minus what is stored): the temporary text, the parsed lines and the database. When there is less, the request answers 503 (the same as a new validation) and the editor says the storage is full. Edits, undo and redo are refused with 503 while the stored files take up `storage.max-total-bytes` or more (the usage is re-measured at most every few seconds); reading and downloading still work.
+- **Limits (fixed, not settings).** An edit request holds at most 5,000 operations; one cell at most 100,000 characters; one raw line at most 1,000,000 characters; a page is 1 to 200 rows; a range of lines at most 1,000. The undo history keeps at most 100 steps and is bounded in size. Anything out of range answers 400.
+- **SQLite.** The webapp uses `org.xerial:sqlite-jdbc`, which carries its native libraries inside the JAR and unpacks the one for the platform into the temporary directory (`java.io.tmpdir`) when the first copy is opened. The images are built on `eclipse-temurin:25-jre` (Ubuntu, glibc), which the bundled library supports. On a musl system (Alpine) or an unusual platform the library may be missing; use a glibc base image. The temporary directory must be writable and not mounted `noexec`.
+- **Encoding.** Uploads must be UTF-8. If one is not, the editor offers to read it as Windows-1252 and stores it as UTF-8. The original is kept as uploaded and is what "Download original" returns.
+- **Validation engines.** Each check of a copy sends its whole text to the engine of its mzTab-M version, like a new validation. The version is read again from the text after every edit, so changing `mzTab-version` can move a copy to the other engine.
+
 ## Validation engines
 
 The webapp sends every file to the engine of its mzTab-M version: a `2.0.x-M` file to the 2.0 engine, a `2.1.x-M` file to the 2.1 engine. It reads the declared `mzTab-version` itself and parses nothing else. A version whose engine is not configured is not offered: a file of that version gets one error message, a profile of that version is not listed.

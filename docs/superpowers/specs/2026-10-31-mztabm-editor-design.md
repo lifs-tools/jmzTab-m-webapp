@@ -526,6 +526,22 @@ The project lead reviews the documentation of each phase.
 | Producer-specific advice goes stale | Tool variants carry the tool version they were written for. |
 | Anonymous storage of unpublished data in working copies | Same as results: unguessable ids, no listing, 7-day retention stated, and delete on demand. |
 
+**Measurement for the first row (2026-10-31).** `LargeFilePerformanceTest` (`@Tag("performance")`, run with `-Dgroups=performance`) generates a 31 MB file (846 SML rows of 1,990 columns, 1,521 assays, 5,540 metadata lines) and times the working-copy operations on an Apple M4 (arm64, 10 CPUs, 32 GB), Java 25.0.3, with the real mzTab-M 2.0 engine on the same machine. Two runs, in milliseconds:
+
+| Operation | Budget | Run 1 | Run 2 |
+|---|---|---|---|
+| create a copy from the upload | 10,000 | 841 | 639 |
+| lines page (200 lines) | 300 | 13 | 16 |
+| table page (SML, 50 rows, 1,990 columns; sorted) | 300 | 54; 44 | 58; 54 |
+| one SetCell batch (1 cell; the editor sends one per edit) | 100 | 37 | 38 |
+| one SetCell batch of 100 cells (reported) | none | 152 | 169 |
+| InsertColumn across all rows | 2,000 | 941 | 788 |
+| assembling the text for validation | 3,000 | 198 | 107 |
+| one structural validation on the 2.0 engine (reported) | none | 1,692 | 1,479 |
+
+All asserted budgets hold, by a factor of two or more. The structural validation reads the whole file (parsed, messages capped at 100) in about 1.5 s, so re-validating after the idle period of 1.5 s is acceptable at this size and no size threshold is needed. The 100-cell batch is above the 100 ms budget, which was set for a single edit; a bulk edit of that size is not an interactive case. The generated file is deliberately not a valid study (semantic checks are not run).
+
+
 ---
 
 ## 10. Findings outside this repo

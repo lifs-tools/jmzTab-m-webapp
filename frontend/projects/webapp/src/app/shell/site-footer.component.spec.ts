@@ -44,9 +44,16 @@ describe('SiteFooterComponent', () => {
     expect(link?.textContent).toContain('Common problems');
   });
 
+  it('links to the fixing guide', async () => {
+    const el = await render(undefined);
+    const link = el.querySelector<HTMLAnchorElement>('.footer__links a[href$="/guide"]');
+    expect(link?.textContent).toContain('Fixing a file');
+  });
+
   it('shows the legal links opening in a new tab', async () => {
     const el = await render(undefined);
     expect(linkTexts(el)).toEqual([
+      'Fixing a file',
       'Common problems',
       'Imprint & Privacy Policy',
       'Impressum & Datenschutzerklärung',

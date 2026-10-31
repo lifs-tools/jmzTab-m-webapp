@@ -18,6 +18,7 @@
   </div>
 
   <nav class="footer__links" aria-label="Footer">
+    <a routerLink="/guide">Fixing a file</a>
     <a routerLink="/problems">Common problems</a>
     @for (link of legalLinks; track link.href) {
       <a [href]="link.href" target="_blank" rel="noopener">{{ link.label }}</a>
