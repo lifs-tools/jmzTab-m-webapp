@@ -1,0 +1,152 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab.validator.webapp.workingcopy;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.lifstools.mztab.validator.webapp.sections.MetadataEntry;
+import org.lifstools.mztab.validator.webapp.sections.MetadataGroup;
+import org.lifstools.mztab.validator.webapp.sections.MetadataPage;
+import org.lifstools.mztab.validator.webapp.sections.Section;
+import org.lifstools.mztab.validator.webapp.sections.SectionReader;
+import org.lifstools.mztab.validator.webapp.sections.TablePage;
+import org.lifstools.mztab.validator.webapp.sections.TableQuery;
+import org.springframework.lang.Nullable;
+import org.springframework.stereotype.Component;
+
+/**
+ * Reads a working copy as the result page reads a validation's sections, with
+ * the same DTOs and paging rules as {@link SectionReader}, but from the copy's
+ * current text: only the line prefix and the tab layout are used, nothing is
+ * read as mzTab-M.
+ *
+ * <ul>
+ * <li>Metadata: every {@code MTD} line; the key is cell 1, the value cell 2
+ * (empty if missing). {@link MetadataEntry#lineNumber()} is the line in the
+ * copy.</li>
+ * <li>Tables: the first {@code SMH}/{@code SFH}/{@code SEH} line is the
+ * header, every {@code SML}/{@code SMF}/{@code SME} line a row; the prefix is
+ * not a column. A row shorter than the header shows empty cells, cells past
+ * the header are not shown (the lines view shows them).
+ * {@link org.lifstools.mztab.validator.webapp.sections.TableRow#lineNumber()}
+ * is the row's line.</li>
+ * </ul>
+ * Each read is a single statement, so it sees one revision of the text.
+ */
+@Component
+public class WorkingCopyReader {
+
+    /** The most lines one {@link #lines} call returns. */
+    public static final int MAX_LINES = 1000;
+
+    private static final Map<Section, String> HEADER = Map.of(Section.SML, "SMH", Section.SMF, "SFH",
+        Section.SME, "SEH");
+
+    private final WorkingCopyService copies;
+
+    public WorkingCopyReader(WorkingCopyService copies) {
+        this.copies = copies;
+    }
+
+    public List<MetadataGroup> metadataGroups(UUID id) {
+        return SectionReader.groups(metadataEntries(copies.db(id)));
+    }
+
+    /**
+     * @param page 0-based
+     * @param size 1 to 200
+     * @param key a key of the group: its page is returned and {@code page} is ignored
+     * @throws IllegalArgumentException for invalid paging
+     */
+    public MetadataPage metadata(UUID id, String group, int page, int size, @Nullable String key) {
+        // checked before reading, so a bad request costs nothing
+        SectionReader.checkPaging(page, size);
+        return SectionReader.metadataPage(metadataEntries(copies.db(id)), group, page, size, key);
+    }
+
+    /**
+     * @return empty if the copy has no header line for the section
+     * @throws IllegalArgumentException for an unknown column, too many columns or invalid paging
+     */
+    public Optional<TablePage> table(UUID id, Section section, TableQuery query) {
+        SectionReader.checkPaging(query.page(), query.size());
+        WorkingCopyDb db = copies.db(id);
+        String header = HEADER.get(section);
+        List<Line> lines = db.linesOf(header, section.name());
+        List<String> columns = null;
+        List<String[]> rows = new ArrayList<>();
+        List<Long> numbers = new ArrayList<>();
+        for (Line l : lines) {
+            List<String> cells = l.cells().subList(1, l.cells().size());
+            if (l.section().equals(header)) {
+                if (columns == null) {
+                    columns = cells;
+                }
+            } else {
+                rows.add(cells.toArray(String[]::new));
+                numbers.add(l.number());
+            }
+        }
+        if (columns == null) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < rows.size(); i++) {
+            String[] row = rows.get(i);
+            if (row.length < columns.size()) {
+                String[] padded = Arrays.copyOf(row, columns.size());
+                Arrays.fill(padded, row.length, padded.length, "");
+                rows.set(i, padded);
+            }
+        }
+        long[] lineNumbers = numbers.stream().mapToLong(Long::longValue).toArray();
+        return Optional.of(SectionReader.tablePage(section, columns, rows, lineNumbers, query));
+    }
+
+    /**
+     * Raw lines by range.
+     *
+     * @param from 1 to the line count + 1 (which gives no lines)
+     * @param count 1 to {@value #MAX_LINES}
+     * @throws IllegalArgumentException for a range outside these bounds
+     */
+    public List<Line> lines(UUID id, long from, int count) {
+        if (count < 1 || count > MAX_LINES) {
+            throw new IllegalArgumentException("count must be between 1 and " + MAX_LINES + ".");
+        }
+        if (from < 1) {
+            throw new IllegalArgumentException("from must be at least 1.");
+        }
+        WorkingCopyDb db = copies.db(id);
+        long lineCount = db.lineCount();
+        if (from > lineCount + 1) {
+            throw new IllegalArgumentException("from must be at most " + (lineCount + 1) + ", the line count + 1.");
+        }
+        return db.lines(from, count);
+    }
+
+    private static List<MetadataEntry> metadataEntries(WorkingCopyDb db) {
+        List<MetadataEntry> entries = new ArrayList<>();
+        for (Line l : db.linesOf("MTD", "MTD")) {
+            List<String> c = l.cells();
+            entries.add(new MetadataEntry((int) l.number(), c.size() > 1 ? c.get(1) : "", c.size() > 2 ? c.get(2) : ""));
+        }
+        return entries;
+    }
+}

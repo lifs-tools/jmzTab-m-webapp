@@ -391,6 +391,84 @@
         "x-mztab-example" : "MTD\tdatabase[1]\t[MIRIAM, MIR:00100079, HMDB, ]\nMTD\tdatabase[1]-prefix\thmdb\nMTD\tdatabase[1]-version\t3.6\nMTD\tdatabase[1]-uri\thttps://www.hmdb.ca\nMTD\tdatabase[2]\t[,, \"de novo\", ]\nMTD\tdatabase[2]-prefix\tdn\nMTD\tdatabase[2]-version\tUnknown\nMTD\tdatabase[2]-uri\tnull\nMTD\tdatabase[3]\t[,, \"no database\", null ]\nMTD\tdatabase[3]-prefix\tnull\nMTD\tdatabase[3]-version\tUnknown\nMTD\tdatabase[3]-uri\tnull\n",
         "x-mztab-serialize-by-id" : "true"
       },
+      "DeleteColumn" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "header" : {
+              "type" : "string"
+            },
+            "name" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "DeleteLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "EditBatch" : {
+        "properties" : {
+          "operations" : {
+            "items" : {
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/DeleteColumn"
+              }, {
+                "$ref" : "#/components/schemas/DeleteLine"
+              }, {
+                "$ref" : "#/components/schemas/InsertColumn"
+              }, {
+                "$ref" : "#/components/schemas/InsertLine"
+              }, {
+                "$ref" : "#/components/schemas/JoinWithPrevious"
+              }, {
+                "$ref" : "#/components/schemas/MoveRow"
+              }, {
+                "$ref" : "#/components/schemas/RenameColumn"
+              }, {
+                "$ref" : "#/components/schemas/RenameMetadataKey"
+              }, {
+                "$ref" : "#/components/schemas/SetCell"
+              }, {
+                "$ref" : "#/components/schemas/SetMetadataValue"
+              }, {
+                "$ref" : "#/components/schemas/SetRawLine"
+              }, {
+                "$ref" : "#/components/schemas/SplitCells"
+              } ]
+            },
+            "type" : "array"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "EditOperation" : {
+        "discriminator" : {
+          "propertyName" : "op"
+        },
+        "properties" : {
+          "op" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "op" ]
+      },
       "EngineDto" : {
         "properties" : {
           "available" : {
@@ -583,6 +661,44 @@
         },
         "type" : "object"
       },
+      "InsertColumn" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "fill" : {
+              "type" : "string"
+            },
+            "header" : {
+              "type" : "string"
+            },
+            "name" : {
+              "type" : "string"
+            },
+            "position" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InsertLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "Instrument_2_0" : {
         "description" : "The name, source, analyzer and detector of the instruments used in the experiment. Multiple instruments are numbered [1-n].",
         "properties" : {
@@ -642,6 +758,40 @@
         "type" : "object",
         "x-mztab-example" : "MTD\tinstrument[1]-name\t[MS, MS:1000449, LTQ Orbitrap,]\nMTD\tinstrument[1]-source\t[MS, MS:1000073, ESI,]\n…\nMTD\tinstrument[2]-source\t[MS, MS:1000598, ETD,]\nMTD\tinstrument[1]-analyzer[1]\t[MS, MS:1000291, linear ion trap,]\n…\nMTD\tinstrument[2]-analyzer[1]\t[MS, MS:1000484, orbitrap,]\nMTD\tinstrument[1]-detector\t[MS, MS:1000253, electron multiplier,]\n…\nMTD\tinstrument[2]-detector\t[MS, MS:1000348, focal plane collector,]\n",
         "x-mztab-serialize-by-id" : "true"
+      },
+      "JoinWithPrevious" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Line" : {
+        "properties" : {
+          "cells" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "eol" : {
+            "type" : "string"
+          },
+          "number" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "section" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       },
       "MetadataEntry" : {
         "properties" : {
@@ -1166,6 +1316,23 @@
         "type" : "object",
         "x-mztab-example" : "MTD\tmzTab-version\t2.0.0-M\nMTD\tmzTab-ID\tMTBL1234\nMTD\ttitle\tEffects of Rapamycin on metabolite profile\n...\n"
       },
+      "MoveRow" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "MsRun_2_0" : {
         "description" : "Specification of ms_run.\nlocation: Location of the external data file e.g. raw files on which analysis has been performed. If the actual location of the MS run is unknown, a “null” MUST be used as a place holder value, since the [1-n] cardinality is referenced elsewhere. If pre-fractionation has been performed, then [1-n] ms_runs SHOULD be created per assay.\ninstrument_ref: If different instruments are used in different runs, instrument_ref can be used to link a specific instrument to a specific run.\nformat: Parameter specifying the data format of the external MS data file. If ms_run[1-n]-format is present, ms_run[1-n]-id_format SHOULD also be present, following the parameters specified in Table 1.\nid_format: Parameter specifying the id format used in the external data file. If ms_run[1-n]-id_format is present, ms_run[1-n]-format SHOULD also be present.\nfragmentation_method: The type(s) of fragmentation used in a given ms run.\nscan_polarity: The polarity mode of a given run. Usually only one value SHOULD be given here except for the case of mixed polarity runs.\nhash: Hash value of the corresponding external MS data file defined in ms_run[1-n]-location. If ms_run[1-n]-hash is present, ms_run[1-n]-hash_method SHOULD also be present.\nhash_method: A parameter specifying the hash methods used to generate the String in ms_run[1-n]-hash. Specifics of the hash method used MAY follow the definitions of the mzML format. If ms_run[1-n]-hash is present, ms_run[1-n]-hash_method SHOULD also be present.\n",
         "properties" : {
@@ -1578,6 +1745,40 @@
         },
         "type" : "object"
       },
+      "RenameColumn" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "header" : {
+              "type" : "string"
+            },
+            "name" : {
+              "type" : "string"
+            },
+            "newName" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "RenameMetadataKey" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "key" : {
+              "type" : "string"
+            },
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "SampleProcessing_2_0" : {
         "description" : "A list of parameters describing a sample processing, preparation or handling step similar to a biological or analytical methods report. The order of the sample_processing items should reflect the order these processing steps were performed in. If multiple parameters are given for a step these MUST be separated by a “|”. If derivatization was performed, it MUST be reported here as a general step, e.g. 'silylation' and the actual derivatization agens MUST be specified in the Section 6.2.54 part.\n",
         "properties" : {
@@ -1759,6 +1960,58 @@
           }
         },
         "type" : "object"
+      },
+      "SetCell" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "cell" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SetMetadataValue" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "value" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SetRawLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
       },
       "SmallMoleculeEvidence_2_0" : {
         "description" : "The small molecule evidence section is table-based, representing evidence for identifications of small molecules/features, from database search or any other process used to give putative identifications to molecules. In a typical case, each row represents one result from a single search or intepretation of a piece of evidence e.g. a database search with a fragmentation spectrum. Multiple results from a given input data item (e.g. one fragment spectrum) SHOULD share the same value under evidence_input_id.\n\nThe small molecule evidence section MUST always come after the Small Molecule Feature Table. All table columns MUST be Tab separated. There MUST NOT be any empty cells. Missing values MUST be reported using “null”.\n\nThe order of columns MUST follow the order specified below.\n\nAll columns are MANDATORY except for “opt_” columns.\n",
@@ -2688,6 +2941,19 @@
         "type" : "object",
         "x-mztab-example" : "SEH\tSME_ID\t…\tspectra_ref\t…\nSME\t1\t\t\tms_run[1]:index=5\t…\n"
       },
+      "SplitCells" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "StringList_2_0" : {
         "default" : [ ],
         "description" : "A typed list of strings.",
@@ -2920,6 +3186,10 @@
           "index" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "lineNumber" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
           }
         },
         "type" : "object"
@@ -2947,6 +3217,18 @@
           },
           "toolVersion" : {
             "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "TrackedMessage" : {
+        "properties" : {
+          "message" : {
+            "$ref" : "#/components/schemas/ValidationMessage"
+          },
+          "state" : {
+            "enum" : [ "NEW", "OPEN" ],
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -3149,6 +3431,92 @@
           },
           "validationProfile" : {
             "$ref" : "#/components/schemas/ProfileRef"
+          }
+        },
+        "type" : "object"
+      },
+      "WorkingCopyInfo" : {
+        "properties" : {
+          "canRedo" : {
+            "type" : "boolean"
+          },
+          "canUndo" : {
+            "type" : "boolean"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "fileName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lineCount" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mzTabVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sections" : {
+            "$ref" : "#/components/schemas/SectionsSummary"
+          },
+          "validation" : {
+            "$ref" : "#/components/schemas/WorkingCopyValidation"
+          }
+        },
+        "type" : "object"
+      },
+      "WorkingCopyValidation" : {
+        "properties" : {
+          "failureReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "fixed" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ValidationMessage"
+            },
+            "type" : "array"
+          },
+          "guidance" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Guidance"
+            },
+            "type" : "array"
+          },
+          "messages" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TrackedMessage"
+            },
+            "type" : "array"
+          },
+          "parsed" : {
+            "type" : "boolean"
+          },
+          "readUpTo" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "semantic" : {
+            "type" : "boolean"
+          },
+          "stale" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "enum" : [ "RUNNING", "DONE", "FAILED" ],
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -4102,6 +4470,538 @@
         },
         "summary" : "Returns one page of the SML, SMF or SME table",
         "tags" : [ "validations" ]
+      }
+    },
+    "/rest/v2/working-copies" : {
+      "post" : {
+        "operationId" : "createWorkingCopy",
+        "parameters" : [ {
+          "description" : "The id of the validation whose upload is copied",
+          "in" : "query",
+          "name" : "validation",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How the upload's bytes are decoded; a file that is not UTF-8 is refused with 422 unless WINDOWS_1252 or ISO_8859_1 is chosen. Ignored for an existing copy and for JSON uploads.",
+          "in" : "query",
+          "name" : "encoding",
+          "required" : false,
+          "schema" : {
+            "default" : "UTF_8",
+            "enum" : [ "UTF_8", "WINDOWS_1252", "ISO_8859_1" ],
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "The existing copy, unchanged"
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "A new copy"
+          }
+        },
+        "summary" : "Creates the working copy of a validated file, or returns the existing one (201 for a new copy, 200 for an existing one)",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}" : {
+      "delete" : {
+        "operationId" : "deleteWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Deletes a working copy; its validation stays",
+        "tags" : [ "working-copies" ]
+      },
+      "get" : {
+        "operationId" : "getWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns a working copy: revision, version, counts and its validation",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/edits" : {
+      "post" : {
+        "operationId" : "editWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EditBatch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Applies a batch of edits to the named revision; a stale revision is refused with 409",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/file" : {
+      "get" : {
+        "operationId" : "downloadWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "tsv or json",
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "default" : "tsv",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "format" : "binary",
+                  "type" : "string"
+                }
+              },
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "format" : "binary",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Downloads the current text: tsv always, byte for byte; json only when the last validation is of the current revision and found no error (else 409)",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/lines" : {
+      "get" : {
+        "operationId" : "getWorkingCopyLines",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "count",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Line"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns raw lines of a working copy: count lines (1 to 1000) from line from (1 to the line count + 1)",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/metadata" : {
+      "get" : {
+        "operationId" : "listWorkingCopyMetadataGroups",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MetadataGroup"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the metadata groups of a working copy's MTD lines",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/metadata/{group}" : {
+      "get" : {
+        "operationId" : "getWorkingCopyMetadataPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "group",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "A metadata key of the group; the page that holds it is returned and page is ignored",
+          "in" : "query",
+          "name" : "key",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MetadataPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns one page of a metadata group of a working copy; lineNumber is the line in the copy",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/original" : {
+      "get" : {
+        "operationId" : "downloadWorkingCopyOriginal",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/octet-stream" : {
+                "schema" : {
+                  "format" : "binary",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Downloads the file as it was uploaded",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/redo" : {
+      "post" : {
+        "operationId" : "redoWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The copy's current revision",
+          "in" : "query",
+          "name" : "revision",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Re-applies the change undone last; 409 if the revision is stale or there is nothing to redo",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/tables/{section}" : {
+      "get" : {
+        "operationId" : "getWorkingCopyTablePage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "section",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "descending",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "columns",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          }
+        }, {
+          "description" : "COLUMN:text, repeatable; the column is the first ':'-prefix that is an exact column name, the rest is the text (not split at commas)",
+          "in" : "query",
+          "name" : "filter",
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TablePage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Returns one page of the SML, SMF or SME table of a working copy; each row carries its line",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/undo" : {
+      "post" : {
+        "operationId" : "undoWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The copy's current revision",
+          "in" : "query",
+          "name" : "revision",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Reverts the newest change; 409 if the revision is stale or there is nothing to undo",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/validations" : {
+      "post" : {
+        "operationId" : "validateWorkingCopy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Whether to check the CV rules of the validation's profile (or the default profile of the file's version) too",
+          "in" : "query",
+          "name" : "semantic",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "The copy, its validation running"
+          }
+        },
+        "summary" : "Validates the current text in the background; during a run, marks it to run again on the latest revision",
+        "tags" : [ "working-copies" ]
       }
     }
   },

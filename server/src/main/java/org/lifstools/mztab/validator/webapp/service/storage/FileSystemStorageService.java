@@ -359,6 +359,12 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
+    public Optional<Path> existingFile(UUID sessionId, SLOT slot, String name) {
+        Path file = slotFile(sessionId, slot, name);
+        return Files.isRegularFile(file) ? Optional.of(file) : Optional.empty();
+    }
+
+    @Override
     public void touch(UUID sessionId) {
         try {
             Files.setLastModifiedTime(buildSessionPath(sessionId), FileTime.from(Instant.now()));

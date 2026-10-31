@@ -38,6 +38,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.sections.Section;
 import org.lifstools.mztab.validator.webapp.sections.SectionReader;
@@ -109,6 +110,20 @@ class EngineResultReaderTest {
             assertEquals(sections.table(before, section, all).orElseThrow().allColumns(),
                 sections.table(id, section, all).orElseThrow().allColumns(), section.name());
         }
+    }
+
+    @Test
+    void outcomeOnlyKeepsTheOutcomeAndStoresNothing() throws Exception {
+        ValidationEvent.Outcome outcome = reader.outcomeOnly(new ByteArrayInputStream(resource(NDJSON)));
+
+        assertTrue(outcome.parsed());
+        assertEquals("2.0.0-M", outcome.mzTabVersion());
+        assertEquals(1, outcome.messages().size());
+        assertEquals(0, storage.totalBytes(), "no section files are written");
+        String complete = new String(resource(NDJSON), StandardCharsets.UTF_8);
+        String noEnd = String.join("\n", complete.lines().toList().subList(0, 3)) + "\n";
+        assertThrows(TruncatedEngineStreamException.class,
+            () -> reader.outcomeOnly(new ByteArrayInputStream(noEnd.getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test

@@ -16,11 +16,17 @@
 package org.lifstools.mztab.validator.webapp.sections;
 
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 /**
  * @param index the 0-based row index in the file
  * @param cells the cells, in the order of {@link TablePage#columns()}
+ * @param lineNumber the 1-based line of the row in a working copy; null in the
+ * sections of a validation result
  */
-public record TableRow(int index, List<String> cells) {
+public record TableRow(int index, List<String> cells, @Nullable Long lineNumber) {
 
+    public TableRow(int index, List<String> cells) {
+        this(index, cells, null);
+    }
 }

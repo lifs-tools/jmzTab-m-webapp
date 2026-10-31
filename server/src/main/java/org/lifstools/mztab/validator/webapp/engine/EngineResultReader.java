@@ -116,6 +116,25 @@ public class EngineResultReader {
      * validation stream
      */
     public ValidationEvent.Outcome readOutcome(InputStream ndjson) {
+        return outcome(ndjson, "A synchronous validation");
+    }
+
+    /**
+     * Reads the stream to its end and returns only the outcome, for the text
+     * of a working copy: as {@link #readOutcome}, the section events are read
+     * and dropped one line at a time, and nothing is written to storage (a
+     * copy's sections come from its own text).
+     *
+     * @throws TruncatedEngineStreamException if the stream ends before its
+     * {@code end} event
+     * @throws UncheckedIOException if the stream cannot be read or is not a
+     * validation stream
+     */
+    public ValidationEvent.Outcome outcomeOnly(InputStream ndjson) {
+        return outcome(ndjson, "A working-copy validation");
+    }
+
+    private ValidationEvent.Outcome outcome(InputStream ndjson, String what) {
         try {
             BufferedReader in = new BufferedReader(new InputStreamReader(ndjson, StandardCharsets.UTF_8));
             ValidationEvent.Outcome outcome = null;
@@ -139,7 +158,7 @@ public class EngineResultReader {
         } catch (IOException e) {
             throw new UncheckedIOException("The engine's response could not be read", e);
         }
-        log.warn("A synchronous validation: the engine's response ended before its end event");
+        log.warn("{}: the engine's response ended before its end event", what);
         throw new TruncatedEngineStreamException("The engine's response ended before its end event.");
     }
 

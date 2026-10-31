@@ -115,13 +115,7 @@ public class SectionReader {
 
     /** The metadata groups in file order; empty if the session has no metadata. */
     public List<MetadataGroup> metadataGroups(UUID id) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (MetadataEntry entry : metadataEntries(id).orElse(List.of())) {
-            counts.merge(groupOf(entry.key()), 1, Integer::sum);
-        }
-        List<MetadataGroup> groups = new ArrayList<>();
-        counts.forEach((name, count) -> groups.add(new MetadataGroup(name, count)));
-        return groups;
+        return groups(metadataEntries(id).orElse(List.of()));
     }
 
     /**
@@ -140,21 +134,41 @@ public class SectionReader {
      */
     public Optional<MetadataPage> metadata(UUID id, String group, int page, int size, @Nullable String key) {
         checkPaging(page, size);
-        return metadataEntries(id).map(entries -> {
-            List<MetadataEntry> inGroup = entries.stream().filter(e -> groupOf(e.key()).equals(group)).toList();
-            int keyIndex = -1;
-            for (int i = 0; key != null && i < inGroup.size(); i++) {
-                if (inGroup.get(i).key().equals(key)) {
-                    keyIndex = i;
-                    break;
-                }
+        return metadataEntries(id).map(entries -> metadataPage(entries, group, page, size, key));
+    }
+
+    /** The metadata groups of {@code entries}, in order of first appearance. */
+    public static List<MetadataGroup> groups(List<MetadataEntry> entries) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (MetadataEntry entry : entries) {
+            counts.merge(groupOf(entry.key()), 1, Integer::sum);
+        }
+        List<MetadataGroup> groups = new ArrayList<>();
+        counts.forEach((name, count) -> groups.add(new MetadataGroup(name, count)));
+        return groups;
+    }
+
+    /**
+     * One page of a group of {@code entries}, as {@link #metadata(UUID, String, int, int, String)}.
+     *
+     * @throws IllegalArgumentException for invalid paging
+     */
+    public static MetadataPage metadataPage(List<MetadataEntry> entries, String group, int page, int size,
+        @Nullable String key) {
+        checkPaging(page, size);
+        List<MetadataEntry> inGroup = entries.stream().filter(e -> groupOf(e.key()).equals(group)).toList();
+        int keyIndex = -1;
+        for (int i = 0; key != null && i < inGroup.size(); i++) {
+            if (inGroup.get(i).key().equals(key)) {
+                keyIndex = i;
+                break;
             }
-            int shown = keyIndex < 0 ? page : keyIndex / size;
-            long from = (long) shown * size;
-            List<MetadataEntry> slice = from >= inGroup.size() ? List.of()
-                : inGroup.subList((int) from, (int) Math.min(inGroup.size(), from + size));
-            return new MetadataPage(group, shown, size, inGroup.size(), slice);
-        });
+        }
+        int shown = keyIndex < 0 ? page : keyIndex / size;
+        long from = (long) shown * size;
+        List<MetadataEntry> slice = from >= inGroup.size() ? List.of()
+            : inGroup.subList((int) from, (int) Math.min(inGroup.size(), from + size));
+        return new MetadataPage(group, shown, size, inGroup.size(), slice);
     }
 
     /**
@@ -171,8 +185,23 @@ public class SectionReader {
         if (loaded.isEmpty()) {
             return Optional.empty();
         }
-        Table table = loaded.get();
-        List<String> header = table.header();
+        return Optional.of(tablePage(section, loaded.get().header(), loaded.get().rows(), null, query));
+    }
+
+    /**
+     * One page of a table, as {@link #table(UUID, Section, TableQuery)}.
+     *
+     * @param rows every row has at least as many cells as {@code header}
+     * @param lineNumbers the line of each row, for {@link TableRow#lineNumber()}; null for none
+     * @throws IllegalArgumentException for an unknown column, more than
+     * {@value #MAX_COLUMNS} requested columns or invalid paging
+     */
+    public static TablePage tablePage(Section section, List<String> header, List<String[]> rows,
+        @Nullable long[] lineNumbers, TableQuery query) {
+        checkPaging(query.page(), query.size());
+        if (query.columns().size() > MAX_COLUMNS) {
+            throw new IllegalArgumentException("At most " + MAX_COLUMNS + " columns can be requested.");
+        }
         int[] columns = query.columns().isEmpty()
             ? java.util.stream.IntStream.range(0, Math.min(DEFAULT_COLUMNS, header.size())).toArray()
             : query.columns().stream().mapToInt(c -> columnIndex(header, c)).toArray();
@@ -183,7 +212,6 @@ public class SectionReader {
         String[] needles = allFilters.stream()
             .map(f -> f.contains() == null ? "" : f.contains().toLowerCase(Locale.ROOT)).toArray(String[]::new);
 
-        List<String[]> rows = table.rows();
         List<Integer> matching = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             if (matches(rows.get(i), filterColumns, needles)) {
@@ -202,11 +230,10 @@ public class SectionReader {
             for (int column : columns) {
                 cells.add(row[column]);
             }
-            page.add(new TableRow(index, cells));
+            page.add(new TableRow(index, cells, lineNumbers == null ? null : lineNumbers[index]));
         }
         List<String> returned = Arrays.stream(columns).mapToObj(header::get).toList();
-        return Optional.of(new TablePage(section, query.page(), query.size(), matching.size(), header, returned,
-            page));
+        return new TablePage(section, query.page(), query.size(), matching.size(), header, returned, page);
     }
 
     /** Splits at the first {@code :} whose prefix is an exact column name; column names may contain {@code :}. */
@@ -289,7 +316,10 @@ public class SectionReader {
         return index;
     }
 
-    private static void checkPaging(int page, int size) {
+    /**
+     * @throws IllegalArgumentException for a negative page or a size outside 1 to {@value #MAX_PAGE_SIZE}
+     */
+    public static void checkPaging(int page, int size) {
         if (page < 0) {
             throw new IllegalArgumentException("The page must not be negative.");
         }

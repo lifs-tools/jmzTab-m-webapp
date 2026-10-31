@@ -50,8 +50,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class ValidationSessionService {
 
-    static final String UPLOAD = "upload.mztab";
-    static final String CUSTOM_MAPPING = "custom-mapping.xml";
+    /** The stored upload, as uploaded (tab separated or JSON). */
+    public static final String UPLOAD = "upload.mztab";
+    /** The stored custom mapping of a validation that has one. */
+    public static final String CUSTOM_MAPPING = "custom-mapping.xml";
     static final int MAX_MAPPING_BYTES = 5 * 1024 * 1024;
 
     private final StorageService storage;
@@ -169,7 +171,8 @@ public class ValidationSessionService {
     }
 
     /**
-     * Removes the upload, the mapping, the record and the section data.
+     * Removes the upload, the mapping, the record, the section data and the
+     * working copy: the whole session directory.
      *
      * @return false if there is no such validation
      */

@@ -57,12 +57,28 @@ public class UploadLines {
      * @return the text of the requested 1-based lines that exist; empty if there is no upload
      */
     public Map<Long, String> lines(UUID session, Set<Long> lineNumbers) {
+        if (lineNumbers.isEmpty()) {
+            return new HashMap<>();
+        }
+        return read(session, in -> lines(in, lineNumbers), HashMap::new);
+    }
+
+    /** The names in the {@code MTD software[n]} parameters, in file order. */
+    public List<String> softwareNames(UUID session) {
+        return read(session, UploadLines::softwareNames, ArrayList::new);
+    }
+
+    /**
+     * As {@link #lines(UUID, Set)}, from any text, e.g. the assembled text of a
+     * working copy; the caller closes {@code in}.
+     */
+    public static Map<Long, String> lines(InputStream in, Set<Long> lineNumbers) throws IOException {
         Map<Long, String> found = new HashMap<>();
         if (lineNumbers.isEmpty()) {
             return found;
         }
         long last = lineNumbers.stream().mapToLong(Long::longValue).max().orElse(0);
-        scan(session, (number, text) -> {
+        scan(in, (number, text) -> {
             if (lineNumbers.contains(number)) {
                 found.put(number, text);
             }
@@ -71,10 +87,10 @@ public class UploadLines {
         return found;
     }
 
-    /** The names in the {@code MTD software[n]} parameters, in file order. */
-    public List<String> softwareNames(UUID session) {
+    /** As {@link #softwareNames(UUID)}, from any text; the caller closes {@code in}. */
+    public static List<String> softwareNames(InputStream in) throws IOException {
         List<String> names = new ArrayList<>();
-        scan(session, (number, text) -> {
+        scan(in, (number, text) -> {
             // the metadata section ends at the first line that is not MTD, COM or blank
             if (!text.isBlank() && !text.startsWith("MTD") && !text.startsWith("COM")) {
                 return false;
@@ -86,6 +102,24 @@ public class UploadLines {
             return true;
         });
         return names;
+    }
+
+    @FunctionalInterface
+    private interface Reading<T> {
+
+        T read(InputStream in) throws IOException;
+    }
+
+    private <T> T read(UUID session, Reading<T> reading, java.util.function.Supplier<T> none) {
+        Optional<InputStream> in = storage.read(session, SLOT.MZTABFILE, UPLOAD);
+        if (in.isEmpty()) {
+            return none.get();
+        }
+        try (InputStream stream = in.get()) {
+            return reading.read(stream);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read the upload of validation " + session, e);
+        }
     }
 
     /** The third slot of a parameter {@code [label, accession, name, value]}. */
@@ -119,45 +153,42 @@ public class UploadLines {
     /** At most this many characters of a line are kept: one more than the quote limit, so a cut can be seen. */
     static final int KEPT_CHARS = GuidanceResolver.MAX_LINE_CHARS + 1;
 
-    private void scan(UUID session, LineVisitor visitor) {
-        Optional<InputStream> in = storage.read(session, SLOT.MZTABFILE, UPLOAD);
-        if (in.isEmpty()) {
-            return;
-        }
+    private static void scan(InputStream in, LineVisitor visitor) throws IOException {
         // InputStreamReader replaces malformed input, so a file in another encoding does not fail
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in.get(), StandardCharsets.UTF_8))) {
-            long number = 0;
-            StringBuilder line = new StringBuilder();
-            boolean any = false;
-            boolean afterCr = false;
-            int c;
-            while ((c = reader.read()) != -1) {
-                if (c == '\n' && afterCr) {
-                    afterCr = false;
-                    continue;
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        long number = 0;
+        StringBuilder line = new StringBuilder();
+        boolean any = false;
+        boolean afterCr = false;
+        int c = reader.read();
+        // a byte order mark is not part of the first line's text
+        if (c == '\uFEFF') {
+            c = reader.read();
+        }
+        for (; c != -1; c = reader.read()) {
+            if (c == '\n' && afterCr) {
+                afterCr = false;
+                continue;
+            }
+            afterCr = c == '\r';
+            if (c == '\n' || c == '\r') {
+                number++;
+                String text = line.toString();
+                line.setLength(0);
+                any = false;
+                if (!visitor.visit(number, text)) {
+                    return;
                 }
-                afterCr = c == '\r';
-                if (c == '\n' || c == '\r') {
-                    number++;
-                    String text = line.toString();
-                    line.setLength(0);
-                    any = false;
-                    if (!visitor.visit(number, text)) {
-                        return;
-                    }
-                } else {
-                    any = true;
-                    // a line can be as long as the upload: the rest of a long line is skipped, not kept
-                    if (line.length() < KEPT_CHARS) {
-                        line.append((char) c);
-                    }
+            } else {
+                any = true;
+                // a line can be as long as the upload: the rest of a long line is skipped, not kept
+                if (line.length() < KEPT_CHARS) {
+                    line.append((char) c);
                 }
             }
-            if (any) {
-                visitor.visit(number + 1, line.toString());
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Could not read the upload of validation " + session, e);
+        }
+        if (any) {
+            visitor.visit(number + 1, line.toString());
         }
     }
 }

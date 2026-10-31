@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,12 @@ public final class WorkingCopyDb implements AutoCloseable {
     private static final String SELECT_RANGE
         = "SELECT number, section, text, eol FROM lines WHERE number >= :from ORDER BY number LIMIT :count";
     private static final String SELECT_ONE = "SELECT number, section, text, eol FROM lines WHERE number = :number";
+    private static final String SELECT_SECTIONS = """
+        SELECT number, section, text, eol FROM lines WHERE section = :first OR section = :second
+        ORDER BY number""";
+    private static final String SELECT_FIRST_OF_SECTION
+        = "SELECT number, section, text, eol FROM lines WHERE section = :section ORDER BY number LIMIT 1";
+    private static final String SECTION_COUNTS = "SELECT section, COUNT(*) AS n FROM lines GROUP BY section";
     private static final String CLEAR_LINES = "DELETE FROM lines";
     private static final String INSERT_LINE
         = "INSERT INTO lines (number, section, text, eol) VALUES (:number, :section, :text, :eol)";
@@ -222,6 +229,27 @@ public final class WorkingCopyDb implements AutoCloseable {
         };
     }
 
+    /**
+     * The lines of two sections in file order, e.g. a table's header and rows,
+     * read in one statement and so from one snapshot. Pass the same section
+     * twice for one.
+     */
+    public List<Line> linesOf(String first, String second) {
+        return jdbc.query(SELECT_SECTIONS, Map.of("first", first, "second", second), LINE_MAPPER);
+    }
+
+    /** The first line of a section, e.g. the first SMH header. */
+    public Optional<Line> firstOf(String section) {
+        return jdbc.query(SELECT_FIRST_OF_SECTION, Map.of("section", section), LINE_MAPPER).stream().findFirst();
+    }
+
+    /** The number of lines of each section that occurs. */
+    public Map<String, Long> sectionCounts() {
+        Map<String, Long> counts = new HashMap<>();
+        jdbc.query(SECTION_COUNTS, Map.of(), (rs, i) -> counts.put(rs.getString("section"), rs.getLong("n")));
+        return counts;
+    }
+
     /** Replaces the content of line {@code number}; the number of {@code line} is ignored. */
     public void replaceLine(long number, Line line) {
         check(line);
@@ -290,6 +318,27 @@ public final class WorkingCopyDb implements AutoCloseable {
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
+    /**
+     * Writes the whole copy as {@link #writeTo} does and returns the revision
+     * of exactly that text: the revision, the flag and all lines come from one
+     * snapshot.
+     */
+    public long writeRevisionTo(OutputStream out) throws IOException {
+        try {
+            return inTransaction(() -> {
+                long revision = revision();
+                try {
+                    CopyText.write(bom(), allLines(), out);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return revision;
             });
         } catch (UncheckedIOException e) {
             throw e.getCause();

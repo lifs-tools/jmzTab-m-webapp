@@ -29,6 +29,10 @@ import org.lifstools.mztab2.server.api.ValidateApiController;
 import org.lifstools.mztab2.server.api.ValidatePlainApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
+import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
+import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
+import org.lifstools.mztab.validator.webapp.workingcopy.StaleRevisionException;
+import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -68,12 +72,15 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  */
 @RestControllerAdvice(assignableTypes = {ValidationsApiController.class, ExamplesApiController.class,
     AppInfoApiController.class, ValidationProfilesApiController.class, ConvertApiController.class, ValidateApiController.class,
-    ValidatePlainApiController.class, GuidanceApiController.class})
+    ValidatePlainApiController.class, GuidanceApiController.class, WorkingCopiesApiController.class})
 public class RestErrorAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestErrorAdvice.class);
 
     static final String TOO_LARGE = "The uploaded file is too large.";
+
+    /** The {@code error} of a 422 for a file that is not UTF-8. */
+    public static final String NOT_UTF8 = "not_utf8";
 
     /** When a client may retry a request that found no free slot. */
     static final String RETRY_AFTER_SECONDS = "5";
@@ -81,6 +88,31 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnknownValidationException.class)
     public ResponseEntity<ErrorResponse> notFound(UnknownValidationException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, e.getMessage(), request);
+    }
+
+    @ExceptionHandler(NoSuchWorkingCopyException.class)
+    public ResponseEntity<ErrorResponse> noSuchCopy(NoSuchWorkingCopyException e, HttpServletRequest request) {
+        return respond(HttpStatus.NOT_FOUND, e.getMessage(), request);
+    }
+
+    /** An edit, undo or redo of an out-of-date revision: the client reloads the copy. */
+    @ExceptionHandler(StaleRevisionException.class)
+    public ResponseEntity<ErrorResponse> staleRevision(StaleRevisionException e, HttpServletRequest request) {
+        return respond(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
+
+    /** Nothing to undo or redo, or no valid current state for a JSON download; only the working copies throw it. */
+    @ExceptionHandler(WorkingCopyConflictException.class)
+    public ResponseEntity<ErrorResponse> copyConflict(WorkingCopyConflictException e, HttpServletRequest request) {
+        return respond(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
+
+    /** A copy of a file that is not UTF-8; {@code error} is {@value #NOT_UTF8}, the message names the line. */
+    @ExceptionHandler(NotUtf8Exception.class)
+    public ResponseEntity<ErrorResponse> notUtf8(NotUtf8Exception e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
+            .body(new ErrorResponse(status, NOT_UTF8, e.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

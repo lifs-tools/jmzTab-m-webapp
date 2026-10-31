@@ -89,6 +89,15 @@ public interface StorageService {
      */
     Path localFile(UUID sessionId, SLOT slot, String name);
 
+    /**
+     * The path of a file in the slot of a session if it exists; unlike
+     * {@link #localFile} nothing is created, so a deleted session stays
+     * deleted.
+     *
+     * @throws IllegalArgumentException for an unsafe name, as in {@link #write}
+     */
+    Optional<Path> existingFile(UUID sessionId, SLOT slot, String name);
+
     /** Sets the modification time of the session directory to now, which restarts its retention. */
     void touch(UUID sessionId);
 

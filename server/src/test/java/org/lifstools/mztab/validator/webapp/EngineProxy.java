@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -57,6 +60,26 @@ public final class EngineProxy {
         DOWN,
         /** {@code 503 busy} with {@code Retry-After}, as an engine running as many jobs as it may. */
         BUSY
+    }
+
+    /**
+     * Holds the next validation request at the proxy until {@link #release()}:
+     * the webapp has sent the text, the engine has not answered yet.
+     */
+    public static final class Gate {
+
+        private final CountDownLatch arrived = new CountDownLatch(1);
+        private final CountDownLatch released = new CountDownLatch(1);
+
+        /** @return whether a validation request arrived within the timeout */
+        public boolean awaitArrival(Duration timeout) throws InterruptedException {
+            return arrived.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        }
+
+        /** Forwards the held request. */
+        public void release() {
+            released.countDown();
+        }
     }
 
     /** A recorded job request. */
@@ -99,6 +122,7 @@ public final class EngineProxy {
     private final List<Recorded> jobs = new CopyOnWriteArrayList<>();
     private volatile Mode mode = Mode.FORWARD;
     private volatile int retryAfterSeconds = 7;
+    private final AtomicReference<Gate> gate = new AtomicReference<>();
 
     private EngineProxy() {
     }
@@ -140,6 +164,13 @@ public final class EngineProxy {
         this.retryAfterSeconds = seconds;
     }
 
+    /** Holds the next {@code POST /engine/v1/validations} until the returned gate is released. */
+    public Gate holdNextValidation() {
+        Gate g = new Gate();
+        gate.set(g);
+        return g;
+    }
+
     /** The job requests so far, in arrival order. */
     public List<Recorded> jobs() {
         return List.copyOf(jobs);
@@ -149,6 +180,10 @@ public final class EngineProxy {
     public void reset() {
         jobs.clear();
         mode = Mode.FORWARD;
+        Gate held = gate.getAndSet(null);
+        if (held != null) {
+            held.release();
+        }
     }
 
     private MockResponse answer(RecordedRequest request) {
@@ -157,6 +192,20 @@ public final class EngineProxy {
         String contentType = request.getHeader("Content-Type");
         if (!"/engine/v1/info".equals(path)) {
             jobs.add(new Recorded(request.getMethod(), path, contentType, body));
+        }
+        if (path != null && path.startsWith("/engine/v1/validations")) {
+            Gate held = gate.getAndSet(null);
+            if (held != null) {
+                held.arrived.countDown();
+                try {
+                    if (!held.released.await(2, TimeUnit.MINUTES)) {
+                        return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+                }
+            }
         }
         switch (mode) {
             case DOWN:

@@ -157,4 +157,15 @@ class FileSystemStorageServiceTest {
         assertEquals(root.resolve(id.toString()).resolve("WORKINGCOPY").resolve("copy.db"), p);
         assertTrue(Files.isDirectory(p.getParent()));
     }
+
+    @Test
+    void existingFileCreatesNothing() throws IOException {
+        UUID id = UUID.randomUUID();
+        assertThrows(IllegalArgumentException.class, () -> storage.existingFile(id, SLOT.WORKINGCOPY, "../x"));
+        assertTrue(storage.existingFile(id, SLOT.WORKINGCOPY, "copy.db").isEmpty());
+        assertFalse(Files.exists(root.resolve(id.toString())), "a missing file leaves no directory behind");
+        Path p = storage.localFile(id, SLOT.WORKINGCOPY, "copy.db");
+        Files.writeString(p, "x");
+        assertEquals(java.util.Optional.of(p), storage.existingFile(id, SLOT.WORKINGCOPY, "copy.db"));
+    }
 }

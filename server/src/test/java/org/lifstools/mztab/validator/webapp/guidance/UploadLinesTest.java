@@ -87,4 +87,12 @@ class UploadLinesTest {
             + "SMH\tx\nMTD\tsoftware[2]\t[MS, MS:2, Second, 1]\n";
         assertEquals(List.of("First"), with(file).softwareNames(session));
     }
+
+    @Test
+    void aByteOrderMarkIsNotText() throws Exception {
+        String file = "\uFEFFMTD\tsoftware[1]\t[MS, MS:1, First, 1]\nMTD\tx\ty\n";
+        assertEquals(List.of("First"), with(file).softwareNames(session));
+        assertEquals(Map.of(1L, "MTD\tsoftware[1]\t[MS, MS:1, First, 1]"), UploadLines.lines(
+            new ByteArrayInputStream(file.getBytes(StandardCharsets.UTF_8)), Set.of(1L)));
+    }
 }
