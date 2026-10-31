@@ -1,0 +1,78 @@
+<h2 mat-dialog-title>Resolve duplicate column</h2>
+<mat-dialog-content>
+  @if (loading()) {
+    <p class="note" role="status">Reading the columns…</p>
+  } @else if (loadError(); as msg) {
+    <p class="callout" role="alert">{{ msg }}</p>
+  } @else if (duplicate(); as dup) {
+    <p>
+      The column <code>{{ data.name }}</code> appears {{ positions().length }} times in this table:
+      @for (p of positions(); track p; let i = $index; let last = $last) {
+        {{ i > 0 ? (last ? ' and ' : ', ') : '' }}column {{ p }}
+      }.
+    </p>
+
+    <fieldset class="choice">
+      <legend>How to resolve it</legend>
+      <label>
+        <input type="radio" name="dup-mode" value="keep" [checked]="mode() === 'keep'" (change)="mode.set('keep')" />
+        Keep one column and delete the others
+      </label>
+      <label>
+        <input type="radio" name="dup-mode" value="merge" [checked]="mode() === 'merge'" (change)="mode.set('merge')" />
+        Merge them into one column
+      </label>
+    </fieldset>
+
+    <fieldset class="choice">
+      <legend>{{ mode() === 'keep' ? 'Column to keep' : 'Where the rows disagree, use' }}</legend>
+      @for (p of positions(); track p; let i = $index) {
+        <label>
+          <input type="radio" name="dup-pick" [value]="p" [checked]="pick() === p" (change)="pick.set(p)" />
+          Column {{ p }} (the {{ ordinal(i) }})
+        </label>
+      }
+    </fieldset>
+
+    @if (mode() === 'keep') {
+      <p class="note">The cells of the other columns are deleted from every row.</p>
+    } @else {
+      <p class="note">Each row keeps the chosen column's value; where it is empty or null, the other column's value fills it.</p>
+    }
+    <p class="note" data-testid="conflicts">{{ conflictText() }}</p>
+    @if (samples().length) {
+      <div class="samples">
+        <table>
+          <caption>Rows whose values differ{{ samples().length < conflicts() ? ' (the first ' + samples().length + ')' : '' }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Line</th>
+              @for (p of positions(); track p) {
+                <th scope="col">Column {{ p }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of samples(); track s.lineNumber) {
+              <tr>
+                <td>{{ s.lineNumber }}</td>
+                @for (v of s.values ?? []; track $index) {
+                  <td [class.null]="v === 'null' || v === ''">{{ v === '' ? '(empty)' : v }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+  @if (error(); as msg) {
+    <p class="callout" role="alert">{{ msg }}</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" [mat-dialog-close]="null" [disabled]="busy()">Cancel</button>
+  <button mat-flat-button type="button" class="apply" [disabled]="!duplicate() || busy()" (click)="apply()">
+    {{ applyLabel() }}
+  </button>
+</mat-dialog-actions>

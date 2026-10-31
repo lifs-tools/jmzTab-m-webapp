@@ -1,7 +1,6 @@
 :host {
   --_line: color-mix(in srgb, var(--mztabm-color-text-muted) 30%, transparent);
   --_row: color-mix(in srgb, var(--mztabm-color-text-muted) 15%, transparent);
-  --_dis: color-mix(in srgb, var(--mztabm-color-text-muted) 55%, transparent);
   --_ctl: color-mix(in srgb, var(--mztabm-color-text-muted) 45%, transparent);
   font-family: var(--mztabm-font-family);
   display: block;
@@ -19,7 +18,7 @@
   align-items: center;
 }
 .search input {
-  border: 1px solid var(--_dis);
+  border: 1px solid var(--_ctl);
   padding: 7px 10px;
   font: inherit;
   font-size: 14px;

@@ -1,11 +1,13 @@
 import { Observable, Subject, Subscriber } from 'rxjs';
 
 import {
+  DocDuplicateColumn,
   DocEdit,
   DocMetadataGroup,
   DocMetadataPage,
   DocSection,
   DocTablePage,
+  DocTableHeader,
   DocTableQuery,
   DocumentSource,
 } from '../document-source';
@@ -30,9 +32,9 @@ export class Pending<A, T> {
   }
 
   /** `status` is what the views look at, as on an HttpErrorResponse. */
-  fail(status: number): void {
+  fail(status: number, detail?: string): void {
     this.settled = true;
-    this.sub.error({ status });
+    this.sub.error(detail === undefined ? { status } : { status, detail });
   }
 
   /** Called when the subscriber goes away. */
@@ -119,6 +121,23 @@ export class EditableFakeDocumentSource extends FakeDocumentSource {
       this.edits.push(p);
       return () => p.release();
     });
+  }
+
+  readonly duplicates: Pending<DocTableHeader, DocDuplicateColumn[]>[] = [];
+
+  override duplicateColumns(header: DocTableHeader): Observable<DocDuplicateColumn[]> {
+    return new Observable<DocDuplicateColumn[]>((sub) => {
+      const p = new Pending<DocTableHeader, DocDuplicateColumn[]>(header, sub);
+      this.duplicates.push(p);
+      return () => p.release();
+    });
+  }
+
+  oneDuplicates(): Pending<DocTableHeader, DocDuplicateColumn[]> {
+    const found = this.duplicates.filter((p) => !p.taken);
+    if (found.length !== 1) throw new Error(`expected exactly one duplicates request, found ${found.length}`);
+    found[0].taken = true;
+    return found[0];
   }
 
   /** The single batch not yet taken. */

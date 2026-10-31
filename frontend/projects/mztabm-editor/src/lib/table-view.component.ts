@@ -12,11 +12,23 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { MatDialog } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { EMPTY, Observable, Subject, catchError, filter, map, of, switchMap, timer } from 'rxjs';
 
-import { DocEdit, DocSection, DocTablePage, DocTableRow, DocumentSource, invalidCellText } from './document-source';
+import {
+  DocEdit,
+  DocSection,
+  DocTablePage,
+  DocTableRow,
+  DocumentSource,
+  HEADER_OF,
+  invalidCellText,
+  saveErrorOf,
+} from './document-source';
 import { ColumnPickerComponent, MAX_COLUMNS } from './column-picker.component';
+import { DuplicateColumnData, DuplicateColumnDialogComponent } from './duplicate-column-dialog.component';
+import { DuplicateNoteComponent } from './duplicate-note.component';
 
 /** The user-controlled state, restored when a request fails so the controls match the rows still shown. */
 interface Snapshot {
@@ -56,7 +68,7 @@ const nf = new Intl.NumberFormat('en');
 /** Source-paged, sortable, filterable view of one table section (SML, SMF or SME). */
 @Component({
   selector: 'mztabm-table-view',
-  imports: [MatProgressBarModule, ColumnPickerComponent],
+  imports: [MatProgressBarModule, ColumnPickerComponent, DuplicateNoteComponent],
   templateUrl: './table-view.component.html',
   styleUrl: './table-view.component.scss',
   host: { '[attr.data-readonly]': 'isReadonly()' },
@@ -71,6 +83,7 @@ export class TableViewComponent {
   readonly highlight = input<TableHighlight | null>(null);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly pageSizes = [25, 50, 100];
   private readonly pageIndex = signal(0);
@@ -95,6 +108,20 @@ export class TableViewComponent {
   protected readonly saveError = signal<string | null>(null);
 
   protected readonly allColumns = computed(() => this.data()?.allColumns ?? []);
+  /** Names the header holds more than once (empty header cells name no column), in the order they first occur. */
+  protected readonly duplicates = computed(() => {
+    const seen = new Set<string>();
+    const twice = new Set<string>();
+    for (const c of this.allColumns()) {
+      if (c === '') continue;
+      if (seen.has(c)) twice.add(c);
+      seen.add(c);
+    }
+    return [...twice];
+  });
+  private readonly duplicateSet = computed(() => new Set(this.duplicates()));
+  /** Duplicates can be resolved where the source can list them and apply edits. */
+  protected readonly canResolve = computed(() => this.editable() && !!this.source.duplicateColumns);
   protected readonly columns = computed(() => this.data()?.columns ?? []);
   protected readonly rows = computed(() => this.data()?.rows ?? []);
   protected readonly total = computed(() => this.data()?.totalRows ?? 0);
@@ -268,6 +295,28 @@ export class TableViewComponent {
 
   protected filterValue(col: string): string {
     return this.draftFilters()[col] ?? '';
+  }
+
+  protected isDuplicate(col: string): boolean {
+    return this.duplicateSet().has(col);
+  }
+
+  /** "Resolve duplicate column": keep one or merge them, in a dialog; the table is shown anew afterwards. */
+  protected resolveDuplicate(name: string): void {
+    const data: DuplicateColumnData = { header: HEADER_OF[this.section()], name };
+    const ref = this.dialog.open<DuplicateColumnDialogComponent, DuplicateColumnData, boolean | null>(
+      DuplicateColumnDialogComponent,
+      { data, injector: this.injector, width: '640px', maxWidth: 'calc(100vw - 32px)' },
+    );
+    ref.afterClosed().subscribe((done) => {
+      if (!done) return;
+      // a chosen column list named the duplicate once per column; one column of that name is left
+      const picked = this.picked();
+      if (picked) this.picked.set(picked.filter((c, i) => c !== name || picked.indexOf(c) === i));
+      this.resetColumnsState();
+      // a source that tells its views about changes has done so already
+      if (!this.source.changed) this.retry();
+    });
   }
 
   protected cell(row: { cells?: string[] }, i: number): string {
@@ -490,9 +539,10 @@ export class TableViewComponent {
     this.editing.set(null);
     this.focusActive();
     if (text === this.cell(row, e.col)) return;
-    // cell 0 of a line is its prefix, so header column n is cell n + 1, counted over all columns
+    // the page says where each column is in the line; without it, cell 0 is the prefix and header column n is
+    // cell n + 1, counted over all columns
     const column = this.columns()[e.col];
-    const cell = this.allColumns().indexOf(column) + 1;
+    const cell = page.columnPositions?.[e.col] ?? this.allColumns().indexOf(column) + 1;
     if (cell < 1) return;
     const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text };
     this.patch(row, e.col, text);
@@ -500,7 +550,7 @@ export class TableViewComponent {
       error: (err: unknown) => {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status === 409) return;
-        this.saveError.set(SAVE_ERROR);
+        this.saveError.set(saveErrorOf(err, SAVE_ERROR));
         this.retry();
       },
     });

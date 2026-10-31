@@ -44,22 +44,35 @@
   <div class="callout" role="alert"><div>{{ msg }}</div></div>
 }
 
+@if (duplicates().length) {
+  <mztabm-duplicate-note [names]="duplicates()" [canResolve]="canResolve()" (resolve)="resolveDuplicate($event)" />
+}
+
 @if (data()) {
   <div class="table-wrap" tabindex="0" role="region" aria-label="Table data">
     <table class="t">
       <thead>
         <tr>
-          @for (col of columns(); track col; let i = $index) {
-            <th scope="col" [class.sticky]="i === 0" [class.col--hl]="highlight()?.header && highlight()?.column === col" [attr.aria-sort]="ariaSort(col)">
+          @for (col of columns(); track $index; let i = $index) {
+            <th
+              scope="col"
+              [class.sticky]="i === 0"
+              [class.col--hl]="highlight()?.header && highlight()?.column === col"
+              [class.col--dup]="isDuplicate(col)"
+              [attr.aria-sort]="ariaSort(col)"
+            >
               <button type="button" class="sort" (click)="toggleSort(col)">
                 <span class="col-name">{{ col }}</span>
+                @if (isDuplicate(col)) {
+                  <span class="dup-mark" aria-hidden="true">dup</span><span class="vh">, Duplicate column name</span>
+                }
                 <span class="arrow" aria-hidden="true">{{ sort() === col ? (descending() ? '▼' : '▲') : '' }}</span>
               </button>
             </th>
           }
         </tr>
         <tr class="filter-row">
-          @for (col of columns(); track col; let i = $index) {
+          @for (col of columns(); track $index; let i = $index) {
             <th [class.sticky]="i === 0">
               <input
                 type="search"

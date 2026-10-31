@@ -67,6 +67,34 @@ export interface DocTablePage {
   /** The columns the rows carry, in order. */
   columns?: string[];
   rows?: DocTableRow[];
+  /**
+   * For an editable document: the cell index in the line (the prefix is cell 0) of each of `columns`. Edits
+   * address cells by it, so that columns of the same name are told apart.
+   */
+  columnPositions?: number[] | null;
+}
+
+/** The header line of a table section. */
+export type DocTableHeader = 'SMH' | 'SFH' | 'SEH';
+
+export const HEADER_OF: Record<DocSection, DocTableHeader> = { sml: 'SMH', smf: 'SFH', sme: 'SEH' };
+
+/** A row in which columns of the same name hold different values. */
+export interface DocDuplicateSample {
+  lineNumber?: number;
+  /** The row's cell at each of the duplicate's positions, in their order. */
+  values?: string[];
+}
+
+/** A column name that a header holds more than once. */
+export interface DocDuplicateColumn {
+  name?: string;
+  /** The cell indexes of the columns of that name, in line order. */
+  positions?: number[];
+  /** Rows in which at least two of these cells hold a value (not empty, not null) and the values differ. */
+  conflictingRows?: number;
+  /** Some of those rows. */
+  samples?: DocDuplicateSample[];
 }
 
 /*
@@ -118,16 +146,32 @@ export interface InsertColumn {
   name: string;
   fill: string;
 }
+/** Deletes a column; with `position` (a cell index) the header cell there must hold `name`, else the first match. */
 export interface DeleteColumn {
   op: 'DeleteColumn';
   header: string;
   name: string;
+  position?: number | null;
 }
+/** Renames a column (no other column may have `newName`); `position` as for DeleteColumn. */
 export interface RenameColumn {
   op: 'RenameColumn';
   header: string;
   name: string;
   newName: string;
+  position?: number | null;
+}
+/**
+ * Merges columns of the same name into the one at cell index `keep`: per row the kept cell keeps its value
+ * unless it is empty or null, else it takes the first value among `others` (in order) that is neither; then the
+ * `others` columns are removed.
+ */
+export interface MergeColumns {
+  op: 'MergeColumns';
+  header: string;
+  name: string;
+  keep: number;
+  others: number[];
 }
 /** Appends the line to the previous one with no separator. */
 export interface JoinWithPrevious {
@@ -156,6 +200,7 @@ export type DocEdit =
   | InsertColumn
   | DeleteColumn
   | RenameColumn
+  | MergeColumns
   | JoinWithPrevious
   | SplitCells
   | SetRawLine;
@@ -177,9 +222,13 @@ export abstract class DocumentSource {
 
   /**
    * Applies edits as one batch; completes when they are applied. Only on editable sources. An error carries
-   * the HTTP-like `status`; on 409 (the document changed elsewhere) the host reloads and emits `changed`.
+   * the HTTP-like `status`; on 409 (the document changed elsewhere) the host reloads and emits `changed`. A
+   * refused edit (400) may carry `detail`, the reason in words for the user.
    */
   applyEdits?(ops: DocEdit[]): Observable<void>;
+
+  /** The column names the header holds more than once; only on editable sources. */
+  duplicateColumns?(header: DocTableHeader): Observable<DocDuplicateColumn[]>;
 
   /**
    * Emits when the document changed under the views (undo, redo, a quick fix, a reload after a conflict): each
@@ -191,4 +240,10 @@ export abstract class DocumentSource {
 /** Cell text and metadata values hold no tab or line break; only raw-line edits may contain tabs. */
 export function invalidCellText(text: string): string | null {
   return /[\t\r\n]/.test(text) ? 'A cell cannot contain a tab or a line break.' : null;
+}
+
+/** What a view says when an edit was not saved: the source's reason for a refused edit, else a general text. */
+export function saveErrorOf(err: unknown, fallback: string): string {
+  const e = typeof err === 'object' && err !== null ? (err as { status?: unknown; detail?: unknown }) : {};
+  return e.status === 400 && typeof e.detail === 'string' && e.detail.trim() ? e.detail : fallback;
 }

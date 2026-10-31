@@ -24,7 +24,8 @@ export class ColumnPickerComponent {
   protected readonly full = computed(() => this.draft().size >= MAX_COLUMNS);
   protected readonly visible = computed(() => {
     const needle = this.search().trim().toLowerCase();
-    const all = this.allColumns();
+    // a name the header holds twice is one entry: choosing it shows all of its columns
+    const all = [...new Set(this.allColumns())];
     return needle ? all.filter((c) => c.toLowerCase().includes(needle)) : all;
   });
 

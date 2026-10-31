@@ -18,7 +18,7 @@ import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansi
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { catchError, map, of, switchMap, take } from 'rxjs';
 
-import { DocMetadataEntry, DocMetadataGroup, DocMetadataPage, DocumentSource, invalidCellText } from './document-source';
+import { DocMetadataEntry, DocMetadataGroup, DocMetadataPage, DocumentSource, invalidCellText, saveErrorOf } from './document-source';
 
 const PAGE_SIZE = 50;
 
@@ -222,7 +222,7 @@ export class MetadataGroupComponent {
       error: (err: unknown) => {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status === 409) return;
-        this.saveError.set(SAVE_ERROR);
+        this.saveError.set(saveErrorOf(err, SAVE_ERROR));
         this.request.set({ page: this.page(), key: null });
       },
     });

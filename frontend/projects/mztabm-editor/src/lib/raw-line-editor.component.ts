@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 
-import { DocEdit, DocumentSource } from './document-source';
+import { DocEdit, DocumentSource, saveErrorOf } from './document-source';
 
 /** How a tab is shown in the editor: as an arrow, so that it can be seen and typed. */
 const TAB_MARK = '→';
@@ -115,7 +115,7 @@ export class RawLineEditorComponent {
       error: (err: unknown) => {
         this.busy.set(false);
         // a conflict: the host reloads the document and says so
-        if ((err as { status?: unknown } | null)?.status !== 409) this.error.set('This change could not be saved.');
+        if ((err as { status?: unknown } | null)?.status !== 409) this.error.set(saveErrorOf(err, 'This change could not be saved.'));
       },
     });
   }
