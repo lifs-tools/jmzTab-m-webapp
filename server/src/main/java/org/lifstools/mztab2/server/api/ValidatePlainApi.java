@@ -236,8 +236,18 @@ public interface ValidatePlainApi {
 
     /** At most {@code maxErrors} messages: 200 if there are none, 422 otherwise. */
     static ResponseEntity<List<ValidationMessage>> respond(List<ValidationMessage> messages, int maxErrors) {
-        List<ValidationMessage> reported = messages.subList(0, Math.min(messages.size(), maxErrors));
+        List<ValidationMessage> reported = legacy(messages.subList(0, Math.min(messages.size(), maxErrors)));
         return new ResponseEntity<>(reported, reported.isEmpty() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /**
+     * The messages as the legacy endpoints ({@code /validate}, {@code /validatePlain}, {@code /convert},
+     * {@code /convertPlain}) answered them before the editor: without {@code cause}, which only the v2 validation
+     * endpoints and the working copies carry. A null field is not serialised, so the field set is unchanged.
+     */
+    static List<ValidationMessage> legacy(List<ValidationMessage> messages) {
+        messages.forEach(m -> m.setCause(null));
+        return messages;
     }
 
 }

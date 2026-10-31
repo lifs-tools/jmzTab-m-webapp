@@ -154,7 +154,7 @@ public class ConvertApiController {
         HttpServletResponse response, MediaType type) throws IOException {
         if (conversion instanceof Conversion.Rejected rejected) {
             return ResponseEntity.unprocessableEntity().contentType(MediaType.APPLICATION_JSON)
-                .body(rejected.messages());
+                .body(ValidatePlainApi.legacy(rejected.messages()));
         }
         Path file = ((Conversion.Converted) conversion).file();
         try {

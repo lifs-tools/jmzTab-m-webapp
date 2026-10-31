@@ -3,6 +3,7 @@ package org.lifstools.mztab2.server.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
@@ -89,6 +90,34 @@ class ValidateApiIntegrationTest {
                 .content(resource("/metabolomics/minimal-m-2.0.mztab")))
             .andExpect(status().is(oneOf(200, 422)))
             .andExpect(jsonPath("$").isArray());
+    }
+
+    /** The fields a legacy message had before the editor (493aa7d); {@code cause} is not among them. */
+    static final java.util.Set<String> LEGACY_FIELDS = java.util.Set.of("code", "category", "message_type",
+        "message", "line_number", "suggestion", "rule_id", "location");
+
+    /** Every message of a legacy response has only fields of the pre-editor set, and none has a cause. */
+    static void assertLegacyFields(com.fasterxml.jackson.databind.JsonNode messages) {
+        assertThat(messages.isArray()).isTrue();
+        assertThat(messages.size()).isPositive();
+        for (com.fasterxml.jackson.databind.JsonNode m : messages) {
+            java.util.List<String> names = new java.util.ArrayList<>();
+            m.fieldNames().forEachRemaining(names::add);
+            assertThat(names).as(m.toString()).isSubsetOf(LEGACY_FIELDS);
+        }
+    }
+
+    @Test
+    void legacyMessagesKeepThePreEditorFields() throws Exception {
+        // an empty parameter: Error-1012, a code jmzTab-m has a cause for
+        byte[] file = new String(resource("/metabolomics/lipidomics-example.mzTab"), StandardCharsets.UTF_8)
+            .replace("[MS, MS:1000624, inductive detector, ]", "[, , , ]").getBytes(StandardCharsets.UTF_8);
+        String body = mvc.perform(post("/rest/v2/validatePlain")
+                .contentType(MediaType.TEXT_PLAIN).accept(MediaType.APPLICATION_JSON).content(file))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$[*].code", hasItem(containsString("1012"))))
+            .andReturn().getResponse().getContentAsString();
+        assertLegacyFields(json.readTree(body));
     }
 
     @Test

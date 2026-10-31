@@ -113,6 +113,11 @@ class ConvertApiIntegrationTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$", not(hasSize(0))))
             .andExpect(jsonPath("$[*].message_type", everyItem(is("error"))));
+        String body = mvc.perform(post("/rest/v2/convertPlain")
+                .contentType(TSV).accept(MediaType.APPLICATION_JSON)
+                .content("this is not an mzTab file"))
+            .andReturn().getResponse().getContentAsString();
+        ValidateApiIntegrationTest.assertLegacyFields(objectMapper.readTree(body));
     }
 
     @Test
