@@ -15,7 +15,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { EMPTY, Observable, Subject, catchError, filter, map, of, switchMap, timer } from 'rxjs';
 
-import { DocSection, DocTablePage, DocumentSource } from './document-source';
+import { DocEdit, DocSection, DocTablePage, DocTableRow, DocumentSource, invalidCellText } from './document-source';
 import { ColumnPickerComponent, MAX_COLUMNS } from './column-picker.component';
 
 /** The user-controlled state, restored when a request fails so the controls match the rows still shown. */
@@ -42,7 +42,15 @@ export interface TableHighlight {
   moveFocus: boolean;
 }
 
+/** A cell being edited: its position on the page, the text typed so far and why it cannot be saved. */
+interface Editing {
+  row: number;
+  col: number;
+  error: string | null;
+}
+
 const FILTER_DEBOUNCE_MS = 300;
+const SAVE_ERROR = 'This change could not be saved.';
 const nf = new Intl.NumberFormat('en');
 
 /** Source-paged, sortable, filterable view of one table section (SML, SMF or SME). */
@@ -79,6 +87,12 @@ export class TableViewComponent {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly pickerOpen = signal(false);
+
+  /** Editable mode: the cell that holds the table's one tab stop (page positions), the cell being edited. */
+  protected readonly editable = computed(() => !this.isReadonly() && !!this.source.applyEdits);
+  protected readonly active = signal<{ row: number; col: number }>({ row: 0, col: 0 });
+  protected readonly editing = signal<Editing | null>(null);
+  protected readonly saveError = signal<string | null>(null);
 
   protected readonly allColumns = computed(() => this.data()?.allColumns ?? []);
   protected readonly columns = computed(() => this.data()?.columns ?? []);
@@ -178,6 +192,8 @@ export class TableViewComponent {
           this.lastGood = o.snapshot;
           this.shownKey = o.key;
           this.data.set(o.page);
+          this.editing.set(null);
+          this.clampActive();
           const pending = this.pendingHighlight;
           if (pending && o.page.allColumns?.length) {
             this.pendingHighlight = undefined;
@@ -207,6 +223,12 @@ export class TableViewComponent {
         this.filters.set(next);
         this.pageIndex.set(0);
       });
+
+    // the document changed elsewhere (undo, redo, a reload): show the page as it is now
+    this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.editing.set(null);
+      this.retry();
+    });
   }
 
   private snapshot(): Snapshot {
@@ -327,6 +349,8 @@ export class TableViewComponent {
     afterNextRender(
       () => {
         const el = this.host.nativeElement.querySelector<HTMLElement>('[data-hl-focus]');
+        const pos = el?.dataset['pos']?.split(',').map(Number);
+        if (pos && this.editable()) this.active.set({ row: pos[0], col: pos[1] });
         if (this.highlight()?.moveFocus) el?.focus({ preventScroll: true });
         el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // jsdom has no scrollIntoView
       },
@@ -357,5 +381,150 @@ export class TableViewComponent {
     this.windowStart.set(0);
     this.pickerOpen.set(false);
     this.resetColumnsState();
+  }
+
+  // ---- editing (only when not read-only and the source can apply edits) ----
+
+  /** The cell's tabindex: in editable mode a roving tab stop; otherwise only the jump target is focusable. */
+  protected tabIndexOf(r: number, i: number, focusCell: boolean): number | null {
+    if (this.editable()) {
+      const a = this.active();
+      return a.row === r && a.col === i ? 0 : -1;
+    }
+    return focusCell ? -1 : null;
+  }
+
+  protected isEditing(r: number, i: number): boolean {
+    const e = this.editing();
+    return !!e && e.row === r && e.col === i;
+  }
+
+  private clampActive(): void {
+    const rows = this.rows().length;
+    const cols = this.columns().length;
+    const a = this.active();
+    this.active.set({ row: Math.max(0, Math.min(a.row, rows - 1)), col: Math.max(0, Math.min(a.col, cols - 1)) });
+  }
+
+  protected onCellClick(r: number, i: number): void {
+    if (!this.editable() || this.isEditing(r, i)) return;
+    this.startEdit(r, i);
+  }
+
+  /** Arrow keys, Home and End move the tab stop; Enter or F2 edits the cell. */
+  protected onCellKey(event: KeyboardEvent, r: number, i: number): void {
+    if (!this.editable() || (event.target as HTMLElement).tagName === 'INPUT') return;
+    const rows = this.rows().length;
+    const cols = this.columns().length;
+    let next: { row: number; col: number } | null = null;
+    switch (event.key) {
+      case 'ArrowRight':
+        next = { row: r, col: Math.min(cols - 1, i + 1) };
+        break;
+      case 'ArrowLeft':
+        next = { row: r, col: Math.max(0, i - 1) };
+        break;
+      case 'ArrowDown':
+        next = { row: Math.min(rows - 1, r + 1), col: i };
+        break;
+      case 'ArrowUp':
+        next = { row: Math.max(0, r - 1), col: i };
+        break;
+      case 'Home':
+        next = { row: r, col: 0 };
+        break;
+      case 'End':
+        next = { row: r, col: cols - 1 };
+        break;
+      case 'Enter':
+      case 'F2':
+        event.preventDefault();
+        this.startEdit(r, i);
+        return;
+      default:
+        return;
+    }
+    event.preventDefault();
+    this.active.set(next);
+    this.focusActive();
+  }
+
+  private startEdit(r: number, i: number): void {
+    if (this.rows()[r]?.lineNumber == null) return;
+    this.saveError.set(null);
+    this.active.set({ row: r, col: i });
+    this.editing.set({ row: r, col: i, error: null });
+    afterNextRender(
+      () => {
+        const input = this.host.nativeElement.querySelector<HTMLInputElement>('input.cell-input');
+        input?.focus();
+        input?.select();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected onInputKey(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.save((event.target as HTMLInputElement).value);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.editing.set(null);
+      this.focusActive();
+    }
+  }
+
+  /** Saves the typed text as one SetCell; the cell shows it at once and keeps it once the source accepts it. */
+  private save(text: string): void {
+    const e = this.editing();
+    const page = this.data();
+    const row = page?.rows?.[e?.row ?? -1];
+    if (!e || !page || !row || row.lineNumber == null || !this.source.applyEdits) return;
+    const error = invalidCellText(text);
+    if (error) {
+      this.editing.set({ ...e, error });
+      return;
+    }
+    this.editing.set(null);
+    this.focusActive();
+    if (text === this.cell(row, e.col)) return;
+    // cell 0 of a line is its prefix, so header column n is cell n + 1, counted over all columns
+    const column = this.columns()[e.col];
+    const cell = this.allColumns().indexOf(column) + 1;
+    if (cell < 1) return;
+    const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text };
+    this.patch(row, e.col, text);
+    this.source.applyEdits([op]).subscribe({
+      error: (err: unknown) => {
+        // a conflict: the host reloads the document and says so
+        if ((err as { status?: unknown } | null)?.status === 409) return;
+        this.saveError.set(SAVE_ERROR);
+        this.retry();
+      },
+    });
+  }
+
+  private patch(row: DocTableRow, col: number, text: string): void {
+    const page = this.data();
+    if (!page) return;
+    const rows = (page.rows ?? []).map((r) =>
+      r === row ? { ...r, cells: (r.cells ?? []).map((c, j) => (j === col ? text : c)) } : r,
+    );
+    this.data.set({ ...page, rows });
+  }
+
+  private focusActive(): void {
+    afterNextRender(
+      () => {
+        const { row, col } = this.active();
+        this.host.nativeElement
+          .querySelectorAll('tbody tr')
+          [row]?.querySelectorAll<HTMLElement>('td')
+          [col]?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 }

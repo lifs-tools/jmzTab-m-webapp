@@ -175,6 +175,20 @@ export abstract class DocumentSource {
 
   abstract tablePage(section: DocSection, q: DocTableQuery): Observable<DocTablePage>;
 
-  /** Applies edits as one batch; completes when they are applied. Only on editable sources. */
+  /**
+   * Applies edits as one batch; completes when they are applied. Only on editable sources. An error carries
+   * the HTTP-like `status`; on 409 (the document changed elsewhere) the host reloads and emits `changed`.
+   */
   applyEdits?(ops: DocEdit[]): Observable<void>;
+
+  /**
+   * Emits when the document changed under the views (undo, redo, a quick fix, a reload after a conflict): each
+   * view requests again what it shows. Edits a view applies itself are already shown by that view.
+   */
+  readonly changed?: Observable<void>;
+}
+
+/** Cell text and metadata values hold no tab or line break; only raw-line edits may contain tabs. */
+export function invalidCellText(text: string): string | null {
+  return /[\t\r\n]/.test(text) ? 'A cell cannot contain a tab or a line break.' : null;
 }

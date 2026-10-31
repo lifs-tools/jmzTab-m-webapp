@@ -8,3 +8,4 @@ export { MetadataGroupComponent, MetadataViewComponent } from './lib/metadata-vi
 export type { MetadataHighlight } from './lib/metadata-view.component';
 export { TableViewComponent } from './lib/table-view.component';
 export type { TableHighlight } from './lib/table-view.component';
+export { RawLineEditorComponent } from './lib/raw-line-editor.component';

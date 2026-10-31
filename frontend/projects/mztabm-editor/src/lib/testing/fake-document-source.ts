@@ -1,6 +1,7 @@
-import { Observable, Subscriber } from 'rxjs';
+import { Observable, Subject, Subscriber } from 'rxjs';
 
 import {
+  DocEdit,
   DocMetadataGroup,
   DocMetadataPage,
   DocSection,
@@ -24,7 +25,7 @@ export class Pending<A, T> {
 
   reply(value: T): void {
     this.settled = true;
-    this.sub.next(value);
+    this.sub.next(value as T);
     this.sub.complete();
   }
 
@@ -102,5 +103,33 @@ export class FakeDocumentSource extends DocumentSource {
   }
   noneTable(): void {
     this.none(this.tables, () => true, 'table');
+  }
+}
+
+/** An editable FakeDocumentSource: records each applyEdits batch, and `changed` is the test's to emit. */
+export class EditableFakeDocumentSource extends FakeDocumentSource {
+  override editable = true;
+  readonly edits: Pending<DocEdit[], void>[] = [];
+  readonly changes = new Subject<void>();
+  override readonly changed = this.changes.asObservable();
+
+  override applyEdits(ops: DocEdit[]): Observable<void> {
+    return new Observable<void>((sub) => {
+      const p = new Pending<DocEdit[], void>(ops, sub);
+      this.edits.push(p);
+      return () => p.release();
+    });
+  }
+
+  /** The single batch not yet taken. */
+  oneEdit(): Pending<DocEdit[], void> {
+    const found = this.edits.filter((p) => !p.taken);
+    if (found.length !== 1) throw new Error(`expected exactly one edit batch, found ${found.length}`);
+    found[0].taken = true;
+    return found[0];
+  }
+  noneEdit(): void {
+    const found = this.edits.filter((p) => !p.taken);
+    if (found.length) throw new Error(`expected no edit batch, found ${found.length}`);
   }
 }

@@ -116,7 +116,8 @@ thead .sticky {
   font-size: 12px;
 }
 td.null {
-  color: var(--_dis);
+  color: var(--mztabm-color-text-muted);
+  font-style: italic;
 }
 td.empty {
   white-space: normal;
@@ -173,4 +174,26 @@ td:focus {
   background: color-mix(in srgb, var(--mztabm-color-error) 8%, var(--mztabm-color-surface));
   font-family: var(--mztabm-font-family);
   color: var(--mztabm-color-text);
+}
+td.editable {
+  cursor: text;
+
+  &:focus-visible {
+    outline: 2px solid var(--mztabm-color-primary);
+    outline-offset: -2px;
+  }
+}
+.cell-input {
+  min-width: 120px;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--mztabm-color-primary);
+  background: var(--mztabm-color-surface);
+  color: var(--mztabm-color-text);
+}
+.cell-error {
+  display: block;
+  white-space: normal;
+  font-size: 12px;
+  color: var(--mztabm-color-error);
 }

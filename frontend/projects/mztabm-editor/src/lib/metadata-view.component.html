@@ -1,4 +1,4 @@
-@if (groups.isLoading()) {
+@if (groups.isLoading() && !groups.hasValue()) {
   <mat-progress-bar mode="indeterminate" aria-label="Loading metadata" />
 } @else if (groups.error()) {
   <p class="note" role="alert">The metadata could not be loaded.</p>
@@ -13,7 +13,7 @@
           <mat-panel-title>{{ g.name }} ({{ g.count }})</mat-panel-title>
         </mat-expansion-panel-header>
         <ng-template matExpansionPanelContent>
-          <mztabm-metadata-group [group]="g.name ?? ''" [count]="g.count ?? 0"
+          <mztabm-metadata-group [group]="g.name ?? ''" [count]="g.count ?? 0" [readonly]="isReadonly()"
             [highlightKeys]="g.name === highlight()?.group ? (highlight()?.keys ?? []) : []"
             [jump]="g.name === highlight()?.group ? highlight() : null"
             [focusKey]="g.name === highlight()?.group ? (highlight()?.focusKey ?? null) : null"

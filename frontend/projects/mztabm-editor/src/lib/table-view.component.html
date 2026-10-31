@@ -40,6 +40,10 @@
   </div>
 }
 
+@if (saveError(); as msg) {
+  <div class="callout" role="alert"><div>{{ msg }}</div></div>
+}
+
 @if (data()) {
   <div class="table-wrap" tabindex="0" role="region" aria-label="Table data">
     <table class="t">
@@ -70,17 +74,40 @@
         </tr>
       </thead>
       <tbody>
-        @for (row of rows(); track row.index) {
+        @for (row of rows(); track row.index; let r = $index) {
           @let hit = highlightedRows().has(row.index ?? -1);
           <tr [class.row--hl]="hit">
             @for (c of row.cells ?? []; track $index; let i = $index) {
+              @let focusCell = isFocusCell(row.index ?? -1, columns()[i], i);
               <td
                 [class.sticky]="i === 0"
                 [class.null]="c === 'null'"
+                [class.editable]="editable()"
                 [class.cell--hl]="hit && !!highlight()?.column && columns()[i] === highlight()?.column"
-                [attr.tabindex]="isFocusCell(row.index ?? -1, columns()[i], i) ? -1 : null"
-                [attr.data-hl-focus]="isFocusCell(row.index ?? -1, columns()[i], i) ? '' : null"
-              >{{ c }}</td>
+                [attr.tabindex]="tabIndexOf(r, i, focusCell)"
+                [attr.data-hl-focus]="focusCell ? '' : null"
+                [attr.data-pos]="focusCell ? r + ',' + i : null"
+                (click)="onCellClick(r, i)"
+                (keydown)="onCellKey($event, r, i)"
+              >
+                @if (isEditing(r, i)) {
+                  @let err = editing()?.error;
+                  <input
+                    class="cell-input"
+                    type="text"
+                    spellcheck="false"
+                    [value]="c"
+                    [attr.aria-label]="'Edit ' + columns()[i] + ', row ' + ((row.index ?? 0) + 1)"
+                    [attr.aria-invalid]="err ? 'true' : null"
+                    (keydown)="onInputKey($event)"
+                  />
+                  @if (err) {
+                    <span class="cell-error" role="alert">{{ err }}</span>
+                  }
+                } @else {
+                  {{ c }}
+                }
+              </td>
             }
           </tr>
         } @empty {
