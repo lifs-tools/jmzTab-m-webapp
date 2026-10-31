@@ -235,7 +235,7 @@ This is tested on real-shaped fixtures (§8).
 **Encoding.** mzTab-M is UTF-8:
 
 - **Not UTF-8.** If a file is not valid UTF-8, the editor does not open it silently. It shows the offending line and offers a one-click **re-encode from Windows-1252/Latin-1** (a quick fix, §5.6).
-- **JSON uploads** are converted to TSV by the engine when the copy is created. If the JSON cannot be read as an mzTab-M model, the copy cannot be created, and the user gets the engine's messages.
+- **JSON uploads** are converted to TSV by the engine when the copy is created. If the JSON cannot be read as an mzTab-M model, the copy cannot be created, and the user gets the engine's messages. **[final review, 2026-10-31]** The editor shows the server's message whenever the copy cannot be made for a reason the server names: 400 (the engine could not read or convert the file), 422 `too_large` (over the caps) and 503 (the storage is full). Only a failure without a reason says "Something went wrong".
 
 **Concurrency.** Each copy has a revision number:
 

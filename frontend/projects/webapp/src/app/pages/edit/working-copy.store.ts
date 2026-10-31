@@ -85,6 +85,11 @@ export class WorkingCopyStore {
   readonly view = signal<View>('loading');
   /** The server's message for a file that is not UTF-8 (it names the first such line). */
   readonly notUtf8 = signal<string | null>(null);
+  /**
+   * Why the copy could not be made, in the server's words: the engine could not read the file (400), the file
+   * is over the editor's caps (422 too_large) or the storage is full (503). Null for a failure without a reason.
+   */
+  readonly openFailure = signal<string | null>(null);
   readonly info = signal<WorkingCopyInfo | undefined>(undefined);
   /** The validation the copy was made from: its profile decides whether CV rules can be checked. */
   readonly record = signal<ValidationRecord | undefined>(undefined);
@@ -182,6 +187,7 @@ export class WorkingCopyStore {
     this.view.set('loading');
     this.info.set(undefined);
     this.notUtf8.set(null);
+    this.openFailure.set(null);
     this.lastVersion = undefined;
     this.create('UTF_8');
     this.validations
@@ -217,7 +223,9 @@ export class WorkingCopyStore {
             this.notUtf8.set(typeof body.message === 'string' ? body.message : 'The file is not encoded as UTF-8.');
             this.view.set('notUtf8');
           } else {
-            this.view.set(statusOf(err) === 404 ? 'notFound' : 'error');
+            const status = statusOf(err);
+            this.openFailure.set(status === 400 || status === 422 || status === 503 ? serverMessage(err) : null);
+            this.view.set(status === 404 ? 'notFound' : 'error');
           }
         },
       });

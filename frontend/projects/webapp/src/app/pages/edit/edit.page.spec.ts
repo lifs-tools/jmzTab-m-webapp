@@ -399,6 +399,37 @@ describe('EditPage', () => {
     }
   });
 
+  it("says why the file could not be opened, with the server's reason", async () => {
+    const cases: [number, string, Record<string, string>][] = [
+      [400, 'Bad Request', { error: 'bad_request', message: 'The file could not be read: line 3 has no prefix.' }],
+      [503, 'Service Unavailable', { error: 'storage_full', message: 'The storage for files is full.' }],
+      [422, 'Unprocessable Entity', { error: 'too_large', message: 'The file has more than 2,000,000 lines.' }],
+    ];
+    for (const [status, statusText, body] of cases) {
+      TestBed.resetTestingModule();
+      const { fixture, el } = await render();
+      http.expectOne(isCreate()).flush(body, { status, statusText });
+      http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
+      await settle(fixture);
+      const alert = el.querySelector('[data-testid=open-failed]')!;
+      expect(alert.textContent).toContain('The file could not be opened');
+      expect(alert.textContent).toContain(body['message']);
+      expect(alert.textContent).not.toContain('Please try again later');
+      expect(alert.querySelector('a')?.getAttribute('href')).toBe('/result/abc');
+      http.verify();
+    }
+  });
+
+  it('says only that something went wrong when the server gives no reason', async () => {
+    const { fixture, el } = await render();
+    http.expectOne(isCreate()).flush('boom', { status: 500, statusText: 'Server Error' });
+    http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
+    await settle(fixture);
+    const alert = el.querySelector('[data-testid=open-failed]')!;
+    expect(alert.textContent).toContain('Something went wrong');
+    expect(alert.textContent).toContain('Please try again later');
+  });
+
   it('offers re-encoding on not_utf8', async () => {
     const { fixture, el } = await render();
     http.expectOne(isCreate()).flush(

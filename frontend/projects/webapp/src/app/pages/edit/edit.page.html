@@ -15,10 +15,15 @@
       </div>
     }
     @case ('error') {
-      <div class="lifs-callout lifs-callout--error" role="alert">
+      <div class="lifs-callout lifs-callout--error" role="alert" data-testid="open-failed">
         <div>
-          <b class="state-title">Something went wrong</b>
-          <p class="lifs-note">The file could not be opened. Please try again later.</p>
+          @if (store.openFailure(); as reason) {
+            <b class="state-title">The file could not be opened</b>
+            <p class="lifs-note">{{ reason }}</p>
+          } @else {
+            <b class="state-title">Something went wrong</b>
+            <p class="lifs-note">The file could not be opened. Please try again later.</p>
+          }
           <p class="lifs-note"><a [routerLink]="['/result', store.id()]">Back to the result</a></p>
         </div>
       </div>
