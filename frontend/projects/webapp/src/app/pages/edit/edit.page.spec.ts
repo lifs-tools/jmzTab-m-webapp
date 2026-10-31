@@ -1,4 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
+import { QUICK_FIX_PREVIEW_LABEL } from '../../core/quick-fix-labels';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
@@ -538,6 +539,9 @@ describe('EditPage', () => {
     const help = el.querySelector('[data-testid=help]')!;
     expect(help.querySelector('summary')?.textContent?.trim()).toBe('How to fix this file');
     expect(help.textContent).toContain('last 100 steps');
+    expect(help.textContent).toContain(`press ${QUICK_FIX_PREVIEW_LABEL} to see`);
+    expect(help.textContent).toContain('Fix all N like this');
+    expect(help.textContent).not.toContain('Fix it here');
     expect(help.querySelector('a')?.getAttribute('href')).toBe('/guide');
   });
 

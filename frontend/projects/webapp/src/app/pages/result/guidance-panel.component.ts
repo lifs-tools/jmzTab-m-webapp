@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { QUICK_FIX_PREVIEW_LABEL, quickFixAllLabel } from '../../core/quick-fix-labels';
 import { MatButtonModule } from '@angular/material/button';
 
 import { Guidance } from '../../api/models/guidance';
@@ -105,6 +106,8 @@ export class GuidancePanelComponent {
   );
   protected readonly isVariant = computed(() => !!this.guidance().toolFixInTool);
   /** The quick fix the editor offers as a button, if any. */
+  protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;
+  protected readonly allLabel = (count: number) => quickFixAllLabel(count);
   protected readonly editorFix = computed(() => {
     const id = this.guidance().quickFix;
     return this.quickFixState() && id && id !== NOT_A_PREVIEW ? id : null;

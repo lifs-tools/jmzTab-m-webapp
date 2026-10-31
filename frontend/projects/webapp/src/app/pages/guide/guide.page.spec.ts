@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { QUICK_FIX_PREVIEW_LABEL } from '../../core/quick-fix-labels';
 import { pageTitle } from '../../core/page-titles';
 import { GuidePage } from './guide.page';
 
@@ -56,6 +57,12 @@ describe('GuidePage', () => {
     ]) {
       expect(text).toContain(label);
     }
+  });
+
+  it('names the quick-fix button as the result page shows it', async () => {
+    const text = (await render()).textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain(`Press ${QUICK_FIX_PREVIEW_LABEL} to see`);
+    expect(text).toContain('Fix all N like this');
   });
 
   it('states the limits and the retention rule', async () => {

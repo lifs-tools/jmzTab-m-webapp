@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { QUICK_FIX_PREVIEW_LABEL, quickFixAllLabel } from '../../core/quick-fix-labels';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -93,6 +94,8 @@ export function isUnreadable(line: Line, prev?: Line, next?: Line): boolean {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EditPage {
+  protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;
+  protected readonly allLabel = quickFixAllLabel('N');
   protected readonly store = inject(WorkingCopyStore);
   private readonly api = inject(WorkingCopiesService);
   private readonly appInfo = inject(AppInfoStore);

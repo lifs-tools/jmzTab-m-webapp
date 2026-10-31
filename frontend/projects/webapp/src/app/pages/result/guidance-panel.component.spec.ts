@@ -1,4 +1,5 @@
 import { Component, signal } from '@angular/core';
+import { QUICK_FIX_PREVIEW_LABEL, quickFixAllLabel } from '../../core/quick-fix-labels';
 import { TestBed } from '@angular/core/testing';
 
 import { Guidance } from '../../api/models/guidance';
@@ -163,6 +164,8 @@ describe('GuidancePanelComponent', () => {
       expect(fixture.componentInstance.fixed).toEqual({ fixId: 'remove-empty-parameter', all: false });
       const all = el.querySelector<HTMLButtonElement>('button.quick-fix-all')!;
       expect(all.textContent?.trim()).toBe('Fix all 3 like this');
+      expect(el.querySelector('button.quick-fix')!.textContent?.trim()).toBe(QUICK_FIX_PREVIEW_LABEL);
+      expect(all.textContent?.trim()).toBe(quickFixAllLabel(3));
       all.click();
       expect(fixture.componentInstance.fixed).toEqual({ fixId: 'remove-empty-parameter', all: true });
     });

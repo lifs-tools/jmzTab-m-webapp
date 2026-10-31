@@ -39,7 +39,7 @@
         [disabled]="quickFixState() === 'checking'"
         (click)="fix.emit({ fixId, all: false })"
       >
-        Preview the quick fix
+        {{ previewLabel }}
       </button>
       @if (allCount() > 0) {
         <button
@@ -50,7 +50,7 @@
           [disabled]="quickFixState() === 'checking'"
           (click)="fix.emit({ fixId, all: true })"
         >
-          Fix all {{ allCount() }} like this
+          {{ allLabel(allCount()) }}
         </button>
       }
       @if (quickFixState() === 'checking') {
