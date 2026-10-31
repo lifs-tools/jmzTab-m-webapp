@@ -40,6 +40,8 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
@@ -75,9 +77,11 @@ import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfileC
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyValidation.Status;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.lang.Nullable;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 
 /**
  * Working copies of uploaded files: creation from a validation session, edits
@@ -156,7 +160,8 @@ public class WorkingCopyService {
     private record Facts(long lineCount, SectionsSummary sections) {
     }
 
-    private record FactsKey(UUID id, long revision) {
+    /** The generation tells a re-created copy (revision 0 again) from the one before. */
+    private record FactsKey(UUID id, @Nullable String generation, long revision) {
     }
 
     /**
@@ -206,6 +211,9 @@ public class WorkingCopyService {
             return size() > FACTS_CACHE_SIZE;
         }
     };
+    /** Test hook: called in a run after its result is stored and before it decides whether to run again. */
+    @Nullable
+    private volatile Consumer<UUID> beforeRunEnds;
     private volatile long usageBytes;
     private volatile long usageMeasuredAt;
     private volatile boolean usageKnown;
@@ -360,7 +368,16 @@ public class WorkingCopyService {
 
     /** @throws NoSuchWorkingCopyException if there is no copy */
     public WorkingCopyInfo info(UUID id) {
-        return info(id, db(id));
+        return guard(id, () -> info(id, db(id)));
+    }
+
+    /**
+     * The name of the uploaded file, without computing anything else.
+     *
+     * @throws NoSuchWorkingCopyException if there is no copy
+     */
+    public String fileName(UUID id) {
+        return guard(id, () -> db(id).meta(META_FILE_NAME));
     }
 
     /**
@@ -425,7 +442,7 @@ public class WorkingCopyService {
      * older one, which no later read asks for again (revisions only grow).
      */
     private Facts facts(UUID id, WorkingCopyDb db, long revision) {
-        FactsKey key = new FactsKey(id, revision);
+        FactsKey key = new FactsKey(id, db.meta(META_GENERATION), revision);
         synchronized (facts) {
             Facts cached = facts.get(key);
             if (cached != null) {
@@ -463,11 +480,16 @@ public class WorkingCopyService {
      * @throws StorageFullException if the storage cap is reached
      */
     public WorkingCopyInfo edit(UUID id, EditBatch batch) {
-        WorkingCopyDb db = db(id);
-        requireCapacity();
-        long revision = editor.apply(db, batch);
-        changed(id, db, revision);
-        return info(id, db);
+        if (batch != null) {
+            requireRevision(batch.revision());
+        }
+        return guard(id, () -> {
+            WorkingCopyDb db = db(id);
+            requireCapacity();
+            long revision = editor.apply(db, batch);
+            changed(id, db, revision);
+            return info(id, db);
+        });
     }
 
     /**
@@ -487,7 +509,11 @@ public class WorkingCopyService {
     }
 
     private WorkingCopyInfo undoOrRedo(UUID id, long revision, boolean undo) {
-        WorkingCopyDb db = db(id);
+        requireRevision(revision);
+        return guard(id, () -> undoOrRedo(id, db(id), revision, undo));
+    }
+
+    private WorkingCopyInfo undoOrRedo(UUID id, WorkingCopyDb db, long revision, boolean undo) {
         requireCapacity();
         // one transaction, so "nothing to do" and the change see the same state
         long next = db.inTransaction(() -> {
@@ -544,12 +570,16 @@ public class WorkingCopyService {
      * @return the copy, its validation {@link Status#RUNNING}
      */
     public WorkingCopyInfo requestValidation(UUID id, boolean semantic) {
-        WorkingCopyDb db = db(id);
+        return guard(id, () -> requestValidation(id, db(id), semantic));
+    }
+
+    private WorkingCopyInfo requestValidation(UUID id, WorkingCopyDb db, boolean semantic) {
+        String generation = db.meta(META_GENERATION);
         Run started = null;
         synchronized (runs) {
             Run run = runs.get(id);
             if (run == null) {
-                started = new Run(db.meta(META_GENERATION), semantic, deadline());
+                started = new Run(generation, semantic, deadline());
                 runs.put(id, started);
             } else {
                 run.again = true;
@@ -614,22 +644,26 @@ public class WorkingCopyService {
                 schedule(id, run, retry);
                 return;
             }
-            long current = revisionQuietly(db.get());
+            Consumer<UUID> hook = beforeRunEnds;
+            if (hook != null) {
+                hook.accept(id);
+            }
             synchronized (runs) {
                 if (runs.get(id) != run) {
                     return;
                 }
-                boolean again = false;
-                if (run.again) {
-                    run.again = false;
-                    long latest = Math.max(current, run.latest);
-                    again = latest != run.revision || run.againSemantic != run.semantic;
-                }
+                // read under the lock: an edit committed before this read runs again even if its changed() has
+                // not marked the run yet; one committed after it finds the run ended and leaves stale=true
+                long current = revisionQuietly(db.get());
+                boolean newer = run.revision >= 0 && current >= 0 && current != run.revision;
+                boolean again = newer || run.again && (run.latest > run.revision
+                    || run.againSemantic != run.semantic || run.revision < 0 && current >= 0);
                 if (!again) {
                     runs.remove(id);
                     return;
                 }
-                run.semantic = run.againSemantic;
+                run.semantic = run.again ? run.againSemantic : run.semantic;
+                run.again = false;
                 run.revision = -1;
                 run.latest = -1;
                 run.deadline = deadline();
@@ -934,7 +968,7 @@ public class WorkingCopyService {
 
     /** Writes the current text, byte for byte as it is stored. */
     public void writeTsv(UUID id, OutputStream out) throws IOException {
-        db(id).writeTo(out);
+        guardIo(id, () -> db(id).writeTo(out));
     }
 
     /**
@@ -946,7 +980,10 @@ public class WorkingCopyService {
      * or if the engine cannot convert the text
      */
     public void writeJson(UUID id, OutputStream out) throws IOException {
-        WorkingCopyDb db = db(id);
+        guardIo(id, () -> writeJson(id, db(id), out));
+    }
+
+    private void writeJson(UUID id, WorkingCopyDb db, OutputStream out) throws IOException {
         Path text = Files.createTempFile("mztab-workingcopy-", ".mztab");
         Path converted = null;
         try {
@@ -978,7 +1015,7 @@ public class WorkingCopyService {
 
     /** Writes the file as it was uploaded to the session, tab separated or JSON. */
     public void writeOriginal(UUID id, OutputStream out) throws IOException {
-        db(id);
+        guard(id, () -> db(id));
         try (InputStream in = storage.read(id, SLOT.MZTABFILE, ValidationSessionService.UPLOAD)
             .orElseThrow(NoSuchWorkingCopyException::new)) {
             in.transferTo(out);
@@ -987,6 +1024,50 @@ public class WorkingCopyService {
     }
 
     // ---- helpers ----
+
+    /** For tests only: see {@link #beforeRunEnds}. */
+    void beforeRunEnds(@Nullable Consumer<UUID> hook) {
+        this.beforeRunEnds = hook;
+    }
+
+    /**
+     * Runs a request on a copy. A database error after the copy's slot has
+     * gone (its session was deleted during the request) is the copy not
+     * existing, not a server error.
+     */
+    <T> T guard(UUID id, Supplier<T> work) {
+        try {
+            return work.get();
+        } catch (DataAccessException | TransactionException e) {
+            if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
+                throw new NoSuchWorkingCopyException();
+            }
+            throw e;
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoWork {
+
+        void run() throws IOException;
+    }
+
+    private void guardIo(UUID id, IoWork work) throws IOException {
+        try {
+            work.run();
+        } catch (DataAccessException | TransactionException e) {
+            if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
+                throw new NoSuchWorkingCopyException();
+            }
+            throw e;
+        }
+    }
+
+    private static void requireRevision(long revision) {
+        if (revision < 0) {
+            throw new IllegalArgumentException("revision must not be negative.");
+        }
+    }
 
     private Object lock(UUID id) {
         return locks[Math.floorMod(id.hashCode(), STRIPES)];

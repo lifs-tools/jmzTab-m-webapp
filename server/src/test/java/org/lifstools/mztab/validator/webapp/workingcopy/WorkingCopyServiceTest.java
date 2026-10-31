@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,7 @@ import org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.SetMetadat
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyValidation.Status;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -310,6 +312,33 @@ class WorkingCopyServiceTest {
             .contains("revision-two"));
     }
 
+    /**
+     * An edit that commits after a run stored its result but before the run
+     * decides whether to run again, with the edit's own bookkeeping not yet
+     * done, still gets a run of its own.
+     */
+    @Test
+    void anEditJustBeforeARunEndsIsValidatedToo() throws Exception {
+        UUID id = submit("late-edit.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        AtomicBoolean once = new AtomicBoolean();
+        copies.beforeRunEnds(copy -> {
+            if (copy.equals(id) && once.compareAndSet(false, true)) {
+                // the edit as committed by edit(), without what edit() does after the commit
+                new WorkingCopyEditor().apply(copies.db(id), batch(0, new SetMetadataValue(3, "late")));
+            }
+        });
+        try {
+            copies.requestValidation(id, false);
+            WorkingCopyValidation v = awaitRun(id, 1);
+            assertTrue(once.get());
+            assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+            assertFalse(v.stale());
+        } finally {
+            copies.beforeRunEnds(null);
+        }
+    }
+
     @Test
     void aRequestDuringARunIsCoalesced() throws Exception {
         UUID id = submit("coalesce.mzTab", example());
@@ -388,6 +417,17 @@ class WorkingCopyServiceTest {
         assertThrows(NoSuchWorkingCopyException.class, () -> reader.lines(id, 1, 1));
         assertThrows(NoSuchWorkingCopyException.class, () -> copies.create(id, SourceEncoding.UTF_8),
             "no session, no copy");
+    }
+
+    @Test
+    void aDatabaseErrorAfterTheSessionWasDeletedIsNoSuchCopy() throws Exception {
+        UUID id = submit("delete-during.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        WorkingCopyDb db = copies.db(id);
+        assertTrue(sessions.delete(id));
+
+        assertThrows(DataAccessException.class, db::lineCount, "a request in flight hits the database error");
+        assertThrows(NoSuchWorkingCopyException.class, () -> copies.guard(id, db::lineCount));
     }
 
     @Test

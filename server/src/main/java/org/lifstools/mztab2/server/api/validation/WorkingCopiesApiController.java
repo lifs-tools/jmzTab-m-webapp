@@ -254,7 +254,7 @@ public class WorkingCopiesApiController {
         if (!f.equals("tsv") && !f.equals("json")) {
             throw new IllegalArgumentException("format must be tsv or json.");
         }
-        String fileName = copies.info(uuid).fileName();
+        String fileName = copies.fileName(uuid);
         if (f.equals("tsv")) {
             Download out = new Download(response, TSV + ";charset=UTF-8", tsvName(fileName));
             copies.writeTsv(uuid, out);
@@ -273,7 +273,7 @@ public class WorkingCopiesApiController {
     public void downloadWorkingCopyOriginal(@PathVariable("id") String id,
         @Parameter(hidden = true) HttpServletResponse response) throws IOException {
         UUID uuid = parse(id);
-        Download out = new Download(response, MediaType.APPLICATION_OCTET_STREAM_VALUE, copies.info(uuid).fileName());
+        Download out = new Download(response, MediaType.APPLICATION_OCTET_STREAM_VALUE, copies.fileName(uuid));
         copies.writeOriginal(uuid, out);
         out.finish();
     }

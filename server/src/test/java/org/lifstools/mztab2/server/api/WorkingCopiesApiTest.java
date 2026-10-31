@@ -193,6 +193,19 @@ class WorkingCopiesApiTest {
     }
 
     @Test
+    void negativeRevisionIs400() throws Exception {
+        String id = validation("negative.mzTab", example());
+        create(id);
+        String op = "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"x\"}";
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(edits(-1, op)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("revision must not be negative."));
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(post(BASE + "/" + id + "/redo").param("revision", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/" + id)).andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(0));
+    }
+
+    @Test
     void notUtf8Is422WithCode() throws Exception {
         String text = new String(example(), StandardCharsets.UTF_8).replace("ISAS-2018-1234", "ISÄS-2018-1234");
         String id = validation("latin1.mzTab", text.getBytes(StandardCharsets.ISO_8859_1));

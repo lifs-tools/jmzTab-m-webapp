@@ -66,7 +66,7 @@ public class WorkingCopyReader {
     }
 
     public List<MetadataGroup> metadataGroups(UUID id) {
-        return SectionReader.groups(metadataEntries(copies.db(id)));
+        return copies.guard(id, () -> SectionReader.groups(metadataEntries(copies.db(id))));
     }
 
     /**
@@ -78,7 +78,8 @@ public class WorkingCopyReader {
     public MetadataPage metadata(UUID id, String group, int page, int size, @Nullable String key) {
         // checked before reading, so a bad request costs nothing
         SectionReader.checkPaging(page, size);
-        return SectionReader.metadataPage(metadataEntries(copies.db(id)), group, page, size, key);
+        return copies.guard(id,
+            () -> SectionReader.metadataPage(metadataEntries(copies.db(id)), group, page, size, key));
     }
 
     /**
@@ -87,7 +88,10 @@ public class WorkingCopyReader {
      */
     public Optional<TablePage> table(UUID id, Section section, TableQuery query) {
         SectionReader.checkPaging(query.page(), query.size());
-        WorkingCopyDb db = copies.db(id);
+        return copies.guard(id, () -> table(copies.db(id), section, query));
+    }
+
+    private static Optional<TablePage> table(WorkingCopyDb db, Section section, TableQuery query) {
         String header = HEADER.get(section);
         List<Line> lines = db.linesOf(header, section.name());
         List<String> columns = null;
@@ -133,12 +137,14 @@ public class WorkingCopyReader {
         if (from < 1) {
             throw new IllegalArgumentException("from must be at least 1.");
         }
-        WorkingCopyDb db = copies.db(id);
-        long lineCount = db.lineCount();
-        if (from > lineCount + 1) {
-            throw new IllegalArgumentException("from must be at most " + (lineCount + 1) + ", the line count + 1.");
-        }
-        return db.lines(from, count);
+        return copies.guard(id, () -> {
+            WorkingCopyDb db = copies.db(id);
+            long lineCount = db.lineCount();
+            if (from > lineCount + 1) {
+                throw new IllegalArgumentException("from must be at most " + (lineCount + 1) + ", the line count + 1.");
+            }
+            return db.lines(from, count);
+        });
     }
 
     private static List<MetadataEntry> metadataEntries(WorkingCopyDb db) {
