@@ -48,6 +48,9 @@ final class RemoveEmptyParameter implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 1012, 1013)) {
+            return Optional.empty();
+        }
         Optional<String> quoted = Ops.find(m, VALUE);
         if (quoted.isEmpty() || !EMPTY_LIST.matcher(quoted.get()).matches()) {
             return Optional.empty();

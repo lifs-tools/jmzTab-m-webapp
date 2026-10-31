@@ -52,6 +52,9 @@ final class RemoveUnusedCv implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 3014)) {
+            return Optional.empty();
+        }
         Optional<String> prefix = Ops.find(m, PREFIX);
         if (prefix.isEmpty()) {
             return Optional.empty();

@@ -50,6 +50,9 @@ final class AddMandatoryColumn implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 1004)) {
+            return Optional.empty();
+        }
         String name = m.getLocation() != null && m.getLocation().getColumn() != null ? m.getLocation().getColumn()
             : Ops.find(m, NAME).orElse(null);
         Optional<Line> header = Ops.lineOf(m, db);

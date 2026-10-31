@@ -371,4 +371,52 @@ class QuickFixesTest {
             group.subList(0, 5000), db);
         assertEquals(5000, p.batch().operations().size());
     }
+
+    @Test
+    void aFixOnlyAppliesToItsOwnCode() throws Exception {
+        // the right text on the right line, but another code
+        loadResource("empty-parameter.mztab");
+        assertTrue(fix("remove-empty-parameter").forMessage(
+            message("Error-1014", "\"x\" value \"[, , , ]\" is not a valid parameter.", 3), db).isEmpty());
+        assertTrue(fix("remove-empty-parameter").forMessage(
+            message("Warn-1012", "\"x\" value \"[, , , ]\" is not a valid parameter.", 3), db).isPresent(),
+            "the level does not matter");
+        loadResource("doi.mztab");
+        assertTrue(fix("normalise-doi").forMessage(message("Error-1012", "x", 2), db).isEmpty());
+        loadResource("broken-line.mztab");
+        assertTrue(fix("join-broken-line").forMessage(message("Error-1008", "x", 3), db).isEmpty());
+        loadResource("mtd-spaces.mztab");
+        assertTrue(fix("split-mtd-line").forMessage(message("Error-1000", "x", 2), db).isEmpty());
+        loadResource("missing-column.mztab");
+        assertTrue(fix("add-mandatory-column").forMessage(message("Error-1008",
+            "Mandatory column \"smiles2\" is required on the header line.", 2), db).isEmpty());
+        loadResource("missing-metadata.mztab");
+        assertTrue(fix("add-missing-metadata").forMessage(message("Error-1004",
+            "\"sample[1]\" MUST be defined in the metadata section.", 4), db).isEmpty());
+        loadResource("unused-cv.mztab");
+        ValidationMessage cv = message("Error-2008", "The CV with prefix \"UO\" was defined but never used. ", 0);
+        assertTrue(fix("remove-unused-cv").forMessage(cv, db).isEmpty());
+        assertTrue(fix("remove-unused-cv").forMessage(message("Error-3014",
+            "The CV with prefix \"UO\" was defined but never used. ", 0), db).isPresent());
+        ValidationMessage noCode = new ValidationMessage();
+        noCode.setMessage("The CV with prefix \"UO\" was defined but never used. ");
+        assertTrue(fix("remove-unused-cv").forMessage(noCode, db).isEmpty());
+    }
+
+    @Test
+    void allJoinsAdjacentBrokenLinesBottomUp() throws Exception {
+        // one row split into three lines
+        load("MTD\tmzTab-version\t2.0.0-M\nMTD\tdescription\tone\ntwo\nthree\nMTD\tmzTab-ID\tx\n");
+        List<ValidationMessage> group = List.of(message("Error-1000", "two", 3), message("Error-1000", "three", 4));
+
+        QuickFixPreview p = QuickFixes.preview(fix("join-broken-line"), 0, group.get(0), group, db);
+
+        assertEquals(2, p.occurrences());
+        assertEquals(List.of(new SetRawLine(4, " three"), new SetRawLine(3, " two"), new JoinWithPrevious(4),
+            new JoinWithPrevious(3)), p.batch().operations());
+        assertEquals(List.of(new LineChange(2, "MTD\tdescription\tone", "MTD\tdescription\tone two three"),
+            new LineChange(3, "two", null), new LineChange(4, "three", null)), p.changes());
+        assertEquals("MTD\tmzTab-version\t2.0.0-M\nMTD\tdescription\tone two three\nMTD\tmzTab-ID\tx\n",
+            apply(p.batch().operations()));
+    }
 }

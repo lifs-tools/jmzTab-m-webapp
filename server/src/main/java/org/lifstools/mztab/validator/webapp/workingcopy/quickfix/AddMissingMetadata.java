@@ -49,6 +49,9 @@ final class AddMissingMetadata implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 2008)) {
+            return Optional.empty();
+        }
         Optional<String> name = Ops.find(m, NAME);
         if (name.isEmpty() || !Ops.cellSafe(name.get()) || !name.get().equals(name.get().strip())) {
             return Optional.empty();

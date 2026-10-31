@@ -47,6 +47,9 @@ final class JoinBrokenLine implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 1000)) {
+            return Optional.empty();
+        }
         Optional<Line> line = Ops.lineOf(m, db);
         if (line.isEmpty() || line.get().number() < 2 || !"?".equals(line.get().section())) {
             return Optional.empty();

@@ -104,11 +104,21 @@ public final class QuickFixes {
             // from the bottom up, so that deletes and joins leave the numbers of the later operations valid
             parts.sort(Comparator.comparingLong((List<EditOperation> p) -> lineOf(p.get(0))).reversed());
         }
-        List<EditOperation> all = parts.stream().flatMap(List::stream).toList();
+        List<EditOperation> all = parts.stream().flatMap(List::stream).collect(java.util.stream.Collectors.toList());
+        if (group != null) {
+            // edits that keep the line numbers first, then those that move lines (stable, so still bottom-up):
+            // a join must not be followed by a rewrite of the line it merged into
+            all.sort(Comparator.comparingInt(op -> movesLines(op) ? 1 : 0));
+        }
         List<LineChange> changes = changes(all, db);
         return new QuickFixPreview(fix.id(), fix.title(), revision, parts.size(),
             changes.size() > MAX_CHANGES ? List.copyOf(changes.subList(0, MAX_CHANGES)) : changes,
             new EditBatch(revision, all));
+    }
+
+    private static boolean movesLines(EditOperation op) {
+        return op instanceof DeleteLine || op instanceof JoinWithPrevious || op instanceof InsertLine
+            || op instanceof MoveRow || op instanceof InsertColumn || op instanceof DeleteColumn;
     }
 
     private static long lineOf(EditOperation op) {
@@ -125,12 +135,12 @@ public final class QuickFixes {
     }
 
     /**
-     * The changed lines of a batch, in line order, at most {@value #MAX_CHANGES}
-     * plus one (so a caller can tell there are more), by replaying the
+     * The changed lines of a batch, in line order, by replaying the
      * operations on the lines they name. Line numbers are those of the copy
      * now; this holds because the fixes emit their operations so that no
      * operation moves a line that a later one names. Only the operations the
-     * fixes produce are supported.
+     * fixes produce are supported. All changes are returned (a column insert
+     * stops reading after {@value #MAX_CHANGES} + 1 lines); the caller truncates.
      */
     static List<LineChange> changes(List<EditOperation> ops, WorkingCopyDb db) {
         Map<Long, String> original = new TreeMap<>();

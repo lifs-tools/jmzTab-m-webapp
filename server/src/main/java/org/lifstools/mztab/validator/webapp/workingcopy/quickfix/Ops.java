@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.guidance.GuidanceCatalog;
 import org.lifstools.mztab.validator.webapp.workingcopy.Line;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyDb;
 
@@ -26,6 +27,21 @@ import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyDb;
 final class Ops {
 
     private Ops() {
+    }
+
+    /** Whether the number of the message's type code is one of {@code numbers} (the level is ignored). */
+    static boolean hasCode(ValidationMessage m, int... numbers) {
+        try {
+            int n = GuidanceCatalog.numericPart(GuidanceCatalog.typeCodeOf(m));
+            for (int x : numbers) {
+                if (x == n) {
+                    return true;
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            // no usable type code
+        }
+        return false;
     }
 
     /** The line a message names, if it is a line of the copy. */

@@ -49,6 +49,9 @@ final class NormaliseDoi implements QuickFix {
 
     @Override
     public Optional<List<EditOperation>> forMessage(ValidationMessage m, WorkingCopyDb db) {
+        if (!Ops.hasCode(m, 1014)) {
+            return Optional.empty();
+        }
         Optional<Line> line = Ops.lineOf(m, db);
         if (line.isEmpty() || !"MTD".equals(line.get().section()) || line.get().cells().size() < 3) {
             return Optional.empty();
