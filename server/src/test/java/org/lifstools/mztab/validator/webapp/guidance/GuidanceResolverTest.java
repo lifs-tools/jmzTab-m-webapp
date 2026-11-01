@@ -96,8 +96,18 @@ class GuidanceResolverTest {
         assertNull(g.get(0).entryId());
         assertEquals("Error-9999", g.get(0).typeCode());
         assertEquals("Something strange happened", g.get(0).title());
-        assertEquals("Because.", g.get(0).cause());
+        assertEquals("Because.", g.get(0).explanation());
+        assertNull(g.get(0).cause());
         assertEquals("Do this.", g.get(0).suggestion());
+    }
+
+    @Test
+    void fallbackDoesNotRepeatTheCause() {
+        ValidationMessage m = msg("[Error-9999] line 3: strange", "Something strange happened", 3);
+        m.setCause("Because.");
+        Guidance g = resolver.resolve(List.of(m), "2.0", List.of(), n -> Map.of()).get(0);
+        assertEquals("Because.", g.explanation());
+        assertNull(g.cause());
     }
 
     @Test

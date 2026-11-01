@@ -15,6 +15,8 @@
  */
 package org.lifstools.mztab.validator.webapp.guidance;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -52,6 +54,20 @@ class ResolutionReportTest {
         Guidance g = new Guidance("x", "Error-1", "T", "E", "H", "General tool fix.", null, null, null, false, null, null,
             List.of(0), List.of());
         assertTrue(ResolutionReport.markdown(record(), List.of(g)).contains("General tool fix."));
+    }
+
+    @Test
+    void causeAppearsOnceForCatalogAndFallbackGroups() {
+        Guidance cat = new Guidance("x", "Error-1", "T", "Why.", "H", "F", null, null, null, false, "Validator cause.", null,
+            List.of(0), List.of());
+        String md = ResolutionReport.markdown(record(), List.of(cat));
+        assertEquals(1, md.split("Validator cause\\.", -1).length - 1, md);
+        assertTrue(md.contains("Cause: Validator cause."), md);
+        Guidance fb = new Guidance(null, "Error-2", "T2", "Only text.", "", "", null, null, null, false, null, null,
+            List.of(0), List.of());
+        String md2 = ResolutionReport.markdown(record(), List.of(fb));
+        assertEquals(1, md2.split("Only text\\.", -1).length - 1, md2);
+        assertFalse(md2.contains("Cause:"), md2);
     }
 
     @Test

@@ -104,6 +104,12 @@ export class GuidancePanelComponent {
   protected readonly fixInTool = computed(
     () => this.guidance().toolFixInTool ?? this.guidance().fixInTool,
   );
+  /** The validator's own cause text, only when it adds something beyond the explanation. */
+  protected readonly extraCause = computed(() => {
+    const g = this.guidance();
+    const cause = g.cause?.trim();
+    return cause && cause !== g.explanation?.trim() ? cause : null;
+  });
   protected readonly isVariant = computed(() => !!this.guidance().toolFixInTool);
   /** The quick fix the editor offers as a button, if any. */
   protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;

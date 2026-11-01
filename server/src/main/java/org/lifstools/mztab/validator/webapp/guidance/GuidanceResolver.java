@@ -120,7 +120,7 @@ public class GuidanceResolver {
         }
         String title = Objects.requireNonNullElse(f.getMessage(), g.typeCode);
         return new Guidance(null, g.typeCode, title, Objects.requireNonNullElse(f.getCause(), ""),
-            Objects.requireNonNullElse(f.getSuggestion(), ""), "", null, null, null, false, f.getCause(),
+            Objects.requireNonNullElse(f.getSuggestion(), ""), "", null, null, null, false, null,
             f.getSuggestion(), List.copyOf(g.indexes), quoted);
     }
 

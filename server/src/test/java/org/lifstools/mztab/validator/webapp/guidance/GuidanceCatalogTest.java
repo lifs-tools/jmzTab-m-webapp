@@ -154,4 +154,10 @@ class GuidanceCatalogTest {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> load("test-bad-regex.json"));
         assertTrue(e.getMessage().contains("regex"), e.getMessage());
     }
+
+    @Test
+    void info2057ResolvesToTheProfileFieldMismatchEntry() {
+        assertEquals("profile-field-mismatch",
+            catalog.match(message("[Info-2057] x", "A field without its section"), "2.0").orElseThrow().id());
+    }
 }

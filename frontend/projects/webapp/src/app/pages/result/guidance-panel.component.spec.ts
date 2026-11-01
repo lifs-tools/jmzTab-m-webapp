@@ -78,6 +78,29 @@ describe('GuidancePanelComponent', () => {
     expect(t).toContain('Fix it in your tool');
   });
 
+  it('shows a text once and offers no details when the cause equals the explanation', () => {
+    const { el, text } = render({ explanation: 'Same text.', cause: 'Same text.' });
+    expect(text().split('Same text.').length - 1).toBe(1);
+    expect(el.querySelector('details')).toBeNull();
+  });
+
+  it('folds a different cause into collapsed details from the validator', () => {
+    const { el } = render();
+    const details = el.querySelector('details')!;
+    expect(details).not.toBeNull();
+    expect(details.open).toBe(false);
+    expect(details.querySelector('summary')!.textContent!.trim()).toBe('Details from the validator');
+    expect(details.textContent).toContain('Your tool left it out.');
+    expect(render({ cause: null }).el.querySelector('details')).toBeNull();
+  });
+
+  it('hides headings without content', () => {
+    const empty = render({ fixInTool: '', fixHere: '' }).text();
+    expect(empty).not.toContain('Fix it in your tool');
+    expect(empty).not.toContain('Fix it here');
+    expect(render({ fixInTool: '', toolFixInTool: 'In MyTool, tick the box.' }).text()).toContain('Fix it in your tool');
+  });
+
   it('prefers the tool variant and marks it as a variant', () => {
     const { text } = render({ toolFixInTool: 'In MyTool, tick the box.', toolName: 'MyTool 1.2' });
     expect(text()).toContain('In MyTool, tick the box.');

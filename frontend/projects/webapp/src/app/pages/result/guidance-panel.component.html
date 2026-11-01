@@ -2,8 +2,11 @@
   <h4 class="what">What's wrong</h4>
   <p class="title">{{ guidance().title }}</p>
   <p>{{ guidance().explanation }}</p>
-  @if (guidance().cause) {
-    <p class="cause">{{ guidance().cause }}</p>
+  @if (extraCause(); as cause) {
+    <details class="cause">
+      <summary>Details from the validator</summary>
+      <p>{{ cause }}</p>
+    </details>
   }
 
   @if (where().length) {
@@ -27,8 +30,12 @@
     }
   }
 
-  <h4>Fix it here</h4>
-  <p>{{ guidance().fixHere }}</p>
+  @if (guidance().fixHere || editorFix()) {
+    <h4>Fix it here</h4>
+  }
+  @if (guidance().fixHere) {
+    <p>{{ guidance().fixHere }}</p>
+  }
   @if (editorFix(); as fixId) {
     <div class="quick-actions">
       <button
@@ -61,13 +68,15 @@
     <p class="lifs-note quick">Open the file in the editor to use the quick fix</p>
   }
 
-  <h4>Fix it in your tool</h4>
-  @if (isVariant()) {
-    <p class="lifs-note">
-      {{ guidance().toolName ? 'For ' + guidance().toolName : 'For the tool that wrote this file' }}
-    </p>
+  @if (fixInTool()) {
+    <h4>Fix it in your tool</h4>
+    @if (isVariant()) {
+      <p class="lifs-note">
+        {{ guidance().toolName ? 'For ' + guidance().toolName : 'For the tool that wrote this file' }}
+      </p>
+    }
+    <p>{{ fixInTool() }}</p>
   }
-  <p>{{ fixInTool() }}</p>
 
   @if (guidance().stopsParsing) {
     <p class="stops" role="note">

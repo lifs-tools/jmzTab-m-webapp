@@ -273,5 +273,16 @@
     "quickFix": null,
     "stopsParsing": false,
     "tools": []
+  },
+  {
+    "id": "profile-field-mismatch",
+    "codes": ["Info-2057"],
+    "title": "Field or column without its section",
+    "explanation": "Some metadata fields and columns are only needed together with a particular table, such as the small molecule feature (SMF) section. The file declares a profile without that section but still contains such a field or column. The file stays readable; the validator reports the mismatch so the content matches the declared profile.",
+    "fixHere": "Use the quick fix to remove the field or column, or remove the line with \"Remove this line\". If the section is meant to be there, add it in your tool and export again.",
+    "fixInTool": "Write conditional fields and columns only when the section they belong to is written, or declare the profile that includes that section.",
+    "quickFix": null,
+    "stopsParsing": false,
+    "tools": []
   }
 ]

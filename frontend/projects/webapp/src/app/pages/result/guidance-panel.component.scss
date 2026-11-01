@@ -81,3 +81,14 @@ mark {
   gap: 8px;
   align-items: center;
 }
+.cause {
+  margin-top: 4px;
+  summary {
+    cursor: pointer;
+    color: var(--lifs-grey);
+    font-size: 12px;
+  }
+  p {
+    margin-top: 4px;
+  }
+}
