@@ -1,6 +1,6 @@
 # Documentation and Getting Started with mzTab-M
 
-**Status:** draft for the project lead's review, 2026-11-01.
+**Status:** draft, revised after the project lead's first review (2026-11-01).
 **Builds on:** `2026-10-23-validator-spa-design.md` (the SPA, its shell and pages), `2026-10-31-mztabm-editor-design.md` (guide, problems page, editor, §5.10a), `2026-10-30-mztabm-version-engines-design.md` (2.0 and 2.1 engines).
 
 ---
@@ -22,8 +22,12 @@ The project lead tested 2a and asked for:
 
 Decided in conversation (2026-11-01):
 
+- **Documentation is a top-level item of the app bar.** "Fixing a file" and "Common problems" are reached through it, not through the footer.
+- **The landing page gets a section about the format**: a brief summary of what mzTab-M is, what it is used for and who uses it, linking to the documentation's main page.
+- **The About page is the candidate for the documentation's main page**: its format material moves into the documentation (D13).
 - The walkthrough comes as **both** a documentation chapter (the reference) and an **interactive tour** in the real document viewer ("Try it").
 - People with a spreadsheet are pointed to the **LipidCompass submission template**, the most mature route today; more integrations will follow, so the page lists routes, not one tool.
+- The submission template gets a **public home on lipidcompass.org**: it is added to the LipidCompass repository as a UI asset, offered in its submission pages and help, and the validator links it there.
 - The example is the **HUPO-PSI lipidomics pair** (`examples/2.0/manual_null_null_lipidomics.mztab` and `examples/2.1/manual_null_null_lipidomics_v2.1.mztab`), with its quirks fixed upstream ([HUPO-PSI/mzTab-M#153](https://github.com/HUPO-PSI/mzTab-M/pull/153)), adapted for teaching. The 2.1 **study design example** (`examples/2.1/example_study_variable_group.mztab`) illustrates multi-factor designs.
 
 ## 2. Goals, non-goals, anti-goals
@@ -46,8 +50,8 @@ Decided in conversation (2026-11-01):
 
 - An example or a tour that teaches something the validator then rejects: the bundled examples must validate on their engine without errors or warnings.
 - Documentation that drifts from the application: labels, buttons and messages in the docs come from the same constants as the UI, as for the guide today (`core/quick-fix-labels.ts`).
-- A getting-started hint that gets in the way of the user who just wants to validate: it is not a modal, never blocks the form, and stays dismissed.
-- Breaking existing links: `/guide`, `/problems` and their `#…` anchors keep working.
+- An introduction that gets in the way of the user who just wants to validate: the format section sits below the form, is not a modal and never pushes the form down.
+- Breaking existing links: `/guide`, `/problems`, `/about` and their `#…` anchors keep working.
 
 ## 3. Current state
 
@@ -61,25 +65,27 @@ Decided in conversation (2026-11-01):
 
 | # | Decision | Whose |
 |---|---|---|
-| D1 | One **Documentation** item in the app bar, at `/docs`, replaces the footer-only access to the guide and problems page. | lead |
+| D1 | One **Documentation** item in the app bar, at `/docs`, is the only way into the help: the guide and the problems page live under it, and the **footer no longer links them**. | lead |
 | D2 | Docs pages form a **tree** (§5.1): a side navigation of chapters and pages, and on each page a floating **"On this page"** list of its sections that follows the scroll position. | lead |
 | D3 | The walkthrough exists as a **chapter** (annotated excerpts) **and** an **interactive tour** in the real viewer, sharing one step list. | lead |
 | D4 | Spreadsheets → **LipidCompass submission template**, presented as one route among future ones. | lead |
 | D5 | The teaching examples are the **cleaned HUPO-PSI lipidomics pair**, adapted (§5.4), plus the **2.1 study design example**. | lead |
 | D6 | The teaching files are **bundled with the webapp**, not fetched from GitHub, so the tour's steps and the files cannot drift apart and the tour works offline from GitHub. The page names and links the HUPO-PSI originals. | my call |
 | D7 | `/guide` and `/problems` **redirect** to their new places with their fragments; old anchors keep working. | my call |
-| D8 | The landing hint is a **compact, dismissible card** next to the form, not a hero that pushes the form down; dismissal is remembered per browser. | my call |
+| D8 | The landing page gets an **"About mzTab-M" section below the validator form**: what the format is, what it is used for, who uses it, with links to Getting started, the tour and the documentation's main page. It replaces the dismissible card of the first draft: a section below the form cannot get in the way, so it needs no dismissal. | lead (section), my call (placement, no card) |
 | D9 | The bundled teaching files are **served by the server as examples** (classpath resources listed in the examples catalog, section `tutorial`), so the tour uses the existing `POST /examples/{id}/validations`. Each file's **step list lives next to it** and is served with the example. If the tour's result has expired, the tour validates the example again without asking: it is a public example, not user data. | my call |
 | D10 | Chapter excerpts are **rendered from the bundled file**, not pasted: each step names its line range (`lines: [from, to]`) besides its target, and the chapter shows those lines. | my call |
-| D11 | The **submission template's address is configuration** (`docs.submission-template-url`). Without it, the Getting started page describes the route and says where to ask, without a link. | my call |
+| D11 | The **submission template is downloaded from lipidcompass.org**, where it is a public asset of the LipidCompass UI (`/assets/templates/lipidcompass-summary-submission-template.xlsx`, a stable name; the version is stated next to the link). The address is configuration (`docs.submission-template-url`) with that URL as its default, and the page also links LipidCompass's data submission help (`https://lipidcompass.org/guide/data-submission`). Configured empty, the page describes the route and says where to ask, without a link. | lead (home), my call (config) |
 | D12 | The **teaching files are authored by the builder** from the cleaned pair (#153 branch `fix/lipidomics-example-quirks`, validated on both engines on 2026-11-01), with masses computed from the formulas. Their scientific content is part of the lead's documentation review. | my call |
+| D13 | **The About page becomes documentation.** Its format material (mzTab-M and jmzTab-m, versions and engines, validation levels, profiles and mapping files, the editor) moves into the documentation's main page and chapters (§5.7). What is about the service (retention and privacy, how to cite, version) becomes the page "About this service" at `/docs/about`. `/about` redirects there, and the app bar drops "About". | lead (candidate), my call (split) |
+| D14 | The app bar's **Documentation item is a menu**: its chapters plus "All documentation" (`/docs`). On narrow screens the chapters appear in the existing navigation menu under a "Documentation" heading. The item is marked active on every `/docs` page. | my call |
 
 ## 5. Design
 
 ### 5.1 Documentation structure
 
 ```
-Documentation  (/docs)
+Documentation  (/docs)         mzTab-M in brief: what it is, its uses, its audiences · the chapters
 ├── Getting started            /docs/getting-started
 │     What mzTab-M is · Which route is yours (export / spreadsheet / have a file) · Validate · Next steps
 ├── Understanding mzTab-M      /docs/format
@@ -92,32 +98,41 @@ Documentation  (/docs)
 │   ├── Controlled vocabularies and parameters        /docs/format/cv-parameters
 │   └── Describing your study design                  /docs/format/study-design
 ├── mzTab-M 2.0 and 2.1        /docs/versions
-│     What changed · Converting a 2.0 file to 2.1 · Validating 2.1 files
+│     Versions and engines (from About, with live status) · What changed · Converting a 2.0 file to 2.1 · Validating 2.1 files
+├── Validating a file          /docs/validating
+│     Validation levels · Profiles and mapping files · Network access (OLS) · Reading the result   (from About)
 ├── Fixing a file              /docs/fixing        (today's /guide)
 ├── Common problems            /docs/problems      (today's /problems)
-└── For tools and services     /docs/integration
-      REST API (link to Swagger UI) · Self-hosting (links to docs/self-hosting on GitHub)
+├── For tools and services     /docs/integration
+│     REST API (link to Swagger UI) · pymzTab-m, rmzTab-m · Self-hosting (links to docs/self-hosting on GitHub)
+└── About this service         /docs/about         (today's /about, D13)
+      Retention and privacy · How to cite · Version
 ```
 
 - **Side navigation:** chapters and their pages, the current page marked. Below 1100 px it collapses into a "Contents" menu at the top of the page.
 - **"On this page":** the current page's `h2`/`h3` sections, floating beside the text from 1100 px, with the section in view marked. Below that it is a collapsible list under the page title.
 - **Previous/next** links at the end of each page follow the tree order.
 - **Anchors:** every section has a stable id (`#metadata-ms-runs`, …). The guidance catalog, the resolution report and the problems page may link into the docs by these ids. The ids of today's guide (`#guide-result`, `#guide-fixing`, …) stay valid.
-- **App bar:** Validate · Examples · **Documentation** · REST API · About · LIFS Tools. The footer keeps short links to Getting started, Fixing a file and Common problems.
+- **App bar:** Validate · Examples · **Documentation ▾** · REST API · LIFS Tools (D14). "About" is gone from the app bar; it is the last page of the documentation (D13).
+- **Footer:** legal links, Analytics and the copyright band only. It no longer links Fixing a file or Common problems (D1).
 - **Search** is not part of this design. The tree is small; browser find works on each page.
 
-### 5.2 Getting started (landing hint and page)
+### 5.2 Getting started (landing section and page)
 
-**Landing hint (D8).** A small card beside the validator form (below it on narrow screens):
+**Landing section (D8).** A full-width section below the validator form and the examples, titled **"About mzTab-M"**, in three short columns (stacked on narrow screens), each two or three sentences:
 
-> **New to mzTab-M?** Learn the four parts of a file with a short walkthrough of a real lipidomics example. **[Get started]** · **[Take the tour]** · ✕
+- **What it is.** The HUPO-PSI standard for reporting the results of mass-spectrometry metabolomics and lipidomics: one tab-separated text file with the study's metadata, the identified molecules with their quantities, and the features and evidence behind them.
+- **What it is for.** Depositing results in public repositories, exchanging them between tools, and reanalysing published studies without the software that produced them.
+- **Who uses it.** Researchers whose software exports mzTab-M or who prepare their results for a repository, the tools that write and read it, and the repositories that accept it, LipidCompass among them.
 
-✕ hides it and stays hidden in this browser (local storage, read defensively; without storage, the card shows). The About page and the docs remain the way back.
+Below the columns: **[Get started with mzTab-M]** (`/docs/getting-started`) · **[Take the tour]** · **Read the documentation** (`/docs`). The section is static content, part of the landing page's template, with no storage and no dismissal. The wording is the builder's; the lead reviews it.
+
+The form stays the first thing on the page.
 
 **The Getting started page** answers "which route is mine":
 
 - **"My software exported an mzTab-M file."** Validate it. Read the summary of what is wrong, then use Understanding mzTab-M to see where in the file it is, and Fixing a file to fix it here or in the tool.
-- **"I have a spreadsheet of results."** Use the **LipidCompass submission template** (Excel, address from `docs.submission-template-url`, D11). It asks for the study, samples and lipids in a table; LipidCompass's curation pipeline converts it to validated mzTab-M (as the submissions repository describes it). Have ready: the lipid names (shorthand nomenclature), the quantities and their unit, the samples and their groups, the instrument and method. More routes (tool integrations) will be listed here as they become available.
+- **"I have a spreadsheet of results."** Use the **LipidCompass submission template** (Excel, downloaded from lipidcompass.org, D11; the page names its version, "March 2026"). It has three sheets, General Information, Summary (the metadata) and Final Quantities (lipids × samples), and asks for the study, samples and lipids in a table; LipidCompass's curation pipeline converts it to validated mzTab-M (as the submissions repository describes it). Have ready: the lipid names (shorthand nomenclature), the quantities and their unit, the samples and their groups, the instrument and method. How to hand it in is described in LipidCompass's data submission help, which the page links. More routes (tool integrations) will be listed here as they become available.
 - **"I want to understand the format first."** Take the tour or read Understanding mzTab-M.
 
 ### 5.3 The walkthrough: chapter and tour
@@ -171,7 +186,20 @@ A page with:
 
 - `/docs/fixing` is today's guide content; `/docs/problems` today's problems page. `/guide` and `/problems` redirect with their fragment (D7).
 - The guide's cards become sections of the docs layout; its specs move with it and keep asserting the button labels from the shared constants.
-- Links that point to `/guide` or `/problems` inside the app (result page, editor help, guidance panel, footer, resolution report) are updated to the new paths.
+- Links that point to `/guide`, `/problems` or `/about` inside the app (result page, editor help, guidance panel, resolution report,) are updated to the new paths. The footer's two help links are removed (D1).
+
+### 5.7 Folding the About page into the documentation (D13)
+
+| Today's About section | Goes to |
+|---|---|
+| mzTab-M and jmzTab-m | the documentation's main page (`/docs`), next to the brief summary of the format |
+| mzTab-M versions (with the live engine table) | mzTab-M 2.0 and 2.1 (`/docs/versions#versions-engines`) |
+| Validation levels | Validating a file (`/docs/validating#levels`) |
+| Validation profiles and mapping files | Validating a file (`/docs/validating#profiles`) |
+| Fixing a file | dropped: Fixing a file is its own page |
+| Retention and privacy · How to cite · Version | About this service (`/docs/about`) |
+
+The ids of today's About sections (`#about-formats`, `#about-versions`, `#about-levels`, `#about-profiles`, `#about-editor`, `#about-retention`, `#about-cite`, `#about-version`) keep working: `/about#<id>` redirects to the page that now holds the section, and the section carries the old id as well. The about page's specs move with their sections.
 
 ## 6. Documentation of this feature
 
@@ -180,20 +208,23 @@ This feature is documentation. In addition: the release notes (2.0.0, "Documenta
 ## 7. Testing
 
 - Navigation: the tree renders, the current page is marked, previous/next follow the tree, the "On this page" list marks the section in view (spec with a scroll stub), and the collapsed variants below 1100 px.
-- Redirects: `/guide#guide-fixing` → `/docs/fixing#guide-fixing`; `/problems` → `/docs/problems`.
+- Redirects: `/guide#guide-fixing` → `/docs/fixing#guide-fixing`; `/problems` → `/docs/problems`; `/about` → `/docs/about`; `/about#about-levels` → `/docs/validating#about-levels`.
+- App bar: the Documentation menu lists the chapters and is active on `/docs/**`; "About" is gone. Footer: no help links.
+- Landing section: present below the form, links to Getting started, the tour and `/docs`.
 - Steps: every step's target resolves to an element in its example file (a spec per step list, loading the bundled file through the viewer's data source).
 - Examples: the bundled files validate without errors or warnings on their engines (engine test on both lines).
-- Tour (e2e): start from the landing hint, step through, each step highlights its element; version switch; close returns to the landing page. Axe checks on a docs page and the tour.
-- Landing hint: dismiss persists; works without storage.
+- Tour (e2e): start from the landing section, step through, each step highlights its element; version switch; close returns to the landing page. Axe checks on a docs page, the landing page with its new section, and the tour.
 - Docs content specs: key sentences and labels from shared constants, as today.
 
 ## 8. Phasing
 
-One phase, independent of the editor's 2b: (a) docs layout, tree, redirects, moving guide and problems; (b) getting started page and landing hint; (c) teaching examples and the step lists, chapter pages; (d) the tour; (e) the 2.0/2.1 page. (a)–(c) are useful on their own; the tour (d) builds on them.
+One phase, independent of the editor's 2b: (a) docs layout, tree, app bar menu, footer, redirects, moving guide, problems and About; (b) getting started page and landing section; (c) teaching examples and the step lists, chapter pages; (d) the tour; (e) the 2.0/2.1 page. (a)–(c) are useful on their own; the tour (d) builds on them.
 
 ## 9. Open points (the lead's)
 
-1. **Where users download the submission template.** The template's current link is in the private repository `lifs-tools/lipidcompass-submissions`, so users cannot open it. It needs a public home (e.g. lipidcompass.org or a public release asset); until then the page ships without the link (D11).
+None. Settled in the first review:
+
+1. **Where users download the submission template:** on lipidcompass.org (D11). The LipidCompass change that adds it is separate from this feature; the validator's release checks that the default URL answers before it ships, and otherwise configures it empty.
 
 ## 10. Left to the builder
 
