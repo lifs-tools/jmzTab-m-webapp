@@ -44,6 +44,11 @@ describe('FixingPage', () => {
     expect(problems?.textContent).toContain('Common problems');
   });
 
+  it('carries the old About id on the section that holds the editor material', async () => {
+    const el = await render();
+    expect(el.querySelector('#about-editor #guide-fixing')).toBeTruthy();
+  });
+
   it('every section heading has an id', async () => {
     const el = await render();
     const headings = Array.from(el.querySelectorAll('h2, h3'));
