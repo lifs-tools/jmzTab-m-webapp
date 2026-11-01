@@ -51,7 +51,7 @@ Start both engines and the web application from the packaged JARs, as in product
   ./mvnw -B package -DskipTests
   docker compose -f compose/dev-stack.yml up
 
-Then, in a second terminal, start the Angular development server. It proxies `/rest` to `http://localhost:8083/mztabvalidator/rest` on the running server (see `frontend/proxy.conf.json`):
+Then, in a second terminal, start the Angular development server. It proxies `/rest` and `/swagger-ui` to the same paths under `http://localhost:8083/mztabvalidator` on the running server, and `/mztabvalidator` itself, where Swagger UI loads the API description from (see `frontend/proxy.conf.json`):
 
   npm --prefix frontend install
   npm --prefix frontend start

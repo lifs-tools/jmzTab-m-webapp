@@ -4,5 +4,14 @@
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": { "^/rest": "/mztabvalidator/rest" }
+  },
+  "/swagger-ui": {
+    "target": "http://localhost:8083",
+    "secure": false,
+    "pathRewrite": { "^/swagger-ui": "/mztabvalidator/swagger-ui" }
+  },
+  "/mztabvalidator": {
+    "target": "http://localhost:8083",
+    "secure": false
   }
 }
