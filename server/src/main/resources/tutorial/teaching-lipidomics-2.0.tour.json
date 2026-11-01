@@ -86,7 +86,7 @@
       "id": "features",
       "chapter": "features",
       "title": "Its features",
-      "text": "An SMF row is one measured signal: its m/z (exp_mass_to_charge), charge, retention time and abundance in each assay. The ceramide was measured by SRM and has four features: its precursor ion [M+H]1+ and three fragment ions. PC 34:1 was measured in full scan and has one feature, its [M+H]1+ ion at m/z 760.5848. SME_ID_REFS links each feature to the evidence that identifies it.",
+      "text": "An SMF row is one measured signal: its m/z (exp_mass_to_charge), charge, retention time and abundance in each assay. The ceramide was measured by targeted MS/MS (PRM) and has four features: its precursor ion [M+H]1+ and three fragment ions. PC 34:1 was measured in full scan and has one feature, its [M+H]1+ ion at m/z 760.5848. SME_ID_REFS links each feature to the evidence that identifies it.",
       "lookFor": "the SMF_ID column: features 1 to 4 belong to the ceramide, feature 5 to PC 34:1",
       "target": {
         "tab": "features",
@@ -99,7 +99,7 @@
       "id": "evidence",
       "chapter": "evidence",
       "title": "Its evidence",
-      "text": "An SME row is one identification: the molecule a spectrum was matched to, how, and how confidently. This row identifies the ceramide's precursor ion: the measured m/z 650.6432 differs from the theoretical 650.6446 by -2.15 ppm (opt_global_mass_error). spectra_ref points to the spectrum in the run (ms_run[1], scan 731), and ms_level says that it is an MS1 spectrum. The column id_confidence_measure[1] holds a score whose kind the metadata line id_confidence_measure[1] declares, here a fragmentation score of 0.958. rank orders the candidate identifications of one evidence, from 1 for the best.",
+      "text": "An SME row is one identification: the molecule a spectrum was matched to, how, and how confidently. This row identifies the ceramide's precursor ion: the measured m/z 650.6432 differs from the theoretical 650.6446 by -2.15 ppm (opt_global_mass_error). spectra_ref points to the spectrum in the run (ms_run[1], scan 731), and ms_level says that it is an MS1 spectrum. The identification itself also rests on the ceramide's fragment ions: identification_method says qualifier ions exact mass, and opt_global_qualifiers_evidence_grouping_ID_REFS points to the evidence of those fragments (evidence_input_id 2). The column id_confidence_measure[1] holds the score of this identification, of the kind that the metadata line id_confidence_measure[1] declares: a fragmentation score of 0.958. rank orders the candidate identifications of one evidence, from 1 for the best.",
       "lookFor": "spectra_ref, id_confidence_measure[1] and rank",
       "target": {
         "tab": "evidence",

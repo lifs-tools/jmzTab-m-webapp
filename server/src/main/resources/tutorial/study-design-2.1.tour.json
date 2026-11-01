@@ -54,7 +54,7 @@
       "id": "validate-yours",
       "chapter": "study-design",
       "title": "Describe your own design",
-      "text": "To describe your own design, give each factor a study_variable_group, each level a study_variable with its assays, and validate the file on the 2.1 engine. study_variable_group is new in mzTab-M 2.1: a 2.0 file describes factors with study_variable[n]-factors, which the 2.1 engine reports (Warn-2067) and drops. This file has only a summary section and declares the profile M+S.",
+      "text": "To describe your own design, give each factor a study_variable_group, each level a study_variable with its assays, and validate the file on the 2.1 engine. study_variable_group is new in mzTab-M 2.1: a 2.0 file describes factors with study_variable[n]-factors, which the 2.1 engine reports (Warn-2067). This file has only a summary section and declares the profile M+S.",
       "lines": [13, 14]
     }
   ]
