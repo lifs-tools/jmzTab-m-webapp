@@ -212,12 +212,21 @@ class ExamplesApiControllerTutorialTest {
             .andExpect(jsonPath("$.length()").value(2))
             .andExpect(jsonPath("$[0].id").value(ID))
             .andExpect(jsonPath("$[0].tour").value(true))
-            .andExpect(jsonPath("$[0].uri").value("rest/v2/examples/" + ID + "/content"))
+            // absolute: a REST client resolves a relative URI against the request URL, /rest/v2/examples
+            .andExpect(jsonPath("$[0].uri").value("http://localhost/rest/v2/examples/" + ID + "/content"))
             .andExpect(jsonPath("$[0].originalUri").value(ORIGINAL))
             .andExpect(jsonPath("$[1].id").value(REMOTE))
             .andExpect(jsonPath("$[1].tour").value(false))
             .andExpect(jsonPath("$[1].uri").value("https://example.org/MTBLS263.mztab"))
             .andExpect(jsonPath("$[1].originalUri").doesNotExist());
+    }
+
+    @Test
+    void bundledExampleUriKeepsTheContextPath() throws Exception {
+        onlyLine20();
+        mvc.perform(get("/mztabvalidator/rest/v2/examples").contextPath("/mztabvalidator")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].uri")
+                .value("http://localhost/mztabvalidator/rest/v2/examples/" + ID + "/content"));
     }
 
     @Test

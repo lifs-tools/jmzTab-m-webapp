@@ -62,8 +62,8 @@ public class ExamplesApiController {
     /**
      * An example file.
      *
-     * @param uri where the file can be downloaded; for a bundled example the relative
-     * {@code rest/v2/examples/{id}/content}
+     * @param uri where the file can be downloaded; for a bundled example the absolute URL of
+     * {@code rest/v2/examples/{id}/content} under this instance's context path
      * @param originalUri where the file a bundled example was adapted from is published, if it was
      * @param tour whether the example has a tour ({@code GET /rest/v2/examples/{id}/tour})
      */
@@ -167,8 +167,10 @@ public class ExamplesApiController {
 
     private ExampleDto dto(ExampleFile f) {
         boolean bundled = tutorials.content(f.getName()).isPresent();
-        // a bundled example's name matches ID_PATTERN (checked at startup), so it is a safe path segment
-        URI uri = bundled ? URI.create("rest/v2/examples/" + f.getName() + "/content") : f.getUri();
+        // absolute, like the Location of a validation: a REST client resolves a relative URI against the request
+        // URL; a bundled example's name matches ID_PATTERN (checked at startup), so it is a safe path segment
+        URI uri = bundled ? ServletUriComponentsBuilder.fromCurrentContextPath().path("/rest/v2/examples/{id}/content")
+            .buildAndExpand(f.getName()).toUri() : f.getUri();
         return new ExampleDto(f.getName(), f.getName(), f.getSection(), f.getDescription(), f.getVersion(),
             f.getMzTabVersion(), f.getFocus(), f.getCreatedBy(), uri, f.getOriginalUri(),
             tutorials.tour(f.getName()).isPresent());
