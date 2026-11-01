@@ -16,9 +16,8 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { TourButtonComponent } from '../../core/tour-button.component';
 import { TRY_IT } from '../../core/tour-labels';
 import { TutorialStore } from '../../core/tutorial.store';
+import { ORIGINALS_FOLDER } from './excerpt';
 import { ExcerptComponent } from './excerpt.component';
-
-const ORIGINALS_FOLDER = 'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples';
 
 /**
  * A page of Understanding mzTab-M: the steps of one tour chapter, each with its lines of the teaching file.

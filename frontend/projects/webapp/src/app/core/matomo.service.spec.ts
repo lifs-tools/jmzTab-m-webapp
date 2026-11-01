@@ -30,7 +30,7 @@ describe('MatomoService', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: 'about', component: Blank },
+          { path: 'docs/about', component: Blank },
           { path: 'result/:id', component: Blank },
           { path: '**', component: Blank },
         ]),
@@ -66,10 +66,10 @@ describe('MatomoService', () => {
   });
 
   it('tracks the current page when initialised after the first navigation', async () => {
-    await TestBed.inject(Router).navigateByUrl('/about');
+    await TestBed.inject(Router).navigateByUrl('/docs/about');
     TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
     const paq = win._paq ?? [];
-    expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/about`]);
+    expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/docs/about`]);
     const trackAt = paq.findIndex((c) => c[0] === 'trackPageView');
     expect(trackAt).toBeGreaterThan(paq.findIndex((c) => c[0] === 'requireConsent'));
     expect(paq.filter((c) => c[0] === 'trackPageView').length).toBe(1);
@@ -85,8 +85,8 @@ describe('MatomoService', () => {
   it('tracks a page view with the routed url on navigation', async () => {
     TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
     win._paq!.length = 0;
-    await TestBed.inject(Router).navigateByUrl('/about');
-    expect(win._paq).toContainEqual(['setCustomUrl', `${location.origin}/about`]);
+    await TestBed.inject(Router).navigateByUrl('/docs/about');
+    expect(win._paq).toContainEqual(['setCustomUrl', `${location.origin}/docs/about`]);
     expect(win._paq).toContainEqual(['trackPageView']);
   });
 
@@ -96,7 +96,7 @@ describe('MatomoService', () => {
     TestBed.inject(MatomoService).init({ siteId: '42', trackerBase: 'https://x/' });
     win._paq!.length = 0;
     await router.navigateByUrl(`/result/${id}?confirmDelete=true#x`);
-    await router.navigateByUrl('/about');
+    await router.navigateByUrl('/docs/about');
     const paq = win._paq ?? [];
     expect(paq).toContainEqual(['setCustomUrl', `${location.origin}/result/:id`]);
     expect(paq).toContainEqual(['setDocumentTitle', 'mzTab-M Validator · Result']);
@@ -151,7 +151,7 @@ describe('MatomoService', () => {
   it('redactUrl replaces id segments and drops queries and fragments', () => {
     expect(redactUrl('https://h/ctx/result/abc?x=1#y')).toBe('https://h/ctx/result/:id');
     expect(redactUrl('/validate/abc/delete')).toBe('/validate/:id/delete');
-    expect(redactUrl('/about?q=1')).toBe('/about');
+    expect(redactUrl('/docs/about?q=1')).toBe('/docs/about');
   });
 
   it('remembers and forgets consent', () => {

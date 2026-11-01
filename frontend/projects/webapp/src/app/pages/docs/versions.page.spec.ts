@@ -2,8 +2,38 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of, throwError } from 'rxjs';
 
-import { VersionsPage } from './versions.page';
+import { TourDto } from '../../api/models/tour-dto';
+import { QUICK_FIX_TITLES } from '../../core/quick-fix-labels';
+import { TutorialStore } from '../../core/tutorial.store';
+import { VERIFIED_CHANGES, VersionsPage } from './versions.page';
+
+const TEACHING_21 = 'teaching-lipidomics-2.1.mztab';
+const FILE = [
+  'COM\tcomment',
+  'MTD\tmzTab-version\t2.1.0-M',
+  'MTD\tmzTab-profile\tM+S+F+E',
+  'MTD\tmzTab-ID\tTEACHING',
+];
+const TOUR: TourDto = {
+  exampleId: TEACHING_21,
+  steps: [
+    { id: 'what-file', chapter: 'metadata', title: 'What the file is', text: 'Not this one.', lines: [2, 4] },
+    {
+      id: 'profile',
+      chapter: 'profile',
+      title: 'The profile',
+      text: 'mzTab-profile states which sections the file has.',
+      lookFor: 'mzTab-profile: M+S+F+E',
+      lines: [3, 3],
+      target: { tab: 'metadata', key: 'mzTab-profile' },
+    },
+  ],
+};
+const ENGINE_20 = { line: '2.0', mzTabVersions: ['2.0.0-M'], jmztabmVersion: '3.0.9', available: true };
+const ENGINE_21 = { line: '2.1', mzTabVersions: ['2.1.0-M'], jmztabmVersion: '2.1.0', available: true };
+const HINT = 'https://dev.example.org/mztabvalidator/';
 
 describe('VersionsPage', () => {
   async function render(info: object | null = {
@@ -19,7 +49,19 @@ describe('VersionsPage', () => {
       }) {
     await TestBed.configureTestingModule({
       imports: [VersionsPage],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: TutorialStore,
+          useValue: {
+            tour: (id: string) => (id === TEACHING_21 ? of(TOUR) : throwError(() => new Error(id))),
+            lines: (id: string) => (id === TEACHING_21 ? of(FILE) : throwError(() => new Error(id))),
+            examples: () => () => new Map(),
+          },
+        },
+      ],
     }).compileComponents();
     const fixture = TestBed.createComponent(VersionsPage);
     TestBed.inject(HttpTestingController)
@@ -49,7 +91,76 @@ describe('VersionsPage', () => {
 
   it('says so when no engine information is available', async () => {
     const el = await render(null);
-    expect(el.querySelector('table')).toBeNull();
+    expect(el.querySelector('#about-versions table')).toBeNull();
     expect(el.textContent).toContain('Version information is not available right now.');
+  });
+
+  it('shows the profile step of the 2.1 teaching file', async () => {
+    const el = await render();
+    const section = el.querySelector('#what-changed')!.closest('section')!;
+    const excerpt = section.querySelector('app-excerpt')!;
+    expect(excerpt).toBeTruthy();
+    // only the step's line, with its key marked
+    expect(Array.from(excerpt.querySelectorAll('mark')).map((m) => m.textContent)).toEqual([
+      expect.stringContaining('mzTab-profile'),
+    ]);
+    expect(excerpt.textContent).not.toContain('mzTab-ID');
+    expect(section.textContent).toContain('The profile');
+    expect(section.textContent).toContain('mzTab-profile states which sections the file has.');
+    expect(section.textContent).not.toContain('Not this one.');
+    expect(section.textContent).toContain(TEACHING_21);
+    expect(section.textContent).toContain('CC BY 4.0');
+  });
+
+  it('lists only the verified changes', async () => {
+    const el = await render();
+    const table = el.querySelector('#what-changed')!.closest('section')!.querySelector('table')!;
+    const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) =>
+      Array.from(tr.querySelectorAll('th, td')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim()),
+    );
+    expect(rows).toEqual(VERIFIED_CHANGES.map((c) => [c.change, c.meaning, c.mustChange]));
+    // each row names the engine test (TwoOneChangesTest) that checks it against jmzTab-m 2.1
+    expect(VERIFIED_CHANGES.length).toBeGreaterThan(0);
+    for (const c of VERIFIED_CHANGES) expect(c.test).toMatch(/^[a-z]\w+$/);
+    expect(new Set(VERIFIED_CHANGES.map((c) => c.test)).size).toBe(VERIFIED_CHANGES.length);
+  });
+
+  it('lists no tool that writes 2.1 without a source', async () => {
+    const el = await render();
+    const tools = el.querySelector('#tools-21')!.closest('section')!;
+    expect(tools.textContent).toContain('This list fills as tools adopt mzTab-M 2.1');
+  });
+
+  it('numbers the conversion steps', async () => {
+    const el = await render();
+    const section = el.querySelector('#converting')!.closest('section')!;
+    const steps = Array.from(section.querySelectorAll('ol > li'));
+    expect(steps.length).toBe(5);
+    expect(steps[0].textContent).toContain('2.1.0-M');
+    expect(steps[1].textContent).toContain('mzTab-profile');
+    expect(steps[2].textContent).toContain(QUICK_FIX_TITLES['remove-mismatched-field']);
+    expect(steps[2].textContent).toContain('Info-2057');
+    expect(steps[3].textContent).toContain('study_variable_group');
+    expect(steps[4].textContent).toContain('2.1');
+  });
+
+  it('links the development validator when 2.1 is unavailable', async () => {
+    const hint = (el: HTMLElement) =>
+      el.querySelector('#validating-21')!.closest('section')!.querySelector(`a[href="${HINT}"]`);
+    const info = (engines: object[]) => ({ version: '2.0.0', engines, defaultLine: '2.0', unavailableHintUrl: HINT });
+
+    expect(hint(await render(info([ENGINE_20, { ...ENGINE_21, available: false }])))).toBeTruthy();
+    TestBed.resetTestingModule();
+    // the production rollout: no 2.1 engine at all
+    expect(hint(await render(info([ENGINE_20])))).toBeTruthy();
+    TestBed.resetTestingModule();
+    expect(hint(await render(info([ENGINE_20, ENGINE_21])))).toBeNull();
+    TestBed.resetTestingModule();
+    // without a configured address there is nothing to link
+    const el = await render({ ...info([ENGINE_20]), unavailableHintUrl: null });
+    expect(el.querySelector('#validating-21')!.closest('section')!.querySelector('a[target=_blank]')).toBeNull();
+    expect(el.querySelector('#validating-21')!.closest('section')!.textContent).toContain(
+      'cannot validate mzTab-M 2.1 files right now',
+    );
   });
 });

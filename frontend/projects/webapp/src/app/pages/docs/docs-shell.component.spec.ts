@@ -33,6 +33,7 @@ describe('DocsShellComponent', () => {
               { path: 'validating', component: Blank },
               { path: 'fixing', component: Blank },
               { path: 'problems', component: Blank },
+              { path: 'integration', component: Blank },
               { path: 'about', component: Blank },
             ],
           },
@@ -78,6 +79,7 @@ describe('DocsShellComponent', () => {
       'Validating a file',
       'Fixing a file',
       'Common problems',
+      'For tools and services',
       'About this service',
     ]);
   });
@@ -94,9 +96,13 @@ describe('DocsShellComponent', () => {
 
     await harness.navigateByUrl('/docs/problems');
     expect(pager().querySelector('a[rel=prev]')?.getAttribute('href')).toBe('/docs/fixing');
+    expect(pager().querySelector('a[rel=next]')?.getAttribute('href')).toBe('/docs/integration');
+
+    await harness.navigateByUrl('/docs/integration');
     expect(pager().querySelector('a[rel=next]')?.getAttribute('href')).toBe('/docs/about');
 
     await harness.navigateByUrl('/docs/about');
+    expect(pager().querySelector('a[rel=prev]')?.getAttribute('href')).toBe('/docs/integration');
     expect(pager().querySelector('a[rel=next]')).toBeNull();
   });
 

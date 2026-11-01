@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,6 +103,17 @@ class QuickFixesTest {
             "reencode-latin1")));
         assertTrue(QuickFixes.find("reencode-latin1").isEmpty());
         assertTrue(QuickFixes.find("no-such-fix").isEmpty());
+    }
+
+    /** The documentation names fixes by their titles (frontend core/quick-fix-labels.ts, QUICK_FIX_TITLES). */
+    @Test
+    void theDocumentationNamesTheFixesByTheirTitles() throws IOException {
+        // surefire sets basedir to the module directory; the frontend is next to it
+        String base = System.getProperty("basedir", System.getProperty("user.dir"));
+        String labels = Files.readString(Path.of(base, "..", "frontend", "projects", "webapp", "src", "app", "core",
+            "quick-fix-labels.ts"));
+        String fixId = "remove-mismatched-field";
+        assertTrue(labels.contains("'" + fixId + "': '" + fix(fixId).title() + "'"), labels);
     }
 
     @Test

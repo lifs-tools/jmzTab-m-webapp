@@ -54,9 +54,8 @@ test('a 2.0 example and a 2.1 example validate', async ({ page, request }) => {
   await filter.getByRole('radio', { name: '2.1', exact: true }).click();
   const files = page.getByTestId('example-files');
   await expect(files.getByTestId('version').first()).toBeVisible();
-  for (const text of await files.getByTestId('version').allTextContents()) {
-    expect(text.trim()).toBe('mzTab-M 2.1.0-M');
-  }
+  // retried until the filter has applied: reading the texts at once raced it under parallel load
+  await expect(files.getByTestId('version').filter({ hasNotText: /^\s*mzTab-M 2\.1\.0-M\s*$/ })).toHaveCount(0);
 
   // Through the API with structural validation only, so no OLS lookups; the files come from GitHub.
   const examples = (await (await request.get('rest/v2/examples')).json()) as {

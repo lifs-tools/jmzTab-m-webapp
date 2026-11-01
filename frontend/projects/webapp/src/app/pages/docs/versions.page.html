@@ -40,4 +40,122 @@
       <p class="lifs-note">Version information is not available right now.</p>
     }
   </section>
+
+  <section class="lifs-card" aria-labelledby="what-changed">
+    <h2 id="what-changed" class="lifs-card__title">What changed in 2.1</h2>
+    <p>
+      The table lists the changes of mzTab-M 2.1 that matter for a lipidomics file, as far as the 2.1 engine of
+      this validator shows them: each row was checked on a small file with jmzTab-m 2.1. A change that could not be
+      checked this way is not listed.
+    </p>
+    <table class="changes">
+      <thead>
+        <tr>
+          <th scope="col">Change</th>
+          <th scope="col">What it means for a lipidomics file</th>
+          <th scope="col">Must a 2.0 file change?</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of changes; track c.test) {
+          <tr>
+            <th scope="row">{{ c.change }}</th>
+            <td>{{ c.meaning }}</td>
+            <td>{{ c.mustChange }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (profile(); as p) {
+      <h3 id="step-profile">{{ p.step.title }}</h3>
+      <app-excerpt [lines]="p.lines" [step]="p.step" />
+      <p>{{ p.step.text }}</p>
+      @if (p.step.lookFor) {
+        <p class="look-for"><strong>Look for:</strong> {{ p.step.lookFor }}</p>
+      }
+      <p class="lifs-note">
+        The line is from the teaching file <code>{{ teachingFile }}</code>.
+        <a [href]="contentHref" [attr.download]="teachingFile">Download the whole file</a>, or read it step by step in
+        <a routerLink="/docs/format">Understanding mzTab-M</a>. Adapted from
+        <a [href]="originalHref()" target="_blank" rel="noopener">an example of HUPO-PSI/mzTab-M</a>,
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+      </p>
+    } @else if (profile() === null) {
+      <p class="lifs-note" role="status">The teaching file could not be loaded. Please try again later.</p>
+    }
+  </section>
+
+  <section class="lifs-card" aria-labelledby="converting">
+    <h2 id="converting" class="lifs-card__title">Converting a 2.0 file to 2.1</h2>
+    <ol class="steps">
+      <li>Change <code>mzTab-version</code> from <code>2.0.0-M</code> to <code>2.1.0-M</code>.</li>
+      <li>
+        Declare <code>mzTab-profile</code> for the sections the file has, for example <code>M+S+F+E</code> for
+        metadata, summary, features and evidence. Without it, the validator infers the profile and says so
+        (Info-2052).
+      </li>
+      <li>
+        Remove the fields of sections the file does not have. The validator reports each one (Info-2057). In the
+        editor, <b>{{ previewLabel }}</b> on that message opens the quick fix <b>{{ removeFieldTitle }}</b>, which
+        shows the lines it removes; nothing changes until you apply it (see
+        <a routerLink="/docs/fixing" fragment="guide-quick-fix">Use a quick fix</a>).
+      </li>
+      <li>
+        If you like, describe the factors of the study with <code>study_variable_group</code>: one group for each
+        factor, listing the study variables that are its levels (see
+        <a routerLink="/docs/format/study-design">Describing your study design</a>). If the file has
+        <code>study_variable[n]-factors</code>, replace them this way: in a 2.1 file the validator warns about them
+        (Warn-2067).
+      </li>
+      <li>
+        Validate the file again on the start page; a file that declares <code>2.1.0-M</code> is checked by the 2.1
+        engine (see <a routerLink="/docs/versions" fragment="validating-21">Validating 2.1 files</a>).
+      </li>
+    </ol>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="validating-21">
+    <h2 id="validating-21" class="lifs-card__title">Validating 2.1 files</h2>
+    <p>
+      The validator reads the <code>mzTab-version</code> of a file and sends a <code>2.1.0-M</code> file to the
+      engine for mzTab-M 2.1, which checks it with jmzTab-m 2.1. Its default rules for controlled vocabulary terms
+      are the profile <code>mztab-m-2.1-default</code>; the start page offers only the profiles of the file's
+      version.
+    </p>
+    @if (validates21()) {
+      <p>This validator validates mzTab-M 2.1 files.</p>
+    } @else if (hintUrl(); as url) {
+      <p>
+        This validator cannot validate mzTab-M 2.1 files right now. They can be validated at
+        <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>.
+      </p>
+    } @else {
+      <p>This validator cannot validate mzTab-M 2.1 files right now.</p>
+    }
+    <p>
+      At level Info, a 2.1 file without <code>mzTab-profile</code> gets Info-2052 with the inferred profile, and a
+      field of a section that the profile leaves out gets Info-2057. Neither makes the file invalid.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="tools-21">
+    <h2 id="tools-21" class="lifs-card__title">Which tools write 2.1</h2>
+    @if (tools.length) {
+      <ul>
+        @for (t of tools; track t.name) {
+          <li>
+            <a [href]="t.url" target="_blank" rel="noopener">{{ t.name }}</a>
+            (<a [href]="t.source" target="_blank" rel="noopener">source</a>)
+          </li>
+        }
+      </ul>
+    }
+    <p>
+      @if (!tools.length) {
+        No tool is listed here yet.
+      }
+      This list fills as tools adopt mzTab-M 2.1, each with the source that says so.
+    </p>
+  </section>
 </div>

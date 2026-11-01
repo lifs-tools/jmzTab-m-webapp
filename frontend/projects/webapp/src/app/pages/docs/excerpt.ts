@@ -1,6 +1,9 @@
 import { TourStepDto } from '../../api/models/tour-step-dto';
 import { groupOf } from '../result/message-groups';
 
+/** The examples of HUPO-PSI/mzTab-M that the teaching files are adapted from. */
+export const ORIGINALS_FOLDER = 'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples';
+
 const PREFIX_OF_TAB: Record<string, { row: string; header: string }> = {
   summary: { row: 'SML', header: 'SMH' },
   features: { row: 'SMF', header: 'SFH' },

@@ -22,7 +22,8 @@
   margin-right: 1.5ch;
   text-align: right;
   user-select: none;
-  opacity: 0.6;
+  // not faded with opacity: the numbers must keep 4.5:1 on the tint (axe, docs.spec.ts)
+  color: var(--lifs-grey);
 }
 
 .tab {

@@ -1,7 +1,7 @@
 import { docsNeighbours, docsOrder, docsTitle } from './docs-tree';
 
 describe('docs tree', () => {
-  it('orders home first, then the chapters (getting started, understanding mzTab-M with its pages, versions, validating, fixing, problems, about)', () => {
+  it('orders home first, then the chapters (getting started, understanding mzTab-M with its pages, versions, validating, fixing, problems, integration, about)', () => {
     expect(docsOrder().map((n) => n.path)).toEqual([
       '/docs',
       '/docs/getting-started',
@@ -17,6 +17,7 @@ describe('docs tree', () => {
       '/docs/validating',
       '/docs/fixing',
       '/docs/problems',
+      '/docs/integration',
       '/docs/about',
     ]);
   });
@@ -33,6 +34,13 @@ describe('docs tree', () => {
     expect(docsNeighbours('/docs/getting-started').next?.path).toBe('/docs/format');
     expect(docsNeighbours('/docs/format').next?.path).toBe('/docs/format/metadata');
     expect(docsNeighbours('/docs/format/study-design').next?.path).toBe('/docs/versions');
+  });
+
+  it('puts "For tools and services" before "About this service"', () => {
+    const n = docsNeighbours('/docs/integration');
+    expect(n.prev?.path).toBe('/docs/problems');
+    expect(n.next?.path).toBe('/docs/about');
+    expect(docsTitle('/docs/integration')).toBe('For tools and services');
   });
 
   it('gives no neighbours outside the tree', () => {

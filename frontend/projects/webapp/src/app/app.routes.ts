@@ -69,6 +69,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/docs/problems.page').then((m) => m.ProblemsPage),
       },
       {
+        path: 'integration',
+        title: pageTitle('/docs/integration'),
+        loadComponent: () =>
+          import('./pages/docs/integration.page').then((m) => m.IntegrationPage),
+      },
+      {
         path: 'about',
         title: pageTitle('/docs/about'),
         loadComponent: () =>

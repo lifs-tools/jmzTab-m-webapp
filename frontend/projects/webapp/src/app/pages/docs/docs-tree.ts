@@ -28,6 +28,7 @@ export const DOCS_TREE: readonly DocsNode[] = [
   { path: '/docs/validating', title: 'Validating a file' },
   { path: '/docs/fixing', title: 'Fixing a file' },
   { path: '/docs/problems', title: 'Common problems' },
+  { path: '/docs/integration', title: 'For tools and services' },
   { path: '/docs/about', title: 'About this service' },
 ];
 

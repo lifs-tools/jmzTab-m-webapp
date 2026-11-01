@@ -5,3 +5,11 @@ export const QUICK_FIX_PREVIEW_LABEL = 'Preview the quick fix';
 export function quickFixAllLabel(count: number | string): string {
   return `Fix all ${count} like this`;
 }
+
+/**
+ * The titles of quick fixes that the documentation names, by fix id; the preview dialog opens with the title the
+ * server sends (`QuickFix.title()`), and QuickFixesTest checks that these are the same.
+ */
+export const QUICK_FIX_TITLES = {
+  'remove-mismatched-field': 'Remove the field or column that the profile has no section for',
+} as const;
