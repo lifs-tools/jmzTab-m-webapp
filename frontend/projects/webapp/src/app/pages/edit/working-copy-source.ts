@@ -15,13 +15,11 @@ import {
 
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { quietRequest } from '../../core/http-error.interceptor';
-import { EditOps, WorkingCopyStore, serverMessage } from './working-copy.store';
+import { EditOps, LINE_OPS, WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
 const COLUMN_OPS = new Set(['InsertColumn', 'DeleteColumn', 'RenameColumn', 'MergeColumns']);
 
-/** Edits that move lines: the line numbers every view shows are stale afterwards, so every view must read again. */
-const LINE_OPS = new Set(['DeleteLine', 'InsertLine', 'MoveRow', 'JoinWithPrevious']);
 
 /**
  * The working copy as the library's views see it: editable. Pages come from the copy's metadata and table

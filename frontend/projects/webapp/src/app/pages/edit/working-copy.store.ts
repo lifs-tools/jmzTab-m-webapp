@@ -36,12 +36,17 @@ export const IDLE_MS = 1500;
 export const POLL_MS = 1000;
 
 export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
+export const LINES_MOVED_NOTICE = 'Lines moved before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
 export const CHECK_FAILED = 'The file could not be checked.';
 export const JSON_NOT_READY = 'JSON is offered once the latest changes are checked and have no errors.';
 export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.';
 
 export type EditOps = NonNullable<EditBatch['operations']>;
+
+/** Edits that move lines: the line numbers every view shows are stale afterwards. */
+export const LINE_OPS: ReadonlySet<string> = new Set(['DeleteLine', 'InsertLine', 'MoveRow', 'JoinWithPrevious']);
+const movesLines = (ops: readonly { op?: string }[] | undefined) => (ops ?? []).some((o) => LINE_OPS.has(o.op ?? ''));
 type View = 'loading' | 'ready' | 'notFound' | 'notUtf8' | 'error';
 
 /** A quick-fix preview was refused because the last check is not of the current text; a new one was started. */
@@ -68,7 +73,10 @@ const GONE = 'gone' as const;
  * through WorkingCopySource.
  *
  * - Edits, undo, redo and applied quick fixes are queued: each request names the revision of the latest answer,
- *   so batches the user makes quickly one after another never conflict with each other.
+ *   so batches the user makes quickly one after another never conflict with each other. Not behind a batch that
+ *   moves lines (or an undo or redo, which may): an edit made while such a batch is queued names the line numbers
+ *   of the text before it, so it names the revision of the moment it was made, and the server refuses it (409)
+ *   rather than apply it to the line that now has that number.
  * - After each accepted batch, a structural run is requested once the user has been idle for {@link IDLE_MS}.
  *   While a run is RUNNING, `GET /{id}` is polled every {@link POLL_MS}.
  * - A 409 from an edit, undo or redo means the copy changed elsewhere (another tab): the info is read again,
@@ -138,6 +146,8 @@ export class WorkingCopyStore {
   readonly notices = new Subject<string>();
 
   private readonly jobs = new Subject<() => Observable<unknown>>();
+  /** Queued requests that move lines (or may), not yet answered. */
+  private lineMovesQueued = 0;
   private readonly idle = new Subject<boolean>();
   /** Each value starts polling anew: the previous poll, and a read it has in flight, are cancelled. */
   private readonly polls = new Subject<void>();
@@ -239,28 +249,36 @@ export class WorkingCopyStore {
    */
   edit(ops: EditOps, reload = false): Observable<WorkingCopyInfo> {
     return this.enqueue(
-      () => this.api.editWorkingCopy({ id: this.id(), body: { revision: this.revision(), operations: ops } }),
-      reload,
+      (revision) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops } }),
+      { reload, movesLines: movesLines(ops) },
     );
   }
 
   undo(): void {
     if (!this.info()?.canUndo) return;
-    this.enqueue(() => this.api.undoWorkingCopy({ id: this.id(), revision: this.revision() }), true).subscribe({
-      error: (err: unknown) => this.failed(err),
-    });
+    // undo names no line, so it may follow a line move; what it brings back or takes away may move lines
+    this.enqueue((revision) => this.api.undoWorkingCopy({ id: this.id(), revision }), {
+      reload: true,
+      movesLines: true,
+      linesNamed: false,
+    }).subscribe({ error: (err: unknown) => this.failed(err) });
   }
 
   redo(): void {
     if (!this.info()?.canRedo) return;
-    this.enqueue(() => this.api.redoWorkingCopy({ id: this.id(), revision: this.revision() }), true).subscribe({
-      error: (err: unknown) => this.failed(err),
-    });
+    this.enqueue((revision) => this.api.redoWorkingCopy({ id: this.id(), revision }), {
+      reload: true,
+      movesLines: true,
+      linesNamed: false,
+    }).subscribe({ error: (err: unknown) => this.failed(err) });
   }
 
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
-    return this.enqueue(() => this.api.editWorkingCopy({ id: this.id(), body: preview.batch ?? {} }), true);
+    return this.enqueue(() => this.api.editWorkingCopy({ id: this.id(), body: preview.batch ?? {} }), {
+      reload: true,
+      movesLines: movesLines(preview.batch?.operations),
+    });
   }
 
   /** The user is still typing or moving around: a pending check waits for the pause. */
@@ -274,13 +292,24 @@ export class WorkingCopyStore {
 
   /**
    * Queues a request that changes the copy. The request is made when it is its turn, so it names the revision of
-   * the answer before it. `reload` makes the views request their pages again (they did not make the change).
+   * the answer before it; unless a request that moves lines was queued when it was made (and it names lines),
+   * then it names the revision of that moment. `reload` makes the views request their pages again (they did not
+   * make the change).
    */
-  private enqueue(request: () => Observable<WorkingCopyInfo>, reload = false): Observable<WorkingCopyInfo> {
+  private enqueue(
+    request: (revision: number) => Observable<WorkingCopyInfo>,
+    { reload = false, movesLines = false, linesNamed = true }: { reload?: boolean; movesLines?: boolean; linesNamed?: boolean },
+  ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
+    const issued = this.revision();
+    const pinned = linesNamed && this.lineMovesQueued > 0;
+    if (movesLines) this.lineMovesQueued++;
     this.inFlight.update((n) => n + 1);
-    this.jobs.next(() =>
-      defer(request).pipe(
+    this.jobs.next(() => {
+      const revision = pinned ? issued : this.revision();
+      // refused because the lines moved under it, not because of another tab
+      const moved = pinned && issued !== this.revision();
+      return defer(() => request(revision)).pipe(
         tap({
           next: (info) => {
             this.setInfo(info);
@@ -291,14 +320,17 @@ export class WorkingCopyStore {
             result.complete();
           },
           error: (err: unknown) => {
-            if (statusOf(err) === 409) this.conflict();
+            if (statusOf(err) === 409) this.conflict(moved ? LINES_MOVED_NOTICE : CONFLICT_NOTICE);
             if (statusOf(err) === 404) this.view.set('notFound');
             result.error(err);
           },
-          finalize: () => this.inFlight.update((n) => n - 1),
+          finalize: () => {
+            this.inFlight.update((n) => n - 1);
+            if (movesLines) this.lineMovesQueued--;
+          },
         }),
-      ),
-    );
+      );
+    });
     return result.asObservable();
   }
 
@@ -309,8 +341,8 @@ export class WorkingCopyStore {
     this.notices.next((status === 400 && serverMessage(err)) || SAVE_FAILED);
   }
 
-  /** The copy changed elsewhere: read it again and let the views reload. */
-  private conflict(): void {
+  /** The copy changed elsewhere, or under a queued edit: read it again and let the views reload. */
+  private conflict(notice: string): void {
     this.api
       .getWorkingCopy({ id: this.id() }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -318,7 +350,7 @@ export class WorkingCopyStore {
         next: (info) => {
           this.setInfo(info, true);
           this.changed.next();
-          this.notices.next(CONFLICT_NOTICE);
+          this.notices.next(notice);
         },
         error: (err: unknown) => this.view.set(statusOf(err) === 404 ? 'notFound' : 'error'),
       });
