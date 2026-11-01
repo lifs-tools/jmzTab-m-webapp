@@ -27,6 +27,7 @@ import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,6 +126,50 @@ class ExampleFetcherTest {
         assertThrows(ExampleFetcher.ExampleFetchException.class,
             () -> fetcher(1000, Duration.ofMillis(500)).download(base.resolve("/stall")));
         assertEquals(true, Duration.ofNanos(System.nanoTime() - start).toSeconds() < 5);
+        assertEquals(before, exampleTempFiles());
+    }
+
+    ExampleFetcher tutorialFetcher() {
+        return new ExampleFetcher(HttpClient.newHttpClient(), ExampleFetcher.MAX_BYTES, ExampleFetcher.DEADLINE, false,
+            "tutorial-fixture/");
+    }
+
+    @Test
+    void copiesBundledTutorialFile() throws Exception {
+        byte[] expected;
+        try (var in = ExampleFetcherTest.class.getResourceAsStream("/tutorial-fixture/fixture-2.0.mztab")) {
+            expected = in.readAllBytes();
+        }
+        Path p = tutorialFetcher().download(URI.create("classpath:tutorial/fixture-2.0.mztab"));
+        try {
+            assertArrayEquals(expected, Files.readAllBytes(p));
+        } finally {
+            Files.deleteIfExists(p);
+        }
+    }
+
+    @Test
+    void missingTutorialFileFailsAndLeavesNoFile() throws Exception {
+        long before = exampleTempFiles();
+        assertThrows(ExampleFetcher.ExampleFetchException.class,
+            () -> tutorialFetcher().download(URI.create("classpath:tutorial/missing.mztab")));
+        assertEquals(before, exampleTempFiles());
+    }
+
+    @Test
+    void classpathOutsideTutorialIsRefused() throws Exception {
+        long before = exampleTempFiles();
+        for (String uri : List.of("classpath:application.properties", "classpath:tutorial/../application.properties",
+            "classpath:tutorial/..", "classpath:tutorial/.", "classpath:tutorial/", "classpath:/tutorial/fixture-2.0.mztab",
+            "classpath:tutorial//fixture-2.0.mztab", "classpath:tutorial/sub/fixture-2.0.mztab",
+            "classpath:tutorial/%2e%2e%2fapplication.properties", "classpath:tutorial%2ffixture-2.0.mztab",
+            "classpath:tutorial/fixture-2.0.mztab?x=1", "classpath:tutorial/fixture-2.0.mztab#x",
+            "CLASSPATH:tutorial/fixture-2.0.mztab",
+            "classpath://tutorial/fixture-2.0.mztab", "file:tutorial/fixture-2.0.mztab", "jar:tutorial/fixture-2.0.mztab")) {
+            for (ExampleFetcher fetcher : List.of(new ExampleFetcher(), tutorialFetcher())) {
+                assertThrows(ExampleFetcher.ExampleFetchException.class, () -> fetcher.download(new URI(uri)), uri);
+            }
+        }
         assertEquals(before, exampleTempFiles());
     }
 }

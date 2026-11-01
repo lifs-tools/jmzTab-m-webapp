@@ -104,6 +104,8 @@ Each profile's mapping file is `<id>/<version>.xml` next to the catalog, e.g. `m
 
 The form offers example files. They are listed in `examples.properties` in the JAR (`server/src/main/resources/examples.properties`, prefix `example.exampleFile[n]`) and downloaded from their URIs when a user picks one (at most 64 MB each). The defaults point to `raw.githubusercontent.com`; without outbound access to it, the examples fail but everything else works.
 
+An example can also be **bundled**: its `uri` is `classpath:tutorial/<name>`, a file in the JAR's `tutorial/` directory, which needs no outbound access. Only a plain file name directly in `tutorial/` is accepted; any other `classpath:` URI is refused. A bundled example can have a step list, `tour=classpath:tutorial/<name>.tour.json`, and an `originalUri` (https) naming the published file it was adapted from. The bundled files and their step lists are checked when the webapp starts, and a missing file or a step that does not match its file stops the startup with a list of all problems. A bundled example's file is served at `/rest/v2/examples/{id}/content` and its steps at `/rest/v2/examples/{id}/tour`, also when no engine for its mzTab-M version is configured.
+
 ## Documentation
 
 The Getting started page of the built-in documentation links the LipidCompass submission template and its filled-in example. Both addresses come from `app-info`.

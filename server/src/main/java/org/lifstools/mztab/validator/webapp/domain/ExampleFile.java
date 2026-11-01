@@ -32,4 +32,8 @@ public class ExampleFile {
     private String focus;
     private String createdBy;
     private String section;
+    /** The step list of a bundled tutorial file, {@code classpath:tutorial/<name>.tour.json}; else none. */
+    private URI tour;
+    /** Where the file a bundled example was adapted from is published (https); else none. */
+    private URI originalUri;
 }

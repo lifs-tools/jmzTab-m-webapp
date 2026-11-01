@@ -1,0 +1,54 @@
+{
+  "title": "The fixture tour",
+  "counterpart": "fixture-2.1.mztab",
+  "steps": [
+    {
+      "id": "sections",
+      "chapter": "overview",
+      "title": "One file, four sections",
+      "text": "The line prefixes name the sections.",
+      "lines": [1, 23]
+    },
+    {
+      "id": "what-the-file-is",
+      "chapter": "metadata",
+      "title": "What the file is",
+      "text": "The identity of the file.",
+      "lookFor": "the mzTab-ID",
+      "target": { "tab": "metadata", "group": "general", "key": "mzTab-ID" },
+      "lines": [2, 4]
+    },
+    {
+      "id": "instrument",
+      "chapter": "metadata",
+      "title": "How it was measured",
+      "text": "The instrument.",
+      "target": { "tab": "metadata", "group": "instrument" },
+      "lines": [5, 6]
+    },
+    {
+      "id": "summary-row",
+      "chapter": "summary",
+      "title": "The summary row",
+      "text": "One lipid per row.",
+      "target": { "tab": "summary", "rowIndex": 0 },
+      "lines": [11, 12]
+    },
+    {
+      "id": "features",
+      "chapter": "features",
+      "title": "Its features",
+      "text": "The features of a lipid.",
+      "target": { "tab": "features", "column": "SME_ID_REFS", "header": true },
+      "lines": [15, 18]
+    },
+    {
+      "id": "evidence",
+      "chapter": "evidence",
+      "title": "Its evidence",
+      "text": "The identification.",
+      "target": { "tab": "evidence", "rowIndex": 2, "column": "chemical_name" },
+      "lines": [20, 23]
+    }
+  ]
+}

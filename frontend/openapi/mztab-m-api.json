@@ -583,8 +583,15 @@
           "name" : {
             "type" : "string"
           },
+          "originalUri" : {
+            "format" : "uri",
+            "type" : [ "string", "null" ]
+          },
           "section" : {
             "type" : "string"
+          },
+          "tour" : {
+            "type" : "boolean"
           },
           "uri" : {
             "format" : "uri",
@@ -3362,6 +3369,80 @@
         },
         "type" : "object"
       },
+      "TourDto" : {
+        "properties" : {
+          "counterpart" : {
+            "type" : [ "string", "null" ]
+          },
+          "exampleId" : {
+            "type" : "string"
+          },
+          "steps" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TourStepDto"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TourStepDto" : {
+        "properties" : {
+          "chapter" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "lookFor" : {
+            "type" : [ "string", "null" ]
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/TourTargetDto"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TourTargetDto" : {
+        "properties" : {
+          "column" : {
+            "type" : [ "string", "null" ]
+          },
+          "group" : {
+            "type" : [ "string", "null" ]
+          },
+          "header" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "key" : {
+            "type" : [ "string", "null" ]
+          },
+          "rowIndex" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "tab" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "TrackedMessage" : {
         "properties" : {
           "message" : {
@@ -3881,6 +3962,62 @@
         "tags" : [ "examples" ]
       }
     },
+    "/rest/v2/examples/{id}/content" : {
+      "get" : {
+        "operationId" : "getExampleContent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "pattern" : "^[A-Za-z0-9._-]{1,100}$",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/plain;charset=UTF-8" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Downloads the file of a bundled example; answered whether or not this instance can validate its mzTab-M version",
+        "tags" : [ "examples" ]
+      }
+    },
+    "/rest/v2/examples/{id}/tour" : {
+      "get" : {
+        "operationId" : "getExampleTour",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "pattern" : "^[A-Za-z0-9._-]{1,100}$",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TourDto"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Gets the tour of a bundled example; answered whether or not this instance can validate its mzTab-M version",
+        "tags" : [ "examples" ]
+      }
+    },
     "/rest/v2/examples/{id}/validations" : {
       "post" : {
         "operationId" : "validateExample",
@@ -3889,6 +4026,7 @@
           "name" : "id",
           "required" : true,
           "schema" : {
+            "pattern" : "^[A-Za-z0-9._-]{1,100}$",
             "type" : "string"
           }
         } ],

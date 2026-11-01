@@ -17,12 +17,15 @@ package org.lifstools.mztab2.server.api.validation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Pattern;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import org.lifstools.mztab.validator.webapp.ExampleFileConfig;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
@@ -50,9 +53,22 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class ExamplesApiController {
 
     static final String FETCH_FAILED = "The example file could not be downloaded.";
+    static final String UNKNOWN_EXAMPLE = "Unknown example.";
+    /** An example id in a path; every configured name matches it. */
+    static final String ID_PATTERN = "^[A-Za-z0-9._-]{1,100}$";
 
+    private static final MediaType TEXT_PLAIN_UTF8 = new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8);
+
+    /**
+     * An example file.
+     *
+     * @param uri where the file can be downloaded; for a bundled example the relative
+     * {@code rest/v2/examples/{id}/content}
+     * @param originalUri where the file a bundled example was adapted from is published, if it was
+     * @param tour whether the example has a tour ({@code GET /rest/v2/examples/{id}/tour})
+     */
     public record ExampleDto(String id, String name, String section, String description, String version,
-        String mzTabVersion, String focus, String createdBy, URI uri) {
+        String mzTabVersion, String focus, String createdBy, URI uri, @Nullable URI originalUri, boolean tour) {
 
     }
 
@@ -66,13 +82,15 @@ public class ExamplesApiController {
     private final ValidationSessionService sessions;
     private final ExampleFetcher fetcher;
     private final EngineRegistry engines;
+    private final TutorialCatalog tutorials;
 
     public ExamplesApiController(ExampleFileConfig config, ValidationSessionService sessions,
-        ExampleFetcher fetcher, EngineRegistry engines) {
+        ExampleFetcher fetcher, EngineRegistry engines, TutorialCatalog tutorials) {
         this.engines = engines;
         this.config = config;
         this.sessions = sessions;
         this.fetcher = fetcher;
+        this.tutorials = tutorials;
     }
 
     /** Whether the example's mzTab-M version line has an engine on this instance; no version means yes. */
@@ -86,17 +104,33 @@ public class ExamplesApiController {
     @Operation(operationId = "listExamples", summary = "Lists the example files of the mzTab-M versions this instance can validate")
     @GetMapping(value = "/examples", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<ExampleDto> listExamples() {
-        return config.getExampleFile().stream().map(ExamplesApiController::dto).filter(this::available).toList();
+        return config.getExampleFile().stream().map(this::dto).filter(this::available).toList();
+    }
+
+    @Operation(operationId = "getExampleContent", summary = "Downloads the file of a bundled example; "
+        + "answered whether or not this instance can validate its mzTab-M version")
+    @GetMapping(value = "/examples/{id}/content", produces = MediaType.TEXT_PLAIN_VALUE + ";charset=UTF-8")
+    public ResponseEntity<String> getExampleContent(@PathVariable("id") @Pattern(regexp = ID_PATTERN) String id) {
+        String content = tutorials.content(id).orElseThrow(() -> new UnknownValidationException(UNKNOWN_EXAMPLE));
+        return ResponseEntity.ok().contentType(TEXT_PLAIN_UTF8).body(content);
+    }
+
+    @Operation(operationId = "getExampleTour", summary = "Gets the tour of a bundled example; "
+        + "answered whether or not this instance can validate its mzTab-M version")
+    @GetMapping(value = "/examples/{id}/tour", produces = MediaType.APPLICATION_JSON_VALUE)
+    public TourDto getExampleTour(@PathVariable("id") @Pattern(regexp = ID_PATTERN) String id) {
+        return tutorials.tour(id).orElseThrow(() -> new UnknownValidationException(UNKNOWN_EXAMPLE));
     }
 
     @Operation(operationId = "validateExample", summary = "Starts a validation of an example file")
     @PostMapping(value = "/examples/{id}/validations", consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ValidationRecord> validateExample(@PathVariable("id") String id,
+    public ResponseEntity<ValidationRecord> validateExample(
+        @PathVariable("id") @Pattern(regexp = ID_PATTERN) String id,
         @RequestBody(required = false) @Nullable ExampleValidationRequest body) throws IOException {
-        ExampleDto example = config.getExampleFile().stream().map(ExamplesApiController::dto)
-            .filter(e -> e.id().equals(id)).filter(this::available).findFirst()
-            .orElseThrow(() -> new UnknownValidationException("Unknown example."));
+        ExampleFile file = find(id).filter(f -> available(dto(f)))
+            .orElseThrow(() -> new UnknownValidationException(UNKNOWN_EXAMPLE));
+        ExampleDto example = dto(file);
         if ("mapping".equals(example.section())) {
             throw new IllegalArgumentException("Mapping files cannot be validated.");
         }
@@ -109,26 +143,35 @@ public class ExamplesApiController {
             maxErrors, blankToNull(req.validationProfile()), blankToNull(req.validationProfileVersion()));
         ValidationRecord record;
         // downloaded completely first: submit holds a global lock while it copies the content
-        Path file;
+        Path downloaded;
         try {
-            file = fetcher.download(example.uri());
+            // the configured URI, not the DTO's: a bundled example's DTO points at its content endpoint
+            downloaded = fetcher.download(file.getUri());
         } catch (IOException | RuntimeException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, FETCH_FAILED, e);
         }
-        try (InputStream content = Files.newInputStream(file)) {
+        try (InputStream content = Files.newInputStream(downloaded)) {
             // the file name is the example's own, never client-supplied
             record = sessions.submit(example.name(), content, options, null);
         } finally {
-            Files.deleteIfExists(file);
+            Files.deleteIfExists(downloaded);
         }
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath().path("/rest/v2/validations/{id}")
             .buildAndExpand(record.id()).toUri();
         return ResponseEntity.accepted().location(location).body(record);
     }
 
-    private static ExampleDto dto(ExampleFile f) {
+    private Optional<ExampleFile> find(String id) {
+        return config.getExampleFile().stream().filter(f -> id.equals(f.getName())).findFirst();
+    }
+
+    private ExampleDto dto(ExampleFile f) {
+        boolean bundled = tutorials.content(f.getName()).isPresent();
+        // a bundled example's name matches ID_PATTERN (checked at startup), so it is a safe path segment
+        URI uri = bundled ? URI.create("rest/v2/examples/" + f.getName() + "/content") : f.getUri();
         return new ExampleDto(f.getName(), f.getName(), f.getSection(), f.getDescription(), f.getVersion(),
-            f.getMzTabVersion(), f.getFocus(), f.getCreatedBy(), f.getUri());
+            f.getMzTabVersion(), f.getFocus(), f.getCreatedBy(), uri, f.getOriginalUri(),
+            tutorials.tour(f.getName()).isPresent());
     }
 
     @Nullable
