@@ -453,6 +453,18 @@ Under `/rest/v2/working-copies`:
 - **Viewer replacement.** The read-only viewer of the result page becomes the editor's components in read-only mode (SPA design M2). The behaviour is the same, so there is one implementation.
 - **Theming.** The editor components live in `projects/mztabm-editor` (R10). Their `--mztabm-*` tokens default from `--lifs-*` (SPA design).
 
+### 5.10a Follow-ups from the lead's test (2026-11-01)
+
+The project lead tested 2a with `official-profile-ms.mztab` (mzTab-M 2.1.0-M, profile M+S), which gets Info-2057 `ProfileFieldMismatch` for `small_molecule_feature-quantification_unit`. Decided:
+
+1. **Each text once.** The guidance panel never shows the same text twice. When no catalog entry matches, the message's cause is the explanation, and it is not repeated as the cause.
+2. **The validator's wording is a detail.** Where a catalog entry explains a message, jmzTab-m's own cause text is folded behind a "Details from the validator" toggle in the page. The resolution report (Markdown) and the JSON/CSV reports keep it in full.
+3. **No empty headings.** "Fix it in your tool" (and any other panel heading) is shown only with content under it.
+4. **2057 has guidance.** A catalog entry for Info-2057: what a profile/content mismatch is, the editor's fix (remove the field or column), and the tool fix (write conditional fields only with the section they belong to).
+5. **Selecting a message selects its element.** In the editor, choosing a message group or one of its occurrences selects and highlights its element in the document view (metadata entry, table row, cell or column) and scrolls it into view, on the first selection, not only after "Show". A message with a line but no element still offers "Edit this line as text".
+6. **Metadata lines can be removed.** Every metadata entry in the editor has a "Remove this line" action (the `DeleteLine` operation); undo brings it back.
+7. **A quick fix for 2057.** `remove-mismatched-field` removes the metadata line the message names, or the column it names (`DeleteColumn` by position), with the usual preview, and applies to all occurrences.
+
 ### 5.11 Packages and LipidCompass (phase 2c)
 
 These are as in the standalone design, §5.6 and §5.8:
