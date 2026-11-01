@@ -34,6 +34,7 @@ import org.lifstools.mztab.validator.webapp.guidance.GuidanceCatalog;
  * <ol>
  * <li>its metadata key;</li>
  * <li>its table cell: section, row index and column;</li>
+ * <li>its metadata group (a message about a whole group, e.g. Info-2057 for {@code database});</li>
  * <li>its line number;</li>
  * <li>otherwise its text.</li>
  * </ol>
@@ -85,6 +86,9 @@ public final class MessageDiff {
         }
         if (l != null && l.getSection() != null && (l.getRowIndex() != null || l.getColumn() != null)) {
             return Arrays.asList(code, "cell", l.getSection(), l.getRowIndex(), l.getColumn());
+        }
+        if (l != null && l.getMetadataGroup() != null) {
+            return List.of(code, "group", l.getMetadataGroup());
         }
         if (m.getLineNumber() != null && m.getLineNumber() > 0) {
             return List.of(code, "line", m.getLineNumber());

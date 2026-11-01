@@ -70,6 +70,29 @@ class MessageDiffTest {
         assertEquals(List.of(a), r.fixed());
     }
 
+    private static ValidationMessage atGroup(String code, String group, long line) {
+        ValidationMessage m = msg(code, "\"" + group + "\" is present", line);
+        ValidationLocation l = new ValidationLocation();
+        l.setSection(ValidationLocation.Section.MTD);
+        l.setMetadataGroup(group);
+        m.setLocation(l);
+        return m;
+    }
+
+    @Test
+    void aGroupThatMovedIsTheSameProblem() {
+        // a line above the group was removed: its first line is one less, the problem is the same
+        ValidationMessage before = atGroup("Info-2057", "database", 49);
+        ValidationMessage after = atGroup("Info-2057", "database", 48);
+        ValidationMessage otherGroup = atGroup("Info-2057", "id_confidence_measure", 48);
+
+        MessageDiff.Result r = MessageDiff.compare(List.of(before), List.of(after, otherGroup));
+
+        assertEquals(State.OPEN, r.current().get(0).state());
+        assertEquals(State.NEW, r.current().get(1).state());
+        assertEquals(List.of(), r.fixed());
+    }
+
     @Test
     void sameCodeOtherPlaceIsNew() {
         // the key takes precedence over the line: the same key on another line is still the same problem
