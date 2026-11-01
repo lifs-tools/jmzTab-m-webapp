@@ -18,6 +18,7 @@ package org.lifstools.mztab.validator.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -88,6 +89,66 @@ class MismatchLocatorTest {
     }
 
     @Test
+    void locatesAGroupOfIndexedKeysAtItsFirstLine() {
+        ValidationMessage confidence = message("id_confidence_measure");
+        ValidationMessage database = message("database");
+
+        MismatchLocator.locate(List.of(confidence, database), "MTD\tmzTab-version\t2.0.0-M\n"
+            + "MTD\tdatabase[1]\t[,, Pubchem, ]\nMTD\tdatabase[1]-prefix\tPUBCHEM\n"
+            + "MTD\tid_confidence_measure[1]\t[MS, MS:1002890, fragmentation score, ]\n"
+            + "MTD\tdatabase[2]\t[,, LipidMaps, ]\nMTD\tdatabase[2]-uri\thttp://x\n"
+            + "MTD\tdatabase_x\ty\nSMH\tSML_ID\tdatabase_identifier\n");
+
+        assertEquals(4L, confidence.getLineNumber());
+        assertEquals(ValidationLocation.Section.MTD, confidence.getLocation().getSection());
+        assertEquals("id_confidence_measure", confidence.getLocation().getMetadataGroup());
+        assertNull(confidence.getLocation().getMetadataKey());
+        assertEquals("[Info-2057] line 4: \"id_confidence_measure\" is present but the profile has no section.\r\n",
+            confidence.getCode());
+        assertEquals(2L, database.getLineNumber());
+        assertEquals("database", database.getLocation().getMetadataGroup());
+        assertNull(database.getLocation().getMetadataKey());
+        assertNull(database.getLocation().getColumn());
+    }
+
+    @Test
+    void anExactKeyOrColumnWinsOverAGroupOfTheSameName() {
+        ValidationMessage key = message("database");
+        ValidationMessage column = message("software");
+
+        MismatchLocator.locate(List.of(key, column), "MTD\tdatabase[1]\tx\nMTD\tdatabase\ty\n"
+            + "MTD\tsoftware[1]\tz\nSMH\tSML_ID\tsoftware\n");
+
+        assertEquals(2L, key.getLineNumber());
+        assertEquals("database", key.getLocation().getMetadataKey());
+        assertEquals(4L, column.getLineNumber());
+        assertEquals(ValidationLocation.Section.SMH, column.getLocation().getSection());
+        assertEquals("software", column.getLocation().getColumn());
+    }
+
+    @Test
+    void usesOnlyTheFirstHeaderLineOfASection() {
+        ValidationMessage m = message("opt_global_x");
+
+        // the quick fix removes the column of the first SFH line; the message must name that one
+        MismatchLocator.locate(List.of(m), "MTD\ta\tb\nSFH\tSMF_ID\topt_global_x\nSMF\t1\t2\n"
+            + "SFH\tSMF_ID\topt_global_x\n");
+
+        assertEquals(2L, m.getLineNumber());
+        assertEquals(ValidationLocation.Section.SFH, m.getLocation().getSection());
+    }
+
+    @Test
+    void readsOnlyLinesWithAKnownPrefix() {
+        ValidationMessage m = message("x");
+
+        // "MTDx" and "SMHx" are not metadata or header lines
+        MismatchLocator.locate(List.of(m), "MTDx\tx\t1\nSMHx\tx\nMTD\tx\t2\n");
+
+        assertEquals(3L, m.getLineNumber());
+    }
+
+    @Test
     void leavesAMessageWhoseNameIsNotFound() {
         ValidationMessage m = message("nope");
 
@@ -144,5 +205,28 @@ class MismatchLocatorTest {
             lines[(int) (m.getLineNumber() - 1)].substring(0,
                 "MTD\tsmall_molecule_feature-quantification_unit".length()));
         assertEquals("small_molecule_feature-quantification_unit", m.getLocation().getMetadataKey());
+    }
+
+    @Test
+    void validateLocatesTheMismatchOfAGroupInARealFile() throws IOException {
+        String webapp = System.getProperty("webapp.dir");
+        assertNotNull(webapp, "webapp.dir is set by the engine build");
+        String text = new String(Fixtures.withVersion(Files.readAllBytes(Path.of(webapp)
+            .resolve("src/test/resources/workingcopy/engine-remove-mismatched-group.mzTab")),
+            Fixtures.engineVersion()), StandardCharsets.UTF_8);
+        Path file = Files.writeString(dir.resolve("group.mztab"), text);
+        EngineValidator validator = new EngineValidator(Mockito.mock(CvParameterLookupService.class),
+            new ObjectMapper());
+
+        List<ValidationMessage> messages = validator.validate(file, ValidationLevel.INFO, 100, null).messages();
+
+        ValidationMessage m = messages.stream()
+            .filter(x -> x.getCode().contains("2057") && x.getMessage().contains("\"id_confidence_measure\""))
+            .findFirst().orElseThrow(() -> new AssertionError(messages.toString()));
+        String[] lines = text.split("\n");
+        assertTrue(lines[(int) (m.getLineNumber() - 1)].startsWith("MTD\tid_confidence_measure[1]\t"));
+        assertEquals(ValidationLocation.Section.MTD, m.getLocation().getSection());
+        assertEquals("id_confidence_measure", m.getLocation().getMetadataGroup());
+        assertNull(m.getLocation().getMetadataKey());
     }
 }
