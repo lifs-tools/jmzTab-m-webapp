@@ -153,3 +153,36 @@ test('a tour link whose result is gone validates the example again at the same s
   await expect(panel(page).getByText('Step 3 of')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByText('Result not found')).toHaveCount(0);
 });
+
+test('on a phone, Back and Next keep the step\'s highlight in view', async ({ page, request }) => {
+  const steps = await stepsOf(request, TOUR_20);
+  const first = steps.findIndex((s) => s.chapter === 'metadata');
+  // three steps on the metadata tab, each highlighting a group further down the page
+  for (const i of [first, first + 1, first + 2]) expect(steps[i].target?.tab).toBe('metadata');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('docs/format/metadata');
+  await page.getByRole('button', { name: 'Try it' }).click();
+
+  await expect(page).toHaveURL(resultUrl(TOUR_20, first + 1), { timeout: 45_000 });
+  remember(page);
+  await expect(panel(page)).toBeVisible({ timeout: 45_000 });
+  await expectStep(page, steps, first);
+
+  /**
+   * Checked on a settled page, not retried: the viewer scrolls the highlight into view at once, and the router's
+   * scroll restoration used to move the page back to the top a frame later.
+   */
+  async function expectInView(i: number): Promise<void> {
+    await expect(page).toHaveURL(resultUrl(TOUR_20, i + 1));
+    await expectStep(page, steps, i);
+    await page.waitForTimeout(800);
+    await expect(highlightOf(page, steps[i])!.first(), `highlight of step ${steps[i].id}`).toBeInViewport();
+  }
+
+  await panel(page).getByRole('button', { name: 'Next' }).click();
+  await expectInView(first + 1);
+  await panel(page).getByRole('button', { name: 'Next' }).click();
+  await expectInView(first + 2);
+  await panel(page).getByRole('button', { name: 'Back' }).click();
+  await expectInView(first + 1);
+});

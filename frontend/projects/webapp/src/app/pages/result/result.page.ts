@@ -367,6 +367,8 @@ export class ResultPage {
           relativeTo: this.route,
           queryParams: { confirmDelete: null },
           replaceUrl: true,
+          // in-page: the app-wide scroll restoration would move the page to the top
+          scroll: 'manual',
         });
         void this.askDelete();
       }
@@ -425,6 +427,9 @@ export class ResultPage {
       queryParams: { step: index + 1 },
       queryParamsHandling: 'merge',
       replaceUrl: true,
+      // in-page: the app-wide scroll restoration would move the page to the top, after the viewer has scrolled
+      // to the step's row
+      scroll: 'manual',
     });
   }
 

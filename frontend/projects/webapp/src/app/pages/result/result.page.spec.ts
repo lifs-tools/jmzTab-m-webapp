@@ -300,7 +300,13 @@ describe('ResultPage', () => {
     await flushRecord(fixture, BASE);
     const dialog = await renderedDialog();
     expect(dialog.textContent).toContain('Delete this result now?');
-    expect(navigate).toHaveBeenCalledWith([], { relativeTo: expect.anything(), queryParams: { confirmDelete: null }, replaceUrl: true });
+    // scroll: 'manual', so that the router's scroll restoration does not move the page to the top
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: { confirmDelete: null },
+      replaceUrl: true,
+      scroll: 'manual',
+    });
     Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Cancel')!.click();
   });
 
@@ -894,12 +900,14 @@ describe('ResultPage', () => {
         expect(tableHighlight()?.focusRow).toBe(3);
         expect(panel()!.textContent).toContain('Step 3 of 4');
         expect(el('.stepper')).toBeNull();
-        // the address follows the step, so that a reload or a shared link opens it
+        // the address follows the step, so that a reload or a shared link opens it; without scrolling the page to
+        // the top, which would undo the viewer's scroll to the step's row
         expect(navigate).toHaveBeenCalledWith([], {
           relativeTo: expect.anything(),
           queryParams: { step: 3 },
           queryParamsHandling: 'merge',
           replaceUrl: true,
+          scroll: 'manual',
         });
       });
 
