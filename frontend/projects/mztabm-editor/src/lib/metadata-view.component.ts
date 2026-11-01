@@ -123,7 +123,10 @@ export class MetadataGroupComponent {
   /** The line whose value is being edited, and why the typed text cannot be saved. */
   protected readonly editing = signal<{ line: number; error: string | null } | null>(null);
   protected readonly saveError = signal<string | null>(null);
-  /** A removal is on its way: the line numbers shown are stale until the page is loaded again. */
+  /**
+   * A removal is on its way, or the document changed: the line numbers shown are stale until the page is loaded
+   * again, so no value is saved and no line removed.
+   */
   protected readonly removing = signal(false);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -173,7 +176,11 @@ export class MetadataGroupComponent {
       });
 
     // the document changed elsewhere: load the page shown again
-    this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => this.request.set({ page: this.page(), key: null }));
+    this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.removing.set(true);
+      this.editing.set(null);
+      this.request.set({ page: this.page(), key: null });
+    });
     // a reload can leave the page shown past the end (its only entry was removed): show the last page instead
     effect(() => {
       const last = this.pages() - 1;
@@ -200,7 +207,7 @@ export class MetadataGroupComponent {
   }
 
   protected startEdit(e: DocMetadataEntry): void {
-    if (!this.editable() || e.lineNumber == null) return;
+    if (!this.editable() || e.lineNumber == null || this.removing()) return;
     this.saveError.set(null);
     this.editing.set({ line: e.lineNumber, error: null });
     afterNextRender(
@@ -228,7 +235,7 @@ export class MetadataGroupComponent {
   /** Saves the value as one SetMetadataValue; the entry shows it at once and keeps it once the source accepts it. */
   private save(e: DocMetadataEntry, value: string): void {
     const editing = this.editing();
-    if (!editing || e.lineNumber == null || !this.source.applyEdits) return;
+    if (!editing || e.lineNumber == null || this.removing() || !this.source.applyEdits) return;
     const error = invalidCellText(value);
     if (error) {
       this.editing.set({ ...editing, error });
@@ -239,7 +246,7 @@ export class MetadataGroupComponent {
     if (value === (e.value ?? '')) return;
     const d = this.data();
     if (d) this.data.set({ ...d, entries: (d.entries ?? []).map((x) => (x === e ? { ...x, value } : x)) });
-    this.source.applyEdits([{ op: 'SetMetadataValue', line: e.lineNumber, value }]).subscribe({
+    this.source.applyEdits([{ op: 'SetMetadataValue', line: e.lineNumber, value }], { readAt: d?.readAt }).subscribe({
       error: (err: unknown) => {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status === 409) return;
@@ -257,7 +264,7 @@ export class MetadataGroupComponent {
     this.removing.set(true);
     const d = this.data();
     if (d) this.data.set({ ...d, entries: (d.entries ?? []).filter((x) => x !== e) });
-    this.source.applyEdits([{ op: 'DeleteLine', line: e.lineNumber }]).subscribe({
+    this.source.applyEdits([{ op: 'DeleteLine', line: e.lineNumber }], { readAt: d?.readAt }).subscribe({
       error: (err: unknown) => {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status !== 409) this.saveError.set(saveErrorOf(err, 'This line could not be removed.'));

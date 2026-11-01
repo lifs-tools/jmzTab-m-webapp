@@ -7,10 +7,12 @@ import { EditableFakeDocumentSource } from './testing/fake-document-source';
 
 @Component({
   imports: [RawLineEditorComponent],
-  template: `<mztabm-raw-line-editor [lineNumber]="line()" [text]="text()" (saved)="saved = saved + 1" (cancelled)="cancelled = cancelled + 1" />`,
+  template: `<mztabm-raw-line-editor [lineNumber]="line()" [text]="text()" [readAt]="readAt()" (saved)="saved = saved + 1" (cancelled)="cancelled = cancelled + 1" (refused)="refused.push($event)" />`,
 })
 class HostComponent {
   readonly line = signal(12);
+  readonly readAt = signal<number | null>(null);
+  readonly refused: string[] = [];
   readonly text = signal('MTD\tdescription\tfirst part');
   saved = 0;
   cancelled = 0;
@@ -66,6 +68,25 @@ describe('RawLineEditorComponent', () => {
     key(input(), 'Enter');
     expect(editor.unsavedText()).toBeNull();
     src.oneEdit().reply();
+  });
+
+  it('passes readAt with its edits', () => {
+    const { fixture, input } = render();
+    fixture.componentInstance.readAt.set(5);
+    fixture.detectChanges();
+    type(input(), 'MTD→description→x');
+    key(input(), 'Enter');
+    src.oneEdit().reply();
+    expect(src.editOptions).toEqual([{ readAt: 5 }]);
+  });
+
+  it('hands the text it tried to save to the host when the save is refused as a conflict', () => {
+    const { fixture, input } = render();
+    type(input(), 'MTD→description→typed');
+    key(input(), 'Enter');
+    src.oneEdit().fail(409);
+    expect(fixture.componentInstance.refused).toEqual(['MTD→description→typed']);
+    expect(fixture.componentInstance.saved).toBe(0);
   });
 
   it('saves nothing for an unchanged line, also when the tabs are shown', () => {

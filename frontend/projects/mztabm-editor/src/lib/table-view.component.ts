@@ -684,7 +684,7 @@ export class TableViewComponent {
     if (cell < 1) return;
     const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text };
     this.patch(row, e.col, text);
-    this.source.applyEdits([op]).subscribe({
+    this.source.applyEdits([op], { readAt: page.readAt }).subscribe({
       error: (err: unknown) => {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status === 409) return;

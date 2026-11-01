@@ -3,6 +3,7 @@ import { Observable, Subject, Subscriber } from 'rxjs';
 import {
   DocDuplicateColumn,
   DocEdit,
+  DocEditOptions,
   DocMetadataGroup,
   DocMetadataPage,
   DocSection,
@@ -115,10 +116,14 @@ export class EditableFakeDocumentSource extends FakeDocumentSource {
   readonly changes = new Subject<void>();
   override readonly changed = this.changes.asObservable();
 
-  override applyEdits(ops: DocEdit[]): Observable<void> {
+  /** The options of each batch, in the order of `edits`. */
+  readonly editOptions: (DocEditOptions | undefined)[] = [];
+
+  override applyEdits(ops: DocEdit[], options?: DocEditOptions): Observable<void> {
     return new Observable<void>((sub) => {
       const p = new Pending<DocEdit[], void>(ops, sub);
       this.edits.push(p);
+      this.editOptions.push(options);
       return () => p.release();
     });
   }

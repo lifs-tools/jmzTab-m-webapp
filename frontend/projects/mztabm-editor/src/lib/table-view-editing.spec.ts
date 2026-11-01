@@ -90,6 +90,18 @@ describe('TableViewComponent editing', () => {
     expect(document.activeElement).toBe(cell(1, 3));
   });
 
+  it('passes the page\'s readAt with its SetCell', async () => {
+    const { settle, cell } = await render(page({ readAt: 7 }));
+    cell(1, 3).click();
+    await settle();
+    const input = cell(1, 3).querySelector<HTMLInputElement>('input.cell-input')!;
+    input.value = 'x';
+    key(input, 'Enter');
+    await settle();
+    src.oneEdit().reply();
+    expect(src.editOptions).toEqual([{ readAt: 7 }]);
+  });
+
   it('sends a cell past the end of a short row to the line editor, not to SetCell', async () => {
     const short = page();
     // line 40 has the prefix and three cells; the page shows "" for the cells it does not have

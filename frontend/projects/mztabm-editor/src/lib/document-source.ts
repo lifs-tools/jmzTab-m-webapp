@@ -25,6 +25,8 @@ export interface DocMetadataPage {
   size?: number;
   total?: number;
   entries?: DocMetadataEntry[];
+  /** For an editable document: the version the page was read at; edits of its lines pass it back ({@link DocEditOptions}). */
+  readAt?: number | null;
 }
 
 /** The table sections of an mzTab-M document (small molecule summary, feature and evidence). */
@@ -86,6 +88,8 @@ export interface DocTablePage {
    * address cells by it, so that columns of the same name are told apart.
    */
   columnPositions?: number[] | null;
+  /** For an editable document: the version the page was read at; edits of its lines pass it back ({@link DocEditOptions}). */
+  readAt?: number | null;
 }
 
 /** The header line of a table section. */
@@ -219,6 +223,15 @@ export type DocEdit =
   | SplitCells
   | SetRawLine;
 
+/** What a view says about the edits it applies. */
+export interface DocEditOptions {
+  /**
+   * The `readAt` of the page whose line numbers the edits use. A source refuses the edits (409) when lines have
+   * moved since that version, rather than apply them to the line that now has the number.
+   */
+  readAt?: number | null;
+}
+
 /**
  * Where the document views get their data from. The host provides one (`{ provide: DocumentSource, ... }`);
  * the views inject it. A read-only source (a validation result) has `editable = false` and no `applyEdits`.
@@ -237,9 +250,10 @@ export abstract class DocumentSource {
   /**
    * Applies edits as one batch; completes when they are applied. Only on editable sources. An error carries
    * the HTTP-like `status`; on 409 (the document changed elsewhere) the host reloads and emits `changed`. A
-   * refused edit (400) may carry `detail`, the reason in words for the user.
+   * refused edit (400) may carry `detail`, the reason in words for the user. Edits that address lines of a page
+   * pass the page's `readAt` in `options`.
    */
-  applyEdits?(ops: DocEdit[]): Observable<void>;
+  applyEdits?(ops: DocEdit[], options?: DocEditOptions): Observable<void>;
 
   /** The column names the header holds more than once; only on editable sources. */
   duplicateColumns?(header: DocTableHeader): Observable<DocDuplicateColumn[]>;

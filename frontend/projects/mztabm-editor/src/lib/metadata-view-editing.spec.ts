@@ -212,6 +212,52 @@ describe('MetadataViewComponent editing', () => {
     expect(el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1].getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('passes the page\'s readAt with its SetMetadataValue and DeleteLine', async () => {
+    src = new EditableFakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+    src.oneGroups().reply([{ name: 'general', count: 2 }]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES, readAt: 4 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    el.querySelectorAll<HTMLButtonElement>('button.value-edit')[1].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const input = el.querySelector<HTMLInputElement>('input.value-input')!;
+    input.value = 'ISAS-2';
+    key(input, 'Enter');
+    src.oneEdit().reply();
+    el.querySelectorAll<HTMLButtonElement>('button.entry-remove')[0].click();
+    src.oneEdit().reply();
+    expect(src.editOptions).toEqual([{ readAt: 4 }, { readAt: 4 }]);
+  });
+
+  it('after the document changed, closes a value editor and saves or removes nothing until the page is read again', async () => {
+    const { fixture, el, settle } = await render();
+    el.querySelectorAll<HTMLButtonElement>('button.value-edit')[1].click();
+    await settle();
+    expect(el.querySelector('input.value-input')).toBeTruthy();
+
+    src.changes.next();
+    fixture.detectChanges();
+    // the line numbers shown may be stale: no edit names them
+    expect(el.querySelector('input.value-input')).toBeNull();
+    const remove = el.querySelectorAll<HTMLButtonElement>('button.entry-remove')[0];
+    expect(remove.disabled).toBe(true);
+    remove.click();
+    src.noneEdit();
+
+    src.oneGroups().reply([{ name: 'general', count: 2 }]);
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES });
+    await settle();
+    expect(el.querySelectorAll<HTMLButtonElement>('button.entry-remove')[0].disabled).toBe(false);
+  });
+
   it('shows no Remove button when read-only', async () => {
     const { fixture, el, settle } = await render();
     fixture.componentInstance.readonly.set(true);

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 
-import { DocEdit, DocumentSource, saveErrorOf } from './document-source';
+import { DocEdit, DocEditOptions, DocumentSource, saveErrorOf } from './document-source';
 
 /** How a tab is shown in the editor: as an arrow, so that it can be seen and typed. */
 const TAB_MARK = '→';
@@ -27,6 +27,13 @@ export class RawLineEditorComponent {
   readonly saved = output<void>();
   /** Closed without a change. */
   readonly cancelled = output<void>();
+  /** The `readAt` of the read the line comes from, passed with its edits ({@link DocEditOptions}). */
+  readonly readAt = input<number | null>(null);
+  /**
+   * The save was refused as a conflict (409): the document changed, and the line may have moved. Emits the text
+   * that was to be saved, as shown (tabs as →), for the host to keep for the user.
+   */
+  readonly refused = output<string>();
 
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
   /** Whether tabs are shown as →; not for a line that already contains the arrow itself. */
@@ -49,6 +56,11 @@ export class RawLineEditorComponent {
    */
   unsavedText(): string | null {
     return !this.busy() && this.draft() !== this.shown() ? this.draft() : null;
+  }
+
+  /** A save or delete is on its way; its answer comes as `saved` or `refused`. */
+  saving(): boolean {
+    return this.busy();
   }
 
   private toText(shown: string): string {
@@ -115,15 +127,18 @@ export class RawLineEditorComponent {
     if (!apply) return;
     this.busy.set(true);
     this.error.set(null);
-    apply.call(this.source, ops).subscribe({
+    const options: DocEditOptions = { readAt: this.readAt() };
+    const typed = this.draft();
+    apply.call(this.source, ops, options).subscribe({
       complete: () => {
         this.busy.set(false);
         this.saved.emit();
       },
       error: (err: unknown) => {
         this.busy.set(false);
-        // a conflict: the host reloads the document and says so
-        if ((err as { status?: unknown } | null)?.status !== 409) this.error.set(saveErrorOf(err, 'This change could not be saved.'));
+        // a conflict: the host reloads the document and says so; the text is the host's to keep
+        if ((err as { status?: unknown } | null)?.status === 409) this.refused.emit(typed);
+        else this.error.set(saveErrorOf(err, 'This change could not be saved.'));
       },
     });
   }
