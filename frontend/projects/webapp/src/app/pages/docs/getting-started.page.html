@@ -25,7 +25,7 @@
       Factors, one quantities sheet per dataset, Lipids, Checks) ask for the study, the samples and the lipids in
       a table. LipidCompass's curation pipeline converts the workbook to validated mzTab-M.
     </p>
-    @if (!info()?.submissionTemplateUrl) {
+    @if (templateUnlinked()) {
       <p>
         This service does not link the template. Ask for it at
         <a href="https://lifs-tools.org/support.html" target="_blank" rel="noopener">LIFS Tools support</a>.

@@ -17,7 +17,8 @@ describe('GettingStartedPage', () => {
   let http: HttpTestingController;
   let fixture: ComponentFixture<GettingStartedPage>;
 
-  async function render(info: object = {
+  /** `null` answers app-info with an error; `'pending'` leaves it unanswered (loading). */
+  async function render(info: object | null | 'pending' = {
         version: '2.0.0',
         buildDate: '2026-10-01',
         engines: [],
@@ -36,10 +37,13 @@ describe('GettingStartedPage', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(GettingStartedPage);
     http = TestBed.inject(HttpTestingController);
-    http
-      .expectOne((r) => r.url.endsWith('rest/v2/app-info'))
-      .flush(info);
-    await fixture.whenStable();
+    const request = http.expectOne((r) => r.url.endsWith('rest/v2/app-info'));
+    if (info === 'pending') {
+      fixture.detectChanges();
+    } else {
+      request.flush(info ?? 'no', info ? {} : { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+    }
     return fixture.nativeElement as HTMLElement;
   }
 
@@ -76,6 +80,20 @@ describe('GettingStartedPage', () => {
     expect(el.querySelector('a[href$=".xlsx"]')).toBeNull();
     expect(el.textContent).toContain('submission template');
     expect(el.querySelector('a[href="https://lifs-tools.org/support.html"]')).toBeTruthy();
+  });
+
+  it('says nothing about the template link while the service information loads', async () => {
+    const el = await render('pending');
+    expect(el.textContent).toContain('LipidCompass submission template');
+    expect(el.textContent).not.toContain('does not link the template');
+    expect(el.querySelector('a[href="https://lifs-tools.org/support.html"]')).toBeNull();
+  });
+
+  it('says nothing about the template link when the service information failed', async () => {
+    const el = await render(null);
+    expect(el.textContent).toContain('LipidCompass submission template');
+    expect(el.textContent).not.toContain('does not link the template');
+    expect(el.querySelector('a[href="https://lifs-tools.org/support.html"]')).toBeNull();
   });
 
   it('links the validator and the chapters of the first and third route', async () => {
