@@ -154,35 +154,45 @@ test('a tour link whose result is gone validates the example again at the same s
   await expect(page.getByText('Result not found')).toHaveCount(0);
 });
 
-test('on a phone, Back and Next keep the step\'s highlight in view', async ({ page, request }) => {
+test('on a phone, Next keeps the page where it is and shows the step\'s row', async ({ page, request }) => {
   const steps = await stepsOf(request, TOUR_20);
-  const first = steps.findIndex((s) => s.chapter === 'metadata');
-  // three steps on the metadata tab, each highlighting a group further down the page
-  for (const i of [first, first + 1, first + 2]) expect(steps[i].target?.tab).toBe('metadata');
+  const groups = steps.findIndex((s) => s.target?.tab === 'metadata' && s.target.group);
+  const features = steps.findIndex((s) => s.chapter === 'features');
+  expect(steps[groups + 1].target).toEqual(expect.objectContaining({ tab: 'metadata', group: expect.any(String) }));
+  expect(steps[features + 1].target).toEqual(expect.objectContaining({ tab: 'evidence', rowIndex: 0 }));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('docs/format/metadata');
-  await page.getByRole('button', { name: 'Try it' }).click();
-
-  await expect(page).toHaveURL(resultUrl(TOUR_20, first + 1), { timeout: 45_000 });
-  remember(page);
-  await expect(panel(page)).toBeVisible({ timeout: 45_000 });
-  await expectStep(page, steps, first);
 
   /**
-   * Checked on a settled page, not retried: the viewer scrolls the highlight into view at once, and the router's
-   * scroll restoration used to move the page back to the top a frame later.
+   * Checked on a settled page, not retried: the router's scroll restoration used to move the page to the top a
+   * frame after the navigation that keeps the step in the address, undoing any scroll before it.
    */
-  async function expectInView(i: number): Promise<void> {
-    await expect(page).toHaveURL(resultUrl(TOUR_20, i + 1));
-    await expectStep(page, steps, i);
-    await page.waitForTimeout(800);
-    await expect(highlightOf(page, steps[i])!.first(), `highlight of step ${steps[i].id}`).toBeInViewport();
-  }
+  const settle = () => page.waitForTimeout(800);
 
+  // a step that highlights a metadata group, which the viewer does not scroll to: the page stays where it was
+  await page.goto('docs/format/metadata');
+  await page.getByRole('button', { name: 'Try it' }).click();
+  await expect(page).toHaveURL(resultUrl(TOUR_20, groups + 1), { timeout: 45_000 });
+  remember(page);
+  await expect(panel(page)).toBeVisible({ timeout: 45_000 });
+  await expectStep(page, steps, groups);
+  await settle();
+  await page.evaluate(() => window.scrollBy(0, 300));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(250);
   await panel(page).getByRole('button', { name: 'Next' }).click();
-  await expectInView(first + 1);
+  await expect(page).toHaveURL(resultUrl(TOUR_20, groups + 2));
+  await expectStep(page, steps, groups + 1);
+  await settle();
+  expect(await page.evaluate(() => window.scrollY), 'scroll position after Next').toBeGreaterThan(250);
+
+  // a step that highlights a row: the row is in view after Next
+  await page.goto('docs/format/features');
+  await page.getByRole('button', { name: 'Try it' }).click();
+  await expect(page).toHaveURL(resultUrl(TOUR_20, features + 1), { timeout: 45_000 });
+  remember(page);
+  await expect(panel(page)).toBeVisible({ timeout: 45_000 });
   await panel(page).getByRole('button', { name: 'Next' }).click();
-  await expectInView(first + 2);
-  await panel(page).getByRole('button', { name: 'Back' }).click();
-  await expectInView(first + 1);
+  await expect(page).toHaveURL(resultUrl(TOUR_20, features + 2));
+  await expectStep(page, steps, features + 1);
+  await settle();
+  await expect(highlightOf(page, steps[features + 1])!.first(), 'the evidence row').toBeInViewport();
 });
