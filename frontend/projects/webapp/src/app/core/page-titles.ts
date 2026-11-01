@@ -1,12 +1,15 @@
+import { docsTitle } from '../pages/docs/docs-tree';
+
 /** Fixed page titles per route; never the document title (it may name a file). */
 export function pageTitle(path: string): string {
   const routes: Record<string, string> = {
     '/': 'Validate',
     '/examples': 'Examples',
     '/about': 'About',
-    '/guide': 'Fixing a file',
-    '/problems': 'Common problems and how to fix them in your tool',
   };
+  if (path.startsWith('/docs')) {
+    return `mzTab-M Validator · ${docsTitle(path) ?? 'Not found'}`;
+  }
   if (path.startsWith('/result/') || path.startsWith('/validate/')) {
     return 'mzTab-M Validator · Result';
   }

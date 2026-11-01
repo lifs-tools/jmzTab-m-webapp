@@ -1,13 +1,9 @@
-<section class="hero">
-  <p class="lifs-eyebrow">LIFS Tools · Report &amp; share</p>
-  <h1>Fixing a file</h1>
+<div class="page lifs-prose">
   <p class="lifs-lead">
     How to read what the validator reports, correct your mzTab-M file in the browser, and take the corrected file
     with you.
   </p>
-</section>
 
-<div class="page lifs-prose">
   <section class="lifs-card" aria-labelledby="guide-result">
     <h2 id="guide-result" class="lifs-card__title">Read a result and its guidance</h2>
     <p>
@@ -19,7 +15,7 @@
       file, and what you can do here. Choose <b>Show first →</b> to see where the problem is.
     </p>
     <p>
-      The most frequent problems are explained on the <a routerLink="/problems">Common problems</a> page, with
+      The most frequent problems are explained on the <a routerLink="/docs/problems">Common problems</a> page, with
       the steps for some tools.
     </p>
     <p>
@@ -39,25 +35,25 @@
       validated, but the editor says it is too large and does not open it. No change can make a file go beyond
       these limits.
     </p>
-    <h3>Select a message to see its place</h3>
+    <h3 id="guide-select">Select a message to see its place</h3>
     <p>
       Choose a message, or one of its occurrences, in the list of messages, beside the document on a wide screen
       and above it on a narrow one. The editor opens the place it names in the document, marks it and scrolls to it: a metadata entry, a table row, a cell or a column. A new choice
       replaces the mark of the previous one. For a message that names only a line, press
       <b>{{ editLineAsTextLabel }}</b>.
     </p>
-    <h3>Edit a value</h3>
+    <h3 id="guide-edit-value">Edit a value</h3>
     <p>
       Click a cell of a table, or a value in the metadata, and type. Press Enter to save the change. Press Escape
       to drop it. One edit can change one cell. A cell can hold up to 100,000 characters.
     </p>
-    <h3>Remove a metadata line</h3>
+    <h3 id="guide-remove-line">Remove a metadata line</h3>
     <p>
       Every entry in the metadata has a <b>Remove this line</b> button (the ×). It removes the whole line; use
       <b>Undo</b> to bring it back. The validator checks the file again, and the message that named the line is
       listed as fixed.
     </p>
-    <h3>Fix a line the editor cannot show</h3>
+    <h3 id="guide-raw-line">Fix a line the editor cannot show</h3>
     <p>
       A line that cannot be shown as metadata or as a table row opens in a text field with its raw text. So does
       a table row with more or fewer cells than its header, when you show its problem or click a cell past the end
@@ -71,7 +67,7 @@
       The editor cannot insert or move lines. If sections are in the wrong order or a header line is missing,
       export the file again from your tool, or correct it in a text editor and validate it again.
     </p>
-    <h3>Use a quick fix</h3>
+    <h3 id="guide-quick-fix">Use a quick fix</h3>
     <p>
       For some problems the guidance, in the editor, offers a quick fix. Press <b>{{ previewLabel }}</b> to see a
       before and after of every changed line; it is for the problem you showed last in that group, or else its
@@ -90,7 +86,7 @@
       <li>remove a controlled vocabulary entry that nothing uses</li>
       <li>remove a field or column that the declared profile has no section for</li>
     </ul>
-    <h3>Resolve a duplicate column</h3>
+    <h3 id="guide-duplicate-column">Resolve a duplicate column</h3>
     <p>
       When a table has two columns with the same name, the column is marked <b>dup</b>. Choose
       <b>Resolve duplicate column</b>. You can keep one column and delete the others, or merge them into one
@@ -99,12 +95,12 @@
       apply it.
     </p>
     <p>You cannot rename a column to a name that another column already has, or insert one.</p>
-    <h3>Undo and redo</h3>
+    <h3 id="guide-undo">Undo and redo</h3>
     <p>
       <b>Undo</b> and <b>Redo</b> (Ctrl+Z and Ctrl+Shift+Z) step through your changes. The last 100 steps are kept,
       and a very large change may reduce that number. One batch of changes can hold up to 5,000 edits.
     </p>
-    <h3>Checking your changes</h3>
+    <h3 id="guide-checking">Checking your changes</h3>
     <p>
       After 1.5 seconds without a change, the editor checks the structure again and shows which problems are
       <em>new</em> and which are <em>fixed</em>. The mzTab-M version is read again from the text, so a change to

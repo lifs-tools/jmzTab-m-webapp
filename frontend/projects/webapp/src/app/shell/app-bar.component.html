@@ -6,7 +6,21 @@
 
   <nav class="nav" aria-label="Main">
     @for (item of items; track item.label) {
-      @if (item.route) {
+      @if (item.menu) {
+        <button
+          type="button"
+          class="nav__item nav__item--menu"
+          [class.nav__item--active]="within(item.route!)"
+          [matMenuTriggerFor]="submenu"
+        >
+          {{ item.label }}
+        </button>
+        <mat-menu #submenu="matMenu" class="app-bar-submenu">
+          @for (sub of item.menu; track sub.label) {
+            <a mat-menu-item [routerLink]="sub.route">{{ sub.label }}</a>
+          }
+        </mat-menu>
+      } @else if (item.route) {
         <a
           class="nav__item"
           [routerLink]="item.route"
@@ -47,7 +61,14 @@
   </button>
   <mat-menu #navMenu="matMenu" xPosition="before" class="app-bar-menu">
     @for (item of items; track item.label) {
-      @if (item.route) {
+      @if (item.menu) {
+        <div role="group" [attr.aria-label]="item.label">
+          <span class="app-bar-menu__heading" aria-hidden="true">{{ item.label }}</span>
+          @for (sub of item.menu; track sub.label) {
+            <a mat-menu-item [routerLink]="sub.route">{{ sub.label }}</a>
+          }
+        </div>
+      } @else if (item.route) {
         <a mat-menu-item [routerLink]="item.route">{{ item.label }}</a>
       } @else {
         <a mat-menu-item [href]="item.href" target="_blank" rel="noopener">{{ item.label }}</a>

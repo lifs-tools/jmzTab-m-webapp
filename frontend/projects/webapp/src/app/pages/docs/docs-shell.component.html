@@ -1,0 +1,72 @@
+<div class="docs" [class.docs--wide]="wide()">
+  <nav class="docs__nav" aria-label="Documentation">
+    @if (wide()) {
+      <ng-container *ngTemplateOutlet="navList" />
+    } @else {
+      <button
+        type="button"
+        class="docs__contents"
+        [attr.aria-expanded]="contentsOpen()"
+        (click)="contentsOpen.set(!contentsOpen())"
+      >
+        Contents
+      </button>
+      @if (contentsOpen()) {
+        <ng-container *ngTemplateOutlet="navList" />
+      }
+    }
+  </nav>
+
+  <header class="docs__header">
+    <p class="lifs-eyebrow">LIFS Tools · Documentation</p>
+    <h1>{{ title() }}</h1>
+  </header>
+
+  <app-docs-toc class="docs__toc" [container]="body" />
+
+  <div class="docs__body" #body>
+    <router-outlet />
+
+    <nav class="docs__pager" aria-label="Previous and next page">
+      @if (neighbours().prev; as prev) {
+        <a class="docs__pager-link" [routerLink]="prev.path" rel="prev">
+          <span class="lifs-label">Previous</span>
+          {{ prev.title }}
+        </a>
+      }
+      @if (neighbours().next; as next) {
+        <a class="docs__pager-link docs__pager-link--next" [routerLink]="next.path" rel="next">
+          <span class="lifs-label">Next</span>
+          {{ next.title }}
+        </a>
+      }
+    </nav>
+  </div>
+</div>
+
+<ng-template #navList>
+  <ul class="docs__tree">
+    <ng-container *ngTemplateOutlet="nodes; context: { $implicit: [home] }" />
+    <ng-container *ngTemplateOutlet="nodes; context: { $implicit: chapters }" />
+  </ul>
+</ng-template>
+
+<ng-template #nodes let-nodes>
+  @for (n of nodes; track n.path) {
+    <li>
+      <a
+        [routerLink]="n.path"
+        routerLinkActive="docs__link--current"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        (click)="contentsOpen.set(false)"
+        >{{ n.title }}</a
+      >
+      @if (n.children?.length) {
+        <ul>
+          <ng-container *ngTemplateOutlet="nodes; context: { $implicit: n.children }" />
+        </ul>
+      }
+    </li>
+  }
+</ng-template>

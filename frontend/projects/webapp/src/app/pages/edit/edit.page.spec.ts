@@ -811,7 +811,7 @@ describe('EditPage', () => {
     expect(help.textContent).not.toContain('Fix it here');
     expect(help.textContent).toContain(`press ${EDIT_LINE_AS_TEXT} to open it as text`);
     expect(help.textContent).toContain('a table row with the wrong number of cells');
-    expect(help.querySelector('a')?.getAttribute('href')).toBe('/guide');
+    expect(help.querySelector('a')?.getAttribute('href')).toBe('/docs/fixing');
   });
 
   it('undoes and redoes with the buttons and Ctrl+Z / Ctrl+Shift+Z outside inputs', async () => {

@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+
+import { DOCS_TREE } from '../pages/docs/docs-tree';
 import { AppBarComponent } from './app-bar.component';
 
 @Component({ template: '' })
@@ -14,6 +16,7 @@ describe('AppBarComponent', () => {
         provideRouter([
           { path: '', component: Blank },
           { path: 'about', component: Blank },
+          { path: 'docs', children: [{ path: '**', component: Blank }] },
         ]),
       ],
     }).compileComponents();
@@ -35,10 +38,77 @@ describe('AppBarComponent', () => {
     expect(validate?.hasAttribute('aria-current')).toBe(false);
   });
 
-  it('shows the five nav items in order', async () => {
+  it('shows the six nav items in order', async () => {
     const el = await render();
     const items = Array.from(el.querySelectorAll('.nav__item')).map((a) => a.textContent?.trim());
-    expect(items).toEqual(['Validate', 'Examples', 'REST API', 'About', 'LIFS Tools ↗']);
+    expect(items).toEqual([
+      'Validate',
+      'Examples',
+      'Documentation',
+      'REST API',
+      'About',
+      'LIFS Tools ↗',
+    ]);
+  });
+
+  function menuTexts(panelClass: string): string[] {
+    return Array.from(document.querySelectorAll(`.${panelClass} [mat-menu-item]`)).map(
+      (a) => a.textContent?.trim() ?? '',
+    );
+  }
+
+  it('offers a Documentation menu with the chapters and All documentation', async () => {
+    const el = await render();
+    const trigger = el.querySelector<HTMLButtonElement>('button.nav__item')!;
+    expect(trigger.textContent?.trim()).toBe('Documentation');
+    trigger.click();
+    await vi.waitFor(() => expect(menuTexts('app-bar-submenu').length).toBeGreaterThan(0));
+    expect(menuTexts('app-bar-submenu')).toEqual([
+      'All documentation',
+      ...DOCS_TREE.map((n) => n.title),
+    ]);
+    const hrefs = Array.from(document.querySelectorAll('.app-bar-submenu a[mat-menu-item]')).map(
+      (a) => a.getAttribute('href'),
+    );
+    expect(hrefs).toEqual(['/docs', ...DOCS_TREE.map((n) => n.path)]);
+  });
+
+  it('marks Documentation active on docs pages', async () => {
+    const el = await render('/docs/problems');
+    const trigger = el.querySelector('button.nav__item')!;
+    expect(trigger.classList).toContain('nav__item--active');
+    expect(
+      Array.from(el.querySelectorAll('.nav__item--active')).map((a) => a.textContent?.trim()),
+    ).toEqual(['Documentation']);
+  });
+
+  it('does not mark Documentation active elsewhere', async () => {
+    const el = await render('/about');
+    expect(el.querySelector('button.nav__item')?.classList).not.toContain('nav__item--active');
+  });
+
+  it('lists the documentation under a heading in the narrow-screen menu', async () => {
+    const el = await render();
+    el.querySelector<HTMLButtonElement>('button.menu-button')!.click();
+    await vi.waitFor(() => expect(menuTexts('app-bar-menu').length).toBeGreaterThan(0));
+    const group = document.querySelector('.app-bar-menu [role=group]')!;
+    expect(group.getAttribute('aria-label')).toBe('Documentation');
+    expect(group.querySelector('.app-bar-menu__heading')?.textContent?.trim()).toBe(
+      'Documentation',
+    );
+    expect(
+      Array.from(group.querySelectorAll('[mat-menu-item]')).map((a) => a.textContent?.trim()),
+    ).toEqual(['All documentation', ...DOCS_TREE.map((n) => n.title)]);
+    expect(menuTexts('app-bar-menu')).toEqual([
+      'Validate',
+      'Examples',
+      'All documentation',
+      ...DOCS_TREE.map((n) => n.title),
+      'REST API',
+      'About',
+      'LIFS Tools ↗',
+      'GitHub ↗',
+    ]);
   });
 
   it('opens the REST API and external links in a new tab', async () => {

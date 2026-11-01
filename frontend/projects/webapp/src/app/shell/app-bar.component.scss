@@ -5,7 +5,7 @@
 
 .bar {
   background: var(--lifs-nav);
-  min-height: 72px;
+  min-height: var(--lifs-nav-height);
   display: flex;
   align-items: center;
   gap: 28px;
@@ -77,6 +77,19 @@ button:focus-visible {
   &--active {
     color: var(--lifs-nav-text);
     text-decoration-line: underline;
+  }
+
+  &--menu {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    line-height: inherit;
+    cursor: pointer;
+
+    &::after {
+      content: ' ▾' / '';
+    }
   }
 }
 

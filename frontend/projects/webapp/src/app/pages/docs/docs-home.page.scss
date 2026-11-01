@@ -1,0 +1,26 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.chapter {
+  height: 100%;
+  font-family: var(--lifs-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--lifs-ink);
+
+  &:hover {
+    border-color: var(--lifs-primary);
+  }
+}

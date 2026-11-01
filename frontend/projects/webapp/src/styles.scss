@@ -227,6 +227,17 @@ h3 {
   }
 }
 
+// The "Documentation" heading of the narrow-screen navigation menu (rendered in the overlay).
+.app-bar-menu__heading {
+  display: block;
+  padding: 10px 16px 4px;
+  font-family: var(--lifs-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lifs-grey);
+}
+
 // Outlined form fields with square corners: the notch geometry derives from the corner radius
 // (0 here), which leaves the text flush with the border. Restore the usual 12px inset.
 .mat-mdc-form-field.mat-form-field-appearance-outline {

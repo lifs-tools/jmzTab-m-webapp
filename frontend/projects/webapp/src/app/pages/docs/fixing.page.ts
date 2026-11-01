@@ -7,13 +7,13 @@ import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 
 /** "Fixing a file": how to read a result, fix a file in the editor, and what is kept and for how long. */
 @Component({
-  selector: 'app-guide-page',
+  selector: 'app-fixing-page',
   imports: [RouterLink],
-  templateUrl: './guide.page.html',
-  styleUrl: './guide.page.scss',
+  templateUrl: './fixing.page.html',
+  styleUrl: './fixing.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GuidePage {
+export class FixingPage {
   protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;
   protected readonly allLabel = quickFixAllLabel('N');
   protected readonly editLineAsTextLabel = EDIT_LINE_AS_TEXT;

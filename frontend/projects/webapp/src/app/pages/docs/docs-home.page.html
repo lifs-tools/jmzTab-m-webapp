@@ -1,0 +1,11 @@
+<p class="lifs-lead">
+  How to read what the validator reports, fix your file, and solve the most common problems.
+</p>
+
+<ul class="chapters">
+  @for (c of chapters; track c.path) {
+    <li>
+      <a class="lifs-card chapter" [routerLink]="c.path">{{ c.title }}</a>
+    </li>
+  }
+</ul>

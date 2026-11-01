@@ -1,0 +1,137 @@
+:host {
+  display: block;
+}
+
+// One column below 1100 px: Contents, title, On this page, text. From 1100 px the navigation and
+// "On this page" sit beside the text and stay in view.
+.docs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'nav' 'header' 'toc' 'body';
+  gap: 16px;
+  padding: 24px 32px 30px;
+}
+
+.docs--wide {
+  grid-template-columns: 220px minmax(0, 1fr) 200px;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'nav header toc'
+    'nav body toc';
+  column-gap: 40px;
+  padding-top: 34px;
+
+  .docs__nav,
+  .docs__toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+}
+
+.docs__nav {
+  grid-area: nav;
+}
+
+.docs__header {
+  grid-area: header;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--lifs-line);
+}
+
+.docs__toc {
+  grid-area: toc;
+
+  // A page without sections: no empty row.
+  &:empty {
+    display: none;
+  }
+}
+
+.docs__body {
+  grid-area: body;
+  min-width: 0;
+  max-width: 820px;
+}
+
+.docs__contents {
+  padding: 8px 14px;
+  border: 1px solid var(--lifs-line);
+  border-radius: var(--lifs-radius-none);
+  background: var(--lifs-paper);
+  color: var(--lifs-ink);
+  font: inherit;
+  cursor: pointer;
+
+  &::after {
+    content: ' ▾' / '';
+  }
+  &[aria-expanded='true']::after {
+    content: ' ▴' / '';
+  }
+}
+
+.docs__tree,
+.docs__tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docs__contents + .docs__tree {
+  margin-top: 10px;
+}
+
+.docs__tree ul {
+  margin-top: 4px;
+  padding-left: 12px;
+}
+
+.docs__tree a {
+  display: block;
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid transparent;
+  color: var(--lifs-slate);
+  line-height: 1.35;
+}
+
+// The current page: a bar and weight, not colour alone.
+.docs__tree a.docs__link--current {
+  border-left-color: var(--lifs-primary);
+  color: var(--lifs-ink);
+  font-weight: 600;
+}
+
+.docs__pager {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--lifs-line);
+}
+
+.docs__pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--lifs-line);
+  max-width: 50%;
+
+  &--next {
+    margin-left: auto;
+    text-align: right;
+  }
+}
+
+@media (max-width: 600px) {
+  .docs {
+    padding: 20px 16px 24px;
+  }
+}

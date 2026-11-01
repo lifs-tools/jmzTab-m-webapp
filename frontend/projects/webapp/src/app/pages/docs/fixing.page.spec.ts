@@ -6,15 +6,15 @@ import { provideRouter } from '@angular/router';
 import { QUICK_FIX_PREVIEW_LABEL } from '../../core/quick-fix-labels';
 import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 import { pageTitle } from '../../core/page-titles';
-import { GuidePage } from './guide.page';
+import { FixingPage } from './fixing.page';
 
-describe('GuidePage', () => {
+describe('FixingPage', () => {
   async function render(retentionDays: number | null = null) {
     await TestBed.configureTestingModule({
-      imports: [GuidePage],
+      imports: [FixingPage],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
-    const fixture = TestBed.createComponent(GuidePage);
+    const fixture = TestBed.createComponent(FixingPage);
     fixture.detectChanges();
     const req = TestBed.inject(HttpTestingController).expectOne((r) => r.url.endsWith('rest/v2/app-info'));
     if (retentionDays === null) req.flush('no', { status: 500, statusText: 'Server Error' });
@@ -40,8 +40,26 @@ describe('GuidePage', () => {
     ]);
     // each section is named by its own heading
     expect(sections.every((s) => s.labelledBy && s.labelledBy === s.headingId)).toBe(true);
-    const problems = el.querySelector<HTMLAnchorElement>('a[href$="/problems"]');
+    const problems = el.querySelector<HTMLAnchorElement>('a[href$="/docs/problems"]');
     expect(problems?.textContent).toContain('Common problems');
+  });
+
+  it('every section heading has an id', async () => {
+    const el = await render();
+    const headings = Array.from(el.querySelectorAll('h2, h3'));
+    expect(headings.length).toBeGreaterThan(0);
+    expect(headings.filter((h) => !h.id)).toEqual([]);
+    // the guidance and other pages may link these
+    expect(Array.from(el.querySelectorAll('h3')).map((h) => h.id)).toEqual([
+      'guide-select',
+      'guide-edit-value',
+      'guide-remove-line',
+      'guide-raw-line',
+      'guide-quick-fix',
+      'guide-duplicate-column',
+      'guide-undo',
+      'guide-checking',
+    ]);
   });
 
   it('names the labels of the editor exactly as the editor shows them', async () => {
@@ -114,6 +132,6 @@ describe('GuidePage', () => {
   });
 
   it('has a fixed page title', () => {
-    expect(pageTitle('/guide')).toBe('mzTab-M Validator · Fixing a file');
+    expect(pageTitle('/docs/fixing')).toBe('mzTab-M Validator · Fixing a file');
   });
 });

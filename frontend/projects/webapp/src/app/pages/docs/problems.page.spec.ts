@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { GuidanceEntry } from '../../api/models/guidance-entry';
+import { pageTitle } from '../../core/page-titles';
 import { ProblemsPage } from './problems.page';
 
 const ENTRIES: GuidanceEntry[] = [
@@ -59,5 +60,9 @@ describe('ProblemsPage', () => {
 
   it('shows a note when the catalog cannot be loaded', async () => {
     expect(await render('error')).toContain('could not be loaded');
+  });
+
+  it('has a fixed page title', () => {
+    expect(pageTitle('/docs/problems')).toBe('mzTab-M Validator · Common problems');
   });
 });

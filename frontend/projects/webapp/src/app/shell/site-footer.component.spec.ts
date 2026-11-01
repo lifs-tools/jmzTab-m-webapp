@@ -48,23 +48,9 @@ describe('SiteFooterComponent', () => {
     expect(el.textContent).toContain(`© 2016 - ${new Date().getFullYear()} LIFS Tools Consortium`);
   });
 
-  it('links to the common problems page', async () => {
-    const el = await render(undefined);
-    const link = el.querySelector<HTMLAnchorElement>('.footer__links a[href$="/problems"]');
-    expect(link?.textContent).toContain('Common problems');
-  });
-
-  it('links to the fixing guide', async () => {
-    const el = await render(undefined);
-    const link = el.querySelector<HTMLAnchorElement>('.footer__links a[href$="/guide"]');
-    expect(link?.textContent).toContain('Fixing a file');
-  });
-
   it('shows the legal links opening in a new tab', async () => {
     const el = await render(undefined);
     expect(linkTexts(el)).toEqual([
-      'Fixing a file',
-      'Common problems',
       'Imprint & Privacy Policy',
       'Impressum & Datenschutzerklärung',
       'Terms of Service',
