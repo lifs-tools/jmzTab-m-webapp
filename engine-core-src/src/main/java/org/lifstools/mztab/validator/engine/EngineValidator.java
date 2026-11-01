@@ -117,7 +117,10 @@ public class EngineValidator {
         } else if (mapping != null) {
             validationResults.addAll(capped(validateSemantics(file, mzTab, mapping), maxErrors));
         }
-        return new Outcome(converted(validationResults), parsed ? mzTab : null);
+        List<ValidationMessage> result = converted(validationResults);
+        // jmzTab-m gives Info-2057 neither a line nor a location; the client needs one to show the element
+        MismatchLocator.locate(result, file);
+        return new Outcome(result, parsed ? mzTab : null);
     }
 
     private List<ValidationMessage> converted(List<org.lifstools.mztab2.model.ValidationMessage> messages) {
