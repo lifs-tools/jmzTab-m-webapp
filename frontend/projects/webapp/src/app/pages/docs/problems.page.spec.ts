@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ViewportScroller } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 
 import { GuidanceEntry } from '../../api/models/guidance-entry';
 import { pageTitle } from '../../core/page-titles';
@@ -28,13 +30,30 @@ const ENTRIES: GuidanceEntry[] = [
 ];
 
 describe('ProblemsPage', () => {
-  async function render(entries: GuidanceEntry[] | 'error') {
+  /** Ids of the entries rendered when the page scrolled to an anchor, per call. */
+  let scrolled: { anchor: string; rendered: string[] }[];
+
+  async function render(entries: GuidanceEntry[] | 'error', fragment: string | null = null) {
+    scrolled = [];
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { fragment } } },
+      ],
     });
+    vi.spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor').mockImplementation((anchor) =>
+      scrolled.push({
+        anchor,
+        rendered: Array.from(document.querySelectorAll('article[id]')).map((a) => a.id),
+      }),
+    );
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(ProblemsPage);
     fixture.detectChanges();
+    await fixture.whenStable();
+    // nothing to scroll to before the catalog arrives
+    expect(scrolled).toEqual([]);
     const req = http.expectOne((r) => r.url.endsWith('rest/v2/guidance'));
     if (entries === 'error') req.flush('boom', { status: 500, statusText: 'Server Error' });
     else req.flush(entries);
@@ -60,6 +79,20 @@ describe('ProblemsPage', () => {
 
   it('shows a note when the catalog cannot be loaded', async () => {
     expect(await render('error')).toContain('could not be loaded');
+  });
+
+  it('scrolls to the entry of the link once the catalog has rendered', async () => {
+    await render(ENTRIES, 'b');
+    // the router scrolled at NavigationEnd, before the entries existed; the page does it again after they render
+    expect(scrolled).toEqual([{ anchor: 'b', rendered: ['a', 'b'] }]);
+  });
+
+  it('does not scroll without a fragment or when the catalog fails', async () => {
+    await render(ENTRIES);
+    expect(scrolled).toEqual([]);
+    TestBed.resetTestingModule();
+    await render('error', 'b');
+    expect(scrolled).toEqual([]);
   });
 
   it('has a fixed page title', () => {

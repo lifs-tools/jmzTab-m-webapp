@@ -1,6 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ViewportScroller } from '@angular/common';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  Injector,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ActivatedRoute } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
 import { GuidanceEntry } from '../../api/models/guidance-entry';
@@ -25,4 +35,17 @@ export class ProblemsPage {
   protected readonly loading = computed(() => this.loaded() === undefined);
   protected readonly failed = computed(() => this.loaded() === null);
   protected readonly entries = computed<GuidanceEntry[]>(() => this.loaded() ?? []);
+
+  constructor() {
+    // A link to an entry (/docs/problems#id): the router scrolled at NavigationEnd, before the
+    // catalog arrived, so scroll again once its entries are in the page.
+    const fragment = inject(ActivatedRoute).snapshot.fragment;
+    const scroller = inject(ViewportScroller);
+    const injector = inject(Injector);
+    effect(() => {
+      if (fragment && this.loaded()) {
+        afterNextRender(() => scroller.scrollToAnchor(fragment), { injector });
+      }
+    });
+  }
 }
