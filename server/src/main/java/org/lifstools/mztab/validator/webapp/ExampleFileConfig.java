@@ -18,14 +18,29 @@ package org.lifstools.mztab.validator.webapp;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.core.env.Environment;
 
 /**
+ * The examples of {@code examples.properties}, prefix {@code example}. Bound by {@link #bind}, not as
+ * {@code @ConfigurationProperties}: see there.
  *
  * @author nilshoffmann
  */
-@ConfigurationProperties(prefix = "example")
 public class ExampleFileConfig {
+
+    public static final String PREFIX = "example";
+
+    /**
+     * Binds the examples with the shared conversion service only, so every URI is bound as written. Bound as
+     * {@code @ConfigurationProperties}, the application context's {@code URIEditor} would resolve a {@code classpath:}
+     * URI of an existing resource to its {@code file:} or {@code jar:} URL, and a bundled example, which is
+     * recognised by its {@code classpath:tutorial/<name>} URI, would no longer be one.
+     */
+    public static ExampleFileConfig bind(Environment environment) {
+        return Binder.get(environment).bind(PREFIX, ExampleFileConfig.class).orElseGet(ExampleFileConfig::new);
+    }
+
     private List<ExampleFile> exampleFile = new ArrayList<>();
 
     public List<ExampleFile> getExampleFile() {

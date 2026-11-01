@@ -27,8 +27,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.validator.webapp.ExampleFileConfig;
 import org.lifstools.mztab.validator.webapp.domain.ExampleFile;
-import org.springframework.boot.context.properties.bind.Binder;
-import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 
 /** The fixtures live in {@code tutorial-fixture/}, read as the catalog's {@code tutorial/}. */
 class TutorialCatalogTest {
@@ -77,13 +77,13 @@ class TutorialCatalogTest {
     /** Bound as the application binds {@code examples.properties}: the classpath URIs arrive unchanged. */
     @Test
     void readsBoundConfiguration() {
-        // with a property editor initializer, as the application's binder: URIs go through Spring's URIEditor
-        ExampleFileConfig bound = new Binder(List.of(new MapConfigurationPropertySource(Map.of(
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("examples", Map.of(
             "example.exampleFile[0].name", ID,
             "example.exampleFile[0].uri", "classpath:tutorial/fixture-2.0.mztab",
             "example.exampleFile[0].tour", "classpath:tutorial/fixture-2.0.tour.json",
-            "example.exampleFile[0].originalUri", "https://example.org/original.mztab"))), null, null, editors -> {
-            }).bind("example", ExampleFileConfig.class).get();
+            "example.exampleFile[0].originalUri", "https://example.org/original.mztab")));
+        ExampleFileConfig bound = ExampleFileConfig.bind(environment);
         assertEquals(URI.create("classpath:tutorial/fixture-2.0.mztab"), bound.getExampleFile().get(0).getUri());
         TutorialCatalog catalog = new TutorialCatalog(bound, new ObjectMapper(), ROOT);
         assertTrue(catalog.content(ID).isPresent());

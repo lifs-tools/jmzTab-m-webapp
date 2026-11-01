@@ -39,7 +39,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableDiscoveryClient
 @SpringBootApplication
 @EnableConfigurationProperties(value = {StorageProperties.class,
-    ExampleFileConfig.class, EnginesProperties.class, DocsProperties.class})
+    EnginesProperties.class, DocsProperties.class})
 //@EnableSwagger2
 @EnableScheduling
 @ComponentScan(basePackages = {"org.lifstools.mztab2.server.invoker",

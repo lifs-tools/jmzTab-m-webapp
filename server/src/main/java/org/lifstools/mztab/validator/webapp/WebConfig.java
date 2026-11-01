@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -37,6 +38,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     public WebConfig() {
         super();
+    }
+
+    /** The examples, bound as written: see {@link ExampleFileConfig#bind}. */
+    @Bean
+    public ExampleFileConfig exampleFileConfig(Environment environment) {
+        return ExampleFileConfig.bind(environment);
     }
 
     @Bean
