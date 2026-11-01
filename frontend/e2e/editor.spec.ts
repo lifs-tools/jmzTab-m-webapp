@@ -226,6 +226,7 @@ test('selectingAMessageSelectsItsElementAndRemoveThisLineFixesIt', async ({ page
   await awaitCheck(page);
   await expect(messages.locator('.grp').filter({ has: page.locator('.chip', { hasText: key }) })).toHaveCount(1);
   const [restored] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
-  expect(await text(restored)).toContain(`MTD\t${key}\t`);
+  // byte for byte the upload again
+  expect(readFileSync(await restored.path()).equals(readFileSync(PROFILE_FIELD_MISMATCH))).toBe(true);
   await request.delete(`rest/v2/validations/${id}`);
 });
