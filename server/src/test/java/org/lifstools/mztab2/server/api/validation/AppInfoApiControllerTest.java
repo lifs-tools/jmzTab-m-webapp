@@ -65,4 +65,13 @@ class AppInfoApiControllerTest {
             .andExpect(jsonPath("$.unavailableHintUrl").value(org.hamcrest.Matchers.nullValue()))
             .andExpect(jsonPath("$.jmztabmVersion").doesNotExist());
     }
+
+    @Test
+    void offersTheSubmissionTemplateUrls() throws Exception {
+        mvc.perform(get("/rest/v2/app-info")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.submissionTemplateUrl")
+                .value("https://lipidcompass.org/assets/templates/lipidcompass-submission-template.xlsx"))
+            .andExpect(jsonPath("$.submissionTemplateExampleUrl")
+                .value("https://lipidcompass.org/assets/templates/lipidcompass-submission-template-example.xlsx"));
+    }
 }

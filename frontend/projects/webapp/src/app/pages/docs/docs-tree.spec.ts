@@ -1,9 +1,10 @@
 import { docsNeighbours, docsOrder, docsTitle } from './docs-tree';
 
 describe('docs tree', () => {
-  it('orders home first, then the chapters (versions, validating, fixing, problems, about)', () => {
+  it('orders home first, then the chapters (getting started, versions, validating, fixing, problems, about)', () => {
     expect(docsOrder().map((n) => n.path)).toEqual([
       '/docs',
+      '/docs/getting-started',
       '/docs/versions',
       '/docs/validating',
       '/docs/fixing',

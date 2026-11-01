@@ -35,6 +35,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/docs/docs-home.page').then((m) => m.DocsHomePage),
       },
       {
+        path: 'getting-started',
+        title: pageTitle('/docs/getting-started'),
+        loadComponent: () =>
+          import('./pages/docs/getting-started.page').then((m) => m.GettingStartedPage),
+      },
+      {
         path: 'versions',
         title: pageTitle('/docs/versions'),
         loadComponent: () => import('./pages/docs/versions.page').then((m) => m.VersionsPage),

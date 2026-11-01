@@ -64,6 +64,7 @@ describe('DocsShellComponent', () => {
     expect(current.map((a) => a.getAttribute('href'))).toEqual(['/docs/fixing']);
     expect(Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim())).toEqual([
       'Documentation',
+      'Getting started',
       'mzTab-M 2.0 and 2.1',
       'Validating a file',
       'Fixing a file',

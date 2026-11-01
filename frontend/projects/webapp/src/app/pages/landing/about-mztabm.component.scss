@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+.about__cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+
+.about__col {
+  flex: 1 1 260px;
+  min-width: 0;
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+  }
+
+  p {
+    margin: 0;
+    line-height: 1.6;
+  }
+}
+
+.about__links {
+  margin: 16px 0 0;
+}

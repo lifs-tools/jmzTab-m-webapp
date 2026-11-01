@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Optional;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.webapp.DocsProperties;
 import org.lifstools.mztab.validator.webapp.domain.AppInfo;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
@@ -55,7 +56,8 @@ public class AppInfoApiController {
 
     public record AppInfoDto(String version, String buildDate, List<EngineDto> engines, String defaultLine,
         @Nullable String unavailableHintUrl, int retentionDays, long maxUploadBytes, boolean customMappingsEnabled,
-        @Nullable AnalyticsDto analytics) {
+        @Nullable AnalyticsDto analytics, @Nullable String submissionTemplateUrl,
+        @Nullable String submissionTemplateExampleUrl) {
 
     }
 
@@ -67,8 +69,11 @@ public class AppInfoApiController {
     private final long maxUploadBytes;
     private final boolean customMappingsEnabled;
     private final AnalyticsDto analytics;
+    private final String submissionTemplateUrl;
+    private final String submissionTemplateExampleUrl;
 
     public AppInfoApiController(AppInfo appInfo, EngineRegistry engines, EnginesProperties engineProperties,
+        DocsProperties docsProperties,
         @Value("${minCleanupAge:7}") int retentionDays,
         @Value("${spring.servlet.multipart.max-file-size:64MB}") DataSize maxUpload,
         @Value("${validation.custom-mappings.enabled:true}") boolean customMappingsEnabled,
@@ -85,6 +90,8 @@ public class AppInfoApiController {
         this.maxUploadBytes = maxUpload.toBytes();
         this.customMappingsEnabled = customMappingsEnabled;
         this.analytics = analytics;
+        this.submissionTemplateUrl = docsProperties.submissionTemplateUrl();
+        this.submissionTemplateExampleUrl = docsProperties.submissionTemplateExampleUrl();
     }
 
     @Operation(operationId = "getAppInfo", summary = "Returns version, validation engines, limits and analytics settings")
@@ -96,6 +103,6 @@ public class AppInfoApiController {
                 info.map(EngineInfo::jmztabmVersion).orElse(null), info.isPresent());
         }).toList();
         return new AppInfoDto(version, buildDate, engineDtos, engines.defaultLine(), unavailableHintUrl,
-            retentionDays, maxUploadBytes, customMappingsEnabled, analytics);
+            retentionDays, maxUploadBytes, customMappingsEnabled, analytics, submissionTemplateUrl, submissionTemplateExampleUrl);
     }
 }

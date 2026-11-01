@@ -104,6 +104,17 @@ Each profile's mapping file is `<id>/<version>.xml` next to the catalog, e.g. `m
 
 The form offers example files. They are listed in `examples.properties` in the JAR (`server/src/main/resources/examples.properties`, prefix `example.exampleFile[n]`) and downloaded from their URIs when a user picks one (at most 64 MB each). The defaults point to `raw.githubusercontent.com`; without outbound access to it, the examples fail but everything else works.
 
+## Documentation
+
+The Getting started page of the built-in documentation links the LipidCompass submission template and its filled-in example. Both addresses come from `app-info`.
+
+| Property | Environment | Default | Meaning |
+|---|---|---|---|
+| `docs.submission-template-url` | `DOCS_SUBMISSION_TEMPLATE_URL` | `https://lipidcompass.org/assets/templates/lipidcompass-submission-template.xlsx` | The submission template (Excel). |
+| `docs.submission-template-example-url` | `DOCS_SUBMISSION_TEMPLATE_EXAMPLE_URL` | `https://lipidcompass.org/assets/templates/lipidcompass-submission-template-example.xlsx` | The filled-in example of the template. |
+
+A value is empty or an absolute `https` URL of at most 2048 characters; anything else stops the service at startup, naming the property. Empty: the Getting started page names the route without a link.
+
 ## Analytics
 
 Analytics are off by default.

@@ -10,6 +10,7 @@ export const DOCS_HOME: DocsNode = { path: '/docs', title: 'Documentation' };
 
 /** The chapters, in the order of the side navigation. */
 export const DOCS_TREE: readonly DocsNode[] = [
+  { path: '/docs/getting-started', title: 'Getting started' },
   { path: '/docs/versions', title: 'mzTab-M 2.0 and 2.1' },
   { path: '/docs/validating', title: 'Validating a file' },
   { path: '/docs/fixing', title: 'Fixing a file' },

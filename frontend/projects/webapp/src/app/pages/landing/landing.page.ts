@@ -6,13 +6,14 @@ import { ExampleDto } from '../../api/models/example-dto';
 import { ExamplesService } from '../../api/services/examples.service';
 import { quietRequest } from '../../core/http-error.interceptor';
 import { AppInfoStore } from '../../core/app-info.store';
+import { AboutMzTabmComponent } from './about-mztabm.component';
 import { ExamplesCardComponent } from './examples-card.component';
 import { ValidatorFormComponent } from './validator-form.component';
 
-/** Landing page: hero, the validator form, example files and links for scripts. */
+/** Landing page: hero, the validator form, example files, links for scripts and a short section on mzTab-M. */
 @Component({
   selector: 'app-landing-page',
-  imports: [ValidatorFormComponent, ExamplesCardComponent],
+  imports: [ValidatorFormComponent, ExamplesCardComponent, AboutMzTabmComponent],
   templateUrl: './landing.page.html',
   styleUrl: './landing.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

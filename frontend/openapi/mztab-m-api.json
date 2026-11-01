@@ -40,6 +40,12 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "submissionTemplateExampleUrl" : {
+            "type" : [ "string", "null" ]
+          },
+          "submissionTemplateUrl" : {
+            "type" : [ "string", "null" ]
+          },
           "unavailableHintUrl" : {
             "type" : [ "string", "null" ]
           },

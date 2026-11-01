@@ -156,4 +156,12 @@ describe('LandingPage', () => {
     expect(el.querySelector('a[href="https://x/m1"]')?.closest('li')?.querySelector('button')).toBeNull();
     expect(el.querySelector('a[href="https://x/6"]')).toBeNull();
   });
+
+  it('places the mzTab-M section after the validator form', async () => {
+    const { el } = await render();
+    const form = el.querySelector('app-validator-form')!;
+    const about = el.querySelector('app-about-mztabm')!;
+    expect(about).toBeTruthy();
+    expect(form.compareDocumentPosition(about) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
