@@ -226,6 +226,12 @@ None. Settled in the first review:
 
 1. **Where users download the submission template:** on lipidcompass.org (D11). The LipidCompass change that adds it is separate from this feature; the validator's release checks that the default URL answers before it ships, and otherwise configures it empty.
 
+### Known issues found while building (not fixed here)
+
+1. **`ValidateApiIntegrationTest` can hang a local `./mvnw verify`.** While this feature was built, the full server suite ran for more than 30 minutes inside this class, blocked in `EngineClient.call`. The machine was also running a separate validator stack with engines on 8084 and 8085. The class registers an in-process `EngineProxy` for its 2.0 engine, so the link to that stack is a suspicion, not a confirmed cause. The class predates this feature and its code was not changed. Local verification of this feature excluded it with `'-Dtest=!ValidateApiIntegrationTest' -Dsurefire.failIfNoSpecifiedTests=false`; CI runs it. Next steps when it is picked up: take a thread dump of the hanging fork to see which URL the call waits on, and give the test a bounded `engines.job-timeout` so a hang fails fast instead of blocking the build.
+2. **The problems page has no "On this page" list.** Section 5.1 gives every docs page one. The list reads the page's `h2[id]`/`h3[id]` headings; on the problems page the ids sit on each entry's `article`, not on its `h2`, so the list renders nothing. Deep links to entries (`/docs/problems#<id>`) do scroll once the entries from `/rest/v2/guidance` have rendered. A fix is to move the ids onto the headings, or to let the list read the `article` ids.
+3. **The result viewer does not scroll to a highlighted metadata group, only to a key.** On a phone (390 px) tour steps 2–5 highlight a group that sits off-screen. Tracked as a GitHub issue.
+
 ## 10. Left to the builder
 
 - How docs content is authored (Angular templates as today, or Markdown rendered at build time), as long as anchors are stable, labels come from shared constants and the content is covered by specs.
