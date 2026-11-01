@@ -251,9 +251,10 @@ class SpaControllerTest {
             .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
     }
 
-    @Test
-    void unhashedPublicFilesAreCachedForADay() throws Exception {
-        mvc.perform(ctxGet("/brand/test-logo.svg"))
+    @ParameterizedTest
+    @ValueSource(strings = {"/brand/test-logo.svg", "/favicon.ico", "/favicon.svg", "/apple-touch-icon.png"})
+    void unhashedPublicFilesAreCachedForADay(String path) throws Exception {
+        mvc.perform(ctxGet(path))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "max-age=86400, public"));
     }

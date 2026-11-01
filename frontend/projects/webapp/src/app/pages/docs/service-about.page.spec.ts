@@ -48,6 +48,14 @@ describe('ServiceAboutPage', () => {
     expect(section.querySelector('a[href="https://doi.org/10.1021/acs.analchem.8b04310"]')).toBeTruthy();
   });
 
+  it('credits the mzTab-M logo it uses as the site icon, with its licence', async () => {
+    const el = await render();
+    const credit = el.querySelector('#about-icon')!;
+    expect(credit.textContent).toContain('HUPO-PSI');
+    expect(credit.querySelector('a[href="https://github.com/HUPO-PSI/mzTab-M/blob/main/mzTab-M-logo.svg"]')).toBeTruthy();
+    expect(credit.querySelector('a[href="https://creativecommons.org/licenses/by/4.0/"]')).toBeTruthy();
+  });
+
   it('shows the app version and build date', async () => {
     const el = await render();
     const section = el.querySelector('#about-version')!;

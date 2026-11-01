@@ -25,7 +25,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Cache headers for the single-page app's build output. The Angular build puts a content hash into the names of
  * its scripts, styles and media ({@code main-OY5RMYQD.js}, {@code chunk-*.js}, {@code styles-*.css},
  * {@code media/*-HASH.woff2}), so those never change and may be cached for a year. Unhashed public files (the
- * favicon and the logos under {@code brand/}) are cached for a day. {@code index.html} is served by
+ * icons and the logos under {@code brand/}) are cached for a day. {@code index.html} is served by
  * {@link SpaController} with {@code no-cache}; everything else keeps Spring Boot's default static handler.
  * <p>
  * A response that already has {@code Cache-Control} is left alone by Spring Security's cache-control header
@@ -50,7 +50,8 @@ public class SpaResourceConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler(HASHED_BUNDLE).addResourceLocations(STATIC).setCacheControl(IMMUTABLE);
         registry.addResourceHandler(HASHED_MEDIA).addResourceLocations(STATIC + "media/").setCacheControl(IMMUTABLE);
-        registry.addResourceHandler("/favicon.ico").addResourceLocations(STATIC).setCacheControl(ONE_DAY);
+        registry.addResourceHandler("/favicon.ico", "/favicon.svg", "/apple-touch-icon.png")
+            .addResourceLocations(STATIC).setCacheControl(ONE_DAY);
         registry.addResourceHandler("/brand/**").addResourceLocations(STATIC + "brand/").setCacheControl(ONE_DAY);
     }
 }

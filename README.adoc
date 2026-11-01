@@ -100,3 +100,5 @@ http://onlinelibrary.wiley.com/doi/10.1002/pmic.201300560/abstract[Qing-Wei Xu e
 
 It uses the reader / writer and validator APIs of https://github.com/lifs-tools/jmzTab-m[the jmzTab-m reference implementation]
 
+The site icon (`frontend/projects/webapp/public/favicon.*`, `apple-touch-icon.png`) is the https://github.com/HUPO-PSI/mzTab-M/blob/main/mzTab-M-logo.svg[mzTab-M logo] by HUPO-PSI, used under https://creativecommons.org/licenses/by/4.0/[CC BY 4.0]. The icons put it on a white square; the PNG and ICO files are rendered from `favicon.svg` with `rsvg-convert`.
+
