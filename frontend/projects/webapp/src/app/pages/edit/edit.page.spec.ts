@@ -281,6 +281,107 @@ describe('EditPage', () => {
     expect(el.querySelector('[data-testid=edit-as-text]')).toBeNull();
   });
 
+  describe('line-numbered state after an edit that moves lines', () => {
+    async function removeLine(fixture: ComponentFixture<EditPage>, line: number) {
+      const { DocumentSource } = await import('@lifs-tools/mztabm-editor');
+      const source = fixture.debugElement.injector.get(DocumentSource);
+      source.applyEdits!([{ op: 'DeleteLine', line }]).subscribe({ error: () => undefined });
+      await settle(fixture);
+      postEdit().flush(info({ revision: 1, canUndo: true, validation: done({ stale: true }) }));
+      await settle(fixture);
+    }
+
+    async function openRawOn12() {
+      const ctx = await open(
+        info({ validation: done({ parsed: false, readUpTo: 12, messages: [{ message: brokenLine, state: 'OPEN' }] }) }),
+      );
+      chipOf(ctx.el, 'line 12').click();
+      await settle(ctx.fixture);
+      linesReq(11).flush([
+        { number: 11, section: 'MTD', cells: ['MTD', 'description', 'Minimal file for'], eol: '\n' },
+        { number: 12, section: '?', cells: ['identification of lipids'], eol: '\n' },
+        { number: 13, section: 'MTD', cells: ['MTD', 'cv[1]-label', 'MS'], eol: '\n' },
+      ]);
+      await settle(ctx.fixture);
+      expect(ctx.el.querySelector('mztabm-raw-line-editor')).toBeTruthy();
+      return ctx;
+    }
+
+    const typeInto = (el: HTMLElement, text: string) => {
+      const input = el.querySelector<HTMLInputElement>('mztabm-raw-line-editor input')!;
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+    };
+
+    it('closes the raw line editor when an earlier line is removed, and keeps the unsaved text in a notice', async () => {
+      const { fixture, el } = await openRawOn12();
+      typeInto(el, 'identification of lipids, fixed');
+      await settle(fixture);
+
+      await removeLine(fixture, 3);
+
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      const notice = el.querySelector('[data-testid=raw-moved]')!;
+      expect(notice.textContent).toContain('line 12 may have moved');
+      expect(notice.textContent).toContain('open the line again');
+      expect(notice.querySelector('code')?.textContent).toBe('identification of lipids, fixed');
+      // nothing is saved to the old number
+      expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits')).length).toBe(0);
+      notice.querySelector<HTMLButtonElement>('button')!.click();
+      await settle(fixture);
+      expect(el.querySelector('[data-testid=raw-moved]')).toBeNull();
+    });
+
+    it('closes an unchanged raw line editor without a notice', async () => {
+      const { fixture, el } = await openRawOn12();
+      await removeLine(fixture, 3);
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      expect(el.querySelector('[data-testid=raw-moved]')).toBeNull();
+    });
+
+    it('drops the "Edit this line as text" bar after a removal', async () => {
+      const { fixture, el } = await open(info({ validation: done({ messages: [{ message: msg(), state: 'OPEN' }] }) }));
+      chipOf(el, 'instrument[1]-detector').click();
+      await settle(fixture);
+      answerDocs();
+      linesReq(23).flush([
+        { number: 23, section: 'MTD', cells: ['MTD', 'instrument[1]-name', 'x'], eol: '\n' },
+        { number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' },
+        { number: 25, section: 'MTD', cells: ['MTD', 'cv[1]-label', 'MS'], eol: '\n' },
+      ]);
+      await settle(fixture);
+      expect(el.querySelector('[data-testid=line-actions]')?.textContent).toContain('Line 24');
+
+      await removeLine(fixture, 3);
+
+      expect(el.querySelector('[data-testid=line-actions]')).toBeNull();
+    });
+
+    it.each([
+      ['Delete this line', 'DeleteLine'],
+      ['Save line', 'SetRawLine'],
+    ])('the raw line editor\'s %s reloads the views once, without a notice', async (label, op) => {
+      const { fixture, el } = await openRawOn12();
+      const store = fixture.debugElement.injector.get(WorkingCopyStore);
+      let changed = 0;
+      store.changed.subscribe(() => changed++);
+      typeInto(el, 'MTD\tdescription\tidentification of lipids');
+      const action = Array.from(el.querySelectorAll<HTMLButtonElement>('mztabm-raw-line-editor button')).find(
+        (b) => b.textContent?.trim() === label,
+      )!;
+      action.click();
+      await settle(fixture);
+      const edit = postEdit();
+      expect(edit.request.body.operations[0].op).toBe(op);
+      edit.flush(info({ revision: 1, canUndo: true, validation: done({ stale: true }) }));
+      await settle(fixture);
+
+      expect(changed).toBe(1);
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      expect(el.querySelector('[data-testid=raw-moved]')).toBeNull();
+    });
+  });
+
   it('opens a table row whose cell count differs from its header as text', async () => {
     const shortRow = msg({ code: '[Error-2001] line 70: x', message: 'Row 1 has 3 cells', line_number: 70, location: undefined });
     const { fixture, el } = await open(info({ validation: done({ messages: [{ message: shortRow, state: 'OPEN' }] }) }));
@@ -880,6 +981,50 @@ describe('EditPage', () => {
 
       const lit = Array.from(el.querySelectorAll('.entry--hl'));
       expect(lit.map((e) => e.querySelector('.key')?.textContent?.trim())).toEqual(['small_molecule-quantification_unit']);
+    });
+
+    it('a 2057 column target in a table of another tab opens that tab and marks the header', async () => {
+      const column = msg({
+        code: '[Info-2057] line 80: x',
+        message: '"opt_global_x" is present but the profile "M+S" has no "small molecule feature (SMF)" section.',
+        message_type: 'info',
+        line_number: 80,
+        location: { section: 'sfh', column: 'opt_global_x' },
+      });
+      const { fixture, el } = await open(
+        info({
+          sections: { metadataLines: 60, sml: { rows: 2, columns: 20 }, smf: { rows: 1, columns: 2 } },
+          validation: done({ messages: [{ message: column, state: 'OPEN' }] }),
+        }),
+      );
+      el.querySelector<HTMLButtonElement>('#edit-tab-summary')!.click();
+      await settle(fixture);
+      answerDocs();
+      await settle(fixture);
+      expect(el.querySelector('#edit-tab-summary')?.getAttribute('aria-selected')).toBe('true');
+
+      chipOf(el, 'SFH · opt_global_x').click();
+      await settle(fixture);
+      http.match((r) => r.url.endsWith('working-copies/abc/lines')).forEach((r) =>
+        r.flush([{ number: 80, section: 'SFH', cells: ['SFH', 'SMF_ID', 'opt_global_x'], eol: '\n' }]),
+      );
+      for (const r of http.match((x) => x.method === 'GET' && x.url.endsWith('working-copies/abc/tables/smf'))) {
+        r.flush({
+          section: 'SMF',
+          page: 0,
+          size: 50,
+          totalRows: 1,
+          allColumns: ['SMF_ID', 'opt_global_x'],
+          columns: ['SMF_ID', 'opt_global_x'],
+          rows: [{ index: 0, lineNumber: 81, cellCount: 3, cells: ['1', 'a'] }],
+        });
+      }
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(el.querySelector('#edit-tab-features')?.getAttribute('aria-selected')).toBe('true');
+      const lit = Array.from(el.querySelectorAll('.col--hl'));
+      expect(lit.map((h) => h.textContent?.trim())).toEqual(['opt_global_x']);
     });
 
     it('a message with a line but no element offers to edit the line as text', async () => {

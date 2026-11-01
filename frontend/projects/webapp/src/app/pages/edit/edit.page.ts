@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { QUICK_FIX_PREVIEW_LABEL, quickFixAllLabel } from '../../core/quick-fix-labels';
 import { EDIT_LINE_AS_TEXT } from '../../core/editor-labels';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -176,6 +176,9 @@ export class EditPage {
   });
   protected readonly selected = signal<string | null>(null);
   protected readonly rawLine = signal<RawLine | null>(null);
+  private readonly rawEditor = viewChild(RawLineEditorComponent);
+  /** Text typed in the raw line editor when the document changed under it: kept for the user, not saved. */
+  protected readonly rawMoved = signal<RawLine | null>(null);
   /** The line of the message shown last, which "Edit this line as text" opens in the raw line editor. */
   protected readonly shownLine = signal<number | null>(null);
 
@@ -202,6 +205,7 @@ export class EditPage {
       )
       .subscribe((id) => {
         this.rawLine.set(null);
+        this.rawMoved.set(null);
         this.shownLine.set(null);
         this.metadataHighlight.set(null);
         this.tableJump.set(null);
@@ -213,6 +217,7 @@ export class EditPage {
       // columns may have been added or removed
       this.headersAsked.clear();
       this.headers.set(new Map());
+      this.dropLineState();
     });
     effect(() => {
       const prefixes = this.quotedPrefixes();
@@ -365,9 +370,24 @@ export class EditPage {
     });
   }
 
+  /** The source has told the views to reload (`changed`), which also closed the editor. */
   protected onRawSaved(): void {
     this.rawLine.set(null);
-    this.store.changed.next();
+  }
+
+  /**
+   * The document changed under the views: lines may have moved, so a line number shown is stale. "Edit this line
+   * as text" goes, a line read on its way is dropped, and the raw line editor closes. Text typed in it is kept in a
+   * notice rather than saved to a number that may now be another line. A save of the editor's own is not.
+   */
+  private dropLineState(): void {
+    this.inspection++;
+    this.shownLine.set(null);
+    const raw = this.rawLine();
+    if (!raw) return;
+    const unsaved = this.rawEditor()?.unsavedText() ?? null;
+    this.rawLine.set(null);
+    if (unsaved !== null) this.rawMoved.set({ lineNumber: raw.lineNumber, text: unsaved });
   }
 
   // ---- quick fixes ----

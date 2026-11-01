@@ -80,6 +80,18 @@ h1 {
   display: block;
   margin-bottom: 12px;
 }
+.raw-moved {
+  margin-bottom: 12px;
+
+  p {
+    margin: 0 0 8px;
+  }
+}
+.raw-moved__text {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .line-actions {
   display: flex;
   flex-wrap: wrap;

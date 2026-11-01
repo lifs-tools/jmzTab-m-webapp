@@ -57,6 +57,17 @@ describe('RawLineEditorComponent', () => {
     expect(fixture.componentInstance.saved).toBe(1);
   });
 
+  it('tells the host the text typed and not saved, but not while it is being saved', () => {
+    const { fixture, input } = render();
+    const editor = fixture.debugElement.children[0].componentInstance as RawLineEditorComponent;
+    expect(editor.unsavedText()).toBeNull();
+    type(input(), 'MTD→description→typed');
+    expect(editor.unsavedText()).toBe('MTD→description→typed');
+    key(input(), 'Enter');
+    expect(editor.unsavedText()).toBeNull();
+    src.oneEdit().reply();
+  });
+
   it('saves nothing for an unchanged line, also when the tabs are shown', () => {
     const { fixture, input } = render();
     key(input(), 'Enter');

@@ -43,6 +43,14 @@ export class RawLineEditorComponent {
     });
   }
 
+  /**
+   * The text typed but not saved, as shown (tabs as →), or null: nothing typed, or a save of it on its way. A host
+   * that must close the editor (the line may have moved) can keep this text for the user.
+   */
+  unsavedText(): string | null {
+    return !this.busy() && this.draft() !== this.shown() ? this.draft() : null;
+  }
+
   private toText(shown: string): string {
     return this.arrows() ? shown.replaceAll(TAB_MARK, '\t') : shown;
   }

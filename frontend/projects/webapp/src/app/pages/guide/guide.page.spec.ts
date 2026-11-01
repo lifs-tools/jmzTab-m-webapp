@@ -77,6 +77,13 @@ describe('GuidePage', () => {
     expect(text).toContain('a table row with more or fewer cells than its header');
     expect(text).toContain('a cell past the end of a short row');
     expect(text).toContain('The editor cannot insert or move lines');
+    expect(text).toContain('closes the line and keeps the text you typed in a notice');
+  });
+
+  it('says where the list of messages is on a wide and on a narrow screen', async () => {
+    const text = (await render()).textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain('in the list of messages, beside the document on a wide screen and above it on a narrow one');
+    expect(text).not.toContain('in the list on the left');
   });
 
   it('states the limits and the retention rule', async () => {

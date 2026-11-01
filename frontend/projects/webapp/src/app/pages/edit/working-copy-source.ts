@@ -74,7 +74,8 @@ export class WorkingCopySource extends DocumentSource {
    * `detail`, which the views show.
    */
   override applyEdits(ops: DocEdit[]): Observable<void> {
-    const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op));
+    // a raw line may become (or stop being) a row or an entry the views show
+    const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op) || o.op === 'SetRawLine');
     // DocEdit mirrors the server's EditOperation records field by field
     return this.store.edit(ops as unknown as EditOps, reload).pipe(
       map(() => undefined),

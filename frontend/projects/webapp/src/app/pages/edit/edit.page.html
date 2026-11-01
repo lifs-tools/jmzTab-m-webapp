@@ -208,6 +208,20 @@
                 </p>
               }
             }
+            @if (rawMoved(); as moved) {
+              <div class="lifs-callout lifs-callout--warn raw-moved" role="status" data-testid="raw-moved">
+                <div>
+                  <p>
+                    The file changed, so line {{ moved.lineNumber }} may have moved. Your text was not saved; it is
+                    below: open the line again to use it.
+                  </p>
+                  <code class="lifs-mono raw-moved__text">{{ moved.text }}</code>
+                  <p class="actions">
+                    <button mat-stroked-button type="button" (click)="rawMoved.set(null)">Dismiss</button>
+                  </p>
+                </div>
+              </div>
+            }
             @if (rawLine(); as raw) {
               <mztabm-raw-line-editor
                 class="raw"
