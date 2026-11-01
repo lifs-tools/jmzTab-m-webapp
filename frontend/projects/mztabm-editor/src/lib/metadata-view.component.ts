@@ -78,6 +78,18 @@ const SAVE_ERROR = 'This change could not be saved.';
                 {{ e.value }}
               }
             </dd>
+            @if (editable()) {
+              <button
+                type="button"
+                class="entry-remove"
+                title="Remove this line"
+                [attr.aria-label]="'Remove line ' + e.lineNumber"
+                [disabled]="removing()"
+                (click)="remove(e)"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            }
           </div>
         }
       </dl>
@@ -110,6 +122,8 @@ export class MetadataGroupComponent {
   /** The line whose value is being edited, and why the typed text cannot be saved. */
   protected readonly editing = signal<{ line: number; error: string | null } | null>(null);
   protected readonly saveError = signal<string | null>(null);
+  /** A removal is on its way: the line numbers shown are stale until the page is loaded again. */
+  protected readonly removing = signal(false);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -151,6 +165,7 @@ export class MetadataGroupComponent {
         this.loading.set(false);
         if (!d) return;
         this.data.set(d);
+        this.removing.set(false);
         this.editing.set(null);
         this.page.set(d.page ?? this.request().page);
         if (byKey) afterNextRender(() => this.reveal(), { injector: this.injector });
@@ -223,6 +238,23 @@ export class MetadataGroupComponent {
         // a conflict: the host reloads the document and says so
         if ((err as { status?: unknown } | null)?.status === 409) return;
         this.saveError.set(saveErrorOf(err, SAVE_ERROR));
+        this.request.set({ page: this.page(), key: null });
+      },
+    });
+  }
+
+  /** Removes the entry's line as one DeleteLine; the entry goes at once, and the page is loaded again when it is done. */
+  protected remove(e: DocMetadataEntry): void {
+    if (!this.editable() || e.lineNumber == null || this.removing() || !this.source.applyEdits) return;
+    this.saveError.set(null);
+    this.editing.set(null);
+    this.removing.set(true);
+    const d = this.data();
+    if (d) this.data.set({ ...d, entries: (d.entries ?? []).filter((x) => x !== e) });
+    this.source.applyEdits([{ op: 'DeleteLine', line: e.lineNumber }]).subscribe({
+      error: (err: unknown) => {
+        // a conflict: the host reloads the document and says so
+        if ((err as { status?: unknown } | null)?.status !== 409) this.saveError.set(saveErrorOf(err, 'This line could not be removed.'));
         this.request.set({ page: this.page(), key: null });
       },
     });

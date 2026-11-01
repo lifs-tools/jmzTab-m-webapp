@@ -13,7 +13,7 @@ const DATA_PREFIXES = new Set(['SML', 'SMF', 'SME']);
  * The quick fixes that can fix every message of a group at once (the server's QuickFix.appliesToAll); the
  * others fix one message per preview. "reencode-latin1" re-creates the copy: the editor never offers it here.
  */
-export const FIXES_FOR_ALL = new Set(['remove-empty-parameter', 'normalise-doi', 'join-broken-line', 'split-mtd-line']);
+export const FIXES_FOR_ALL = new Set(['remove-empty-parameter', 'normalise-doi', 'join-broken-line', 'split-mtd-line', 'remove-mismatched-field']);
 const NOT_A_PREVIEW = 'reencode-latin1';
 
 /** Whether quick fixes can be previewed now (the editor), or not yet (its latest changes are being checked). */

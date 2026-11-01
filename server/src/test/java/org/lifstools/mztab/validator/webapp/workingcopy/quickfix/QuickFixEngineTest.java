@@ -214,6 +214,7 @@ class QuickFixEngineTest {
             // the inserted line has an empty value, which the engine reports in turn: the value is the user's to give
             "Error-1008");
         fixesIt(line, "engine-remove-unused-cv.mzTab", "remove-unused-cv", "Warn-3014", true, null);
+        fixesIt(line, "engine-remove-mismatched-field.mzTab", "remove-mismatched-field", "Info-2057", false, null);
     }
 
     /**

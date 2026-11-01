@@ -108,6 +108,27 @@ describe('MetadataViewComponent editing', () => {
     expect(el.querySelector('mat-panel-title')?.textContent?.trim()).toBe('general (3)');
   });
 
+  it('removes a line: a Remove button per entry emits DeleteLine with that entry\'s line number', async () => {
+    const { el, settle } = await render();
+    const buttons = el.querySelectorAll<HTMLButtonElement>('button.entry-remove');
+    expect(buttons.length).toBe(2);
+    expect(buttons[1].getAttribute('aria-label')).toBe('Remove line 3');
+    expect(buttons[1].title).toBe('Remove this line');
+    buttons[1].click();
+    await settle();
+    expect(src.oneEdit().args).toEqual([{ op: 'DeleteLine', line: 3 }]);
+    // the entry is gone at once, and no second removal can use the line numbers that just moved
+    expect(el.querySelectorAll('.entry').length).toBe(1);
+    expect((el.querySelector('button.entry-remove') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('shows no Remove button when read-only', async () => {
+    const { fixture, el, settle } = await render();
+    fixture.componentInstance.readonly.set(true);
+    await settle();
+    expect(el.querySelector('button.entry-remove')).toBeNull();
+  });
+
   it('shows plain values when read-only', async () => {
     const { fixture, el, settle } = await render();
     fixture.componentInstance.readonly.set(true);

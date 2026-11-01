@@ -98,6 +98,7 @@ class QuickFixesTest {
     void idsCoverTheFixesAndLatin1() {
         assertTrue(QuickFixes.ids().containsAll(List.of("remove-empty-parameter", "normalise-doi", "join-broken-line",
             "split-mtd-line", "add-mandatory-column", "add-missing-metadata", "remove-unused-cv",
+            "remove-mismatched-field",
             "reencode-latin1")));
         assertTrue(QuickFixes.find("reencode-latin1").isEmpty());
         assertTrue(QuickFixes.find("no-such-fix").isEmpty());
@@ -115,6 +116,94 @@ class QuickFixesTest {
             + "MTD\tinstrument[2]-detector\t[, , , ] | [,,,]\nMTD\tdescription\t[, , , ]x\n",
             apply(ops("remove-empty-parameter",
                 message("Error-1012", "\"x\" value \"[, , , ]\" is not a valid parameter.", 3))));
+    }
+
+    private static final String MISMATCH = "\"%s\" is present but the profile \"M+S\" has no \"small molecule"
+        + " feature (SMF)\" section that would require it.";
+
+    private static final String PROFILE_FILE = "MTD\tmzTab-version\t2.1.0-M\n"
+        + "MTD\tmzTab-profile\tM+S\n"
+        + "MTD\tsmall_molecule-quantification_unit\t[UO, UO:1, a, ]\n"
+        + "MTD\tsmall_molecule_feature-quantification_unit\t[UO, UO:1, a, ]\n"
+        + "MTD\tcolunit-small_molecule_feature\tx=[UO, UO:1, a, ]\n"
+        + "SMH\tSML_ID\tfoo\tbar\n"
+        + "SML\t1\ta\tb\n"
+        + "SML\t2\tc\td\n"
+        + "SEH\tSME_ID\tfoo\n"
+        + "SME\t1\te\n";
+
+    private static ValidationMessage mismatch(String name) {
+        return message("Info-2057", String.format(MISMATCH, name), -1);
+    }
+
+    @Test
+    void removeMismatchedFieldDeletesTheMetadataLine() throws Exception {
+        load(PROFILE_FILE);
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0,
+            mismatch("small_molecule_feature-quantification_unit"), null, db);
+        assertEquals(List.of(new DeleteLine(4)), p.batch().operations());
+        assertEquals(1, p.changes().size());
+        assertEquals(4, p.changes().get(0).lineNumber());
+        assertNull(p.changes().get(0).after());
+        assertTrue(fix("remove-mismatched-field").appliesToAll());
+        assertFalse(apply(p.batch().operations()).contains("small_molecule_feature-quantification_unit"));
+    }
+
+    @Test
+    void removeMismatchedFieldDeletesTheNamedColumn() throws Exception {
+        load(PROFILE_FILE);
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, mismatch("bar"), null, db);
+        assertEquals(List.of(new DeleteColumn("SMH", "bar", 3)), p.batch().operations());
+        assertEquals(3, p.changes().size());
+        assertEquals("SMH\tSML_ID\tfoo", p.changes().get(0).after());
+        String text = apply(p.batch().operations());
+        assertTrue(text.contains("SMH\tSML_ID\tfoo\nSML\t1\ta\nSML\t2\tc\n"), text);
+    }
+
+    @Test
+    void removeMismatchedFieldIsNotOfferedWhenTheNameIsNotFoundOrNotUnique() throws Exception {
+        load(PROFILE_FILE.replace("SEH\tSME_ID\tfoo", "SEH\tSME_ID\tfoo\tbar"));
+        // no such key or column
+        assertTrue(fix("remove-mismatched-field").forMessage(mismatch("nothing_here"), db).isEmpty());
+        // "bar" is a column of two tables: the message does not say which
+        assertTrue(fix("remove-mismatched-field").forMessage(mismatch("bar"), db).isEmpty());
+        // not a 2057
+        assertTrue(fix("remove-mismatched-field").forMessage(
+            message("Info-2058", String.format(MISMATCH, "foo"), -1), db).isEmpty());
+        // not text that names a field
+        assertTrue(fix("remove-mismatched-field").forMessage(message("Info-2057", "something else", -1), db).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> QuickFixes.preview(fix("remove-mismatched-field"), 0,
+            mismatch("bar"), null, db));
+    }
+
+    @Test
+    void removeMismatchedFieldForAllMessagesIsOneOperationEachFromTheBottomUp() throws Exception {
+        load(PROFILE_FILE);
+        List<ValidationMessage> group = List.of(mismatch("foo"), mismatch("small_molecule-quantification_unit"),
+            mismatch("bar"), mismatch("small_molecule_feature-quantification_unit"),
+            mismatch("small_molecule_feature-quantification_unit"), mismatch("colunit-small_molecule_feature"));
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, group.get(3), group, db);
+        // "foo" occurs in two tables, so it is skipped; the repeated message makes one operation
+        assertEquals(4, p.occurrences());
+        assertEquals(List.of(new DeleteLine(5), new DeleteLine(4), new DeleteLine(3), new DeleteColumn("SMH", "bar", 3)),
+            p.batch().operations());
+        String text = apply(p.batch().operations());
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-profile\tM+S\nSMH\tSML_ID\tfoo\n"
+            + "SML\t1\ta\nSML\t2\tc\nSEH\tSME_ID\tfoo\nSME\t1\te\n", text);
+        assertEquals(3 + 3, p.changes().size());
+    }
+
+    @Test
+    void removeSeveralMismatchedColumnsOfOneTableRightToLeft() throws Exception {
+        load("MTD\tmzTab-version\t2.1.0-M\nSMH\tSML_ID\ta\tb\tc\nSML\t1\tx\ty\tz\n");
+        List<ValidationMessage> group = List.of(mismatch("a"), mismatch("c"));
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, group.get(0), group, db);
+        assertEquals(List.of(new DeleteColumn("SMH", "c", 4), new DeleteColumn("SMH", "a", 2)),
+            p.batch().operations());
+        assertEquals(2, p.changes().size());
+        assertEquals("SMH\tSML_ID\tb", p.changes().get(0).after());
+        assertEquals("SML\t1\ty", p.changes().get(1).after());
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nSMH\tSML_ID\tb\nSML\t1\ty\n", apply(p.batch().operations()));
     }
 
     @Test

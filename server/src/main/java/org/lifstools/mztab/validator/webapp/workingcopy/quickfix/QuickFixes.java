@@ -48,7 +48,7 @@ public final class QuickFixes {
 
     private static final List<QuickFix> FIXES = List.of(new RemoveEmptyParameter(), new NormaliseDoi(),
         new JoinBrokenLine(), new SplitMtdLine(), new AddMandatoryColumn(), new AddMissingMetadata(),
-        new RemoveUnusedCv());
+        new RemoveUnusedCv(), new RemoveMismatchedField());
 
     private QuickFixes() {
     }
@@ -109,6 +109,13 @@ public final class QuickFixes {
             // edits that keep the line numbers first, then those that move lines (stable, so still bottom-up):
             // a join must not be followed by a rewrite of the line it merged into
             all.sort(Comparator.comparingInt(op -> movesLines(op) ? 1 : 0));
+            // column deletes name cell positions, which each one shifts: right to left within a table
+            List<DeleteColumn> columns = new ArrayList<>();
+            all.removeIf(op -> op instanceof DeleteColumn c && columns.add(c));
+            columns.sort(Comparator.comparing(DeleteColumn::header)
+                .thenComparing(Comparator.comparingInt((DeleteColumn c) -> c.position() == null ? 0 : c.position())
+                    .reversed()));
+            all.addAll(columns);
         }
         List<LineChange> changes = changes(all, db);
         return new QuickFixPreview(fix.id(), fix.title(), revision, parts.size(),
@@ -147,6 +154,7 @@ public final class QuickFixes {
         Map<Long, String> after = new TreeMap<>();
         List<LineChange> inserts = new ArrayList<>();
         List<LineChange> columns = new ArrayList<>();
+        Map<Long, List<String>> trimmed = new TreeMap<>();
         for (EditOperation op : ops) {
             switch (op) {
                 case DeleteLine o -> {
@@ -169,11 +177,13 @@ public final class QuickFixes {
                 }
                 case InsertLine o -> inserts.add(new LineChange(o.before(), null, o.text()));
                 case InsertColumn o -> columns.addAll(insertColumn(o, db));
+                case DeleteColumn o -> deleteColumn(o, db, trimmed, original);
                 default -> throw new IllegalStateException("No preview for " + op);
             }
         }
         List<LineChange> out = new ArrayList<>(columns);
         out.addAll(inserts);
+        trimmed.forEach((n, cells) -> out.add(new LineChange(n, original.get(n), String.join("\t", cells))));
         for (Map.Entry<Long, String> e : after.entrySet()) {
             String before = original.get(e.getKey());
             if (!before.equals(e.getValue())) {
@@ -215,6 +225,43 @@ public final class QuickFixes {
         cells.set(1, c.substring(0, start));
         cells.add(2, c.substring(end));
         return String.join("\t", cells);
+    }
+
+    /**
+     * The header and the first rows of the table without the column. The cells left are kept in {@code trimmed}
+     * so that a second column deleted from the same lines builds on the first.
+     */
+    private static void deleteColumn(DeleteColumn o, WorkingCopyDb db, Map<Long, List<String>> trimmed,
+        Map<Long, String> original) {
+        String rows = ROWS.get(o.header());
+        if (rows == null || o.position() == null) {
+            throw new IllegalStateException("No preview for " + o);
+        }
+        int idx = o.position();
+        boolean header = false;
+        int seen = 0;
+        // a column already deleted from this table: only the lines listed for it are updated
+        boolean continuing = db.firstOf(o.header()).map(h -> trimmed.containsKey(h.number())).orElse(false);
+        Iterator<Line> it = db.allLines();
+        while (it.hasNext() && seen <= MAX_CHANGES) {
+            Line l = it.next();
+            if (!header && l.section().equals(o.header())) {
+                header = true;
+            } else if (!l.section().equals(rows)) {
+                continue;
+            }
+            if (continuing && !trimmed.containsKey(l.number())) {
+                continue;
+            }
+            List<String> cells = new ArrayList<>(trimmed.getOrDefault(l.number(), l.cells()));
+            if (cells.size() > idx) {
+                cells.remove(idx);
+            }
+            original.putIfAbsent(l.number(), l.text());
+            if (trimmed.put(l.number(), cells) == null) {
+                seen++;
+            }
+        }
     }
 
     private static final Map<String, String> ROWS = Map.of("SMH", "SML", "SFH", "SMF", "SEH", "SME");

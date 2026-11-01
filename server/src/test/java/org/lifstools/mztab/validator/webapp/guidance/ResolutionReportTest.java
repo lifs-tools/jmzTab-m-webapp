@@ -71,6 +71,23 @@ class ResolutionReportTest {
     }
 
     @Test
+    void aFallbackGroupHasNoEmptyFixInToolLine() {
+        org.lifstools.mztab.validator.engine.api.ValidationMessage m =
+            new org.lifstools.mztab.validator.engine.api.ValidationMessage();
+        m.setCode("[Error-9999] line 3: nothing the catalog knows");
+        m.setMessage("nothing the catalog knows");
+        m.setLineNumber(3L);
+        GuidanceResolver resolver = new GuidanceResolver(new GuidanceCatalog(
+            new com.fasterxml.jackson.databind.ObjectMapper(), new org.springframework.core.io.DefaultResourceLoader()));
+        List<Guidance> groups = resolver.resolve(List.of(m), null, List.of(), n -> java.util.Map.of());
+        assertEquals(1, groups.size());
+        assertEquals(null, groups.get(0).entryId());
+        String md = ResolutionReport.markdown(record(), groups);
+        assertFalse(md.contains("Fix in the tool"), md);
+        assertTrue(md.contains("nothing the catalog knows"), md);
+    }
+
+    @Test
     void reportOfACleanFileSaysSo() {
         assertTrue(ResolutionReport.markdown(record(), List.of()).contains("No problems were found."));
     }
