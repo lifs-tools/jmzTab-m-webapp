@@ -508,6 +508,13 @@ The 2a whole-branch review found these. None blocked the merge. The next phase p
    - A single quick fix targets the message the user last showed in its group, matched by object identity, so it falls back to the guidance's first message after a recheck. Match by line and code instead.
    - A column pick that needs more than 200 positions is refused in the browser rather than split.
    - `EngineTestSupport.has21()` skips the 2.1 cases silently when `engine21.jar` is set but the jar is missing (e.g. `-pl server` without `-am`). Fail instead when the property is set.
+8. **From the follow-ups' review (2026-11-01).**
+   - **Two tabs on one copy.** While a tab polls during its own run, a newer revision written by another tab is taken without a reload, so a page read before that poll can still be edited at the new revision. Treat a revision jump this tab did not cause as a possible line move (raise the line-move revision, emit `changed`). The release notes ask users to edit in one tab at a time until then.
+   - A metadata group whose reload fails after a change keeps its Remove buttons disabled until the next successful load; offer Retry.
+   - The metadata value and table cell editors drop typed text on a 409; keep it as the raw line editor does.
+   - After a route change to another copy, an answer still queued for the old copy can update the new copy's state; drop queued jobs on a copy change.
+   - Messages from the previous check stay selectable after a line move until the next check; line-based actions could wait for the current check.
+   - A spec for the line-move revision reset when a copy is created.
 
 ---
 

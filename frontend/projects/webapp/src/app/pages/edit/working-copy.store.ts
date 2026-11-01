@@ -378,7 +378,7 @@ export class WorkingCopyStore {
       .subscribe({
         next: (info) => {
           // what changed elsewhere is not known: any line may have moved
-          this.lastLineMoveRevision = info.revision ?? 0;
+          this.lastLineMoveRevision = Math.max(this.lastLineMoveRevision, info.revision ?? 0);
           this.setInfo(info, true);
           this.changed.next();
           this.notices.next(notice);
