@@ -106,9 +106,13 @@ public final class QuickFixes {
         }
         List<EditOperation> all = parts.stream().flatMap(List::stream).collect(java.util.stream.Collectors.toList());
         if (group != null) {
-            // edits that keep the line numbers first, then those that move lines (stable, so still bottom-up):
-            // a join must not be followed by a rewrite of the line it merged into
-            all.sort(Comparator.comparingInt(op -> movesLines(op) ? 1 : 0));
+            // edits that keep the line numbers first, then those that move lines: a join must not be followed by a
+            // rewrite of the line it merged into. The line movers go from the bottom up across all parts (stable, so
+            // a part keeps its own order for one line), since parts may interleave: a group of metadata lines of one
+            // message can enclose the line of another
+            all.sort(Comparator.comparingInt((EditOperation op) -> movesLines(op) ? 1 : 0)
+                .thenComparing(Comparator.comparingLong((EditOperation op) -> movesLines(op) ? lineOf(op) : 0)
+                    .reversed()));
             // column deletes name cell positions, which each one shifts: right to left within a table
             List<DeleteColumn> columns = new ArrayList<>();
             all.removeIf(op -> op instanceof DeleteColumn c && columns.add(c));

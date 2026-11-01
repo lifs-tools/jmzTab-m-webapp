@@ -218,6 +218,40 @@ class QuickFixEngineTest {
     }
 
     /**
+     * Info-2057 for a group of indexed keys (id_confidence_measure[1], [2] in a file without SME): the engine
+     * locates it at the group's first line, the fix removes every line of the group, and the engine no longer
+     * reports a mismatch.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void removingAMismatchedGroupRemovesItsMessage(String line) throws Exception {
+        requireEngine(line);
+        String file = "engine-remove-mismatched-group.mzTab";
+        UUID id = submit(file, resource(file, line).getBytes(StandardCharsets.UTF_8));
+        validatedBy(id, line);
+        copies.create(id, SourceEncoding.UTF_8);
+        WorkingCopyValidation before = validate(id, 0, false);
+        int message = indexOf(before, "Info-2057");
+        ValidationMessage target = before.messages().get(message).message();
+        assertTrue(target.getMessage().startsWith("\"id_confidence_measure\""), target.getMessage());
+        assertEquals(48L, target.getLineNumber());
+        assertEquals("id_confidence_measure", target.getLocation().getMetadataGroup());
+
+        QuickFixPreview preview = fixes.preview(id, "remove-mismatched-field", message, true);
+        assertEquals(List.of(new org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.DeleteLine(49),
+            new org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.DeleteLine(48)),
+            preview.batch().operations());
+        copies.edit(id, preview.batch());
+
+        WorkingCopyValidation after = validate(id, 1, false);
+        assertFalse(has(after.messages(), "Info-2057"), "still reported: " + after.messages());
+        assertTrue(after.fixed().stream().anyMatch(m -> same(m, target)), "not among the fixed: " + after.fixed());
+        assertTrue(after.messages().stream().map(TrackedMessage::message)
+            .noneMatch(m -> m.getMessageType() == ValidationMessage.MessageType.ERROR), "errors: " + after.messages());
+        assertTrue(reader.lines(id, 48, 1).get(0).text().startsWith("MTD\tdatabase[1]\t"));
+    }
+
+    /**
      * A header that names a column twice is reported as Error-2062; merging the two columns (no quick fix, the
      * editor's duplicate-column resolution) removes the message.
      */

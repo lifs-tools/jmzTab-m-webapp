@@ -29,9 +29,12 @@ import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyDb;
 /**
  * Info-2057: the file has a field or column that the declared profile has no section for. The name comes from
  * the quoted text before {@code is present}. A metadata field of that name is removed by deleting its line; a
- * column of that name is removed from the header and every row of its table. The fix is offered only if the
- * name is found exactly once, in the metadata keys and the table headers together: with more than one place
- * (for example the same column name in two tables), the message does not say which one it means.
+ * column of that name is removed from the header and every row of its table (the first header line of the table,
+ * where the engine locates the message). The fix is offered only if the name is found exactly once, in the
+ * metadata keys and the table headers together: with more than one place (for example the same column name in
+ * two tables), the message does not say which one it means. A name that is no key or column but the group of
+ * indexed keys ({@code database} for {@code database[1]}, {@code database[1]-prefix}, ...) removes every line of
+ * the group, from the bottom up; with a key or column of the same name as well, the fix is withheld.
  */
 final class RemoveMismatchedField implements QuickFix {
 
@@ -59,9 +62,18 @@ final class RemoveMismatchedField implements QuickFix {
             return Optional.empty();
         }
         List<EditOperation> found = new ArrayList<>();
+        List<Long> group = new ArrayList<>();
         for (Line l : db.linesOf("MTD", "MTD")) {
-            if (l.cells().size() > 1 && l.cells().get(1).equals(name)) {
+            if (l.cells().size() < 2) {
+                continue;
+            }
+            String key = l.cells().get(1);
+            if (key.equals(name)) {
                 found.add(new DeleteLine(l.number()));
+            }
+            int bracket = key.indexOf('[');
+            if (bracket > 0 && key.substring(0, bracket).equals(name)) {
+                group.add(l.number());
             }
         }
         for (String header : HEADERS) {
@@ -73,6 +85,16 @@ final class RemoveMismatchedField implements QuickFix {
                     }
                 }
             }
+        }
+        if (!group.isEmpty()) {
+            if (!found.isEmpty()) {
+                return Optional.empty();
+            }
+            List<EditOperation> lines = new ArrayList<>();
+            for (int i = group.size() - 1; i >= 0; i--) {
+                lines.add(new DeleteLine(group.get(i)));
+            }
+            return Optional.of(lines);
         }
         return found.size() == 1 ? Optional.of(found) : Optional.empty();
     }

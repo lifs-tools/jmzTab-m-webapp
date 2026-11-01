@@ -215,6 +215,65 @@ class QuickFixesTest {
         assertTrue(fix("remove-mismatched-field").forMessage(mismatch("shared"), db).isEmpty());
     }
 
+    private static final String GROUP_FILE = "MTD\tmzTab-version\t2.1.0-M\n"
+        + "MTD\tmzTab-profile\tM+S\n"
+        + "MTD\tdatabase[1]\t[,, Pubchem, ]\n"
+        + "MTD\tdatabase[1]-prefix\tPUBCHEM\n"
+        + "MTD\tid_confidence_measure[1]\t[MS, MS:1002890, fragmentation score, ]\n"
+        + "MTD\tdatabase[2]\t[,, LipidMaps, ]\n"
+        + "MTD\tdatabase[2]-uri\thttp://x\n"
+        + "MTD\tdatabase_x\ty\n"
+        + "MTD\tquantification_method\t[MS, MS:1, q, ]\n"
+        + "SMH\tSML_ID\tdatabase_identifier\n"
+        + "SML\t1\tx\n";
+
+    @Test
+    void removeMismatchedGroupDeletesEveryLineOfTheGroupFromTheBottomUp() throws Exception {
+        load(GROUP_FILE);
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, mismatch("database"), null, db);
+        assertEquals(List.of(new DeleteLine(7), new DeleteLine(6), new DeleteLine(4), new DeleteLine(3)),
+            p.batch().operations());
+        assertEquals(4, p.changes().size());
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-profile\tM+S\n"
+            + "MTD\tid_confidence_measure[1]\t[MS, MS:1002890, fragmentation score, ]\n"
+            + "MTD\tdatabase_x\ty\nMTD\tquantification_method\t[MS, MS:1, q, ]\n"
+            + "SMH\tSML_ID\tdatabase_identifier\nSML\t1\tx\n", apply(p.batch().operations()));
+    }
+
+    @Test
+    void removeMismatchedGroupIsWithheldWhenTheNameIsAlsoAKey() throws Exception {
+        load(GROUP_FILE.replace("MTD\tdatabase_x\ty", "MTD\tdatabase\ty"));
+        assertTrue(fix("remove-mismatched-field").forMessage(mismatch("database"), db).isEmpty());
+    }
+
+    @Test
+    void removeMismatchedGroupIsWithheldWhenTheNameIsAlsoAColumn() throws Exception {
+        load("MTD\tmzTab-version\t2.1.0-M\nMTD\tdatabase[1]\tx\nSMH\tSML_ID\tdatabase\nSML\t1\tx\n");
+        assertTrue(fix("remove-mismatched-field").forMessage(mismatch("database"), db).isEmpty());
+    }
+
+    @Test
+    void removeMismatchedForAllMergesGroupsAndKeysFromTheBottomUp() throws Exception {
+        // the groups interleave: every delete must still name the line it meant
+        load(GROUP_FILE);
+        List<ValidationMessage> group = List.of(mismatch("id_confidence_measure"), mismatch("database"),
+            mismatch("quantification_method"));
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, group.get(1), group, db);
+        assertEquals(3, p.occurrences());
+        assertEquals(List.of(new DeleteLine(9), new DeleteLine(7), new DeleteLine(6), new DeleteLine(5),
+            new DeleteLine(4), new DeleteLine(3)), p.batch().operations());
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-profile\tM+S\nMTD\tdatabase_x\ty\n"
+            + "SMH\tSML_ID\tdatabase_identifier\nSML\t1\tx\n", apply(p.batch().operations()));
+    }
+
+    @Test
+    void removeMismatchedFieldUsesTheFirstHeaderLineOfATable() throws Exception {
+        // the engine locates the message at the first SMH line, so the fix removes the column there
+        load("MTD\tmzTab-version\t2.1.0-M\nSMH\tSML_ID\ta\tb\nSML\t1\tx\ty\nSMH\tSML_ID\tb\ta\nSML\t2\tz\tw\n");
+        assertEquals(List.of(new DeleteColumn("SMH", "b", 3)),
+            fix("remove-mismatched-field").forMessage(mismatch("b"), db).orElseThrow());
+    }
+
     @Test
     void removeSeveralMismatchedColumnsOfOneTableRightToLeft() throws Exception {
         load("MTD\tmzTab-version\t2.1.0-M\nSMH\tSML_ID\ta\tb\tc\nSML\t1\tx\ty\tz\n");
