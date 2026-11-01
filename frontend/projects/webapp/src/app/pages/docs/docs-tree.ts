@@ -11,6 +11,19 @@ export const DOCS_HOME: DocsNode = { path: '/docs', title: 'Documentation' };
 /** The chapters, in the order of the side navigation. */
 export const DOCS_TREE: readonly DocsNode[] = [
   { path: '/docs/getting-started', title: 'Getting started' },
+  {
+    path: '/docs/format',
+    title: 'Understanding mzTab-M',
+    children: [
+      { path: '/docs/format/metadata', title: 'Metadata (MTD)' },
+      { path: '/docs/format/summary', title: 'Summary (SML)' },
+      { path: '/docs/format/features', title: 'Features (SMF)' },
+      { path: '/docs/format/evidence', title: 'Evidence (SME)' },
+      { path: '/docs/format/references', title: 'How the rows refer to each other' },
+      { path: '/docs/format/cv-parameters', title: 'Controlled vocabularies and parameters' },
+      { path: '/docs/format/study-design', title: 'Describing your study design' },
+    ],
+  },
   { path: '/docs/versions', title: 'mzTab-M 2.0 and 2.1' },
   { path: '/docs/validating', title: 'Validating a file' },
   { path: '/docs/fixing', title: 'Fixing a file' },

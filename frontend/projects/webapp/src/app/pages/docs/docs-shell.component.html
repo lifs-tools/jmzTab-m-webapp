@@ -51,8 +51,8 @@
   </ul>
 </ng-template>
 
-<ng-template #nodes let-nodes>
-  @for (n of nodes; track n.path) {
+<ng-template #nodes let-pages>
+  @for (n of pages; track n.path) {
     <li>
       <a
         [routerLink]="n.path"

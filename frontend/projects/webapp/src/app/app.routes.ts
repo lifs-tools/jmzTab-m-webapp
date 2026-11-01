@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { pageTitle } from './core/page-titles';
+import { FORMAT_PAGES, formatRouteData } from './pages/docs/format-chapters';
 import { aboutRedirect, keepFragment } from './pages/docs/docs-redirects';
 
 export const routes: Routes = [
@@ -40,6 +41,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/docs/getting-started.page').then((m) => m.GettingStartedPage),
       },
+      ...FORMAT_PAGES.map((segment) => ({
+        path: segment ? `format/${segment}` : 'format',
+        title: pageTitle(segment ? `/docs/format/${segment}` : '/docs/format'),
+        data: formatRouteData(segment),
+        loadComponent: () =>
+          import('./pages/docs/format-chapter.page').then((m) => m.FormatChapterPage),
+      })),
       {
         path: 'versions',
         title: pageTitle('/docs/versions'),

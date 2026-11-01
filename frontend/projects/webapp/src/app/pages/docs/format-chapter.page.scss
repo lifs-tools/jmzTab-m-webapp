@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p,
+dl {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.sections {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+
+  dt {
+    font-family: var(--lifs-mono);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  // keep the heading below the fixed app bar when a link scrolls here
+  scroll-margin-top: 80px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.look-for {
+  font-size: 13px;
+}

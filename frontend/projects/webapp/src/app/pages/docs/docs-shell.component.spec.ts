@@ -29,6 +29,7 @@ describe('DocsShellComponent', () => {
             component: DocsShellComponent,
             children: [
               { path: '', component: Blank },
+              { path: 'format', component: Blank },
               { path: 'validating', component: Blank },
               { path: 'fixing', component: Blank },
               { path: 'problems', component: Blank },
@@ -65,6 +66,14 @@ describe('DocsShellComponent', () => {
     expect(Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim())).toEqual([
       'Documentation',
       'Getting started',
+      'Understanding mzTab-M',
+      'Metadata (MTD)',
+      'Summary (SML)',
+      'Features (SMF)',
+      'Evidence (SME)',
+      'How the rows refer to each other',
+      'Controlled vocabularies and parameters',
+      'Describing your study design',
       'mzTab-M 2.0 and 2.1',
       'Validating a file',
       'Fixing a file',
