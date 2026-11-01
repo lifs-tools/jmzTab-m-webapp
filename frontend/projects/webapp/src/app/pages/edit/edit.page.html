@@ -227,7 +227,9 @@
                 class="raw"
                 [lineNumber]="raw.lineNumber"
                 [text]="raw.text"
+                [readAt]="raw.readAt ?? null"
                 (saved)="onRawSaved()"
+                (refused)="onRawRefused(raw.lineNumber, $event)"
                 (cancelled)="rawLine.set(null)"
               />
             }

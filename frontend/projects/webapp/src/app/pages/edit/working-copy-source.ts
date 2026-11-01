@@ -1,9 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, defer, map, throwError } from 'rxjs';
 import {
   DocDuplicateColumn,
   DocEdit,
+  DocEditOptions,
   DocMetadataGroup,
   DocMetadataPage,
   DocSection,
@@ -41,11 +42,25 @@ export class WorkingCopySource extends DocumentSource {
   }
 
   metadataPage(group: string, page: number, size: number, key?: string): Observable<DocMetadataPage> {
-    return this.api.getWorkingCopyMetadataPage({ id: this.id, group, page, size, ...(key ? { key } : {}) }, quietRequest());
+    return this.stamped(() =>
+      this.api.getWorkingCopyMetadataPage({ id: this.id, group, page, size, ...(key ? { key } : {}) }, quietRequest()),
+    );
+  }
+
+  /**
+   * Each page carries `readAt`: the revision of the copy's last answer when the read was made. The server may
+   * answer with a newer text (an edit was on its way), never an older one, so a line number of the page is valid
+   * at least from `readAt` on; the store refuses an edit of it when lines moved since.
+   */
+  private stamped<T extends object>(read: () => Observable<T>): Observable<T & { readAt: number }> {
+    return defer(() => {
+      const readAt = this.store.currentRevision();
+      return read().pipe(map((page) => ({ ...page, readAt })));
+    });
   }
 
   tablePage(section: DocSection, q: DocTableQuery): Observable<DocTablePage> {
-    return this.api.getWorkingCopyTablePage(
+    return this.stamped(() => this.api.getWorkingCopyTablePage(
       {
         id: this.id,
         section,
@@ -66,18 +81,18 @@ export class WorkingCopySource extends DocumentSource {
           : {}),
       },
       quietRequest(),
-    );
+    ));
   }
 
   /**
    * Edits go through the store. A refused edit fails with its `status` and, for a 400, the server's reason as
    * `detail`, which the views show.
    */
-  override applyEdits(ops: DocEdit[]): Observable<void> {
+  override applyEdits(ops: DocEdit[], options?: DocEditOptions): Observable<void> {
     // a raw line may become (or stop being) a row or an entry the views show
     const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op) || o.op === 'SetRawLine');
     // DocEdit mirrors the server's EditOperation records field by field
-    return this.store.edit(ops as unknown as EditOps, reload).pipe(
+    return this.store.edit(ops as unknown as EditOps, reload, options?.readAt ?? null).pipe(
       map(() => undefined),
       catchError((err: unknown) => {
         const status = err instanceof HttpErrorResponse ? err.status : undefined;

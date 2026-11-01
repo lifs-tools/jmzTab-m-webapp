@@ -76,7 +76,9 @@ const GONE = 'gone' as const;
  *   so batches the user makes quickly one after another never conflict with each other. Not behind a batch that
  *   moves lines (or an undo or redo, which may): an edit made while such a batch is queued names the line numbers
  *   of the text before it, so it names the revision of the moment it was made, and the server refuses it (409)
- *   rather than apply it to the line that now has that number.
+ *   rather than apply it to the line that now has that number. The same holds for an edit of a page the views
+ *   read before the last line move (`readAt`, a page's stamp), also once the move is answered: the views read
+ *   their pages again only after `changed`, one round trip later.
  * - After each accepted batch, a structural run is requested once the user has been idle for {@link IDLE_MS}.
  *   While a run is RUNNING, `GET /{id}` is polled every {@link POLL_MS}.
  * - A 409 from an edit, undo or redo means the copy changed elsewhere (another tab): the info is read again,
@@ -148,6 +150,12 @@ export class WorkingCopyStore {
   private readonly jobs = new Subject<() => Observable<unknown>>();
   /** Queued requests that move lines (or may), not yet answered. */
   private lineMovesQueued = 0;
+  /**
+   * The revision of the last answer after which lines may have moved (a line-moving batch, an undo or redo, a
+   * reload after a conflict). An edit of a page read at an older revision names that revision, so the server
+   * refuses it (409) and the views read again.
+   */
+  private lastLineMoveRevision = -1;
   private readonly idle = new Subject<boolean>();
   /** Each value starts polling anew: the previous poll, and a read it has in flight, are cancelled. */
   private readonly polls = new Subject<void>();
@@ -216,6 +224,8 @@ export class WorkingCopyStore {
   }
 
   private create(encoding: 'UTF_8' | 'WINDOWS_1252'): void {
+    // a new copy counts its revisions anew
+    this.lastLineMoveRevision = -1;
     this.api
       .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -247,10 +257,10 @@ export class WorkingCopyStore {
    * Applies one batch; completes when it is accepted. A 409 reloads (and the error is passed on). `reload` tells
    * every view to read again (the batch changed more than the view that made it shows, e.g. the columns).
    */
-  edit(ops: EditOps, reload = false): Observable<WorkingCopyInfo> {
+  edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
       (revision) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops } }),
-      { reload, movesLines: movesLines(ops) },
+      { reload, movesLines: movesLines(ops), readAt },
     );
   }
 
@@ -290,6 +300,11 @@ export class WorkingCopyStore {
     return this.info()?.revision ?? 0;
   }
 
+  /** The revision of the copy's last answer: what a page read now shows at least. */
+  currentRevision(): number {
+    return this.revision();
+  }
+
   /**
    * Queues a request that changes the copy. The request is made when it is its turn, so it names the revision of
    * the answer before it; unless a request that moves lines was queued when it was made (and it names lines),
@@ -298,7 +313,12 @@ export class WorkingCopyStore {
    */
   private enqueue(
     request: (revision: number) => Observable<WorkingCopyInfo>,
-    { reload = false, movesLines = false, linesNamed = true }: { reload?: boolean; movesLines?: boolean; linesNamed?: boolean },
+    {
+      reload = false,
+      movesLines = false,
+      linesNamed = true,
+      readAt = null,
+    }: { reload?: boolean; movesLines?: boolean; linesNamed?: boolean; readAt?: number | null },
   ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
     const issued = this.revision();
@@ -306,12 +326,16 @@ export class WorkingCopyStore {
     if (movesLines) this.lineMovesQueued++;
     this.inFlight.update((n) => n + 1);
     this.jobs.next(() => {
-      const revision = pinned ? issued : this.revision();
+      const now = this.revision();
+      // decided when it is sent: a page read before the last line move has numbers that may name other lines now
+      const stale = readAt != null && readAt < this.lastLineMoveRevision;
+      const revision = stale ? readAt : readAt == null && pinned ? issued : now;
       // refused because the lines moved under it, not because of another tab
-      const moved = pinned && issued !== this.revision();
+      const moved = revision !== now;
       return defer(() => request(revision)).pipe(
         tap({
           next: (info) => {
+            if (movesLines) this.lineMoved(info);
             this.setInfo(info);
             this.idlePending.set(true);
             this.idle.next(true);
@@ -341,6 +365,11 @@ export class WorkingCopyStore {
     this.notices.next((status === 400 && serverMessage(err)) || SAVE_FAILED);
   }
 
+  /** Lines may have moved up to this answer: pages read before it are stale for edits that name lines. */
+  private lineMoved(info: WorkingCopyInfo): void {
+    this.lastLineMoveRevision = Math.max(this.lastLineMoveRevision, info.revision ?? 0);
+  }
+
   /** The copy changed elsewhere, or under a queued edit: read it again and let the views reload. */
   private conflict(notice: string): void {
     this.api
@@ -348,6 +377,8 @@ export class WorkingCopyStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
+          // what changed elsewhere is not known: any line may have moved
+          this.lastLineMoveRevision = info.revision ?? 0;
           this.setInfo(info, true);
           this.changed.next();
           this.notices.next(notice);

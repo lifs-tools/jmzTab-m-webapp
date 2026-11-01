@@ -45,6 +45,8 @@ const count = (n: number | undefined) => (n ?? 0).toLocaleString('en');
 interface RawLine {
   lineNumber: number;
   text: string;
+  /** The revision the line was read at; its save names it, so it is refused if lines moved since. */
+  readAt?: number | null;
 }
 
 /**
@@ -314,6 +316,7 @@ export class EditPage {
   private inspect(n: number, jumpByLine: boolean): void {
     const run = ++this.inspection;
     const id = this.store.id();
+    const readAt = this.store.currentRevision();
     const from = Math.max(1, n - 1);
     this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({
       next: (lines) => {
@@ -325,7 +328,7 @@ export class EditPage {
           return;
         }
         if (isUnreadable(line, at(n - 1), at(n + 1))) {
-          this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t') });
+          this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t'), readAt });
           return;
         }
         this.rawLine.set(null);
@@ -334,7 +337,7 @@ export class EditPage {
           this.headerOf(id, line.section).subscribe({
             next: (header) => {
               if (run === this.inspection && (line.cells ?? []).length !== header.length + 1) {
-                this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t') });
+                this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t'), readAt });
               }
             },
             error: () => undefined,
@@ -357,10 +360,13 @@ export class EditPage {
   /** "Edit this line as text", or a cell past the end of a short row: the line opens in the raw line editor. */
   protected editAsText(n: number): void {
     const run = ++this.inspection;
+    const readAt = this.store.currentRevision();
     this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({
       next: (lines) => {
         const line = lines.find((l) => l.number === n);
-        if (run === this.inspection && line) this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t') });
+        if (run === this.inspection && line) {
+          this.rawLine.set({ lineNumber: n, text: (line.cells ?? []).join('\t'), readAt });
+        }
       },
       error: () => {
         if (run === this.inspection) {
@@ -375,17 +381,27 @@ export class EditPage {
     this.rawLine.set(null);
   }
 
+  /** The editor's save was refused as a conflict (the lines moved, or another tab): its text goes to the notice. */
+  protected onRawRefused(lineNumber: number, text: string): void {
+    this.rawLine.set(null);
+    this.rawMoved.set({ lineNumber, text });
+  }
+
   /**
    * The document changed under the views: lines may have moved, so a line number shown is stale. "Edit this line
    * as text" goes, a line read on its way is dropped, and the raw line editor closes. Text typed in it is kept in a
-   * notice rather than saved to a number that may now be another line. A save of the editor's own is not.
+   * notice rather than saved to a number that may now be another line. An editor whose save is on its way stays
+   * until the answer: a refused save (409) hands its text to the notice.
    */
   private dropLineState(): void {
     this.inspection++;
     this.shownLine.set(null);
     const raw = this.rawLine();
     if (!raw) return;
-    const unsaved = this.rawEditor()?.unsavedText() ?? null;
+    const editor = this.rawEditor();
+    // its own save is on its way: its answer closes it, or hands its text to the notice when it is refused
+    if (editor?.saving()) return;
+    const unsaved = editor?.unsavedText() ?? null;
     this.rawLine.set(null);
     if (unsaved !== null) this.rawMoved.set({ lineNumber: raw.lineNumber, text: unsaved });
   }

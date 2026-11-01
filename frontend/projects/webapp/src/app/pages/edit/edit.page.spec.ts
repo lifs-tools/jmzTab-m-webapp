@@ -332,6 +332,36 @@ describe('EditPage', () => {
       expect(el.querySelector('[data-testid=raw-moved]')).toBeNull();
     });
 
+    it('Save line while a removal is on its way: the refused text is kept in the notice', async () => {
+      const { fixture, el } = await openRawOn12();
+      const { DocumentSource } = await import('@lifs-tools/mztabm-editor');
+      const source = fixture.debugElement.injector.get(DocumentSource);
+      source.applyEdits!([{ op: 'DeleteLine', line: 3 }]).subscribe({ error: () => undefined });
+      typeInto(el, 'identification of lipids, fixed');
+      Array.from(el.querySelectorAll<HTMLButtonElement>('mztabm-raw-line-editor button'))
+        .find((b) => b.textContent?.trim() === 'Save line')!
+        .click();
+      await settle(fixture);
+      postEdit().flush(info({ revision: 1, canUndo: true, validation: done({ stale: true }) }));
+      await settle(fixture);
+      answerDocs();
+      await settle(fixture);
+
+      // the SetRawLine names the numbers of revision 0: refused
+      const save = postEdit();
+      expect(save.request.body).toEqual({
+        revision: 0,
+        operations: [{ op: 'SetRawLine', line: 12, text: 'identification of lipids, fixed' }],
+      });
+      save.flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+      await settle(fixture);
+      getInfo().flush(info({ revision: 1, canUndo: true }));
+      await settle(fixture);
+
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      expect(el.querySelector('[data-testid=raw-moved] code')?.textContent).toBe('identification of lipids, fixed');
+    });
+
     it('closes an unchanged raw line editor without a notice', async () => {
       const { fixture, el } = await openRawOn12();
       await removeLine(fixture, 3);

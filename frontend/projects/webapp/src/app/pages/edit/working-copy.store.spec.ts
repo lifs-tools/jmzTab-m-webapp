@@ -132,11 +132,16 @@ describe('WorkingCopyStore: edits behind a line move', () => {
     expect(revisionOf(onePost())).toBe(1);
   });
 
-  it('an edit made after the line move was answered takes the newer revision', () => {
-    source.applyEdits([{ op: 'DeleteLine', line: 3 }]).subscribe();
+  it('an edit of a page read before a line move, made after the move was answered, names the old revision', () => {
+    source.applyEdits([{ op: 'DeleteLine', line: 3 }], { readAt: 0 }).subscribe();
     onePost().flush(info(1));
-    source.applyEdits([{ op: 'DeleteLine', line: 6 }]).subscribe();
-    expect(revisionOf(onePost())).toBe(1);
+    // the views have not read their pages again yet: line 6 is a number of revision 0
+    source.applyEdits([{ op: 'DeleteLine', line: 6 }], { readAt: 0 }).subscribe({ error: () => undefined });
+    const second = onePost();
+    expect(revisionOf(second)).toBe(0);
+    conflict(second);
+    reread().flush(info(1));
+    expect(notices).toEqual([LINES_MOVED_NOTICE]);
   });
 
   it('a refused line move leaves the edit behind it valid: it names the revision the server still has', () => {
@@ -154,5 +159,108 @@ describe('WorkingCopyStore: edits behind a line move', () => {
     conflict(onePost());
     reread().flush(info(4));
     expect(notices).toEqual([CONFLICT_NOTICE]);
+  });
+
+  describe('pages are stamped with the revision they were read at', () => {
+    const metadataGet = (group: string) =>
+      http.expectOne((r) => r.method === 'GET' && r.url.endsWith(`working-copies/abc/metadata/${group}`));
+    const pageOf = (group: string, line: number) => ({
+      group,
+      page: 0,
+      size: 50,
+      total: 1,
+      entries: [{ lineNumber: line, key: `${group}[1]`, value: 'v' }],
+    });
+
+    async function read(group: string, line: number) {
+      let got: { readAt?: number | null } | undefined;
+      source.metadataPage(group, 0, 50).subscribe((p) => (got = p));
+      metadataGet(group).flush(pageOf(group, line));
+      return got!;
+    }
+
+    it('stamps metadata and table pages with the revision of the moment they were asked for', async () => {
+      const a = await read('sample', 5);
+      expect(a.readAt).toBe(0);
+      store.info.set(info(3));
+      let table: { readAt?: number | null } | undefined;
+      source.tablePage('sml', { page: 0, size: 50 }).subscribe((p) => (table = p));
+      http.expectOne((r) => r.url.endsWith('working-copies/abc/tables/sml')).flush({ section: 'SML', page: 0, rows: [] });
+      expect(table!.readAt).toBe(3);
+    });
+
+    it('× in group A, then × in group B before B was read again: B is refused, one line is removed', async () => {
+      const a = await read('sample', 5);
+      const b = await read('assay', 9);
+      source.applyEdits([{ op: 'DeleteLine', line: 5 }], { readAt: a.readAt }).subscribe();
+      onePost().flush(info(1));
+      expect(changed).toBe(1);
+
+      // in the gap: B's page still has the numbers of revision 0
+      const errors: unknown[] = [];
+      source.applyEdits([{ op: 'DeleteLine', line: 9 }], { readAt: b.readAt }).subscribe({ error: (e) => errors.push(e) });
+      const second = onePost();
+      expect(revisionOf(second)).toBe(0);
+      conflict(second);
+      reread().flush(info(1));
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      expect(changed).toBe(2);
+      expect(store.info()?.revision).toBe(1);
+      http.verify();
+    });
+
+    it('Enter in the value editor of another group in the gap is refused the same way', async () => {
+      const a = await read('sample', 5);
+      const b = await read('assay', 9);
+      source.applyEdits([{ op: 'DeleteLine', line: 5 }], { readAt: a.readAt }).subscribe();
+      onePost().flush(info(1));
+      source.applyEdits([{ op: 'SetMetadataValue', line: 9, value: 'x' }], { readAt: b.readAt }).subscribe({
+        error: () => undefined,
+      });
+      const second = onePost();
+      expect(revisionOf(second)).toBe(0);
+      conflict(second);
+      reread().flush(info(1));
+    });
+
+    it('after undo or redo, an edit of a page read before it is refused too', async () => {
+      const b = await read('assay', 9);
+      store.undo();
+      http.expectOne((r) => r.method === 'POST' && r.url.includes('working-copies/abc/undo')).flush(info(1));
+      source.applyEdits([{ op: 'SetMetadataValue', line: 9, value: 'x' }], { readAt: b.readAt }).subscribe({
+        error: () => undefined,
+      });
+      expect(revisionOf(onePost())).toBe(0);
+    });
+
+    it('after a conflict reload, an edit of a page read before it is refused too', async () => {
+      const b = await read('assay', 9);
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }], { readAt: 0 }).subscribe({ error: () => undefined });
+      conflict(onePost());
+      reread().flush(info(4));
+      source.applyEdits([{ op: 'SetMetadataValue', line: 9, value: 'x' }], { readAt: b.readAt }).subscribe({
+        error: () => undefined,
+      });
+      expect(revisionOf(onePost())).toBe(0);
+    });
+
+    it('edits that keep the line numbers, of pages read after the reload, chain without a conflict', async () => {
+      source.applyEdits([{ op: 'DeleteLine', line: 5 }], { readAt: 0 }).subscribe();
+      onePost().flush(info(1));
+      const b = await read('assay', 8);
+      expect(b.readAt).toBe(1);
+      source.applyEdits([{ op: 'SetMetadataValue', line: 8, value: 'x' }], { readAt: b.readAt }).subscribe();
+      source.applyEdits([{ op: 'SetMetadataValue', line: 8, value: 'y' }], { readAt: b.readAt }).subscribe();
+      const first = onePost();
+      expect(revisionOf(first)).toBe(1);
+      first.flush(info(2));
+      const second = onePost();
+      expect(revisionOf(second)).toBe(2);
+      second.flush(info(3));
+      expect(notices).toEqual([]);
+      // an edit that keeps the line numbers does not make the pages read before it stale
+      source.applyEdits([{ op: 'SetMetadataValue', line: 8, value: 'z' }], { readAt: b.readAt }).subscribe();
+      expect(revisionOf(onePost())).toBe(3);
+    });
   });
 });
