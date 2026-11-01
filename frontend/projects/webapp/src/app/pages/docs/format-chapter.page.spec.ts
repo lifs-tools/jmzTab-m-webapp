@@ -150,6 +150,9 @@ describe('FormatChapterPage', () => {
       a.textContent?.includes('HUPO-PSI'),
     )!;
     expect(original.getAttribute('href')).toBe(ORIGINAL);
+    expect(el.textContent).toContain('Adapted from an example of HUPO-PSI/mzTab-M');
+    const licence = Array.from(el.querySelectorAll('a')).find((a) => a.textContent === 'CC BY 4.0')!;
+    expect(licence.getAttribute('href')).toBe('https://creativecommons.org/licenses/by/4.0/');
   });
 
   it('uses the study design file for the study design page', async () => {
@@ -165,6 +168,14 @@ describe('FormatChapterPage', () => {
     expect(el.querySelectorAll('app-excerpt').length).toBe(2);
     expect(el.querySelector('a[download]')?.getAttribute('href')).toBe(
       'rest/v2/examples/teaching-lipidomics-2.0.mztab/content',
+    );
+    // the attribution does not depend on the list: it links the examples folder
+    expect(el.textContent).toContain('Adapted from an example of HUPO-PSI/mzTab-M');
+    const original = Array.from(el.querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('HUPO-PSI'),
+    )!;
+    expect(original.getAttribute('href')).toBe(
+      'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples',
     );
     expect(el.textContent).not.toContain('Try it');
     expect(el.querySelector('button')).toBeNull();

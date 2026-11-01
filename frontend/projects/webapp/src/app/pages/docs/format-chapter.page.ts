@@ -16,6 +16,8 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { TutorialStore } from '../../core/tutorial.store';
 import { ExcerptComponent } from './excerpt.component';
 
+const ORIGINALS_FOLDER = 'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples';
+
 /**
  * A page of Understanding mzTab-M: the steps of one tour chapter, each with its lines of the teaching file.
  * The route data names the chapter and the file; the steps come from the same list that drives the tour.
@@ -48,9 +50,12 @@ export class FormatChapterPage {
   protected readonly steps = computed(() =>
     (this.loaded()?.steps ?? []).filter((s) => s.chapter === this.chapter),
   );
-  /** Where the file was adapted from, if this instance lists the example. */
-  protected readonly originalUri = computed(
-    () => this.store.examples()()?.get(this.exampleId)?.originalUri ?? null,
+  /**
+   * Where the file was adapted from: its own original when this instance lists the example, else the
+   * examples of HUPO-PSI/mzTab-M, so that the attribution never depends on the list.
+   */
+  protected readonly originalHref = computed(
+    () => this.store.examples()()?.get(this.exampleId)?.originalUri || ORIGINALS_FOLDER,
   );
 
   constructor() {

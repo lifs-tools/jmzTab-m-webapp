@@ -95,17 +95,17 @@
       <p>
         This page uses a different teaching file, a 2.1 file with two factors, sex and timepoint, that crosses two sexes
         with three timepoints. A study variable group is a factor, its study variables are the levels, and each assay
-        is one cell of the design. The file contains a summary section only and declares this in its profile.
+        is one cell of the design. The file has metadata and a summary only, and its profile, <code>M+S</code>, says so.
       </p>
     }
   }
 
   <p class="lifs-note">
     The lines below are from the teaching file <code>{{ exampleId }}</code>.
-    <a [href]="contentHref" [attr.download]="exampleId">Download the whole file</a>@if (originalUri(); as original) {
-      ; it is adapted from
-      <a [href]="original" target="_blank" rel="noopener">an example of HUPO-PSI</a>
-      (CC BY 4.0)}.
+    <a [href]="contentHref" [attr.download]="exampleId">Download the whole file</a>.
+    Adapted from
+    <a [href]="originalHref()" target="_blank" rel="noopener">an example of HUPO-PSI/mzTab-M</a>,
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
   </p>
 
   @if (loading()) {
