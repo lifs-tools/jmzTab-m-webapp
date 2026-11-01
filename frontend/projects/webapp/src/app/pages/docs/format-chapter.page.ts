@@ -1,13 +1,4 @@
-import { ViewportScroller } from '@angular/common';
-import {
-  afterNextRender,
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  Injector,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -18,6 +9,7 @@ import { TRY_IT } from '../../core/tour-labels';
 import { TutorialStore } from '../../core/tutorial.store';
 import { ORIGINALS_FOLDER } from './excerpt';
 import { ExcerptComponent } from './excerpt.component';
+import { scrollToFragmentOnceRendered } from './scroll-to-fragment';
 
 /**
  * A page of Understanding mzTab-M: the steps of one tour chapter, each with its lines of the teaching file.
@@ -68,15 +60,7 @@ export class FormatChapterPage {
   );
 
   constructor() {
-    // A deep link (/docs/format/metadata#step-what-file): the router scrolled at NavigationEnd, before the
-    // steps arrived, so scroll again once they are in the page.
-    const fragment = this.route.fragment;
-    const scroller = inject(ViewportScroller);
-    const injector = inject(Injector);
-    effect(() => {
-      if (fragment && this.steps().length) {
-        afterNextRender(() => scroller.scrollToAnchor(fragment), { injector });
-      }
-    });
+    // A deep link (/docs/format/metadata#step-what-file): scroll again once the steps are in the page.
+    scrollToFragmentOnceRendered(() => this.steps().length > 0);
   }
 }

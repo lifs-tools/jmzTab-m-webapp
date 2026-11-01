@@ -8,6 +8,7 @@ import { QUICK_FIX_PREVIEW_LABEL, QUICK_FIX_TITLES } from '../../core/quick-fix-
 import { TutorialStore } from '../../core/tutorial.store';
 import { ORIGINALS_FOLDER } from './excerpt';
 import { ExcerptComponent } from './excerpt.component';
+import { scrollToFragmentOnceRendered } from './scroll-to-fragment';
 
 /** A row of "What changed in 2.1". */
 export interface VerifiedChange {
@@ -140,4 +141,11 @@ export class VersionsPage {
   protected readonly originalHref = computed(
     () => this.store.examples()()?.get(TEACHING_21)?.originalUri || ORIGINALS_FOLDER,
   );
+
+  constructor() {
+    // A deep link below the excerpt (#converting, #validating-21, #tools-21): scroll again once the excerpt, or
+    // the note that it could not be loaded, is in the page. The engines table above it depends on app-info,
+    // which the app requests at start (app.ts), before this page's own requests.
+    scrollToFragmentOnceRendered(() => this.profile() !== undefined);
+  }
 }

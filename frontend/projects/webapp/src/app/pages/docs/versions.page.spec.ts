@@ -1,8 +1,9 @@
+import { ViewportScroller } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import { Observable, of, Subject, throwError } from 'rxjs';
 
 import { TourDto } from '../../api/models/tour-dto';
 import { QUICK_FIX_TITLES } from '../../core/quick-fix-labels';
@@ -36,7 +37,13 @@ const ENGINE_21 = { line: '2.1', mzTabVersions: ['2.1.0-M'], jmztabmVersion: '2.
 const HINT = 'https://dev.example.org/mztabvalidator/';
 
 describe('VersionsPage', () => {
-  /** `null` answers app-info with an error; `'pending'` leaves it unanswered (loading). */
+  /** Per call of scrollToAnchor: the anchor, and whether the profile excerpt was in the page. */
+  let scrolled: { anchor: string; excerpt: boolean }[];
+
+  /**
+   * `null` answers app-info with an error; `'pending'` leaves it unanswered (loading). `opts.tour` delivers the
+   * tour of the 2.1 teaching file (at once by default); `opts.fragment` is the route's fragment.
+   */
   async function render(info: object | null | 'pending' = {
         version: '2.0.0',
         buildDate: '2026-10-01',
@@ -47,7 +54,11 @@ describe('VersionsPage', () => {
         defaultLine: '2.0',
         retentionDays: 7,
         customMappingsEnabled: true,
-      }) {
+      }, opts: { tour?: Observable<TourDto>; fragment?: string | null } = {}) {
+    scrolled = [];
+    const route = opts.fragment === undefined ? [] : [
+      { provide: ActivatedRoute, useValue: { snapshot: { fragment: opts.fragment } } },
+    ];
     await TestBed.configureTestingModule({
       imports: [VersionsPage],
       providers: [
@@ -57,13 +68,17 @@ describe('VersionsPage', () => {
         {
           provide: TutorialStore,
           useValue: {
-            tour: (id: string) => (id === TEACHING_21 ? of(TOUR) : throwError(() => new Error(id))),
+            tour: (id: string) => (id === TEACHING_21 ? (opts.tour ?? of(TOUR)) : throwError(() => new Error(id))),
             lines: (id: string) => (id === TEACHING_21 ? of(FILE) : throwError(() => new Error(id))),
             examples: () => () => new Map(),
           },
         },
+        ...route,
       ],
     }).compileComponents();
+    vi.spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor').mockImplementation((anchor) =>
+      scrolled.push({ anchor, excerpt: !!document.querySelector('app-excerpt') }),
+    );
     const fixture = TestBed.createComponent(VersionsPage);
     const request = TestBed.inject(HttpTestingController).expectOne((r) => r.url.endsWith('rest/v2/app-info'));
     if (info === 'pending') {
@@ -72,11 +87,11 @@ describe('VersionsPage', () => {
       request.flush(info ?? 'no', info ? {} : { status: 500, statusText: 'Server Error' });
       await fixture.whenStable();
     }
-    return fixture.nativeElement as HTMLElement;
+    return { el: fixture.nativeElement as HTMLElement, fixture };
   }
 
   it('lists each mzTab-M version with its jmzTab-m version and availability', async () => {
-    const el = await render();
+    const { el } = await render();
     const section = el.querySelector('#about-versions')!;
     expect(section.querySelector('h2')?.id).toBe('versions-engines');
     expect(section.querySelector('h2')?.textContent?.trim()).toBe('Versions and engines');
@@ -94,13 +109,13 @@ describe('VersionsPage', () => {
   });
 
   it('says so when no engine information is available', async () => {
-    const el = await render(null);
+    const { el } = await render(null);
     expect(el.querySelector('#about-versions table')).toBeNull();
     expect(el.textContent).toContain('Version information is not available right now.');
   });
 
   it('shows the profile step of the 2.1 teaching file', async () => {
-    const el = await render();
+    const { el } = await render();
     const section = el.querySelector('#what-changed')!.closest('section')!;
     const excerpt = section.querySelector('app-excerpt')!;
     expect(excerpt).toBeTruthy();
@@ -117,7 +132,7 @@ describe('VersionsPage', () => {
   });
 
   it('lists only the verified changes', async () => {
-    const el = await render();
+    const { el } = await render();
     const table = el.querySelector('#what-changed')!.closest('section')!.querySelector('table')!;
     const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) =>
       Array.from(tr.querySelectorAll('th, td')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim()),
@@ -155,13 +170,13 @@ describe('VersionsPage', () => {
   });
 
   it('lists no tool that writes 2.1 without a source', async () => {
-    const el = await render();
+    const { el } = await render();
     const tools = el.querySelector('#tools-21')!.closest('section')!;
     expect(tools.textContent).toContain('This list fills as tools adopt mzTab-M 2.1');
   });
 
   it('numbers the conversion steps', async () => {
-    const el = await render();
+    const { el } = await render();
     const section = el.querySelector('#converting')!.closest('section')!;
     const steps = Array.from(section.querySelectorAll('ol > li'));
     expect(steps.length).toBe(5);
@@ -178,25 +193,47 @@ describe('VersionsPage', () => {
       el.querySelector('#validating-21')!.closest('section')!.querySelector(`a[href="${HINT}"]`);
     const info = (engines: object[]) => ({ version: '2.0.0', engines, defaultLine: '2.0', unavailableHintUrl: HINT });
 
-    expect(hint(await render(info([ENGINE_20, { ...ENGINE_21, available: false }])))).toBeTruthy();
+    expect(hint((await render(info([ENGINE_20, { ...ENGINE_21, available: false }]))).el)).toBeTruthy();
     TestBed.resetTestingModule();
     // the production rollout: no 2.1 engine at all
-    expect(hint(await render(info([ENGINE_20])))).toBeTruthy();
+    expect(hint((await render(info([ENGINE_20]))).el)).toBeTruthy();
     TestBed.resetTestingModule();
-    expect(hint(await render(info([ENGINE_20, ENGINE_21])))).toBeNull();
+    expect(hint((await render(info([ENGINE_20, ENGINE_21]))).el)).toBeNull();
     TestBed.resetTestingModule();
     // without a configured address there is nothing to link
-    const el = await render({ ...info([ENGINE_20]), unavailableHintUrl: null });
+    const { el } = await render({ ...info([ENGINE_20]), unavailableHintUrl: null });
     expect(el.querySelector('#validating-21')!.closest('section')!.querySelector('a[target=_blank]')).toBeNull();
     expect(el.querySelector('#validating-21')!.closest('section')!.textContent).toContain(
       'cannot validate mzTab-M 2.1 files right now',
     );
   });
 
+  it('scrolls to a section of a deep link once the excerpt above it has rendered', async () => {
+    const tour = new Subject<TourDto>();
+    const { fixture } = await render(undefined, { tour, fragment: 'tools-21' });
+    // the router scrolled at NavigationEnd, before the excerpt existed; nothing yet
+    expect(scrolled).toEqual([]);
+    tour.next(TOUR);
+    tour.complete();
+    await fixture.whenStable();
+    expect(scrolled).toEqual([{ anchor: 'tools-21', excerpt: true }]);
+  });
+
+  it('scrolls once the teaching file has failed to load, and never without a fragment', async () => {
+    const tour = new Subject<TourDto>();
+    const { fixture } = await render(undefined, { tour, fragment: 'converting' });
+    tour.error(new Error('gone'));
+    await fixture.whenStable();
+    expect(scrolled).toEqual([{ anchor: 'converting', excerpt: false }]);
+    TestBed.resetTestingModule();
+    await render(undefined, { fragment: null });
+    expect(scrolled).toEqual([]);
+  });
+
   it('says nothing about validating 2.1 here until app-info has arrived, nor when it failed', async () => {
     const claims = (el: HTMLElement) => el.querySelector('#validating-21')!.closest('section')!.textContent!;
     for (const state of ['pending', null] as const) {
-      const el = await render(state);
+      const { el } = await render(state);
       expect(claims(el)).not.toContain('cannot validate mzTab-M 2.1 files');
       expect(claims(el)).not.toContain('This validator validates mzTab-M 2.1 files');
       // the general text stays

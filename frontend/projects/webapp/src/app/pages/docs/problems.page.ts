@@ -1,21 +1,12 @@
-import { ViewportScroller } from '@angular/common';
-import {
-  afterNextRender,
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  Injector,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
 import { GuidanceEntry } from '../../api/models/guidance-entry';
 import { GuidanceService } from '../../api/services/guidance.service';
 import { quietRequest } from '../../core/http-error.interceptor';
+import { scrollToFragmentOnceRendered } from './scroll-to-fragment';
 
 /** The public catalog of common problems, each with its explanation and how to fix it. */
 @Component({
@@ -37,15 +28,7 @@ export class ProblemsPage {
   protected readonly entries = computed<GuidanceEntry[]>(() => this.loaded() ?? []);
 
   constructor() {
-    // A link to an entry (/docs/problems#id): the router scrolled at NavigationEnd, before the
-    // catalog arrived, so scroll again once its entries are in the page.
-    const fragment = inject(ActivatedRoute).snapshot.fragment;
-    const scroller = inject(ViewportScroller);
-    const injector = inject(Injector);
-    effect(() => {
-      if (fragment && this.loaded()) {
-        afterNextRender(() => scroller.scrollToAnchor(fragment), { injector });
-      }
-    });
+    // A link to an entry (/docs/problems#id): scroll again once the catalog's entries are in the page.
+    scrollToFragmentOnceRendered(() => !!this.loaded());
   }
 }
