@@ -194,6 +194,28 @@ class QuickFixesTest {
     }
 
     @Test
+    void removeMismatchedFieldForAllMixesALineAndAColumn() throws Exception {
+        load(PROFILE_FILE);
+        List<ValidationMessage> group = List.of(mismatch("bar"), mismatch("small_molecule_feature-quantification_unit"));
+        QuickFixPreview p = QuickFixes.preview(fix("remove-mismatched-field"), 0, group.get(0), group, db);
+        assertEquals(2, p.occurrences());
+        // the line delete first, the column delete (which keeps the line numbers) last
+        assertEquals(List.of(new DeleteLine(4), new DeleteColumn("SMH", "bar", 3)), p.batch().operations());
+        assertEquals(4, p.changes().size());
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-profile\tM+S\n"
+            + "MTD\tsmall_molecule-quantification_unit\t[UO, UO:1, a, ]\n"
+            + "MTD\tcolunit-small_molecule_feature\tx=[UO, UO:1, a, ]\n"
+            + "SMH\tSML_ID\tfoo\nSML\t1\ta\nSML\t2\tc\nSEH\tSME_ID\tfoo\nSME\t1\te\n",
+            apply(p.batch().operations()));
+    }
+
+    @Test
+    void removeMismatchedFieldIsWithheldWhenAKeyAndAColumnShareTheName() throws Exception {
+        load("MTD\tmzTab-version\t2.1.0-M\nMTD\tshared\tv\nSMH\tSML_ID\tshared\nSML\t1\tx\n");
+        assertTrue(fix("remove-mismatched-field").forMessage(mismatch("shared"), db).isEmpty());
+    }
+
+    @Test
     void removeSeveralMismatchedColumnsOfOneTableRightToLeft() throws Exception {
         load("MTD\tmzTab-version\t2.1.0-M\nSMH\tSML_ID\ta\tb\tc\nSML\t1\tx\ty\tz\n");
         List<ValidationMessage> group = List.of(mismatch("a"), mismatch("c"));

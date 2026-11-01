@@ -20,6 +20,9 @@ import { EditOps, WorkingCopyStore, serverMessage } from './working-copy.store';
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
 const COLUMN_OPS = new Set(['InsertColumn', 'DeleteColumn', 'RenameColumn', 'MergeColumns']);
 
+/** Edits that move lines: the line numbers every view shows are stale afterwards, so every view must read again. */
+const LINE_OPS = new Set(['DeleteLine', 'InsertLine', 'MoveRow', 'JoinWithPrevious']);
+
 /**
  * The working copy as the library's views see it: editable. Pages come from the copy's metadata and table
  * endpoints (rows carry their line); edits go through the store, which queues them and validates after a pause.
@@ -73,7 +76,7 @@ export class WorkingCopySource extends DocumentSource {
    * `detail`, which the views show.
    */
   override applyEdits(ops: DocEdit[]): Observable<void> {
-    const columns = ops.some((o) => COLUMN_OPS.has(o.op));
+    const columns = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op));
     // DocEdit mirrors the server's EditOperation records field by field
     return this.store.edit(ops as unknown as EditOps, columns).pipe(
       map(() => undefined),
