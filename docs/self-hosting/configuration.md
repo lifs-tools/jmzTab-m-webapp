@@ -106,6 +106,8 @@ The form offers example files. They are listed in `examples.properties` in the J
 
 An example can also be **bundled**: its `uri` is `classpath:tutorial/<name>`, a file in the JAR's `tutorial/` directory, which needs no outbound access. Only a plain file name directly in `tutorial/` is accepted; any other `classpath:` URI is refused. A bundled example can have a step list, `tour=classpath:tutorial/<name>.tour.json`, and an `originalUri` (https) naming the published file it was adapted from. The bundled files and their step lists are checked when the webapp starts, and a missing file or a step that does not match its file stops the startup with a list of all problems. A bundled example's file is served at `/rest/v2/examples/{id}/content` and its steps at `/rest/v2/examples/{id}/tour`, also when no engine for its mzTab-M version is configured.
 
+The defaults bundle three teaching files in the section `tutorial`, used by the documentation's walkthrough and its tour: `teaching-lipidomics-2.0.mztab` and `teaching-lipidomics-2.1.mztab` (the same lipidomics file in each version) and `study-design-2.1.mztab`. They are adapted from the HUPO-PSI/mzTab-M examples (CC BY 4.0); each file's first `COM` line and its `originalUri` name the original. Since they are bundled, the walkthrough needs no outbound access. Validating one still needs the engine of its version.
+
 ## Documentation
 
 The Getting started page of the built-in documentation links the LipidCompass submission template and its filled-in example. Both addresses come from `app-info`.

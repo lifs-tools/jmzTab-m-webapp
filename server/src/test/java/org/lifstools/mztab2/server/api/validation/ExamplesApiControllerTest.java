@@ -149,7 +149,9 @@ class ExamplesApiControllerTest {
     @Test
     void hidesExamplesOfUnavailableLines() throws Exception {
         mvc.perform(get("/rest/v2/examples")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(20))
+            // the 2.0 examples and mapping files, and the 2.0 teaching file with its tour
+            .andExpect(jsonPath("$.length()").value(21))
+            .andExpect(jsonPath("$[?(@.id == 'teaching-lipidomics-2.0.mztab')].tour").value(true))
             .andExpect(jsonPath("$[?(@.mzTabVersion == '2.1.0-M')]").isEmpty())
             .andExpect(jsonPath("$[?(@.mzTabVersion == null)]").isEmpty());
     }

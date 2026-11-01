@@ -51,10 +51,12 @@ class ExamplesApiControllerBothLinesTest {
     @Test
     void examplesCarryMzTabVersion() throws Exception {
         mvc.perform(get("/rest/v2/examples")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(25))
+            // 22 examples, 3 mapping files and 3 bundled tutorial files
+            .andExpect(jsonPath("$.length()").value(28))
             .andExpect(jsonPath("$[?(@.mzTabVersion == null)]").isEmpty())
             .andExpect(jsonPath("$[?(@.mzTabVersion == '2.1.0-M')].id").value(org.hamcrest.Matchers.containsInAnyOrder(
                 "example_study_variable_group.mztab", "official-profile-m.mztab", "official-profile-mf.mztab",
-                "official-profile-mfe.mztab", "official-profile-ms.mztab")));
+                "official-profile-mfe.mztab", "official-profile-ms.mztab", "teaching-lipidomics-2.1.mztab",
+                "study-design-2.1.mztab")));
     }
 }

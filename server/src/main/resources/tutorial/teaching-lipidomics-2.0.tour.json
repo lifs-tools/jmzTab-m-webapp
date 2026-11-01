@@ -1,0 +1,131 @@
+{
+  "title": "A lipidomics file, step by step (mzTab-M 2.0)",
+  "counterpart": "teaching-lipidomics-2.1.mztab",
+  "steps": [
+    {
+      "id": "sections",
+      "chapter": "overview",
+      "title": "One file, four sections",
+      "text": "An mzTab-M file is a tab-separated text file, and the first field of every line says what the line is. MTD lines hold the metadata. SMH and SML are the header and the rows of the summary, SFH and SMF those of the features, and SEH and SME those of the evidence. COM lines are comments, and empty lines separate the sections.",
+      "lookFor": "the first field of each line: MTD, SMH, SML, SFH, SMF, SEH, SME, COM",
+      "lines": [1, 99]
+    },
+    {
+      "id": "what-file",
+      "chapter": "metadata",
+      "title": "What the file is",
+      "text": "The first metadata lines identify the file. mzTab-version names the version of the format, here 2.0.0-M, which decides the rules the file is checked against. mzTab-ID and description name and describe the dataset; this one says it is a teaching example. publication[1] links the article that describes the method, by PubMed id and DOI.",
+      "lookFor": "mzTab-version, mzTab-ID and description",
+      "target": {
+        "tab": "metadata",
+        "group": "general"
+      },
+      "lines": [3, 6]
+    },
+    {
+      "id": "measured",
+      "chapter": "metadata",
+      "title": "How it was measured",
+      "text": "quantification_method names how the abundances were obtained, here SRM quantitation. instrument[1] describes the mass spectrometer, a Q Exactive with an electrospray source, a quadrupole and an Orbitrap analyzer. software[n] lists the programs that acquired and processed the data, with their settings. Most of these values are parameters from a controlled vocabulary, so that tools can read them without guessing.",
+      "lookFor": "instrument[1]-name: [MS, MS:1001911, Q Exactive, ]",
+      "target": {
+        "tab": "metadata",
+        "group": "instrument"
+      },
+      "lines": [7, 18]
+    },
+    {
+      "id": "samples-runs-assays",
+      "chapter": "metadata",
+      "title": "Samples, runs and assays",
+      "text": "sample[n] describes the biological material, here the plasma of a control and of a treated individual. ms_run[n] is one data file from the instrument, with its location, format and scan polarity. assay[n] joins the two: sample_ref names the sample it measured and ms_run_ref the run that measured it. The tables report their abundances per assay.",
+      "lookFor": "assay[1]-sample_ref and assay[1]-ms_run_ref",
+      "target": {
+        "tab": "metadata",
+        "group": "assay"
+      },
+      "lines": [19, 38]
+    },
+    {
+      "id": "groups",
+      "chapter": "metadata",
+      "title": "Groups to compare",
+      "text": "study_variable[n] groups the assays that are compared, for example the conditions of an experiment. assay_refs lists its assays; here each study variable, control and treated, has one assay. average_function and variation_function say how the abundances of its assays are combined into the study variable's abundance and its variation. With a single assay there is no variation, so the summary reports it as null.",
+      "lookFor": "study_variable[1]-assay_refs: assay[1]",
+      "target": {
+        "tab": "metadata",
+        "group": "study_variable"
+      },
+      "lines": [39, 48]
+    },
+    {
+      "id": "units-vocabularies",
+      "chapter": "cv-parameters",
+      "title": "Units and vocabularies",
+      "text": "Most values are parameters, written as [CV label, accession, name, value]: [UO, UO:0000064, micromolar, ] is the term micromolar of the Units of Measurement Ontology (UO), with an empty value. Every CV label that a parameter uses is declared with cv[n]-label, full_name, version and uri. small_molecule-quantification_unit is the unit of the abundances in the summary, and small_molecule_feature-quantification_unit that of the features. A parameter with an empty label and accession, such as [,, exact mass, ], is a user parameter: a name without a vocabulary term.",
+      "lookFor": "small_molecule-quantification_unit: [UO, UO:0000064, micromolar, ]",
+      "target": {
+        "tab": "metadata",
+        "key": "small_molecule-quantification_unit"
+      },
+      "lines": [49, 62]
+    },
+    {
+      "id": "summary-row",
+      "chapter": "summary",
+      "title": "The summary row",
+      "text": "Each SML row reports one lipid as the result of the study: its name, a database identifier (LM:LMSP02010012 in LIPID MAPS), its formula, structure and theoretical neutral mass. abundance_assay[n] gives its concentration in each assay and abundance_study_variable[n] in each study variable, in the unit of small_molecule-quantification_unit. reliability and best_id_confidence_measure say how certain the identification is. Columns whose names start with opt_ are optional columns that a tool added.",
+      "lookFor": "abundance_assay[1] and abundance_assay[2]: the ceramide in the control and in the treated plasma",
+      "target": {
+        "tab": "summary",
+        "rowIndex": 0
+      },
+      "lines": [85, 86]
+    },
+    {
+      "id": "features",
+      "chapter": "features",
+      "title": "Its features",
+      "text": "An SMF row is one measured signal: its m/z (exp_mass_to_charge), charge, retention time and abundance in each assay. The ceramide was measured by SRM and has four features: its precursor ion [M+H]1+ and three fragment ions. PC 34:1 was measured in full scan and has one feature, its [M+H]1+ ion at m/z 760.5848. SME_ID_REFS links each feature to the evidence that identifies it.",
+      "lookFor": "the SMF_ID column: features 1 to 4 belong to the ceramide, feature 5 to PC 34:1",
+      "target": {
+        "tab": "features",
+        "column": "SMF_ID",
+        "header": true
+      },
+      "lines": [90, 95]
+    },
+    {
+      "id": "evidence",
+      "chapter": "evidence",
+      "title": "Its evidence",
+      "text": "An SME row is one identification: the molecule a spectrum was matched to, how, and how confidently. This row identifies the ceramide's precursor ion: the measured m/z 650.6432 differs from the theoretical 650.6446 by -2.15 ppm (opt_global_mass_error). spectra_ref points to the spectrum in the run (ms_run[1], scan 731), and ms_level says that it is an MS1 spectrum.",
+      "lookFor": "spectra_ref and theoretical_mass_to_charge",
+      "target": {
+        "tab": "evidence",
+        "rowIndex": 0
+      },
+      "lines": [98, 99]
+    },
+    {
+      "id": "one-lipid",
+      "chapter": "references",
+      "title": "Following one lipid",
+      "text": "The rows refer to each other by their ids. The ceramide's summary row lists its features in SMF_ID_REFS, and each feature lists its evidence in SME_ID_REFS. Following these references from SML to SMF to SME shows which signals a reported abundance rests on and how they were identified. The validator reports a reference to a row that does not exist (Error-2047).",
+      "lookFor": "SMF_ID_REFS of the first summary row: 1 | 2 | 3 | 4",
+      "target": {
+        "tab": "summary",
+        "rowIndex": 0,
+        "column": "SMF_ID_REFS"
+      },
+      "lines": [86, 102]
+    },
+    {
+      "id": "validate-yours",
+      "chapter": "overview",
+      "title": "Validate your own file",
+      "text": "You now know the four sections and how the rows of one lipid refer to each other. Validate your own file with the form on the start page: the validator reads mzTab-version and checks the file against the rules of that version. This teaching file validates on the 2.0 engine without errors or warnings. At level Info it reports that it declares no mzTab-profile (Info-2052), and with the default mapping file the optional fields that it does not have, such as the species of a sample (Info-3010).",
+      "lines": [3, 3]
+    }
+  ]
+}
