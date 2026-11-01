@@ -110,7 +110,17 @@ Keep `replicas: 1` for the webapp. Results are files of one instance; a second i
 
 ## Reverse proxy
 
-Put a reverse proxy with TLS in front of the application. Serve it below the same path on the proxy as in the application (`server.servlet.contextPath`, default `/mztabvalidator`), so that links and redirects match. For nginx:
+Put a reverse proxy with TLS in front of the application. Whichever proxy you use, it has to:
+
+- **serve the same path** as the application (`server.servlet.contextPath`, default `/mztabvalidator`) and pass the request path on unchanged, so that links and redirects match;
+- **send the `X-Forwarded-*` headers** (`Proto`, `Host`, `Port`, `For`), which the application trusts (`server.forward-headers-strategy`);
+- **accept uploads** of at least `spring.servlet.multipart.max-request-size` (64 MB);
+- **wait long enough** for the synchronous endpoints, which answer only when the validation is done;
+- **route nothing to the engines.**
+
+Match the path with its slash (`/mztabvalidator/`), not as a bare prefix: `/mztabvalidator` would also catch a second instance at `/mztabvalidator-dev`.
+
+### nginx
 
 ```nginx
 location /mztabvalidator/ {
@@ -129,7 +139,83 @@ location /mztabvalidator/ {
 
 - **Upload size.** nginx accepts 1 MB by default and answers larger uploads itself with an HTML 413. Set `client_max_body_size` to at least the application's limit.
 - **Timeouts.** `POST /rest/v2/validate`, `/validatePlain`, `/convert` and `/convertPlain` answer only when the work is done; a large file with semantic validation can take minutes. The form and `/rest/v2/validations` work in the background and are not affected.
-- **Different paths.** If the public path must differ from the context path, also send `X-Forwarded-Prefix` with the public path, or set `server.servlet.contextPath` to the public path.
+
+### Traefik
+
+With the Docker provider, the router and service are labels on the webapp's service. The webapp joins the network Traefik uses (here `proxy`) and the engines' network; the engines get no labels.
+
+```yaml
+services:
+  mztabvalidator:
+    image: <registry>/mztab-validator-webapp:<version>
+    networks: [proxy, engines]
+    labels:                                    # in a Swarm stack: under deploy.labels
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.mztabvalidator.rule=Host(`apps.example.org`) && (Path(`/mztabvalidator`) || PathPrefix(`/mztabvalidator/`))"
+      - "traefik.http.routers.mztabvalidator.entrypoints=websecure"
+      - "traefik.http.routers.mztabvalidator.tls=true"
+      - "traefik.http.services.mztabvalidator.loadbalancer.server.port=8083"
+  mztab-engine-2-0:
+    image: <registry>/mztab-validator-engine-2.0:<version>
+    networks: [engines]
+    labels:
+      - "traefik.enable=false"                 # only needed when Traefik runs with exposedByDefault=true
+networks:
+  proxy:
+    external: true
+  engines: {}
+```
+
+In Traefik's static configuration, give the entry point more time to read large uploads:
+
+```yaml
+entryPoints:
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: 300s                      # default 60s since Traefik 2.11.2 / 3.0.1; it covers reading the whole request body
+```
+
+- **Headers.** Traefik sets `X-Forwarded-Proto`, `-Host`, `-Port` and `-For` itself. It replaces those a client sends unless the entry point trusts them (`forwardedHeaders.trustedIPs` or `insecure`); leave that off when Traefik is the edge proxy.
+- **No `StripPrefix`.** Pass the path unchanged; the application expects its context path in the request.
+- **Upload size.** Traefik sets no body limit by default. If a `buffering` middleware is on the router, set its `maxRequestBodyBytes` to at least 67108864 (64 MB).
+- **Timeouts.** Traefik does not time out waiting for the response by default. If the `serversTransport` sets `forwardingTimeouts.responseHeaderTimeout`, make it at least 300s.
+- **Sticky sessions** are not needed: the webapp runs as one replica and keeps no session state in memory.
+
+### Apache httpd
+
+With `mod_proxy`, `mod_proxy_http` and `mod_headers` enabled (`a2enmod proxy proxy_http headers`):
+
+```apache
+<VirtualHost *:443>
+    ServerName apps.example.org
+    # SSLEngine on, certificates …
+
+    ProxyPreserveHost On
+    ProxyTimeout 300                            # the synchronous endpoints answer when the validation is done
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Port "443"
+
+    RedirectMatch 301 ^/mztabvalidator$ /mztabvalidator/
+    ProxyPass        /mztabvalidator/ http://127.0.0.1:8083/mztabvalidator/
+    ProxyPassReverse /mztabvalidator/ http://127.0.0.1:8083/mztabvalidator/
+
+    <Location /mztabvalidator/>
+        LimitRequestBody 67108864               # at least spring.servlet.multipart.max-request-size (64 MB)
+    </Location>
+</VirtualHost>
+```
+
+- **Headers.** `mod_proxy` adds `X-Forwarded-For`, `-Host` and `-Server` by itself (`ProxyAddHeaders On`, the default), but not `X-Forwarded-Proto` or `-Port`; set those two as shown, with the values of the virtual host.
+- **Upload size.** `LimitRequestBody` is 1 GB by default since Apache 2.4.53 (unlimited before). A lower value anywhere in the configuration answers larger uploads with an HTML 413; keep it at least the application's limit for this location.
+- **Timeouts.** `ProxyTimeout` defaults to `Timeout` (60 s). Below 300 s, a long synchronous validation ends in a 504 from Apache while the validation still runs.
+- **Slashes.** Keep the trailing slash on both `ProxyPass` arguments; the `RedirectMatch` sends the bare path to it.
+
+### Different paths
+
+If the public path must differ from the context path, also send `X-Forwarded-Prefix` with the public path, or set `server.servlet.contextPath` to the public path.
 
 ## Storage and retention
 
@@ -180,7 +266,8 @@ Results are kept across restarts and upgrades within 2.x. The release notes are 
 
 | Symptom | Cause and remedy |
 |---|---|
-| An upload fails with an HTML "413 Request Entity Too Large" page | The reverse proxy's limit: raise `client_max_body_size` (nginx). |
+| An upload fails with an HTML "413 Request Entity Too Large" page | The reverse proxy's limit: raise `client_max_body_size` (nginx), `LimitRequestBody` (Apache) or the `buffering` middleware's `maxRequestBodyBytes` (Traefik). |
+| `/rest/v2/validate…` or `/convert…` answer 504 Gateway Timeout | The reverse proxy stopped waiting: raise `proxy_read_timeout` (nginx), `ProxyTimeout` (Apache) or `forwardingTimeouts.responseHeaderTimeout` (Traefik). |
 | An upload answers 413 with a JSON body "The uploaded file is too large." | The application's limit: raise `spring.servlet.multipart.max-file-size` and `max-request-size`. |
 | `/rest/v2/validate…` or `/convert…` answer 503 with `Retry-After` | All `rest.synchronous.max-concurrent` slots were busy for `rest.synchronous.wait`. Retry after the given seconds, send fewer requests at once, or raise the limit if memory allows. |
 | New validations answer 503 "The validator's storage is full." | `storage.max-total-bytes` reached. Wait for the nightly cleanup, lower `minCleanupAge`, or raise the quota and the volume. |
