@@ -26,7 +26,7 @@
       "id": "measured",
       "chapter": "metadata",
       "title": "How it was measured",
-      "text": "quantification_method names how the abundances were obtained, here SRM quantitation. instrument[1] describes the mass spectrometer, a Q Exactive with an electrospray source, a quadrupole and an Orbitrap analyzer. software[n] lists the programs that acquired and processed the data, with their settings. Most of these values are parameters from a controlled vocabulary, so that tools can read them without guessing.",
+      "text": "quantification_method names how the abundances were obtained, here label-free quantitation from LC-MS data, without isotope labels: the ceramide from its targeted precursor and fragment ions, PC 34:1 from its ion in the full scan. instrument[1] describes the mass spectrometer, a Q Exactive with an electrospray source, a quadrupole and an Orbitrap analyzer. software[n] lists the programs that acquired and processed the data, with their settings. Most of these values are parameters from a controlled vocabulary, so that tools can read them without guessing.",
       "lookFor": "instrument[1]-name: [MS, MS:1001911, Q Exactive, ]",
       "target": {
         "tab": "metadata",
@@ -99,8 +99,8 @@
       "id": "evidence",
       "chapter": "evidence",
       "title": "Its evidence",
-      "text": "An SME row is one identification: the molecule a spectrum was matched to, how, and how confidently. This row identifies the ceramide's precursor ion: the measured m/z 650.6432 differs from the theoretical 650.6446 by -2.15 ppm (opt_global_mass_error). spectra_ref points to the spectrum in the run (ms_run[1], scan 731), and ms_level says that it is an MS1 spectrum.",
-      "lookFor": "spectra_ref and theoretical_mass_to_charge",
+      "text": "An SME row is one identification: the molecule a spectrum was matched to, how, and how confidently. This row identifies the ceramide's precursor ion: the measured m/z 650.6432 differs from the theoretical 650.6446 by -2.15 ppm (opt_global_mass_error). spectra_ref points to the spectrum in the run (ms_run[1], scan 731), and ms_level says that it is an MS1 spectrum. The column id_confidence_measure[1] holds a score whose kind the metadata line id_confidence_measure[1] declares, here a fragmentation score of 0.958. rank orders the candidate identifications of one evidence, from 1 for the best.",
+      "lookFor": "spectra_ref, id_confidence_measure[1] and rank",
       "target": {
         "tab": "evidence",
         "rowIndex": 0
