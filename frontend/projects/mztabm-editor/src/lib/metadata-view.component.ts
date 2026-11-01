@@ -11,6 +11,7 @@ import {
   input,
   linkedSignal,
   signal,
+  untracked,
   viewChildren,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -173,6 +174,11 @@ export class MetadataGroupComponent {
 
     // the document changed elsewhere: load the page shown again
     this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => this.request.set({ page: this.page(), key: null }));
+    // a reload can leave the page shown past the end (its only entry was removed): show the last page instead
+    effect(() => {
+      const last = this.pages() - 1;
+      if (this.data() && this.page() > last) untracked(() => this.request.set({ page: last, key: null }));
+    });
   }
 
   /**
@@ -287,14 +293,19 @@ export class MetadataViewComponent {
   readonly isReadonly = input(true, { alias: 'readonly' });
   readonly highlight = input<MetadataHighlight | null>(null);
   private readonly panels = viewChildren(MatExpansionPanel);
+  /** The highlight whose panel was opened: a reload of the groups does not open it again. */
+  private opened: MetadataHighlight | null = null;
 
   constructor() {
-    // A highlight is an event: every new object opens its panel again, also after the user collapsed it.
+    // A highlight is an event: every new object opens its panel again, also after the user collapsed it; the same
+    // object, seen again when the groups are reloaded, does not.
     effect(() => {
       const h = this.highlight();
       const panels = this.panels();
       const i = (this.groups.value() ?? []).findIndex((g) => g.name === h?.group);
-      if (h && i >= 0) panels[i]?.open();
+      if (!h || h === this.opened || i < 0 || !panels[i]) return;
+      panels[i].open();
+      this.opened = h;
     });
     // the document changed elsewhere: the groups and their counts may have changed
     this.source.changed?.pipe(takeUntilDestroyed()).subscribe(() => this.groups.reload());

@@ -122,6 +122,96 @@ describe('MetadataViewComponent editing', () => {
     expect((el.querySelector('button.entry-remove') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('shows the last page when a reload leaves the page shown past the end', async () => {
+    src = new EditableFakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    // not whenStable: it waits for the groups that are loading again
+    const settle = async () => {
+      for (let i = 0; i < 3; i++) {
+        fixture.detectChanges();
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      fixture.detectChanges();
+    };
+    const entries = (from: number, n: number) =>
+      Array.from({ length: n }, (_, i) => ({ lineNumber: from + i, key: `k${from + i}`, value: 'v' }));
+    fixture.detectChanges();
+    src.oneGroups().reply([{ name: 'general', count: 51 }]);
+    await settle();
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 51, entries: entries(2, 50) });
+    await settle();
+    el.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')!.click();
+    await settle();
+    src.onePage('general').reply({ group: 'general', page: 1, size: 50, total: 51, entries: entries(52, 1) });
+    await settle();
+    expect(el.querySelector('.pager')?.textContent).toContain('51–51 of 51');
+
+    // the only entry of the last page is removed
+    el.querySelector<HTMLButtonElement>('button.entry-remove')!.click();
+    await settle();
+    src.oneEdit().reply();
+    src.changes.next();
+    await settle();
+    src.onePage('general').reply({ group: 'general', page: 1, size: 50, total: 50, entries: [] });
+    await settle();
+    src.oneGroups().reply([{ name: 'general', count: 50 }]);
+    await settle();
+
+    const last = src.onePage('general');
+    expect(last.args.page).toBe(0);
+    last.reply({ group: 'general', page: 0, size: 50, total: 50, entries: entries(2, 50) });
+    await settle();
+    expect(el.querySelectorAll('.entry').length).toBe(50);
+    // one page: no pager, and never "51–50 of 50"
+    expect(el.textContent).not.toContain('51–50');
+  });
+
+  it('a reload does not open again a highlighted panel that the user collapsed', async () => {
+    src = new EditableFakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      for (let i = 0; i < 3; i++) {
+        fixture.detectChanges();
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      fixture.detectChanges();
+    };
+    const groups = [{ name: 'general', count: 2 }, { name: 'sample', count: 1 }];
+    const samplePage = { group: 'sample', page: 0, size: 50, total: 1, entries: [{ lineNumber: 9, key: 'sample[1]', value: 's' }] };
+    fixture.detectChanges();
+    src.oneGroups().reply(groups);
+    await settle();
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES });
+    fixture.componentInstance.highlight.set({ group: 'sample', keys: ['sample[1]'], focusKey: 'sample[1]', moveFocus: false });
+    await settle();
+    src.onePage('sample').reply(samplePage);
+    await settle();
+    const header = el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1];
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+    header.click();
+    await settle();
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+
+    src.changes.next();
+    await settle();
+    src.oneGroups().reply(groups.map((g) => ({ ...g })));
+    src.pages.filter((p) => !p.taken).forEach((p) => {
+      p.taken = true;
+      p.reply(p.args.group === 'sample' ? samplePage : { group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES });
+    });
+    await settle();
+    expect(el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1].getAttribute('aria-expanded')).toBe('false');
+
+    // a new highlight is a new jump: it opens the panel again
+    fixture.componentInstance.highlight.set({ group: 'sample', keys: ['sample[1]'], focusKey: 'sample[1]', moveFocus: false });
+    await settle();
+    expect(el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1].getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('shows no Remove button when read-only', async () => {
     const { fixture, el, settle } = await render();
     fixture.componentInstance.readonly.set(true);
