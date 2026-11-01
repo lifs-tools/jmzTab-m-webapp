@@ -15,7 +15,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px 30px;
-  padding: 26px 32px 10px;
+  // The logo bands keep the same space above and below their logos; the images carry no margins of their own.
+  padding: 22px 32px;
 }
 
 .footer__partners {
@@ -45,7 +46,7 @@
   align-items: center;
   justify-content: center;
   gap: 16px 40px;
-  padding: 14px 32px 20px;
+  padding: 22px 32px;
   border-top: 1px solid var(--lifs-line);
 
   img {
@@ -66,7 +67,8 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px 28px;
-  padding: 18px 32px 24px;
+  // No top padding: the funding band's bottom padding is the space below its logos.
+  padding: 0 32px 24px;
   font-size: 14px;
 
   a,

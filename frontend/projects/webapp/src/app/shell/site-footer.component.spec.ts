@@ -33,6 +33,16 @@ describe('SiteFooterComponent', () => {
     expect(el.innerHTML).not.toContain('ISAS');
   });
 
+  it('logo bands keep the same space above and below their logos', async () => {
+    const el = await render(undefined);
+    for (const band of ['.footer__logos', '.footer__funding']) {
+      const style = getComputedStyle(el.querySelector(band)!);
+      expect(style.paddingTop, band).toBe('22px');
+      expect(style.paddingBottom, band).toBe('22px');
+    }
+    expect(getComputedStyle(el.querySelector('.footer__links')!).paddingTop).toBe('0px');
+  });
+
   it('copyright shows the current year', async () => {
     const el = await render(undefined);
     expect(el.textContent).toContain(`© 2016 - ${new Date().getFullYear()} LIFS Tools Consortium`);
