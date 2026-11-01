@@ -1,8 +1,25 @@
 :host {
+  display: block;
+}
+
+.page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
+
+p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.notice {
+  padding: 10px 14px;
+  border-left: 4px solid var(--lifs-warn);
+  background: var(--lifs-warn-bg);
+  color: var(--lifs-warn);
+}
+
 
 .chapters {
   list-style: none;

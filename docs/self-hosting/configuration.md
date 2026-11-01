@@ -156,4 +156,4 @@ The engines parse, validate and convert mzTab-M files, and ask the Ontology Look
 
 `engine.line`, `engine.mztab-versions` and `engine.jmztabm-version` are set when the engine is built and describe what it validates; do not change them.
 
-The engines answer `GET /engine/v1/info` with their version line, mzTab-M versions, jmzTab-m version, build and limits; the webapp shows it in its health endpoint and on the About page.
+The engines answer `GET /engine/v1/info` with their version line, mzTab-M versions, jmzTab-m version, build and limits; the webapp shows it in its health endpoint and on the documentation page "mzTab-M 2.0 and 2.1" (`/docs/versions`).

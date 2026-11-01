@@ -31,4 +31,24 @@ describe('docs redirects', () => {
   it('redirects /problems#unknown-cv-term to /docs/problems#unknown-cv-term', async () => {
     expect(await open('/problems#unknown-cv-term')).toBe('/docs/problems#unknown-cv-term');
   });
+
+  it('redirects /about to /docs/about', async () => {
+    expect(await open('/about')).toBe('/docs/about');
+  });
+
+  it('redirects /about#about-levels to /docs/validating#about-levels', async () => {
+    expect(await open('/about#about-levels')).toBe('/docs/validating#about-levels');
+  });
+
+  it('redirects /about#about-editor to /docs/fixing#about-editor', async () => {
+    expect(await open('/about#about-editor')).toBe('/docs/fixing#about-editor');
+  });
+
+  it('redirects /about#about-formats to the documentation home', async () => {
+    expect(await open('/about#about-formats')).toBe('/docs#about-formats');
+  });
+
+  it('redirects an unknown /about section to /docs/about', async () => {
+    expect(await open('/about#nothing')).toBe('/docs/about#nothing');
+  });
 });

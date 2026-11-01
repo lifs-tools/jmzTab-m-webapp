@@ -1,11 +1,46 @@
-<p class="lifs-lead">
-  How to read what the validator reports, fix your file, and solve the most common problems.
-</p>
+<div class="page lifs-prose">
+  <section class="lifs-card" aria-labelledby="format-what">
+    <h2 id="format-what" class="lifs-card__title">What it is</h2>
+    <p>
+      The HUPO-PSI standard for reporting the results of mass-spectrometry metabolomics and lipidomics: one
+      tab-separated text file with the study's metadata, the identified molecules with their quantities, and the
+      features and evidence behind them.
+    </p>
+  </section>
 
-<ul class="chapters">
-  @for (c of chapters; track c.path) {
-    <li>
-      <a class="lifs-card chapter" [routerLink]="c.path">{{ c.title }}</a>
-    </li>
-  }
-</ul>
+  <section class="lifs-card" aria-labelledby="format-for">
+    <h2 id="format-for" class="lifs-card__title">What it is for</h2>
+    <p>
+      Depositing results in public repositories, exchanging them between tools, and reanalysing published studies
+      without the software that produced them.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="format-who">
+    <h2 id="format-who" class="lifs-card__title">Who uses it</h2>
+    <p>
+      Researchers whose software exports mzTab-M or who prepare their results for a repository, the tools that
+      write and read it, and the repositories that accept it, LipidCompass among them.
+    </p>
+  </section>
+
+  <section id="about-formats" class="lifs-card" aria-labelledby="formats">
+    <h2 id="formats" class="lifs-card__title">mzTab-M and jmzTab-m</h2>
+    <p>
+      <a href="https://github.com/HUPO-PSI/mzTab" target="_blank" rel="noopener">mzTab-M</a> is the HUPO-PSI
+      tab-separated exchange format for quantitative results of mass spectrometry based metabolomics
+      experiments.
+      <a href="https://github.com/lifs-tools/jmzTab-m" target="_blank" rel="noopener">jmzTab-m</a> is its Java
+      reference implementation; this service uses it to parse and validate your files.
+    </p>
+    <p class="notice" role="note">mzTab 1.0 validation was retired in version 2.0.0.</p>
+  </section>
+
+  <ul class="chapters">
+    @for (c of chapters; track c.path) {
+      <li>
+        <a class="lifs-card chapter" [routerLink]="c.path">{{ c.title }}</a>
+      </li>
+    }
+  </ul>
+</div>

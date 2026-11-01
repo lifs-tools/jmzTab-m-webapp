@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { DOCS_TREE } from './docs-tree';
 
-/** The documentation's main page: the chapters. */
+/** The documentation's main page: the format in brief, mzTab-M and jmzTab-m, and the chapters. */
 @Component({
   selector: 'app-docs-home-page',
   imports: [RouterLink],

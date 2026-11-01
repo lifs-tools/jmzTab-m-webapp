@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { pageTitle } from './core/page-titles';
-import { keepFragment } from './pages/docs/docs-redirects';
+import { aboutRedirect, keepFragment } from './pages/docs/docs-redirects';
 
 export const routes: Routes = [
   {
@@ -20,11 +20,6 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/edit/edit.page').then((m) => m.EditPage),
   },
   {
-    path: 'about',
-    title: pageTitle('/about'),
-    loadComponent: () => import('./pages/about/about.page').then((m) => m.AboutPage),
-  },
-  {
     path: 'examples',
     title: pageTitle('/examples'),
     loadComponent: () => import('./pages/examples/examples.page').then((m) => m.ExamplesPage),
@@ -40,6 +35,16 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/docs/docs-home.page').then((m) => m.DocsHomePage),
       },
       {
+        path: 'versions',
+        title: pageTitle('/docs/versions'),
+        loadComponent: () => import('./pages/docs/versions.page').then((m) => m.VersionsPage),
+      },
+      {
+        path: 'validating',
+        title: pageTitle('/docs/validating'),
+        loadComponent: () => import('./pages/docs/validating.page').then((m) => m.ValidatingPage),
+      },
+      {
         path: 'fixing',
         title: pageTitle('/docs/fixing'),
         loadComponent: () => import('./pages/docs/fixing.page').then((m) => m.FixingPage),
@@ -49,11 +54,18 @@ export const routes: Routes = [
         title: pageTitle('/docs/problems'),
         loadComponent: () => import('./pages/docs/problems.page').then((m) => m.ProblemsPage),
       },
+      {
+        path: 'about',
+        title: pageTitle('/docs/about'),
+        loadComponent: () =>
+          import('./pages/docs/service-about.page').then((m) => m.ServiceAboutPage),
+      },
     ],
   },
   // The old addresses, with their section anchors.
   { path: 'guide', redirectTo: keepFragment('/docs/fixing') },
   { path: 'problems', redirectTo: keepFragment('/docs/problems') },
+  { path: 'about', redirectTo: aboutRedirect },
   {
     path: '**',
     title: pageTitle('/not-found'),

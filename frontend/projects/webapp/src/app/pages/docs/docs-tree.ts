@@ -10,8 +10,11 @@ export const DOCS_HOME: DocsNode = { path: '/docs', title: 'Documentation' };
 
 /** The chapters, in the order of the side navigation. */
 export const DOCS_TREE: readonly DocsNode[] = [
+  { path: '/docs/versions', title: 'mzTab-M 2.0 and 2.1' },
+  { path: '/docs/validating', title: 'Validating a file' },
   { path: '/docs/fixing', title: 'Fixing a file' },
   { path: '/docs/problems', title: 'Common problems' },
+  { path: '/docs/about', title: 'About this service' },
 ];
 
 /** Every page in reading order: the main page, then the chapters depth-first. */

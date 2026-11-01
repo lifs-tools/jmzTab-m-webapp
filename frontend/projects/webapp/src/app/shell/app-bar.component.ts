@@ -40,7 +40,6 @@ export class AppBarComponent {
     },
     // Relative to <base href>, so it works under the servlet context path.
     { label: 'REST API', href: 'swagger-ui/index.html' },
-    { label: 'About', route: '/about' },
     { label: 'LIFS Tools ↗', href: 'https://lifs-tools.org/' },
   ];
 

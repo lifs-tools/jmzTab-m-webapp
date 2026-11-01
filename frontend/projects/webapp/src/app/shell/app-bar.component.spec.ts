@@ -15,7 +15,7 @@ describe('AppBarComponent', () => {
       providers: [
         provideRouter([
           { path: '', component: Blank },
-          { path: 'about', component: Blank },
+          { path: 'examples', component: Blank },
           { path: 'docs', children: [{ path: '**', component: Blank }] },
         ]),
       ],
@@ -27,9 +27,9 @@ describe('AppBarComponent', () => {
   }
 
   it('marks only the active nav item, with a non-colour cue', async () => {
-    const el = await render('/about');
+    const el = await render('/examples');
     const active = Array.from(el.querySelectorAll('.nav__item--active'));
-    expect(active.map((a) => a.textContent?.trim())).toEqual(['About']);
+    expect(active.map((a) => a.textContent?.trim())).toEqual(['Examples']);
     expect(active[0].getAttribute('aria-current')).toBe('page');
     const validate = Array.from(el.querySelectorAll('.nav__item')).find(
       (a) => a.textContent?.trim() === 'Validate',
@@ -38,7 +38,7 @@ describe('AppBarComponent', () => {
     expect(validate?.hasAttribute('aria-current')).toBe(false);
   });
 
-  it('shows the six nav items in order', async () => {
+  it('shows the five nav items in order', async () => {
     const el = await render();
     const items = Array.from(el.querySelectorAll('.nav__item')).map((a) => a.textContent?.trim());
     expect(items).toEqual([
@@ -46,9 +46,14 @@ describe('AppBarComponent', () => {
       'Examples',
       'Documentation',
       'REST API',
-      'About',
       'LIFS Tools ↗',
     ]);
+  });
+
+  it('has no About item', async () => {
+    const el = await render();
+    const items = Array.from(el.querySelectorAll('.nav__item')).map((a) => a.textContent?.trim());
+    expect(items).not.toContain('About');
   });
 
   function menuTexts(panelClass: string): string[] {
@@ -83,7 +88,7 @@ describe('AppBarComponent', () => {
   });
 
   it('does not mark Documentation active elsewhere', async () => {
-    const el = await render('/about');
+    const el = await render('/examples');
     expect(el.querySelector('button.nav__item')?.classList).not.toContain('nav__item--active');
   });
 
@@ -105,7 +110,6 @@ describe('AppBarComponent', () => {
       'All documentation',
       ...DOCS_TREE.map((n) => n.title),
       'REST API',
-      'About',
       'LIFS Tools ↗',
       'GitHub ↗',
     ]);

@@ -1,16 +1,23 @@
-import { DOCS_HOME, docsNeighbours, docsOrder, docsTitle } from './docs-tree';
+import { docsNeighbours, docsOrder, docsTitle } from './docs-tree';
 
 describe('docs tree', () => {
-  it('orders home first, then the chapters', () => {
-    expect(docsOrder().map((n) => n.path)).toEqual(['/docs', '/docs/fixing', '/docs/problems']);
+  it('orders home first, then the chapters (versions, validating, fixing, problems, about)', () => {
+    expect(docsOrder().map((n) => n.path)).toEqual([
+      '/docs',
+      '/docs/versions',
+      '/docs/validating',
+      '/docs/fixing',
+      '/docs/problems',
+      '/docs/about',
+    ]);
   });
 
   it('gives neighbours in tree order', () => {
     const n = docsNeighbours('/docs/fixing');
-    expect(n.prev).toBe(DOCS_HOME);
+    expect(n.prev?.path).toBe('/docs/validating');
     expect(n.next?.path).toBe('/docs/problems');
     expect(docsNeighbours('/docs').prev).toBeNull();
-    expect(docsNeighbours('/docs/problems').next).toBeNull();
+    expect(docsNeighbours('/docs/about').next).toBeNull();
   });
 
   it('gives no neighbours outside the tree', () => {

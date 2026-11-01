@@ -29,8 +29,10 @@ describe('DocsShellComponent', () => {
             component: DocsShellComponent,
             children: [
               { path: '', component: Blank },
+              { path: 'validating', component: Blank },
               { path: 'fixing', component: Blank },
               { path: 'problems', component: Blank },
+              { path: 'about', component: Blank },
             ],
           },
         ]),
@@ -62,8 +64,11 @@ describe('DocsShellComponent', () => {
     expect(current.map((a) => a.getAttribute('href'))).toEqual(['/docs/fixing']);
     expect(Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim())).toEqual([
       'Documentation',
+      'mzTab-M 2.0 and 2.1',
+      'Validating a file',
       'Fixing a file',
       'Common problems',
+      'About this service',
     ]);
   });
 
@@ -72,13 +77,16 @@ describe('DocsShellComponent', () => {
     const pager = () => el.querySelector('nav[aria-label="Previous and next page"]')!;
     const prev = pager().querySelector<HTMLAnchorElement>('a[rel=prev]');
     const next = pager().querySelector<HTMLAnchorElement>('a[rel=next]');
-    expect(prev?.getAttribute('href')).toBe('/docs');
-    expect(prev?.textContent).toContain('Documentation');
+    expect(prev?.getAttribute('href')).toBe('/docs/validating');
+    expect(prev?.textContent).toContain('Validating a file');
     expect(next?.getAttribute('href')).toBe('/docs/problems');
     expect(next?.textContent).toContain('Common problems');
 
     await harness.navigateByUrl('/docs/problems');
     expect(pager().querySelector('a[rel=prev]')?.getAttribute('href')).toBe('/docs/fixing');
+    expect(pager().querySelector('a[rel=next]')?.getAttribute('href')).toBe('/docs/about');
+
+    await harness.navigateByUrl('/docs/about');
     expect(pager().querySelector('a[rel=next]')).toBeNull();
   });
 

@@ -1,0 +1,38 @@
+
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p,
+ul,
+blockquote {
+  margin: 0;
+  line-height: 1.65;
+}
+blockquote {
+  padding-left: 14px;
+  border-left: 2px solid var(--lifs-line);
+  color: var(--lifs-slate);
+  font-size: 13px;
+}
+
+.kv {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+
+  dt {
+    color: var(--lifs-grey);
+  }
+  dd {
+    margin: 0;
+    font-family: var(--lifs-mono);
+  }
+}
