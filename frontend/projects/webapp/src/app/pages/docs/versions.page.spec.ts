@@ -125,15 +125,22 @@ describe('VersionsPage', () => {
     expect(rows.map((r) => r.slice(0, 3))).toEqual(
       VERIFIED_CHANGES.map((c) => [c.change, c.meaning, c.mustChange]),
     );
-    // each row shows its source: the part of jmzTab-m 2.1 and the engine test (TwoOneChangesTest) that checks it
+    // each row shows its source, the class of jmzTab-m 2.1 linked to its source file; the engine test that checks
+    // the row (TwoOneChangesTest) is kept in the data, for the build, and not shown to the reader
     expect(VERIFIED_CHANGES.length).toBeGreaterThan(0);
+    const links = Array.from(table.querySelectorAll('tbody tr td.source a'));
     VERIFIED_CHANGES.forEach((c, i) => {
       expect(c.source.basis).toMatch(/^[A-Z]\w+$/);
       expect(c.source.test).toMatch(/^[a-z]\w+$/);
-      expect(rows[i][3]).toContain(`jmzTab-m 2.1 ${c.source.basis}`);
-      expect(rows[i][3]).toContain(`TwoOneChangesTest.${c.source.test}`);
-      if (c.source.contrast) expect(rows[i][3]).toContain(`2.0: ${c.source.contrast}`);
+      expect(rows[i][3]).toBe(`jmzTab-m 2.1 ${c.source.basis}`);
+      expect(links[i].textContent?.trim()).toBe(c.source.basis);
+      expect(links[i].getAttribute('href')).toBe(
+        `https://github.com/lifs-tools/jmzTab-m/blob/master/io/src/main/java/org/lifstools/mztab2/io/validators/${c.source.basis}.java`,
+      );
     });
+    expect(links.length).toBe(VERIFIED_CHANGES.length);
+    expect(table.textContent).not.toContain('TwoOneChangesTest');
+    expect(table.textContent).not.toMatch(/\w+Test\b/);
     expect(new Set(VERIFIED_CHANGES.map((c) => c.source.test)).size).toBe(VERIFIED_CHANGES.length);
   });
 

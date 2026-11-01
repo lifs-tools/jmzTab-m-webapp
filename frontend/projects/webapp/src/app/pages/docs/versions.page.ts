@@ -17,7 +17,7 @@ export interface VerifiedChange {
   /** Whether, and when, a 2.0 file has to change for 2.1. */
   readonly mustChange: string;
   readonly source: {
-    /** The part of jmzTab-m 2.1 that the row rests on. */
+    /** The validator class of jmzTab-m 2.1 that the row rests on; the page links its source file. */
     readonly basis: string;
     /** The test of TwoOneChangesTest (engine-mztabm-2.1) that checks the row against jmzTab-m 2.1. */
     readonly test: string;
@@ -28,8 +28,9 @@ export interface VerifiedChange {
 
 /**
  * What changed in mzTab-M 2.1, only as far as the 2.1 engine shows it: each row names its source and the test
- * that checks it on a small file, and TwoOneChangesTest checks that every test named here exists. A change no
- * test and no source show is left out (no claims without a source).
+ * that checks it on a small file, and TwoOneChangesTest checks that every test named here exists. The page shows
+ * the source only; the tests are for the build. A change no test and no source show is left out (no claims without
+ * a source).
  */
 export const VERIFIED_CHANGES: readonly VerifiedChange[] = [
   {
@@ -85,6 +86,10 @@ export const TOOLS_WRITING_21: readonly { readonly name: string; readonly url: s
 
 const TEACHING_21 = 'teaching-lipidomics-2.1.mztab';
 
+/** The validators of jmzTab-m 2.1 on GitHub; its master branch is the 2.1 line. */
+const JMZTABM_21_VALIDATORS =
+  'https://github.com/lifs-tools/jmzTab-m/blob/master/io/src/main/java/org/lifstools/mztab2/io/validators/';
+
 /**
  * mzTab-M 2.0 and 2.1: the versions this instance validates and the engine behind each, what changed in 2.1,
  * converting a 2.0 file and validating 2.1.
@@ -110,6 +115,9 @@ export class VersionsPage {
   protected readonly hintUrl = computed(() => this.info()?.unavailableHintUrl?.trim() || null);
 
   protected readonly changes = VERIFIED_CHANGES;
+  protected sourceOf(c: VerifiedChange): string {
+    return `${JMZTABM_21_VALIDATORS}${c.source.basis}.java`;
+  }
   protected readonly tools = TOOLS_WRITING_21;
   protected readonly removeFieldTitle = QUICK_FIX_TITLES['remove-mismatched-field'];
   protected readonly previewLabel = QUICK_FIX_PREVIEW_LABEL;

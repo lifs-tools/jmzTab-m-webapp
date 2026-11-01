@@ -45,9 +45,9 @@
     <h2 id="what-changed" class="lifs-card__title">What changed in 2.1</h2>
     <p>
       The table lists the changes of mzTab-M 2.1 that matter for a lipidomics file, as far as the 2.1 engine of
-      this validator shows them. Each row names the part of jmzTab-m 2.1 it rests on and the test that checks it on a
-      small file; a row says how 2.0 differs only where a test of the 2.0 engine shows it. A change that could not be
-      checked this way is not listed.
+      this validator shows them. Each row names the class of jmzTab-m 2.1 it rests on, and a test of this validator
+      checks it on a small file; a row says how 2.0 differs only where a test of the 2.0 engine shows it. A change
+      that could not be checked this way is not listed.
     </p>
     <table class="changes">
       <thead>
@@ -65,10 +65,8 @@
             <td>{{ c.meaning }}</td>
             <td>{{ c.mustChange }}</td>
             <td class="source">
-              jmzTab-m 2.1 <code>{{ c.source.basis }}</code>; test <code>TwoOneChangesTest.{{ c.source.test }}</code>
-              @if (c.source.contrast; as contrast) {
-                · 2.0: <code>{{ contrast }}</code>
-              }
+              jmzTab-m 2.1
+              <a [href]="sourceOf(c)" target="_blank" rel="noopener"><code>{{ c.source.basis }}</code></a>
             </td>
           </tr>
         }
