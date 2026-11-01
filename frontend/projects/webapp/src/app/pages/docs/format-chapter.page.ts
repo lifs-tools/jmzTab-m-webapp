@@ -14,6 +14,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, map, of } from 'rxjs';
 
 import { TourButtonComponent } from '../../core/tour-button.component';
+import { TRY_IT } from '../../core/tour-labels';
 import { TutorialStore } from '../../core/tutorial.store';
 import { ExcerptComponent } from './excerpt.component';
 
@@ -53,6 +54,7 @@ export class FormatChapterPage {
   );
   /** "Try it" opens the tour at this chapter's first step (1-based), when this instance offers the example. */
   private readonly offered = this.store.offered();
+  protected readonly tryItLabel = TRY_IT;
   protected readonly tryItStep = computed(() => {
     if (!this.offered()?.has(this.exampleId)) return null;
     const i = (this.loaded()?.steps ?? []).findIndex((s) => s.chapter === this.chapter);

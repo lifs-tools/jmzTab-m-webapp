@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
+import { TAKE_THE_TOUR } from '../../core/tour-labels';
 import { TourService } from '../../core/tour.service';
 
 import { GettingStartedPage } from './getting-started.page';
@@ -51,7 +52,7 @@ describe('GettingStartedPage', () => {
   }
 
   const tourButton = (el: HTMLElement) =>
-    Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Take the tour');
+    Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === TAKE_THE_TOUR);
 
   it('names the three routes', async () => {
     const el = await render();

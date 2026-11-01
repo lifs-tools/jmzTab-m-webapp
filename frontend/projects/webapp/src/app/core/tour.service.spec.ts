@@ -1,9 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
-import { TourService } from './tour.service';
+import { TOUR_ID_PATTERN, TourService } from './tour.service';
+
+@Component({ template: '' })
+class ElsewhereComponent {}
 
 const ID = 'teaching-lipidomics-2.0.mztab';
 
@@ -14,7 +18,7 @@ describe('TourService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'elsewhere', component: ElsewhereComponent }])],
     });
     http = TestBed.inject(HttpTestingController);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true) as never;
@@ -50,6 +54,25 @@ describe('TourService', () => {
       queryParams: { tour: ID, step: 1 },
       replaceUrl: true,
     });
+  });
+
+  it('gives up when the user goes elsewhere before the example has been validated', async () => {
+    let completed = false;
+    tours.start(ID, 2).subscribe({ complete: () => (completed = true) });
+    const req = validation();
+    await TestBed.inject(Router).navigateByUrl('/elsewhere');
+    expect(req.cancelled).toBe(true);
+    expect(completed).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('accepts example ids as the server does, but no ids of dots only', () => {
+    for (const id of [ID, 'a', 'study-design-2.1.mztab', '...a', 'x'.repeat(100)]) {
+      expect(TOUR_ID_PATTERN.test(id), id).toBe(true);
+    }
+    for (const id of ['.', '..', '...', '', '../x', 'a/b', 'a b', 'x'.repeat(101)]) {
+      expect(TOUR_ID_PATTERN.test(id), id).toBe(false);
+    }
   });
 
   it('passes a failed validation on and does not navigate', () => {

@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -122,6 +123,8 @@ export class ResultPage {
   private readonly docSource = inject(ResultDocumentSource);
   private readonly tutorial = inject(TutorialStore);
   private readonly tours = inject(TourService);
+  /** A restart or a version switch still validating when the user leaves must not navigate any more. */
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
 
   protected readonly view = signal<View>('loading');
@@ -377,7 +380,10 @@ export class ResultPage {
   private restartTour(): boolean {
     const req = tourParams(this.route.snapshot.queryParamMap);
     if (!req || this.tours.createdByTour(this.validationId)) return false;
-    this.tours.start(req.id, req.step ?? 1, true).subscribe({ error: () => this.view.set('notFound') });
+    this.tours
+      .start(req.id, req.step ?? 1, true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => this.view.set('notFound') });
     return true;
   }
 
@@ -439,6 +445,7 @@ export class ResultPage {
         map((t) => (t.steps ?? []).findIndex((s) => s.id === stepId) + 1 || 1),
         catchError(() => of(1)),
         switchMap((step) => this.tours.start(id, step)),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         complete: () => (this.switching = false),

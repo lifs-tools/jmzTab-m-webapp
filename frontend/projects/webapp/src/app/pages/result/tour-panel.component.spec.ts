@@ -3,6 +3,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { TourDto } from '../../api/models/tour-dto';
+import {
+  TOUR_BACK,
+  TOUR_CLOSE,
+  TOUR_NEXT,
+  VALIDATE_YOUR_OWN_FILE,
+  tourSwitchLabel,
+} from '../../core/tour-labels';
 import { TourPanelComponent } from './tour-panel.component';
 
 const TOUR: TourDto = {
@@ -68,22 +75,22 @@ describe('TourPanelComponent', () => {
 
   it('disables Back on the first step', async () => {
     const { el, button, host, fixture } = await render(0);
-    expect((button('Back') as HTMLButtonElement).disabled).toBe(true);
+    expect((button(TOUR_BACK) as HTMLButtonElement).disabled).toBe(true);
     expect(el.textContent).not.toContain('Look for');
-    button('Next')!.click();
-    button('Close')!.click();
+    button(TOUR_NEXT)!.click();
+    button(TOUR_CLOSE)!.click();
     expect(host.events).toEqual(['next', 'close']);
     host.index.set(1);
     fixture.detectChanges();
-    expect((button('Back') as HTMLButtonElement).disabled).toBe(false);
-    button('Back')!.click();
+    expect((button(TOUR_BACK) as HTMLButtonElement).disabled).toBe(false);
+    button(TOUR_BACK)!.click();
     expect(host.events).toEqual(['next', 'close', 'back']);
   });
 
   it('offers Validate your own file on the last step', async () => {
     const { button } = await render(2);
-    expect(button('Next')).toBeUndefined();
-    const link = button('Validate your own file') as HTMLAnchorElement;
+    expect(button(TOUR_NEXT)).toBeUndefined();
+    const link = button(VALIDATE_YOUR_OWN_FILE) as HTMLAnchorElement;
     expect(link.tagName).toBe('A');
     expect(link.getAttribute('href')).toBe('/');
   });
@@ -92,20 +99,20 @@ describe('TourPanelComponent', () => {
     const { fixture, button, host } = await render(1);
     document.body.appendChild(fixture.nativeElement);
     try {
-      button('Next')!.focus();
-      button('Next')!.click();
+      button(TOUR_NEXT)!.focus();
+      button(TOUR_NEXT)!.click();
       host.index.set(2);
       fixture.detectChanges();
       await fixture.whenStable();
-      expect(document.activeElement).toBe(button('Validate your own file'));
+      expect(document.activeElement).toBe(button(VALIDATE_YOUR_OWN_FILE));
       host.index.set(1);
       fixture.detectChanges();
-      button('Back')!.focus();
-      button('Back')!.click();
+      button(TOUR_BACK)!.focus();
+      button(TOUR_BACK)!.click();
       host.index.set(0);
       fixture.detectChanges();
       await fixture.whenStable();
-      expect(document.activeElement).toBe(button('Next'));
+      expect(document.activeElement).toBe(button(TOUR_NEXT));
     } finally {
       fixture.nativeElement.remove();
     }
@@ -113,7 +120,7 @@ describe('TourPanelComponent', () => {
 
   it('switches to the other version', async () => {
     const { button, host } = await render(1);
-    button('Show this in mzTab-M 2.1')!.click();
+    button(tourSwitchLabel('2.1'))!.click();
     expect(host.events).toEqual(['switch']);
   });
 

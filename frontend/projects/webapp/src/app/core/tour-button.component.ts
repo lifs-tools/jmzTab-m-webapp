@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+import { TAKE_THE_TOUR } from './tour-labels';
 import { TourService } from './tour.service';
 import { validationErrorMessage } from './validation-error';
 
@@ -38,10 +40,12 @@ import { validationErrorMessage } from './validation-error';
 })
 export class TourButtonComponent {
   private readonly tours = inject(TourService);
+  /** A tour still being started when the user leaves the page must not navigate any more. */
+  private readonly destroyRef = inject(DestroyRef);
   readonly exampleId = input.required<string>();
   /** 1-based. */
   readonly step = input(1);
-  readonly label = input('Take the tour');
+  readonly label = input(TAKE_THE_TOUR);
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -50,12 +54,15 @@ export class TourButtonComponent {
     if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
-    this.tours.start(this.exampleId(), this.step()).subscribe({
-      complete: () => this.busy.set(false),
-      error: (err: unknown) => {
-        this.busy.set(false);
-        this.error.set(validationErrorMessage(err));
-      },
-    });
+    this.tours
+      .start(this.exampleId(), this.step())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        complete: () => this.busy.set(false),
+        error: (err: unknown) => {
+          this.busy.set(false);
+          this.error.set(validationErrorMessage(err));
+        },
+      });
   }
 }

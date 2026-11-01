@@ -110,7 +110,7 @@
 
   @if (tryItStep(); as step) {
     <p class="try-it">
-      <app-tour-button label="Try it" [exampleId]="exampleId" [step]="step" />: the validator opens the teaching file
+      <app-tour-button [label]="tryItLabel" [exampleId]="exampleId" [step]="step" />: the validator opens the teaching file
       and the tour shows these steps in the result viewer.
     </p>
   }

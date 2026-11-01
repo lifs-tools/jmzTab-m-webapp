@@ -14,6 +14,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 
 import { TourDto } from '../../api/models/tour-dto';
+import {
+  TOUR_BACK,
+  TOUR_CLOSE,
+  TOUR_NEXT,
+  VALIDATE_YOUR_OWN_FILE,
+  tourSwitchLabel,
+} from '../../core/tour-labels';
 
 /**
  * The tour of a teaching file, in place of the messages: the step's title, text and what to look for,
@@ -29,6 +36,8 @@ import { TourDto } from '../../api/models/tour-dto';
 })
 export class TourPanelComponent {
   private readonly injector = inject(Injector);
+  protected readonly labels = { back: TOUR_BACK, next: TOUR_NEXT, close: TOUR_CLOSE, ownFile: VALIDATE_YOUR_OWN_FILE };
+  protected readonly switchLabel = tourSwitchLabel;
   readonly tour = input.required<TourDto>();
   /** 0-based index of the step shown. */
   readonly index = input.required<number>();

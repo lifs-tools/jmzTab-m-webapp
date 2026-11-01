@@ -6,6 +6,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { ExampleDto } from '../../api/models/example-dto';
 import { TourDto } from '../../api/models/tour-dto';
 import { pageTitle } from '../../core/page-titles';
+import { TRY_IT } from '../../core/tour-labels';
 import { TourService } from '../../core/tour.service';
 import { TutorialStore } from '../../core/tutorial.store';
 import { formatRouteData } from './format-chapters';
@@ -181,13 +182,13 @@ describe('FormatChapterPage', () => {
     expect(original.getAttribute('href')).toBe(
       'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples',
     );
-    expect(el.textContent).not.toContain('Try it');
+    expect(el.textContent).not.toContain(TRY_IT);
     expect(el.querySelector('button')).toBeNull();
   });
 
   it("Try it starts the tour at the chapter's first step", async () => {
     const tryIt = (el: HTMLElement) =>
-      Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Try it')!;
+      Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === TRY_IT)!;
     // the metadata chapter starts with the second step of the tour
     tryIt((await render('metadata')).el).click();
     expect(start).toHaveBeenCalledWith('teaching-lipidomics-2.0.mztab', 2);

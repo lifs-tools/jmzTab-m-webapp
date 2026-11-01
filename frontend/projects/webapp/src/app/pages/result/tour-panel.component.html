@@ -11,18 +11,18 @@
     }
   }
   <div class="actions">
-    <button #backButton mat-stroked-button type="button" [disabled]="index() === 0" (click)="onBack()">Back</button>
+    <button #backButton mat-stroked-button type="button" [disabled]="index() === 0" (click)="onBack()">{{ labels.back }}</button>
     @if (last()) {
-      <a #ownFile mat-flat-button routerLink="/">Validate your own file</a>
+      <a #ownFile mat-flat-button routerLink="/">{{ labels.ownFile }}</a>
     } @else {
-      <button #nextButton mat-flat-button type="button" (click)="onNext()">Next</button>
+      <button #nextButton mat-flat-button type="button" (click)="onNext()">{{ labels.next }}</button>
     }
-    <button mat-button type="button" class="close" (click)="close.emit()">Close</button>
+    <button mat-button type="button" class="close" (click)="close.emit()">{{ labels.close }}</button>
   </div>
   @if (counterpartOffered() && counterpartVersion(); as version) {
     <p class="switch">
       <button type="button" class="switch-button" (click)="switchVersion.emit()">
-        Show this in mzTab-M {{ version }}
+        {{ switchLabel(version) }}
       </button>
     </p>
   }

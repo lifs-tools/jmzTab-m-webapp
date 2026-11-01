@@ -6,7 +6,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { BehaviorSubject, Observable, Subject, map, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, map, of, tap, throwError } from 'rxjs';
 
 import { ExampleDto } from '../../api/models/example-dto';
 import { TourDto } from '../../api/models/tour-dto';
@@ -15,6 +15,7 @@ import { TourTargetDto } from '../../api/models/tour-target-dto';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
 import { MetadataViewComponent, TableViewComponent } from '@lifs-tools/mztabm-editor';
+import { TOUR_BACK, TOUR_CLOSE, TOUR_NEXT, tourSwitchLabel } from '../../core/tour-labels';
 import { TourService } from '../../core/tour.service';
 import { TutorialStore } from '../../core/tutorial.store';
 import { ResultPage } from './result.page';
@@ -800,7 +801,7 @@ describe('ResultPage', () => {
     describe('tour', () => {
       let start: ReturnType<typeof vi.fn>;
       let tourOf: ReturnType<typeof vi.fn>;
-      let navigate: ReturnType<typeof vi.fn>;
+      let navigate: ReturnType<typeof vi.fn<(...args: unknown[]) => Promise<boolean>>>;
       /** The validations the tour service created in this session. */
       let created: Set<string>;
       let started: () => Observable<void>;
@@ -869,7 +870,7 @@ describe('ResultPage', () => {
         expect(roleNames('tab')).toEqual(['Messages', 'Metadata', 'Summary', 'Features', 'Evidence']);
         expect(selectedTab()).toBe('Summary');
         expect(el('.back-bar')).toBeNull();
-        button(panel()!, 'Back').click();
+        button(panel()!, TOUR_BACK).click();
         await serve();
         expect(selectedTab()).toBe('Metadata');
         expect(metadataHighlight()?.keys).toEqual(['assay[3]-separation']);
@@ -887,7 +888,7 @@ describe('ResultPage', () => {
         });
         // the tour announces its steps itself, not as occurrences of a message
         expect(el('[aria-live] .occ')).toBeNull();
-        button(panel()!, 'Next').click();
+        button(panel()!, TOUR_NEXT).click();
         await serve();
         expect(selectedTab()).toBe('Summary');
         expect(tableHighlight()?.focusRow).toBe(3);
@@ -932,11 +933,57 @@ describe('ResultPage', () => {
       });
 
       it('ignores a malformed tour parameter', async () => {
+        // dots only would make rest/v2/examples/../validations another endpoint
+        for (const bad of ['../x', '.', '..']) {
+          TestBed.resetTestingModule();
+          wide(true);
+          await renderTour({ tour: bad, step: '2' });
+          expect(tourOf, bad).not.toHaveBeenCalled();
+          expect(panel(), bad).toBeNull();
+          expect(el('.split .messages app-messages-tab'), bad).toBeTruthy();
+        }
+        for (const bad of ['.', '..']) {
+          TestBed.resetTestingModule();
+          await renderTour({ tour: bad, step: '2' }, 'gone');
+          expect(start, bad).not.toHaveBeenCalled();
+          expect(root.textContent, bad).toContain('Result not found');
+        }
+      });
+
+      /** A start that navigates to its result once its validation has been answered, as TourService does. */
+      function pendingStart(): Subject<void> {
+        const pending = new Subject<void>();
+        started = () =>
+          pending.pipe(
+            tap(() => void navigate(['/result', 'r2'], { queryParams: {}, replaceUrl: false })),
+          );
+        return pending;
+      }
+      const navigatedToResult = () => navigate.mock.calls.some((c) => (c[0] as unknown[] | undefined)?.[0] === '/result');
+
+      it('a restart still validating when the page goes away does not navigate', async () => {
+        const pending = pendingStart();
+        await renderTour({ tour: TOUR_ID, step: '2' }, 'gone');
+        expect(start).toHaveBeenCalledTimes(1);
+        fixture.destroy();
+        pending.next();
+        pending.complete();
+        expect(navigatedToResult()).toBe(false);
+      });
+
+      it('a version switch still validating when the tour is closed does not navigate', async () => {
+        const pending = pendingStart();
         wide(true);
-        await renderTour({ tour: '../x', step: '2' });
-        expect(tourOf).not.toHaveBeenCalled();
-        expect(panel()).toBeNull();
-        expect(el('.split .messages app-messages-tab')).toBeTruthy();
+        await renderTour({ tour: TOUR_ID, step: '3' });
+        button(panel()!, tourSwitchLabel('2.1')).click();
+        expect(start).toHaveBeenCalledTimes(1);
+        button(panel()!, TOUR_CLOSE).click();
+        expect(navigate).toHaveBeenCalledWith(['/']);
+        // the router leaves the result page
+        fixture.destroy();
+        pending.next();
+        pending.complete();
+        expect(navigatedToResult()).toBe(false);
       });
 
       it('ignores a tour that does not load, and does not restart a malformed one', async () => {
@@ -954,7 +1001,7 @@ describe('ResultPage', () => {
       it('switches to the other version at the same step', async () => {
         wide(true);
         await renderTour({ tour: TOUR_ID, step: '3' });
-        button(panel()!, 'Show this in mzTab-M 2.1').click();
+        button(panel()!, tourSwitchLabel('2.1')).click();
         expect(start).toHaveBeenCalledWith(COUNTERPART, 4);
       });
 
@@ -963,7 +1010,7 @@ describe('ResultPage', () => {
         started = () => pending;
         wide(true);
         await renderTour({ tour: TOUR_ID, step: '3' });
-        const toggle = button(panel()!, 'Show this in mzTab-M 2.1');
+        const toggle = button(panel()!, tourSwitchLabel('2.1'));
         toggle.click();
         toggle.click();
         expect(start).toHaveBeenCalledTimes(1);
@@ -981,7 +1028,7 @@ describe('ResultPage', () => {
       it('Close returns to the start page', async () => {
         wide(true);
         await renderTour({ tour: TOUR_ID, step: '2' });
-        button(panel()!, 'Close').click();
+        button(panel()!, TOUR_CLOSE).click();
         expect(navigate).toHaveBeenCalledWith(['/']);
       });
     });
