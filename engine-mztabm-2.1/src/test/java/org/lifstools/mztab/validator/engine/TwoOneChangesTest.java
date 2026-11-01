@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,6 @@ import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage.MessageType;
 import org.lifstools.mztab2.cvmapping.CvParameterLookupService;
-import org.lifstools.mztab2.model.MzTab;
 import org.lifstools.mztab2.model.StudyVariable;
 import org.lifstools.mztab2.model.StudyVariableGroup;
 
@@ -46,6 +46,7 @@ import org.lifstools.mztab2.model.StudyVariableGroup;
 class TwoOneChangesTest {
 
     private static final Pattern ROW_TEST = Pattern.compile("test:\\s*'(\\w+)'");
+    private static final Pattern ROW_CONTRAST = Pattern.compile("contrast:\\s*'(\\w+)\\.(\\w+)'");
 
     @TempDir
     Path dir;
@@ -68,10 +69,12 @@ class TwoOneChangesTest {
 
         assertThat(outcome.messages()).as("messages: %s", text(outcome)).noneMatch(TwoOneChangesTest::errorOrWarning);
         assertThat(outcome.messages()).as("messages: %s", text(outcome)).anySatisfy(m -> {
-            assertThat(m.getCode()).contains("2052");
-            assertThat(m.getMessageType()).isEqualTo(MessageType.INFO);
             // the profile inferred from the sections present: metadata and summary
-            assertThat(m.getMessage()).contains("\"M+S\"");
+            String message = "No mzTab-profile was declared in the metadata section. The profile \"M+S\" was inferred"
+                + " from the sections present in the file.";
+            assertThat(m.getCode()).isEqualTo(code("Info-2052", -1, message));
+            assertThat(m.getMessageType()).isEqualTo(MessageType.INFO);
+            assertThat(m.getMessage()).isEqualTo(message);
         });
     }
 
@@ -81,9 +84,12 @@ class TwoOneChangesTest {
 
         assertThat(outcome.messages()).as("messages: %s", text(outcome)).noneMatch(TwoOneChangesTest::errorOrWarning);
         assertThat(outcome.messages()).as("messages: %s", text(outcome)).anySatisfy(m -> {
-            assertThat(m.getCode()).contains("2057");
+            String message = "\"small_molecule_feature-quantification_unit\" is present but the profile \"M+S\" has no"
+                + " \"small molecule feature (SMF)\" section that would require it.";
+            // line 27 of the file: MismatchLocator fills in the line that jmzTab-m leaves out
+            assertThat(m.getCode()).isEqualTo(code("Info-2057", 27, message));
             assertThat(m.getMessageType()).isEqualTo(MessageType.INFO);
-            assertThat(m.getMessage()).contains("small_molecule_feature-quantification_unit");
+            assertThat(m.getMessage()).isEqualTo(message);
         });
     }
 
@@ -103,22 +109,15 @@ class TwoOneChangesTest {
     void reportsStudyVariableFactorsAsWarn2067() throws IOException {
         EngineValidator.Outcome outcome = validate("study-variable-factors-2.1.mztab");
 
+        assertThat(outcome.messages()).as("messages: %s", text(outcome))
+            .noneMatch(m -> m.getMessageType() == MessageType.ERROR);
         assertThat(outcome.messages()).as("messages: %s", text(outcome)).anySatisfy(m -> {
-            assertThat(m.getCode()).contains("2067");
+            String message = "\"study_variable[1]-factors\" is part of mzTab-M 2.0 and was replaced by"
+                + " study_variable_group[1-n] in mzTab-M 2.1.0-M.";
+            assertThat(m.getCode()).isEqualTo(code("Warn-2067", -1, message));
             assertThat(m.getMessageType()).isEqualTo(MessageType.WARN);
-            assertThat(m.getMessage()).contains("study_variable[1]-factors");
+            assertThat(m.getMessage()).isEqualTo(message);
         });
-    }
-
-    @Test
-    void acceptsNullSmfCharge() throws IOException {
-        EngineValidator.Outcome outcome = validate("null-smf-charge-2.1.mztab");
-
-        assertThat(outcome.messages()).as("messages: %s", text(outcome)).noneMatch(TwoOneChangesTest::errorOrWarning);
-        MzTab mzTab = outcome.mzTab();
-        assertThat(mzTab).as("parsed; messages: %s", text(outcome)).isNotNull();
-        assertThat(mzTab.getSmallMoleculeFeature()).singleElement()
-            .satisfies(f -> assertThat(f.getCharge()).isNull());
     }
 
     /** Every row of the versions page names a test of this class, so the table cannot claim what no test shows. */
@@ -136,6 +135,16 @@ class TwoOneChangesTest {
             .filter(m -> m.isAnnotationPresent(Test.class)).map(Method::getName).toList();
         assertThat(named).as("the tests named by VERIFIED_CHANGES").isNotEmpty().doesNotHaveDuplicates();
         assertThat(tests).containsAll(named);
+
+        // a row that claims a difference from 2.0 names the test of the 2.0 engine that shows it
+        Path twoZero = Path.of(webapp, "..", "engine-mztabm-2.0", "src", "test", "java", "org", "lifstools", "mztab",
+            "validator", "engine");
+        for (MatchResult contrast : ROW_CONTRAST.matcher(page).results().toList()) {
+            Path test = twoZero.resolve(contrast.group(1) + ".java");
+            assertThat(test).as("the 2.0 engine test %s", contrast.group(1)).exists();
+            assertThat(Files.readString(test)).as("%s names a test of %s", contrast.group(0), test)
+                .containsPattern("@Test\\s+void " + contrast.group(2) + "\\(");
+        }
     }
 
     private EngineValidator.Outcome validate(String name) throws IOException {
@@ -145,6 +154,14 @@ class TwoOneChangesTest {
             Files.write(file, in.readAllBytes());
         }
         return validator.validate(file, ValidationLevel.INFO, 100, null);
+    }
+
+    /**
+     * The code as jmzTab-m writes it: the type and number in brackets, the line (-1 for none), the message and
+     * jmzTab-m's line break, CRLF.
+     */
+    private static String code(String typeAndNumber, long line, String message) {
+        return "[" + typeAndNumber + "] line " + line + ": " + message + "\r\n";
     }
 
     private static boolean errorOrWarning(ValidationMessage m) {

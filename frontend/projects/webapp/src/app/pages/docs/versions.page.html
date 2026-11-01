@@ -45,7 +45,8 @@
     <h2 id="what-changed" class="lifs-card__title">What changed in 2.1</h2>
     <p>
       The table lists the changes of mzTab-M 2.1 that matter for a lipidomics file, as far as the 2.1 engine of
-      this validator shows them: each row was checked on a small file with jmzTab-m 2.1. A change that could not be
+      this validator shows them. Each row names the part of jmzTab-m 2.1 it rests on and the test that checks it on a
+      small file; a row says how 2.0 differs only where a test of the 2.0 engine shows it. A change that could not be
       checked this way is not listed.
     </p>
     <table class="changes">
@@ -54,14 +55,21 @@
           <th scope="col">Change</th>
           <th scope="col">What it means for a lipidomics file</th>
           <th scope="col">Must a 2.0 file change?</th>
+          <th scope="col">Source</th>
         </tr>
       </thead>
       <tbody>
-        @for (c of changes; track c.test) {
+        @for (c of changes; track c.source.test) {
           <tr>
             <th scope="row">{{ c.change }}</th>
             <td>{{ c.meaning }}</td>
             <td>{{ c.mustChange }}</td>
+            <td class="source">
+              jmzTab-m 2.1 <code>{{ c.source.basis }}</code>; test <code>TwoOneChangesTest.{{ c.source.test }}</code>
+              @if (c.source.contrast; as contrast) {
+                · 2.0: <code>{{ contrast }}</code>
+              }
+            </td>
           </tr>
         }
       </tbody>
@@ -123,15 +131,17 @@
       are the profile <code>mztab-m-2.1-default</code>; the start page offers only the profiles of the file's
       version.
     </p>
-    @if (validates21()) {
-      <p>This validator validates mzTab-M 2.1 files.</p>
-    } @else if (hintUrl(); as url) {
-      <p>
-        This validator cannot validate mzTab-M 2.1 files right now. They can be validated at
-        <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>.
-      </p>
-    } @else {
-      <p>This validator cannot validate mzTab-M 2.1 files right now.</p>
+    @if (known()) {
+      @if (validates21()) {
+        <p>This validator validates mzTab-M 2.1 files.</p>
+      } @else if (hintUrl(); as url) {
+        <p>
+          This validator cannot validate mzTab-M 2.1 files right now. They can be validated at
+          <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>.
+        </p>
+      } @else {
+        <p>This validator cannot validate mzTab-M 2.1 files right now.</p>
+      }
     }
     <p>
       At level Info, a 2.1 file without <code>mzTab-profile</code> gets Info-2052 with the inferred profile, and a

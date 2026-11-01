@@ -1,6 +1,5 @@
-COM	A feature whose charge is not known reports null in charge.
-MTD	mzTab-version	2.1.0-M
-MTD	mzTab-profile	M+F
+COM	The mzTab-M 2.0 counterpart of changes/study-variable-factors-2.1.mztab in the 2.1 engine: study_variable[n]-factors is part of 2.0.
+MTD	mzTab-version	2.0.0-M
 MTD	mzTab-ID	CHANGES-2.1
 MTD	description	Smallest file for one change of mzTab-M 2.1
 MTD	quantification_method	[MS, MS:1001834, LC-MS label-free quantitation analysis, ]
@@ -14,6 +13,7 @@ MTD	assay[1]-ms_run_ref	ms_run[1]
 MTD	study_variable[1]	control
 MTD	study_variable[1]-assay_refs	assay[1]
 MTD	study_variable[1]-description	The control
+MTD	study_variable[1]-factors	[,,treatment,none]
 MTD	cv[1]-label	MS
 MTD	cv[1]-full_name	PSI-MS controlled vocabulary
 MTD	cv[1]-version	4.1.11
@@ -22,7 +22,12 @@ MTD	cv[2]-label	UO
 MTD	cv[2]-full_name	Units of Measurement Ontology
 MTD	cv[2]-version	2017-09-25
 MTD	cv[2]-uri	http://purl.obolibrary.org/obo/uo.owl
-MTD	small_molecule_feature-quantification_unit	[UO, UO:0000064, micromolar, ]
+MTD	small_molecule-quantification_unit	[UO, UO:0000064, micromolar, ]
+MTD	small_molecule-identification_reliability	[MS, MS:1002896, compound identification confidence level, ]
+MTD	database[1]	[,, LipidMaps, ]
+MTD	database[1]-prefix	LM
+MTD	database[1]-version	2017-12
+MTD	database[1]-uri	http://www.lipidmaps.org/
 
-SFH	SMF_ID	SME_ID_REFS	SME_ID_REF_ambiguity_code	adduct_ion	isotopomer	exp_mass_to_charge	charge	retention_time_in_seconds	retention_time_in_seconds_start	retention_time_in_seconds_end	abundance_assay[1]
-SMF	1	null	null	null	null	650.6432	null	821.2341	756.0000	954.0000	2.40
+SMH	SML_ID	SMF_ID_REFS	database_identifier	chemical_formula	smiles	inchi	chemical_name	uri	theoretical_neutral_mass	adduct_ions	reliability	best_id_confidence_measure	best_id_confidence_value	abundance_assay[1]	abundance_study_variable[1]	abundance_variation_study_variable[1]
+SML	1	null	LM:LMSP02010012	C42H83NO3	null	null	Cer(d18:1/24:0)	null	649.6373	[M+H]1+	2	null	null	2.40	2.40	null

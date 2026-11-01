@@ -36,7 +36,8 @@ const ENGINE_21 = { line: '2.1', mzTabVersions: ['2.1.0-M'], jmztabmVersion: '2.
 const HINT = 'https://dev.example.org/mztabvalidator/';
 
 describe('VersionsPage', () => {
-  async function render(info: object | null = {
+  /** `null` answers app-info with an error; `'pending'` leaves it unanswered (loading). */
+  async function render(info: object | null | 'pending' = {
         version: '2.0.0',
         buildDate: '2026-10-01',
         engines: [
@@ -64,10 +65,13 @@ describe('VersionsPage', () => {
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(VersionsPage);
-    TestBed.inject(HttpTestingController)
-      .expectOne((r) => r.url.endsWith('rest/v2/app-info'))
-      .flush(info ?? 'no', info ? {} : { status: 500, statusText: 'Server Error' });
-    await fixture.whenStable();
+    const request = TestBed.inject(HttpTestingController).expectOne((r) => r.url.endsWith('rest/v2/app-info'));
+    if (info === 'pending') {
+      fixture.detectChanges();
+    } else {
+      request.flush(info ?? 'no', info ? {} : { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+    }
     return fixture.nativeElement as HTMLElement;
   }
 
@@ -118,11 +122,29 @@ describe('VersionsPage', () => {
     const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) =>
       Array.from(tr.querySelectorAll('th, td')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim()),
     );
-    expect(rows).toEqual(VERIFIED_CHANGES.map((c) => [c.change, c.meaning, c.mustChange]));
-    // each row names the engine test (TwoOneChangesTest) that checks it against jmzTab-m 2.1
+    expect(rows.map((r) => r.slice(0, 3))).toEqual(
+      VERIFIED_CHANGES.map((c) => [c.change, c.meaning, c.mustChange]),
+    );
+    // each row shows its source: the part of jmzTab-m 2.1 and the engine test (TwoOneChangesTest) that checks it
     expect(VERIFIED_CHANGES.length).toBeGreaterThan(0);
-    for (const c of VERIFIED_CHANGES) expect(c.test).toMatch(/^[a-z]\w+$/);
-    expect(new Set(VERIFIED_CHANGES.map((c) => c.test)).size).toBe(VERIFIED_CHANGES.length);
+    VERIFIED_CHANGES.forEach((c, i) => {
+      expect(c.source.basis).toMatch(/^[A-Z]\w+$/);
+      expect(c.source.test).toMatch(/^[a-z]\w+$/);
+      expect(rows[i][3]).toContain(`jmzTab-m 2.1 ${c.source.basis}`);
+      expect(rows[i][3]).toContain(`TwoOneChangesTest.${c.source.test}`);
+      if (c.source.contrast) expect(rows[i][3]).toContain(`2.0: ${c.source.contrast}`);
+    });
+    expect(new Set(VERIFIED_CHANGES.map((c) => c.source.test)).size).toBe(VERIFIED_CHANGES.length);
+  });
+
+  it('claims a difference from 2.0 only with a test of the 2.0 engine', () => {
+    for (const c of VERIFIED_CHANGES) {
+      if (/\b2\.0 validator\b/.test(c.meaning)) expect(c.source.contrast).toMatch(/^[A-Z]\w+Test\.[a-z]\w+$/);
+    }
+    expect(VERIFIED_CHANGES.find((c) => c.change === 'study_variable[n]-factors')?.source.contrast).toBe(
+      'FactorsTwoZeroTest.acceptsFactorsWithoutWarn2067',
+    );
+    expect(VERIFIED_CHANGES.map((c) => c.change)).not.toContain('Feature charge may be null');
   });
 
   it('lists no tool that writes 2.1 without a source', async () => {
@@ -162,5 +184,17 @@ describe('VersionsPage', () => {
     expect(el.querySelector('#validating-21')!.closest('section')!.textContent).toContain(
       'cannot validate mzTab-M 2.1 files right now',
     );
+  });
+
+  it('says nothing about validating 2.1 here until app-info has arrived, nor when it failed', async () => {
+    const claims = (el: HTMLElement) => el.querySelector('#validating-21')!.closest('section')!.textContent!;
+    for (const state of ['pending', null] as const) {
+      const el = await render(state);
+      expect(claims(el)).not.toContain('cannot validate mzTab-M 2.1 files');
+      expect(claims(el)).not.toContain('This validator validates mzTab-M 2.1 files');
+      // the general text stays
+      expect(claims(el)).toContain('mztab-m-2.1-default');
+      TestBed.resetTestingModule();
+    }
   });
 });
