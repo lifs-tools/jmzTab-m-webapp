@@ -25,6 +25,8 @@ const FIX_ME = join(FIXTURES, 'fix-me.mzTab');
 const BROKEN_LINE = join(FIXTURES, 'broken-line.mzTab');
 /** lipidomics-example.mzTab with opt_global_lipid_category twice in SMH (cells 17 and 20); the row disagrees. */
 const DUPLICATE_COLUMN = join(FIXTURES, 'duplicate-column.mzTab');
+/** A 2.0 file of profile M+S that still has MTD small_molecule_feature-quantification_unit (Info-2057). */
+const PROFILE_FIELD_MISMATCH = join(FIXTURES, 'profile-field-mismatch.mzTab');
 
 /** Structural validation through the API, as a script would start one. */
 async function validate(request: APIRequestContext, file: string, name: string): Promise<string> {
@@ -192,5 +194,38 @@ test('duplicateColumnIsMergedAndItsMessageGoes', async ({ page, request }) => {
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
   // the first column won, so the file is the example again, with the column once
   expect(readFileSync(await download.path()).equals(readFileSync(MZTAB_20))).toBe(true);
+  await request.delete(`rest/v2/validations/${id}`);
+});
+
+test('selectingAMessageSelectsItsElementAndRemoveThisLineFixesIt', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const key = 'small_molecule_feature-quantification_unit';
+  const id = await validate(request, PROFILE_FIELD_MISMATCH, 'profile-field-mismatch.mzTab');
+  await openEditor(page, id);
+  const messages = page.getByRole('region', { name: 'Messages' });
+  const card = messages.locator('.grp').filter({ has: page.locator('.chip', { hasText: key }) });
+  await expect(card).toHaveCount(1);
+
+  // choosing the message (no "Show first") selects its entry in the metadata
+  await card.locator('.chip', { hasText: key }).click();
+  const entry = page.locator('mztabm-metadata-view .entry--hl');
+  await expect(entry).toHaveCount(1);
+  await expect(entry.locator('.key')).toHaveText(key);
+  await expect(entry).toBeVisible();
+
+  await entry.getByRole('button', { name: /^Remove line \d+$/ }).click();
+  await expect(page.getByTestId('run-status')).toContainText('Checking your latest changes…');
+  await awaitCheck(page);
+  await expect(messages.locator('.grp').filter({ has: page.locator('.chip', { hasText: key }) })).toHaveCount(0);
+  await expect(page.getByTestId('fixed').locator('summary')).toHaveText('Fixed since the last check (1)');
+  const [removed] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
+  expect(await text(removed)).not.toContain(`MTD\t${key}\t`);
+
+  // undo brings the line and the message back
+  await page.getByTestId('undo').click();
+  await awaitCheck(page);
+  await expect(messages.locator('.grp').filter({ has: page.locator('.chip', { hasText: key }) })).toHaveCount(1);
+  const [restored] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-tsv').click()]);
+  expect(await text(restored)).toContain(`MTD\t${key}\t`);
   await request.delete(`rest/v2/validations/${id}`);
 });

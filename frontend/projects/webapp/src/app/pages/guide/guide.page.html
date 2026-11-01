@@ -39,10 +39,23 @@
       validated, but the editor says it is too large and does not open it. No change can make a file go beyond
       these limits.
     </p>
+    <h3>Select a message to see its place</h3>
+    <p>
+      Choose a message, or one of its occurrences, in the list on the left. The editor opens the place it names in
+      the document, marks it and scrolls to it: a metadata entry, a table row, a cell or a column. A new choice
+      replaces the mark of the previous one. For a message that names only a line, press
+      <b>{{ editLineAsTextLabel }}</b>.
+    </p>
     <h3>Edit a value</h3>
     <p>
       Click a cell of a table, or a value in the metadata, and type. Press Enter to save the change. Press Escape
       to drop it. One edit can change one cell. A cell can hold up to 100,000 characters.
+    </p>
+    <h3>Remove a metadata line</h3>
+    <p>
+      Every entry in the metadata has a <b>Remove this line</b> button (the ×). It removes the whole line; use
+      <b>Undo</b> to bring it back. The validator checks the file again, and the message that named the line is
+      listed as fixed.
     </p>
     <h3>Fix a line the editor cannot show</h3>
     <p>
@@ -73,6 +86,7 @@
       <li>add a column that the file must have</li>
       <li>add a missing metadata line, for you to fill in</li>
       <li>remove a controlled vocabulary entry that nothing uses</li>
+      <li>remove a field or column that the declared profile has no section for</li>
     </ul>
     <h3>Resolve a duplicate column</h3>
     <p>

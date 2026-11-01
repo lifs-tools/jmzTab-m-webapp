@@ -73,6 +73,11 @@ const info = (over: Partial<WorkingCopyInfo> = {}): WorkingCopyInfo => ({
 
 describe('EditPage', () => {
   let http: HttpTestingController;
+  /** The metadata groups the document answers with. */
+  let metadataGroups: { name: string; count: number }[] = [];
+  beforeEach(() => {
+    metadataGroups = [{ name: 'general', count: 1 }];
+  });
 
   async function render() {
     const params = new BehaviorSubject(convertToParamMap({ id: 'abc' }));
@@ -127,7 +132,7 @@ describe('EditPage', () => {
   function answerDocs(): number {
     const docs = http.match((r) => r.method === 'GET' && /working-copies\/abc\/(metadata|tables)/.test(r.url));
     for (const r of docs) {
-      if (r.request.url.endsWith('/metadata')) r.flush([{ name: 'general', count: 1 }]);
+      if (r.request.url.endsWith('/metadata')) r.flush(metadataGroups);
       else if (r.request.url.includes('/metadata/')) r.flush({ group: 'general', page: 0, size: 50, total: 0, entries: [] });
       else r.flush({ section: 'SML', page: 0, size: 50, totalRows: 0, allColumns: ['SML_ID'], columns: ['SML_ID'], rows: [] });
     }
@@ -814,6 +819,80 @@ describe('EditPage', () => {
       const input = el.querySelector<HTMLInputElement>('input.value-input');
       expect(input).toBeTruthy();
       expect(document.activeElement).toBe(input);
+    });
+  });
+  describe('selecting a message selects its element', () => {
+    const unitKey = 'small_molecule_feature-quantification_unit';
+    const mismatch = (key: string, line: number) =>
+      msg({
+        code: `[Info-2057] line ${line}: x`,
+        message: `"${key}" is present but the profile "M+S" has no "small molecule feature (SMF)" section that would require it.`,
+        message_type: 'info',
+        line_number: line,
+        location: { section: 'mtd', metadata_key: key },
+      });
+
+    const panelOf = (el: HTMLElement, group: string) =>
+      Array.from(el.querySelectorAll<HTMLElement>('mat-expansion-panel')).find((p) =>
+        p.querySelector('mat-panel-title')?.textContent?.trim().startsWith(group),
+      )!;
+
+    async function openOnGroups(messages: ValidationMessage[]) {
+      metadataGroups = [{ name: 'instrument', count: 1 }, { name: 'general', count: 3 }];
+      const ctx = await open(info({ validation: done({ messages: messages.map((message) => ({ message, state: 'OPEN' as const })) }) }));
+      return ctx;
+    }
+
+    /** Flushes the page that holds the keys of a group, as the server answers a request by key. */
+    async function answerPage(fixture: ComponentFixture<EditPage>, group: string, entries: { lineNumber: number; key: string }[]) {
+      await settle(fixture);
+      // the line of the message is read too; the views are what these specs are about
+      http.match((x) => x.url.endsWith('working-copies/abc/lines')).forEach((r) => r.flush([]));
+      for (const r of http.match((x) => x.method === 'GET' && x.url.endsWith(`working-copies/abc/metadata/${group}`))) {
+        r.flush({ group, page: 0, size: 50, total: entries.length, entries: entries.map((e) => ({ ...e, value: 'v' })) });
+      }
+      await settle(fixture);
+      await settle(fixture);
+    }
+
+    it('the first selection opens the collapsed group and highlights the entry, without Show', async () => {
+      const { fixture, el } = await openOnGroups([mismatch(unitKey, 47)]);
+      expect(panelOf(el, 'general').classList).not.toContain('mat-expanded');
+
+      chipOf(el, unitKey).click();
+      await settle(fixture);
+      await answerPage(fixture, 'general', [{ lineNumber: 46, key: 'small_molecule-quantification_unit' }, { lineNumber: 47, key: unitKey }]);
+
+      expect(panelOf(el, 'general').classList).toContain('mat-expanded');
+      const lit = Array.from(el.querySelectorAll('.entry--hl'));
+      expect(lit.map((e) => e.querySelector('.key')?.textContent?.trim())).toEqual([unitKey]);
+    });
+
+    it('a second selection clears the highlight of the first', async () => {
+      const other = mismatch('small_molecule-quantification_unit', 46);
+      const { fixture, el } = await openOnGroups([mismatch(unitKey, 47), other]);
+      chipOf(el, unitKey).click();
+      await answerPage(fixture, 'general', [{ lineNumber: 46, key: 'small_molecule-quantification_unit' }, { lineNumber: 47, key: unitKey }]);
+      expect(el.querySelectorAll('.entry--hl').length).toBe(1);
+
+      chipOf(el, 'small_molecule-quantification_unit').click();
+      await answerPage(fixture, 'general', [{ lineNumber: 46, key: 'small_molecule-quantification_unit' }, { lineNumber: 47, key: unitKey }]);
+
+      const lit = Array.from(el.querySelectorAll('.entry--hl'));
+      expect(lit.map((e) => e.querySelector('.key')?.textContent?.trim())).toEqual(['small_molecule-quantification_unit']);
+    });
+
+    it('a message with a line but no element offers to edit the line as text', async () => {
+      const lineOnly = mismatch(unitKey, 47);
+      lineOnly.location = undefined;
+      const { fixture, el } = await openOnGroups([lineOnly]);
+      chipOf(el, 'line 47').click();
+      await settle(fixture);
+      http.match((r) => r.url.endsWith('working-copies/abc/lines')).forEach((r) =>
+        r.flush([{ number: 47, section: 'MTD', cells: ['MTD', unitKey, 'v'], eol: '\n' }]),
+      );
+      await settle(fixture);
+      expect(button(el, 'edit-as-text')).toBeTruthy();
     });
   });
 });

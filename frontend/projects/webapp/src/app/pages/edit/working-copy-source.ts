@@ -76,9 +76,9 @@ export class WorkingCopySource extends DocumentSource {
    * `detail`, which the views show.
    */
   override applyEdits(ops: DocEdit[]): Observable<void> {
-    const columns = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op));
+    const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op));
     // DocEdit mirrors the server's EditOperation records field by field
-    return this.store.edit(ops as unknown as EditOps, columns).pipe(
+    return this.store.edit(ops as unknown as EditOps, reload).pipe(
       map(() => undefined),
       catchError((err: unknown) => {
         const status = err instanceof HttpErrorResponse ? err.status : undefined;

@@ -52,6 +52,7 @@ describe('GuidePage', () => {
       'Download resolution report',
       'Download report of the upload',
       'Resolve duplicate column',
+      'Remove this line',
       'Check CV rules',
       'Re-encode from Windows-1252',
       'Undo',
