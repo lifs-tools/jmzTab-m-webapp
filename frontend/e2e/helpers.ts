@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import AxeBuilder from '@axe-core/playwright';
 import { APIRequestContext, expect, Page } from '@playwright/test';
 import { join } from 'node:path';
 
-/** Helpers shared by the mzTab-M version specs (versions.spec.ts, engine-down.spec.ts). */
+/** Helpers shared by the specs: the mzTab-M version specs (versions.spec.ts, engine-down.spec.ts), axe checks. */
 
 export const FIXTURES = join(__dirname, 'fixtures');
 /** mzTab-M 2.0.0-M. */
@@ -78,4 +79,40 @@ export async function awaitEnd(request: APIRequestContext, id: string): Promise<
     )
     .toMatch(/^(FINISHED|FAILED)$/);
   return record!;
+}
+
+/**
+ * Known contrast shortfalls of the approved LIFS colours (ruling R28, waiting for a decision by the project lead):
+ * the lifs-tools.org brand bar, white on nav blue #3D84A8 (4.14:1, R21) including its "LIFS Tools" subtitle
+ * #D8E6EE (3.25:1), and the button colour site-blue #5897BF with white (3.18:1, filled and outlined buttons).
+ * Only these exact colour pairs are tolerated; any other serious or critical violation fails the test.
+ * Remove an entry once its colours change.
+ */
+const KNOWN_CONTRAST_SHORTFALLS: ReadonlyArray<{ fg: string; bg: string }> = [
+  { fg: '#ffffff', bg: '#3d84a8' },
+  { fg: '#d8e6ee', bg: '#3d84a8' },
+  { fg: '#ffffff', bg: '#5897bf' },
+  { fg: '#5897bf', bg: '#ffffff' },
+];
+
+function isKnownShortfall(ruleId: string, data: unknown): boolean {
+  if (ruleId !== 'color-contrast' || typeof data !== 'object' || data === null) return false;
+  const { fgColor, bgColor } = data as { fgColor?: string; bgColor?: string };
+  return KNOWN_CONTRAST_SHORTFALLS.some((k) => k.fg === fgColor?.toLowerCase() && k.bg === bgColor?.toLowerCase());
+}
+
+/** The serious and critical WCAG 2 A/AA violations on the page, without the known shortfalls above. */
+export async function seriousAxeViolations(page: Page) {
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  return results.violations
+    .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+    .map((v) => ({
+      id: v.id,
+      impact: v.impact,
+      help: v.help,
+      targets: v.nodes
+        .filter((n) => !n.any.some((check) => isKnownShortfall(v.id, check.data)))
+        .map((n) => `${n.target.join(' ')} | ${n.failureSummary ?? ''}`),
+    }))
+    .filter((v) => v.targets.length > 0);
 }

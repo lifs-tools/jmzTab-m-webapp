@@ -44,9 +44,11 @@
           @if (tabs().length) {
             <div class="visually-hidden" aria-live="polite">
               @if (focus(); as f) {
-                <span class="occ"
-                  >Showing occurrence {{ f.index + 1 }} of {{ f.targets.length }}: {{ f.labels[f.index] }}</span
-                >
+                @if (f.group) {
+                  <span class="occ"
+                    >Showing occurrence {{ f.index + 1 }} of {{ f.targets.length }}: {{ f.labels[f.index] }}</span
+                  >
+                }
               }
             </div>
 
@@ -92,6 +94,22 @@
               }
             </ng-template>
 
+            <ng-template #tourPanel let-t>
+              <app-tour-panel
+                [tour]="t"
+                [index]="tourIndex()"
+                [counterpartOffered]="counterpartOffered()"
+                [counterpartVersion]="counterpartVersion()"
+                (back)="moveTour(-1)"
+                (next)="moveTour(1)"
+                (close)="closeTour()"
+                (switchVersion)="switchTourVersion()"
+              />
+              @if (tourError(); as msg) {
+                <div class="lifs-callout lifs-callout--error tour-error" role="alert"><div>{{ msg }}</div></div>
+              }
+            </ng-template>
+
             <ng-template #stepper let-f>
               <span class="pos">{{ f.index + 1 }} of {{ f.targets.length }}</span>
               <button
@@ -118,19 +136,25 @@
 
             @if (split()) {
               <div class="split">
-                <section class="messages" aria-label="Messages">
-                  <ng-container [ngTemplateOutlet]="messagesTab" />
-                </section>
+                @if (tour(); as t) {
+                  <div class="messages tour-side">
+                    <ng-container [ngTemplateOutlet]="tourPanel" [ngTemplateOutletContext]="{ $implicit: t }" />
+                  </div>
+                } @else {
+                  <section class="messages" aria-label="Messages">
+                    <ng-container [ngTemplateOutlet]="messagesTab" />
+                  </section>
+                }
                 <div class="doc">
                   <ng-container
                     [ngTemplateOutlet]="tablist"
                     [ngTemplateOutletContext]="{ $implicit: docTabs(), label: 'Document sections' }"
                   />
                   @if (showStepper()) {
-                    @if (focus(); as f) {
+                    @if (focus()?.group; as g) {
                       <div class="stepper">
-                        <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
-                        <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
+                        <span class="headline" [title]="g.headline">{{ g.headline }}</span>
+                        <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: focus() }" />
                       </div>
                     }
                   }
@@ -147,18 +171,23 @@
               </div>
             } @else {
               <div>
+                @if (tour(); as t) {
+                  <div class="tour-above">
+                    <ng-container [ngTemplateOutlet]="tourPanel" [ngTemplateOutletContext]="{ $implicit: t }" />
+                  </div>
+                }
                 <ng-container
                   [ngTemplateOutlet]="tablist"
                   [ngTemplateOutletContext]="{ $implicit: tabs(), label: 'Result sections' }"
                 />
                 @if (showBackBar()) {
-                  @if (focus(); as f) {
+                  @if (focus()?.group; as g) {
                     <div class="back-bar">
                       <button type="button" class="back" (click)="backToMessage()">← Back to message</button>
                       <span class="sep" aria-hidden="true">·</span>
-                      <span class="headline" [title]="f.group.headline">{{ f.group.headline }}</span>
+                      <span class="headline" [title]="g.headline">{{ g.headline }}</span>
                       <span class="sep" aria-hidden="true">·</span>
-                      <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: f }" />
+                      <ng-container [ngTemplateOutlet]="stepper" [ngTemplateOutletContext]="{ $implicit: focus() }" />
                     </div>
                   }
                 }

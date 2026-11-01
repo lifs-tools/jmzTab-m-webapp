@@ -10,32 +10,44 @@ import {
   computed,
   inject,
   linkedSignal,
+  Signal,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Observable, catchError, exhaustMap, filter, map, of, scan, switchMap, takeWhile, timer } from 'rxjs';
 
+import { ExampleDto } from '../../api/models/example-dto';
+import { TourDto } from '../../api/models/tour-dto';
+import { TourTargetDto } from '../../api/models/tour-target-dto';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
 import { ValidationsService } from '../../api/services/validations.service';
 import { quietRequest } from '../../core/http-error.interceptor';
+import { validationErrorMessage } from '../../core/validation-error';
 import { AppInfoStore } from '../../core/app-info.store';
-import { DocTab, DocTarget, MessageGroup, occurrenceLabel, targetOf } from './message-groups';
+import { lineOf } from '../../core/mztab-version';
+import { TOUR_ID_PATTERN, TourService } from '../../core/tour.service';
+import { TutorialStore } from '../../core/tutorial.store';
+import { DocTab, DocTarget, MessageGroup, groupOf, occurrenceLabel, targetOf } from './message-groups';
 import { MessagesTabComponent, MessagesViewState, ShowRequest } from './messages-tab.component';
 import { DocumentSource, MetadataHighlight, MetadataViewComponent, TableHighlight, TableViewComponent } from '@lifs-tools/mztabm-editor';
 import { ResultDocumentSource } from './result-document-source';
 import { ResultBannerComponent } from './result-banner.component';
 import { ResultHeaderComponent } from './result-header.component';
+import { TourPanelComponent } from './tour-panel.component';
 
 type Poll = { kind: 'record'; record: ValidationRecord } | { kind: 'error'; err: unknown };
 type View = 'loading' | 'ready' | 'notFound' | 'error';
 type TabId = 'messages' | DocTab;
 
-/** The occurrence a message group shows in the document: `index` into `targets` (and their `labels`). */
+/**
+ * The occurrence a message group shows in the document: `index` into `targets` (and their `labels`).
+ * A tour step shows its target without a group: no stepper, no back bar.
+ */
 interface Focus {
-  group: MessageGroup;
+  group: MessageGroup | null;
   targets: DocTarget[];
   labels: string[];
   index: number;
@@ -52,10 +64,32 @@ const inProgress = (r: ValidationRecord) => r.status === 'QUEUED' || r.status ==
 const isNotFound = (p: Poll) => p.kind === 'error' && p.err instanceof HttpErrorResponse && p.err.status === 404;
 const count = (n: number | undefined) => (n ?? 0).toLocaleString('en');
 const WIDE_QUERY = '(min-width: 1100px)';
+const DOC_TABS: ReadonlySet<string> = new Set<DocTab>(['metadata', 'summary', 'features', 'evidence']);
+
+/** `?tour=<example id>&step=<n>`; null without a tour or with an id outside the pattern. */
+function tourParams(q: ParamMap): { id: string; step: number | null } | null {
+  const id = q.get('tour');
+  if (!id || !TOUR_ID_PATTERN.test(id)) return null;
+  const step = q.get('step') ?? '';
+  return { id, step: /^[1-9]\d{0,3}$/.test(step) ? Number(step) : null };
+}
+
+/** A step's target as the viewer's highlight target; a metadata key without group gets the server's group. */
+function docTargetOf(t: TourTargetDto | undefined): DocTarget | null {
+  if (!t?.tab || !DOC_TABS.has(t.tab)) return null;
+  const tab = t.tab as DocTab;
+  if (tab === 'metadata') {
+    const group = t.group ?? (t.key ? groupOf(t.key) : null);
+    return group ? { tab, group, key: t.key ?? undefined } : null;
+  }
+  return { tab, rowIndex: t.rowIndex ?? undefined, column: t.column ?? undefined, header: t.header ?? undefined };
+}
 
 /**
  * Result of a validation: polls while it runs, then shows banner, messages and section tabs.
  * On wide screens messages and document sit side by side; otherwise a message click jumps to its tab.
+ * With `?tour=<example id>&step=<n>` the tour panel takes the place of the messages (wide) or sits above
+ * the tabs (narrow), and each step drives the document as a message does.
  */
 @Component({
   selector: 'app-result-page',
@@ -68,6 +102,7 @@ const WIDE_QUERY = '(min-width: 1100px)';
     TableViewComponent,
     ResultBannerComponent,
     ResultHeaderComponent,
+    TourPanelComponent,
   ],
   templateUrl: './result.page.html',
   styleUrl: './result.page.scss',
@@ -85,6 +120,8 @@ export class ResultPage {
   private readonly messagesView = inject(MessagesViewState);
   /** What the library's document views read from: this result. Set before the views exist. */
   private readonly docSource = inject(ResultDocumentSource);
+  private readonly tutorial = inject(TutorialStore);
+  private readonly tours = inject(TourService);
   protected readonly retentionDays = computed(() => this.appInfo.info()?.retentionDays);
 
   protected readonly view = signal<View>('loading');
@@ -208,8 +245,36 @@ export class ResultPage {
     const f = this.focus();
     return !!f && this.current() === f.targets[f.index].tab;
   });
-  protected readonly showBackBar = computed(() => this.onTarget() && !this.split());
-  protected readonly showStepper = computed(() => this.onTarget() && this.split());
+  protected readonly showBackBar = computed(() => this.onTarget() && !this.split() && !!this.focus()?.group);
+  protected readonly showStepper = computed(() => this.onTarget() && this.split() && !!this.focus()?.group);
+
+  /** The tour of `?tour=`, once it has loaded; null without one. */
+  protected readonly tour = signal<TourDto | null>(null);
+  /** 0-based index of the tour step shown. */
+  protected readonly tourIndex = signal(0);
+  /**
+   * The tutorial examples and the ids this instance offers, asked for only once a tour is shown (the list is a
+   * request of its own). A counterpart whose engine is not available here is not offered: no version switch.
+   */
+  private readonly tutorialList = signal<{
+    examples: Signal<ReadonlyMap<string, ExampleDto> | undefined>;
+    offered: Signal<ReadonlySet<string> | undefined>;
+  } | null>(null);
+  protected readonly counterpartOffered = computed(() => {
+    const id = this.tour()?.counterpart;
+    return !!id && !!this.tutorialList()?.offered()?.has(id);
+  });
+  /** The version line of the tour's counterpart, for the switch's label. */
+  protected readonly counterpartVersion = computed(() => {
+    const id = this.tour()?.counterpart;
+    return id ? lineOf(this.tutorialList()?.examples()?.get(id)?.mzTabVersion) : null;
+  });
+  /** Why the switch to the other version failed. */
+  protected readonly tourError = signal<string | null>(null);
+  /** The validation shown, for the tour's restart guard. */
+  private validationId = '';
+  /** A version switch is validating the other file: a second press starts no second validation. */
+  private switching = false;
 
   private tabHandled = false;
   private confirmHandled = false;
@@ -221,6 +286,7 @@ export class ResultPage {
       .pipe(
         map((p) => p.get('id') ?? ''),
         switchMap((id) => {
+          this.validationId = id;
           this.view.set('loading');
           this.record.set(undefined);
           this.active.set('messages');
@@ -232,6 +298,29 @@ export class ResultPage {
         takeUntilDestroyed(),
       )
       .subscribe((p) => this.apply(p));
+    // The tour loads beside the poll; a tour that does not load leaves the normal result page.
+    this.route.paramMap
+      .pipe(
+        map(() => tourParams(this.route.snapshot.queryParamMap)),
+        switchMap((req) => {
+          this.tour.set(null);
+          this.tourError.set(null);
+          if (!req) return of(null);
+          return this.tutorial.tour(req.id).pipe(
+            map((tour) => ({ tour, step: req.step })),
+            catchError(() => of(null)),
+          );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((loaded) => {
+        const count = loaded?.tour.steps?.length ?? 0;
+        if (!loaded || !count) return;
+        this.tutorialList.set({ examples: this.tutorial.examples(), offered: this.tutorial.offered() });
+        this.tourIndex.set(loaded.step && loaded.step <= count ? loaded.step - 1 : 0);
+        this.tour.set(loaded.tour);
+        this.showTourStep();
+      });
   }
 
   /** Polls every 2 s while queued/running; tolerates up to 3 consecutive network failures. */
@@ -255,6 +344,7 @@ export class ResultPage {
 
   private apply(p: Poll): void {
     if (p.kind === 'error') {
+      if (isNotFound(p) && this.restartTour()) return;
       this.view.set(isNotFound(p) ? 'notFound' : 'error');
       return;
     }
@@ -266,6 +356,7 @@ export class ResultPage {
       const wanted = this.route.snapshot.queryParamMap.get('tab');
       if (this.tabs().some((t) => t.id === wanted && !t.disabled)) this.select(wanted as TabId);
     }
+    if (p.record.status === 'FINISHED') this.showTourStep();
     if (!this.confirmHandled && p.record.status !== undefined && !inProgress(p.record)) {
       this.confirmHandled = true;
       if (this.route.snapshot.queryParamMap.get('confirmDelete') === 'true') {
@@ -277,6 +368,85 @@ export class ResultPage {
         void this.askDelete();
       }
     }
+  }
+
+  /**
+   * A tour link whose result has expired (reload, bookmark, shared link): validates the example again and
+   * opens the same step. Not when this session's tour created the result: its loss is shown, not looped.
+   */
+  private restartTour(): boolean {
+    const req = tourParams(this.route.snapshot.queryParamMap);
+    if (!req || this.tours.createdByTour(this.validationId)) return false;
+    this.tours.start(req.id, req.step ?? 1, true).subscribe({ error: () => this.view.set('notFound') });
+    return true;
+  }
+
+  /**
+   * Shows the tour step in the document, once both the tour and the parsed document are there. A step
+   * without a target (or whose tab is absent) shows the metadata without a highlight.
+   */
+  private showTourStep(): void {
+    const tour = this.tour();
+    if (!tour || this.record()?.status !== 'FINISHED' || this.tabs().length < 2) return;
+    const step = tour.steps?.[this.tourIndex()];
+    const target = docTargetOf(step?.target);
+    if (target && this.enabledTabs().has(target.tab)) {
+      this.showTarget({
+        group: null,
+        targets: [target],
+        labels: [step?.title ?? ''],
+        index: 0,
+        all: false,
+        moveFocus: false,
+      });
+    } else {
+      this.focus.set(null);
+      this.docTab.set('metadata');
+    }
+    // Also in layout B, so that the single-pane layout opens on the step's tab when the screen narrows.
+    this.active.set(this.docTab());
+  }
+
+  /** Back / Next: shows the step and keeps it in the address, so that a reload or a shared link opens it. */
+  protected moveTour(delta: 1 | -1): void {
+    const count = this.tour()?.steps?.length ?? 0;
+    const index = this.tourIndex() + delta;
+    if (index < 0 || index >= count) return;
+    this.tourIndex.set(index);
+    this.showTourStep();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { step: index + 1 },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  protected closeTour(): void {
+    void this.router.navigate(['/']);
+  }
+
+  /** The same step of the tour on the other version: by its id, else the first step. */
+  protected switchTourVersion(): void {
+    const id = this.tour()?.counterpart;
+    if (!id || this.switching) return;
+    this.switching = true;
+    this.tourError.set(null);
+    const stepId = this.tour()?.steps?.[this.tourIndex()]?.id;
+    this.tutorial
+      .tour(id)
+      .pipe(
+        map((t) => (t.steps ?? []).findIndex((s) => s.id === stepId) + 1 || 1),
+        catchError(() => of(1)),
+        switchMap((step) => this.tours.start(id, step)),
+      )
+      .subscribe({
+        complete: () => (this.switching = false),
+        error: (err: unknown) => {
+          this.switching = false;
+          this.tourError.set(validationErrorMessage(err));
+        },
+      });
   }
 
   /** The dialog stack is loaded on demand to keep it out of the initial bundle. */
@@ -403,7 +573,7 @@ export class ResultPage {
 
   /** Layout A: back to the Messages tab, which brings the shown group's card into view and focuses it. */
   protected backToMessage(): void {
-    const key = this.focus()?.group.key;
+    const key = this.focus()?.group?.key;
     this.select('messages');
     if (key) this.messagesView.reveal.set(key);
   }

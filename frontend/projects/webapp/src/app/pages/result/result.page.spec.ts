@@ -1,16 +1,22 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { ApplicationRef } from '@angular/core';
+import { ApplicationRef, Provider, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { BehaviorSubject, map } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, map, of, throwError } from 'rxjs';
 
+import { ExampleDto } from '../../api/models/example-dto';
+import { TourDto } from '../../api/models/tour-dto';
+import { TourStepDto } from '../../api/models/tour-step-dto';
+import { TourTargetDto } from '../../api/models/tour-target-dto';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { ValidationRecord } from '../../api/models/validation-record';
 import { MetadataViewComponent, TableViewComponent } from '@lifs-tools/mztabm-editor';
+import { TourService } from '../../core/tour.service';
+import { TutorialStore } from '../../core/tutorial.store';
 import { ResultPage } from './result.page';
 
 const BASE: ValidationRecord = {
@@ -61,6 +67,35 @@ const NOT_PARSED: ValidationRecord = {
   messages: [{ ...cellError(1), location: { section: 'sml', row_index: 1 } }],
 };
 
+const TOUR_ID = 'teaching-lipidomics-2.0.mztab';
+const COUNTERPART = 'teaching-lipidomics-2.1.mztab';
+const step = (id: string, target?: TourTargetDto): TourStepDto => ({
+  id,
+  title: `Title of ${id}`,
+  text: `Text of ${id}.`,
+  target,
+});
+/** A step without target, one with a metadata key (no group: it is derived), a table row, and the last step. */
+const TOUR: TourDto = {
+  exampleId: TOUR_ID,
+  title: 'A lipidomics file, step by step (mzTab-M 2.0)',
+  counterpart: COUNTERPART,
+  steps: [
+    step('sections'),
+    step('assay', { tab: 'metadata', key: 'assay[3]-separation' }),
+    step('summary-row', { tab: 'summary', rowIndex: 3 }),
+    step('validate-yours'),
+  ],
+};
+/** The 2.1 tour has an extra step, so the same step has another number. */
+const TOUR_21: TourDto = {
+  ...TOUR,
+  exampleId: COUNTERPART,
+  title: 'A lipidomics file, step by step (mzTab-M 2.1)',
+  counterpart: TOUR_ID,
+  steps: [TOUR.steps![0], TOUR.steps![1], step('profile', { tab: 'metadata', key: 'mzTab-profile' }), TOUR.steps![2], TOUR.steps![3]],
+};
+
 describe('ResultPage', () => {
   let http: HttpTestingController;
   /** What the BreakpointObserver stub reports for '(min-width: 1100px)'; tests may change it at any time. */
@@ -68,7 +103,7 @@ describe('ResultPage', () => {
 
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
-  async function render(query: Record<string, string> = {}) {
+  async function render(query: Record<string, string> = {}, extra: Provider[] = []) {
     params = new BehaviorSubject(convertToParamMap({ id: 'abc' }));
     await TestBed.configureTestingModule({
       imports: [ResultPage],
@@ -89,6 +124,7 @@ describe('ResultPage', () => {
             snapshot: { queryParamMap: convertToParamMap(query) },
           },
         },
+        ...extra,
       ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
@@ -759,6 +795,195 @@ describe('ResultPage', () => {
       expect(roleNames('tab')).toEqual(['Messages']);
       expect(el('.chip')).toBeNull();
       expect(el('.grp')!.textContent).toContain('Enter a number');
+    });
+
+    describe('tour', () => {
+      let start: ReturnType<typeof vi.fn>;
+      let tourOf: ReturnType<typeof vi.fn>;
+      let navigate: ReturnType<typeof vi.fn>;
+      /** The validations the tour service created in this session. */
+      let created: Set<string>;
+      let started: () => Observable<void>;
+
+      beforeEach(() => {
+        created = new Set();
+        started = () => of(undefined);
+      });
+
+      const panel = () => el('app-tour-panel');
+
+      async function renderTour(
+        query: Record<string, string>,
+        rec: ValidationRecord | 'gone' = LINKED,
+        offered: string[] = [TOUR_ID, COUNTERPART],
+      ) {
+        start = vi.fn(() => started());
+        tourOf = vi.fn((id: string) =>
+          id === TOUR_ID ? of(TOUR) : id === COUNTERPART ? of(TOUR_21) : throwError(() => new Error('404')),
+        );
+        const listed = new Map<string, ExampleDto>(
+          offered.map((id) => [id, { id, section: 'tutorial', mzTabVersion: id.includes('2.1') ? '2.1.0-M' : '2.0.0-M' }]),
+        );
+        const r = await render(query, [
+          { provide: TourService, useValue: { start, createdByTour: (id: string) => created.has(id) } },
+          {
+            provide: TutorialStore,
+            useValue: { tour: tourOf, examples: () => signal(listed), offered: () => signal(new Set(listed.keys())) },
+          },
+        ]);
+        fixture = r.fixture;
+        root = r.el;
+        navigate = r.navigate as never;
+        if (rec === 'gone') {
+          (await nextGet()).flush({ message: 'nope' }, { status: 404, statusText: 'Not Found' });
+          await settle();
+          await settle();
+        } else {
+          (await nextGet()).flush(rec);
+          await serve();
+        }
+      }
+
+      it('shows the tour panel instead of the messages in the split layout', async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '1' });
+        expect(el('.split app-tour-panel')).toBeTruthy();
+        expect(el('app-messages-tab')).toBeNull();
+        expect(panel()!.textContent).toContain('Step 1 of 4');
+        expect(roleNames('tab')).toEqual(['Metadata', 'Summary', 'Features', 'Evidence']);
+        // a step without a target shows the metadata, without a highlight
+        expect(selectedTab()).toBe('Metadata');
+        expect(metadataHighlight()).toBeNull();
+        expect(el('.stepper')).toBeNull();
+      });
+
+      it('shows the tour panel above the tabs in the single-pane layout', async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '3' });
+        expect(el('.split app-tour-panel')).toBeTruthy();
+        wide(false);
+        await serve();
+        expect(el('.split')).toBeNull();
+        const tablist = el('[role="tablist"]')!;
+        expect(panel()!.compareDocumentPosition(tablist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(roleNames('tab')).toEqual(['Messages', 'Metadata', 'Summary', 'Features', 'Evidence']);
+        expect(selectedTab()).toBe('Summary');
+        expect(el('.back-bar')).toBeNull();
+        button(panel()!, 'Back').click();
+        await serve();
+        expect(selectedTab()).toBe('Metadata');
+        expect(metadataHighlight()?.keys).toEqual(['assay[3]-separation']);
+      });
+
+      it("drives the viewer with the step's target", async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '2' });
+        expect(selectedTab()).toBe('Metadata');
+        expect(metadataHighlight()).toEqual({
+          group: 'assay',
+          keys: ['assay[3]-separation'],
+          focusKey: 'assay[3]-separation',
+          moveFocus: false,
+        });
+        // the tour announces its steps itself, not as occurrences of a message
+        expect(el('[aria-live] .occ')).toBeNull();
+        button(panel()!, 'Next').click();
+        await serve();
+        expect(selectedTab()).toBe('Summary');
+        expect(tableHighlight()?.focusRow).toBe(3);
+        expect(panel()!.textContent).toContain('Step 3 of 4');
+        expect(el('.stepper')).toBeNull();
+        // the address follows the step, so that a reload or a shared link opens it
+        expect(navigate).toHaveBeenCalledWith([], {
+          relativeTo: expect.anything(),
+          queryParams: { step: 3 },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      });
+
+      it('shows step 1 for a step that is not one of the tour', async () => {
+        for (const bad of ['0', '5', 'abc', '2.5', '-1']) {
+          TestBed.resetTestingModule();
+          wide(true);
+          await renderTour({ tour: TOUR_ID, step: bad });
+          expect(panel()!.textContent, bad).toContain('Step 1 of 4');
+        }
+      });
+
+      it('restarts an expired tour at the same step', async () => {
+        await renderTour({ tour: 'x', step: '4' }, 'gone');
+        expect(start).toHaveBeenCalledWith('x', 4, true);
+        expect(root.textContent).not.toContain('Result not found');
+      });
+
+      it('shows not found when the result of a restarted tour is gone as well', async () => {
+        created.add('abc');
+        await renderTour({ tour: TOUR_ID, step: '4' }, 'gone');
+        expect(start).not.toHaveBeenCalled();
+        expect(root.textContent).toContain('Result not found');
+      });
+
+      it('shows not found when the tour cannot be started again', async () => {
+        started = () => throwError(() => new Error('503'));
+        await renderTour({ tour: TOUR_ID, step: '2' }, 'gone');
+        expect(start).toHaveBeenCalledTimes(1);
+        expect(root.textContent).toContain('Result not found');
+      });
+
+      it('ignores a malformed tour parameter', async () => {
+        wide(true);
+        await renderTour({ tour: '../x', step: '2' });
+        expect(tourOf).not.toHaveBeenCalled();
+        expect(panel()).toBeNull();
+        expect(el('.split .messages app-messages-tab')).toBeTruthy();
+      });
+
+      it('ignores a tour that does not load, and does not restart a malformed one', async () => {
+        wide(true);
+        await renderTour({ tour: 'unknown.mztab' });
+        expect(tourOf).toHaveBeenCalledWith('unknown.mztab');
+        expect(panel()).toBeNull();
+        expect(el('.split .messages app-messages-tab')).toBeTruthy();
+        TestBed.resetTestingModule();
+        await renderTour({ tour: 'a/b', step: '2' }, 'gone');
+        expect(start).not.toHaveBeenCalled();
+        expect(root.textContent).toContain('Result not found');
+      });
+
+      it('switches to the other version at the same step', async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '3' });
+        button(panel()!, 'Show this in mzTab-M 2.1').click();
+        expect(start).toHaveBeenCalledWith(COUNTERPART, 4);
+      });
+
+      it('a double press on the version switch starts one validation, and a failure is shown', async () => {
+        const pending = new Subject<void>();
+        started = () => pending;
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '3' });
+        const toggle = button(panel()!, 'Show this in mzTab-M 2.1');
+        toggle.click();
+        toggle.click();
+        expect(start).toHaveBeenCalledTimes(1);
+        pending.error(new HttpErrorResponse({ status: 503, error: { message: 'The mzTab-M 2.1 engine is not available.' } }));
+        await settle();
+        expect(el('.tour-error[role="alert"]')!.textContent).toContain('The mzTab-M 2.1 engine is not available.');
+      });
+
+      it('hides the version switch when the counterpart is not offered', async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '3' }, LINKED, [TOUR_ID]);
+        expect(panel()!.textContent).not.toContain('Show this in');
+      });
+
+      it('Close returns to the start page', async () => {
+        wide(true);
+        await renderTour({ tour: TOUR_ID, step: '2' });
+        button(panel()!, 'Close').click();
+        expect(navigate).toHaveBeenCalledWith(['/']);
+      });
     });
   });
 });

@@ -6,6 +6,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { ExampleDto } from '../../api/models/example-dto';
 import { TourDto } from '../../api/models/tour-dto';
 import { pageTitle } from '../../core/page-titles';
+import { TourService } from '../../core/tour.service';
 import { TutorialStore } from '../../core/tutorial.store';
 import { formatRouteData } from './format-chapters';
 import { FormatChapterPage } from './format-chapter.page';
@@ -62,6 +63,7 @@ const ORIGINAL = 'https://github.com/HUPO-PSI/mzTab-M/blob/main/examples/2.0/x.m
 
 describe('FormatChapterPage', () => {
   let scrolled: { anchor: string; rendered: string[] }[];
+  let start: ReturnType<typeof vi.fn>;
 
   async function render(
     segment: string,
@@ -72,6 +74,7 @@ describe('FormatChapterPage', () => {
     } = {},
   ) {
     scrolled = [];
+    start = vi.fn(() => of(undefined));
     const offered = new Set(opts.offered ?? ['teaching-lipidomics-2.0.mztab']);
     const examples = new Map<string, ExampleDto>(
       [...offered].map((id) => [id, { id, section: 'tutorial', originalUri: ORIGINAL }]),
@@ -87,6 +90,7 @@ describe('FormatChapterPage', () => {
             examples: () => () => examples,
           },
         },
+        { provide: TourService, useValue: { start } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { data: formatRouteData(segment), fragment: opts.fragment ?? null } },
@@ -179,6 +183,18 @@ describe('FormatChapterPage', () => {
     );
     expect(el.textContent).not.toContain('Try it');
     expect(el.querySelector('button')).toBeNull();
+  });
+
+  it("Try it starts the tour at the chapter's first step", async () => {
+    const tryIt = (el: HTMLElement) =>
+      Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Try it')!;
+    // the metadata chapter starts with the second step of the tour
+    tryIt((await render('metadata')).el).click();
+    expect(start).toHaveBeenCalledWith('teaching-lipidomics-2.0.mztab', 2);
+    TestBed.resetTestingModule();
+    document.querySelectorAll('app-format-chapter-page').forEach((e) => e.remove());
+    tryIt((await render('summary')).el).click();
+    expect(start).toHaveBeenCalledWith('teaching-lipidomics-2.0.mztab', 4);
   });
 
   it('shows an error note when the file cannot be loaded', async () => {

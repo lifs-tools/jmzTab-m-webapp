@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, map, of } from 'rxjs';
 
+import { TourButtonComponent } from '../../core/tour-button.component';
 import { TutorialStore } from '../../core/tutorial.store';
 import { ExcerptComponent } from './excerpt.component';
 
@@ -24,7 +25,7 @@ const ORIGINALS_FOLDER = 'https://github.com/HUPO-PSI/mzTab-M/tree/main/examples
  */
 @Component({
   selector: 'app-format-chapter-page',
-  imports: [ExcerptComponent, MatProgressSpinnerModule, RouterLink],
+  imports: [ExcerptComponent, MatProgressSpinnerModule, RouterLink, TourButtonComponent],
   templateUrl: './format-chapter.page.html',
   styleUrl: './format-chapter.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,6 +51,13 @@ export class FormatChapterPage {
   protected readonly steps = computed(() =>
     (this.loaded()?.steps ?? []).filter((s) => s.chapter === this.chapter),
   );
+  /** "Try it" opens the tour at this chapter's first step (1-based), when this instance offers the example. */
+  private readonly offered = this.store.offered();
+  protected readonly tryItStep = computed(() => {
+    if (!this.offered()?.has(this.exampleId)) return null;
+    const i = (this.loaded()?.steps ?? []).findIndex((s) => s.chapter === this.chapter);
+    return i < 0 ? null : i + 1;
+  });
   /**
    * Where the file was adapted from: its own original when this instance lists the example, else the
    * examples of HUPO-PSI/mzTab-M, so that the attribution never depends on the list.

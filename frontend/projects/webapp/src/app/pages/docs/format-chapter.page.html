@@ -108,6 +108,13 @@
     <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
   </p>
 
+  @if (tryItStep(); as step) {
+    <p class="try-it">
+      <app-tour-button label="Try it" [exampleId]="exampleId" [step]="step" />: the validator opens the teaching file
+      and the tour shows these steps in the result viewer.
+    </p>
+  }
+
   @if (loading()) {
     <mat-spinner diameter="24" aria-label="Loading the steps" />
   } @else if (failed()) {

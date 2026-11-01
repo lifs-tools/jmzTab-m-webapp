@@ -76,6 +76,18 @@
 .doc {
   min-width: 0;
 }
+/* The tour panel beside the document in layout B stays in view while the document scrolls. */
+.tour-side {
+  position: sticky;
+  top: 24px;
+}
+/* The tour panel above the tabs of layout A; an error of its version switch below it. */
+.tour-above {
+  margin-bottom: 14px;
+}
+.tour-error {
+  margin-top: 10px;
+}
 /* The occurrence bar: the back bar of layout A and the stepper above the right pane of layout B. */
 .back-bar,
 .stepper {

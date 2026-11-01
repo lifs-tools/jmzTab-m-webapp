@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import AxeBuilder from '@axe-core/playwright';
 import { APIRequestContext, expect, Page, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { seriousAxeViolations } from './helpers';
 
 const FIXTURES = join(__dirname, 'fixtures');
 const MZTAB = join(FIXTURES, 'lipidomics-example.mzTab');
@@ -189,41 +190,8 @@ test('footer shows Forschungszentrum Jülich', async ({ page }) => {
   await expect(page.getByRole('contentinfo').getByRole('img', { name: 'Forschungszentrum Jülich' })).toBeVisible();
 });
 
-/**
- * Known contrast shortfalls of the approved LIFS colours (ruling R28, waiting for a decision by the project lead):
- * the lifs-tools.org brand bar, white on nav blue #3D84A8 (4.14:1, R21) including its "LIFS Tools" subtitle
- * #D8E6EE (3.25:1), and the button colour site-blue #5897BF with white (3.18:1, filled and outlined buttons).
- * Only these exact colour pairs are tolerated; any other serious or critical violation fails the test.
- * Remove an entry once its colours change.
- */
-const KNOWN_CONTRAST_SHORTFALLS: ReadonlyArray<{ fg: string; bg: string }> = [
-  { fg: '#ffffff', bg: '#3d84a8' },
-  { fg: '#d8e6ee', bg: '#3d84a8' },
-  { fg: '#ffffff', bg: '#5897bf' },
-  { fg: '#5897bf', bg: '#ffffff' },
-];
-
-function isKnownShortfall(ruleId: string, data: unknown): boolean {
-  if (ruleId !== 'color-contrast' || typeof data !== 'object' || data === null) return false;
-  const { fgColor, bgColor } = data as { fgColor?: string; bgColor?: string };
-  return KNOWN_CONTRAST_SHORTFALLS.some((k) => k.fg === fgColor?.toLowerCase() && k.bg === bgColor?.toLowerCase());
-}
-
 test('landing, result, about and examples pages have no serious accessibility violations', async ({ page, request }) => {
-  const seriousViolations = async () => {
-    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-    return results.violations
-      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => ({
-        id: v.id,
-        impact: v.impact,
-        help: v.help,
-        targets: v.nodes
-          .filter((n) => !n.any.some((check) => isKnownShortfall(v.id, check.data)))
-          .map((n) => `${n.target.join(' ')} | ${n.failureSummary ?? ''}`),
-      }))
-      .filter((v) => v.targets.length > 0);
-  };
+  const seriousViolations = () => seriousAxeViolations(page);
 
   await page.goto('');
   await expect(page.getByRole('heading', { level: 1, name: 'Validate your mzTab-M files' })).toBeVisible();

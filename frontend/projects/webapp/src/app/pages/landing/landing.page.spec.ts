@@ -48,7 +48,8 @@ describe('LandingPage', () => {
       { id: 'mztab-m-2.0-default', version: '1.1.0', title: '2.0 rules', mzTabVersions: ['2.0.0-M'] },
       { id: 'mztab-m-2.1-default', version: '1.0.0', title: '2.1 rules', mzTabVersions: ['2.1.0-M'] },
     ]);
-    http.expectOne((r) => r.url.endsWith('rest/v2/examples')).flush(examples);
+    // the examples card and the tour of the mzTab-M section (TutorialStore) both list the examples
+    http.match((r) => r.url.endsWith('rest/v2/examples')).forEach((r) => r.flush(examples));
     await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement, http, navigate };
   }

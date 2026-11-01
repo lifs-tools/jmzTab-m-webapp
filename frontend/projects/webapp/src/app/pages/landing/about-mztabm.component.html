@@ -26,6 +26,9 @@
   </div>
   <p class="about__links">
     <a routerLink="/docs/getting-started">Get started with mzTab-M</a> ·
+    @if (tourOffered()) {
+      <app-tour-button [exampleId]="tour" /> ·
+    }
     <a routerLink="/docs">Read the documentation</a>
   </p>
 </section>
