@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE CvMapping [ <!ENTITY name "test"> ]>
+<CvMapping modelName="&name;" modelURI="https://example.org/model" modelVersion="2.0.0">
+  <CvReferenceList>
+    <CvReference cvName="MS" cvIdentifier="MS"/>
+  </CvReferenceList>
+  <CvMappingRuleList>
+  </CvMappingRuleList>
+</CvMapping>

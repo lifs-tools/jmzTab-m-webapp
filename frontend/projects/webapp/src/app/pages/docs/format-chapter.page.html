@@ -1,0 +1,134 @@
+<div class="page lifs-prose">
+  @switch (chapter) {
+    @case ('overview') {
+      <p class="lifs-lead">
+        An mzTab-M file is a plain text file in which the fields of a line are separated by tabs. The first field of
+        every line says what the line is, and the lines that belong together form one of four sections.
+      </p>
+      <dl class="sections">
+        <dt>MTD</dt>
+        <dd>The metadata: what the file is, how the data was measured and which samples, runs and assays it covers.</dd>
+        <dt>SMH, SML</dt>
+        <dd>The summary: a header line and one row for each molecule that the study reports, here each lipid.</dd>
+        <dt>SFH, SMF</dt>
+        <dd>The features: a header line and one row for each measured signal behind a molecule.</dd>
+        <dt>SEH, SME</dt>
+        <dd>The evidence: a header line and one row for each identification of a molecule.</dd>
+        <dt>COM</dt>
+        <dd>A comment. Comment lines explain the file to a reader and carry no data; empty lines separate the sections.</dd>
+      </dl>
+      <p>
+        The pages of this chapter walk through one small lipidomics file, section by section. It reports two lipids, a
+        ceramide and a phosphatidylcholine, in the plasma of a control and a treated individual. The other pages of this
+        chapter show the lines of that file that each step is about, with the tabs drawn as arrows. The differences
+        between mzTab-M 2.0 and 2.1 are described under
+        <a routerLink="/docs/versions">mzTab-M 2.0 and 2.1</a>.
+      </p>
+    }
+    @case ('metadata') {
+      <p class="lifs-lead">
+        The metadata section holds the lines that start with MTD. Each has the form MTD, a key and a value.
+      </p>
+      <p>
+        Many keys repeat with a number in square brackets, such as <code>sample[1]</code> and <code>sample[2]</code>,
+        and the part of the key before the bracket names a group of related lines. Lines of one group describe one thing:
+        <code>assay[1]-sample_ref</code> and <code>assay[1]-ms_run_ref</code> both describe the first assay. The steps
+        below go through the groups of the teaching file in the order a reader needs them: what the file is, how the
+        data was measured, how samples, runs and assays belong together, and which groups are compared.
+      </p>
+    }
+    @case ('summary') {
+      <p class="lifs-lead">
+        The summary section reports the result of the study: one row for each molecule, here each lipid.
+      </p>
+      <p>
+        The header line (SMH) names the columns and each row (SML) fills them. Besides the name and the identifiers of
+        the lipid, the row holds its abundance in every assay and in every study variable that the metadata declares.
+      </p>
+    }
+    @case ('features') {
+      <p class="lifs-lead">
+        The feature section lists the measured signals behind the molecules of the summary.
+      </p>
+      <p>
+        The header line (SFH) names the columns and each row (SMF) describes one signal: the mass-to-charge ratio, the
+        charge, the retention time and the abundance in each assay. A molecule can rest on several features, for example
+        a precursor ion and its fragment ions, and a feature can point to the evidence that identifies it.
+      </p>
+    }
+    @case ('evidence') {
+      <p class="lifs-lead">
+        The evidence section holds the identifications: what a signal was matched to and how confident the match is.
+      </p>
+      <p>
+        The header line (SEH) names the columns and each row (SME) describes one identification, with the spectrum it
+        was made from, the measured and the theoretical mass, and one or more confidence measures.
+      </p>
+    }
+    @case ('references') {
+      <p class="lifs-lead">
+        The rows of the three tables and the lines of the metadata refer to each other by number.
+      </p>
+      <p>
+        A summary row lists its features in the column <code>SMF_ID_REFS</code>, a feature lists its evidence in
+        <code>SME_ID_REFS</code>, and the abundance columns refer to assays and study variables that
+        the metadata declares. A reference to something that does not exist is an error, which is why the validator
+        checks them.
+      </p>
+    }
+    @case ('cv-parameters') {
+      <p class="lifs-lead">
+        Most values that describe the measurement are parameters from a controlled vocabulary, so that tools can read
+        them without guessing.
+      </p>
+      <p>
+        A parameter has four fields in square brackets: <code>[CV label, accession, name, value]</code>. The label names
+        the vocabulary, the accession and the name identify one of its terms, and the value is only filled when the
+        term needs one. Every label that a parameter uses is declared once with the <code>cv[n]</code> lines of the
+        metadata.
+      </p>
+    }
+    @case ('study-design') {
+      <p class="lifs-lead">
+        mzTab-M 2.1 can describe the design of a study: the factors that were varied and the levels of each.
+      </p>
+      <p>
+        This page uses a different teaching file, a 2.1 file with two factors, sex and timepoint, that crosses two sexes
+        with three timepoints. A study variable group is a factor, its study variables are the levels, and each assay
+        is one cell of the design. The file has metadata and a summary only, and its profile, <code>M+S</code>, says so.
+      </p>
+    }
+  }
+
+  <p class="lifs-note">
+    The lines below are from the teaching file <code>{{ exampleId }}</code>.
+    <a [href]="contentHref" [attr.download]="exampleId">Download the whole file</a>.
+    Adapted from
+    <a [href]="originalHref()" target="_blank" rel="noopener">an example of HUPO-PSI/mzTab-M</a>,
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+  </p>
+
+  @if (tryItStep(); as step) {
+    <p class="try-it">
+      <app-tour-button [label]="tryItLabel" [exampleId]="exampleId" [step]="step" />: the validator opens the teaching file
+      and the tour shows these steps in the result viewer.
+    </p>
+  }
+
+  @if (loading()) {
+    <mat-spinner diameter="24" aria-label="Loading the steps" />
+  } @else if (failed()) {
+    <p class="lifs-note" role="status">The steps and the file could not be loaded. Please try again later.</p>
+  } @else {
+    @for (s of steps(); track s.id) {
+      <section class="step lifs-card" [id]="'step-' + s.id" [attr.aria-labelledby]="'step-' + s.id + '-title'">
+        <h2 [id]="'step-' + s.id + '-title'">{{ s.title }}</h2>
+        <app-excerpt [lines]="lines()" [step]="s" />
+        <p>{{ s.text }}</p>
+        @if (s.lookFor) {
+          <p class="look-for"><strong>Look for:</strong> {{ s.lookFor }}</p>
+        }
+      </section>
+    }
+  }
+</div>

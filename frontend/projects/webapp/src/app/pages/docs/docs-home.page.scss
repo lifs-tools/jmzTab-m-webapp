@@ -1,0 +1,43 @@
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.notice {
+  padding: 10px 14px;
+  border-left: 4px solid var(--lifs-warn);
+  background: var(--lifs-warn-bg);
+  color: var(--lifs-warn);
+}
+
+
+.chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.chapter {
+  height: 100%;
+  font-family: var(--lifs-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--lifs-ink);
+
+  &:hover {
+    border-color: var(--lifs-primary);
+  }
+}

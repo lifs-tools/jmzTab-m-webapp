@@ -1,0 +1,6 @@
+MTD	mzTab-version	2.0.0-M
+SMH	SML_ID	smiles	abundance_assay[1]	opt_global_x
+SML	1	s1	5	x
+SML	2	s2	6	y
+SFH	SMF_ID	abc
+SMF	1	q

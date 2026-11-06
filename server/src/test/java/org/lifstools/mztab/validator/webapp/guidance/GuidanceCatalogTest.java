@@ -1,0 +1,163 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab.validator.webapp.guidance;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Test;
+import org.lifstools.mztab.validator.webapp.workingcopy.quickfix.QuickFixes;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.springframework.core.io.DefaultResourceLoader;
+
+class GuidanceCatalogTest {
+
+    private final GuidanceCatalog catalog = new GuidanceCatalog(new ObjectMapper(), new DefaultResourceLoader());
+
+    static ValidationMessage message(String code, String text) {
+        ValidationMessage m = new ValidationMessage();
+        m.setCode(code);
+        m.setMessage(text);
+        return m;
+    }
+
+    private static Set<Integer> numeric(Set<String> typeCodes) {
+        return typeCodes.stream().map(c -> Integer.parseInt(c.substring(c.lastIndexOf('-') + 1)))
+            .collect(Collectors.toSet());
+    }
+
+    @Test
+    void everyCatalogCodeExistsInAnEngine() {
+        // CV-rule messages take the rule's level, so only the number is compared.
+        Set<Integer> known = new HashSet<>(numeric(ErrorCodeList.codes("2.0")));
+        known.addAll(numeric(ErrorCodeList.codes("2.1")));
+        for (GuidanceEntry e : catalog.entries()) {
+            for (String code : e.codes()) {
+                assertTrue(known.contains(GuidanceCatalog.numericPart(code)), e.id() + ": " + code);
+            }
+        }
+    }
+
+    @Test
+    void everyQuickFixIdExists() {
+        for (GuidanceEntry e : catalog.entries()) {
+            if (e.quickFix() != null) {
+                assertTrue(QuickFixes.ids().contains(e.quickFix()), e.id() + ": " + e.quickFix());
+            }
+        }
+    }
+
+    /**
+     * The "fix here" of the problems that stop the read at a line describes what the editor can do: edit that
+     * line as text (its button, "Edit this line as text"). There is no UI to insert or move lines, so none is
+     * promised.
+     */
+    @Test
+    void lineProblemsPointToTheLineEditorAndPromiseNoMove() {
+        for (String id : List.of("unknown-metadata-key", "section-order", "data-line-without-header")) {
+            GuidanceEntry e = catalog.entries().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+            assertTrue(e.fixHere().contains("Edit this line as text"), id + ": " + e.fixHere());
+            for (String promise : List.of("Move the lines", "move the existing", "Add the header line")) {
+                assertFalse(e.fixHere().contains(promise), id + ": " + e.fixHere());
+            }
+        }
+    }
+
+    @Test
+    void everyEntryHasBothFixes() {
+        for (GuidanceEntry e : catalog.entries()) {
+            assertFalse(e.fixHere().isBlank(), e.id());
+            assertFalse(e.fixInTool().isBlank(), e.id());
+            assertFalse(e.explanation().isBlank(), e.id());
+            assertTrue(e.title().length() <= 60, e.id());
+        }
+    }
+
+    @Test
+    void coversEveryCodeSeenInRealFiles() {
+        Set<String> covered = catalog.entries().stream().flatMap(e -> e.codes().stream())
+            .map(c -> String.valueOf(GuidanceCatalog.numericPart(c))).collect(Collectors.toSet());
+        for (String code : List.of("Error-1000", "Error-1004", "Error-1008", "Error-1009", "Error-1012",
+            "Error-1013", "Error-1014", "Error-1017", "Error-2000", "Error-2002", "Error-2004", "Error-2008",
+            "Error-3015", "Warn-3005", "Warn-3014", "Info-3010", "Info-2037", "Info-2038")) {
+            assertTrue(covered.contains(code.substring(code.indexOf('-') + 1)), code);
+        }
+    }
+
+    @Test
+    void emptyParameterAndUnnamedUserParamDiffer() {
+        ValidationMessage empty = message("[Error-1012] line 57: \"MTD instrument[1]-detector\" value \"[, , , ]\" is not a valid parameter.",
+            "\"MTD instrument[1]-detector\" value \"[, , , ]\" is not a valid parameter.");
+        ValidationMessage unnamed = message("[Error-1012] line 61: \"MTD instrument[1]-detector\" value \"[, , , 25]\" is not a valid parameter.",
+            "\"MTD instrument[1]-detector\" value \"[, , , 25]\" is not a valid parameter.");
+        String a = catalog.match(empty, "2.0").orElseThrow().id();
+        String b = catalog.match(unnamed, "2.0").orElseThrow().id();
+        assertNotEquals(a, b);
+        assertEquals("empty-parameter", a);
+    }
+
+    @Test
+    void matchesAnyLevelOfTheSameNumber() {
+        // Error-3005 is emitted for a rule that requires the term, although the list records Warn.
+        assertTrue(catalog.match(message("[Error-3005] x", "The cv term is not allowed"), "2.1").isPresent());
+    }
+
+    @Test
+    void unknownCodeHasNoEntry() {
+        assertTrue(catalog.match(message("[Error-9999] x", "x"), "2.0").isEmpty());
+        assertTrue(catalog.match(message("", "x"), "2.0").isEmpty());
+    }
+
+    @Test
+    void stopsParsingSet() {
+        Set<Integer> stops = catalog.entries().stream().filter(GuidanceEntry::stopsParsing)
+            .flatMap(e -> e.codes().stream()).map(GuidanceCatalog::numericPart).collect(Collectors.toSet());
+        assertTrue(stops.containsAll(Set.of(1000, 1004, 1008, 1009, 2002, 2004)));
+        // 2008 is raised after the read loop, so reading did not stop at its line
+        assertFalse(stops.contains(2008));
+        assertTrue(stops.contains(2000));
+    }
+
+    private static GuidanceCatalog load(String file) {
+        return new GuidanceCatalog(new ObjectMapper(), new DefaultResourceLoader(), "classpath:/guidance/" + file);
+    }
+
+    @Test
+    void duplicateIdFailsStartup() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> load("test-duplicate-id.json"));
+        assertTrue(e.getMessage().contains("Duplicate"), e.getMessage());
+    }
+
+    @Test
+    void invalidRegexFailsStartup() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> load("test-bad-regex.json"));
+        assertTrue(e.getMessage().contains("regex"), e.getMessage());
+    }
+
+    @Test
+    void info2057ResolvesToTheProfileFieldMismatchEntry() {
+        assertEquals("profile-field-mismatch",
+            catalog.match(message("[Info-2057] x", "A field without its section"), "2.0").orElseThrow().id());
+    }
+}

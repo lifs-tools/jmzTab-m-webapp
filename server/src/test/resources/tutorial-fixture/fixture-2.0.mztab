@@ -1,0 +1,23 @@
+COM	A fixture for the tutorial catalog tests; it is not a teaching file.
+MTD	mzTab-version	2.0.0-M
+MTD	mzTab-ID	tutorial-fixture
+MTD	description	Two lipids in two samples
+MTD	instrument[1]-name	[MS, MS:1001911, Q Exactive, ]
+MTD	instrument[1]-source	[MS, MS:1000073, electrospray ionization, ]
+MTD	sample[1]	control
+MTD	sample[2]	treated
+MTD	small_molecule-quantification_unit	[UO, UO:0000072, picomolal, ]
+
+SMH	SML_ID	SMF_ID_REFS	chemical_name	abundance_assay[1]	abundance_assay[2]
+SML	1	1 | 2	Cer 18:1;O2/24:0	1.0	2.0
+SML	2	3	PC 34:1	3.0	4.0
+
+SFH	SMF_ID	SME_ID_REFS	exp_mass_to_charge	charge
+SMF	1	1	650.6432	1
+SMF	2	2	264.2689	1
+SMF	3	3	760.5851	1
+
+SEH	SME_ID	evidence_input_id	chemical_name	exp_mass_to_charge
+SME	1	1	Cer 18:1;O2/24:0	650.6432
+SME	2	2	Cer 18:1;O2/24:0 fragment	264.2689
+SME	3	3	PC 34:1	760.5851

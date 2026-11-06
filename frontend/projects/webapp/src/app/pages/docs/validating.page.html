@@ -1,0 +1,45 @@
+<div class="page lifs-prose">
+  <section id="about-levels" class="lifs-card" aria-labelledby="levels">
+    <h2 id="levels" class="lifs-card__title">Validation levels</h2>
+    <p>The level decides which messages are reported:</p>
+    <ul>
+      <li><span class="lifs-lvl lifs-lvl--info">INFO</span> everything, including hints that need no action.</li>
+      <li><span class="lifs-lvl lifs-lvl--warn">WARN</span> warnings and errors.</li>
+      <li><span class="lifs-lvl lifs-lvl--error">ERROR</span> only errors that make the file invalid.</li>
+    </ul>
+  </section>
+
+  <section id="about-profiles" class="lifs-card" aria-labelledby="profiles">
+    <h2 id="profiles" class="lifs-card__title">Validation profiles and mapping files</h2>
+    <p>
+      A validation profile defines which controlled vocabulary terms, cardinalities and rules are expected in
+      addition to the structural checks. Choose one of the profiles offered on the
+      <a routerLink="/">start page</a>, for example the default mzTab-M 2.0 profile.
+    </p>
+    @if (info()?.customMappingsEnabled) {
+      <p>
+        You can also upload your own mapping file to check a file against custom rules. Example mapping
+        files are on the <a routerLink="/examples">examples page</a>.
+      </p>
+    }
+  </section>
+
+  <section class="lifs-card" aria-labelledby="network">
+    <h2 id="network" class="lifs-card__title">Network access</h2>
+    <p>
+      Semantic checks look up controlled vocabulary terms in the EBI Ontology Lookup Service (OLS), so
+      validation needs network access to
+      <a href="https://www.ebi.ac.uk/ols4/" target="_blank" rel="noopener">EBI OLS</a>
+      and may take longer for large files.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="reading-result">
+    <h2 id="reading-result" class="lifs-card__title">Reading the result</h2>
+    <p>
+      The result lists what jmzTab-m found, grouped by kind, each group with its guidance. How to read it and
+      what to do next is described in <a routerLink="/docs/fixing">Fixing a file</a>; the most frequent
+      problems are on the <a routerLink="/docs/problems">Common problems</a> page.
+    </p>
+  </section>
+</div>

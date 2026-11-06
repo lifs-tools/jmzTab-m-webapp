@@ -1,0 +1,4 @@
+[
+  {"id": "a", "codes": ["Error-1000"], "title": "t", "explanation": "e", "fixHere": "h", "fixInTool": "f", "stopsParsing": false, "tools": []},
+  {"id": "a", "codes": ["Error-1004"], "title": "t", "explanation": "e", "fixHere": "h", "fixInTool": "f", "stopsParsing": false, "tools": []}
+]

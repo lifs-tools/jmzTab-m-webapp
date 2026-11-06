@@ -1,0 +1,538 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab2.server.api.validation;
+
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
+import org.lifstools.mztab.validator.engine.api.ValidationLocation;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.lifstools.mztab.validator.webapp.Application;
+import org.lifstools.mztab.validator.webapp.session.StorageFullException;
+import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+@SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
+@AutoConfigureMockMvc
+@ExtendWith(AwaitAsyncValidations.class)
+class ValidationsApiControllerTest {
+
+    static final String UNKNOWN = "Unknown or expired validation.";
+
+    @TempDir
+    static Path storageRoot;
+
+    @DynamicPropertySource
+    static void storage(DynamicPropertyRegistry registry) {
+        registry.add("storage.location", () -> storageRoot.toString());
+        EngineTestSupport.register(registry);
+    }
+
+
+    @Autowired
+    MockMvc mvc;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    ValidationSessionService sessionSpy;
+
+    @Autowired
+    ObjectMapper json;
+
+    static byte[] example() throws Exception {
+        try (InputStream in = ValidationsApiControllerTest.class.getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
+            return in.readAllBytes();
+        }
+    }
+
+    static MockMultipartFile file(String name) throws Exception {
+        return new MockMultipartFile("file", name, "text/plain", example());
+    }
+
+    JsonNode create(String name) throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file(name)).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+        return json.readTree(r.getResponse().getContentAsString());
+    }
+
+    JsonNode awaitFinished(String id) throws Exception {
+        long end = System.currentTimeMillis() + 30_000;
+        while (System.currentTimeMillis() < end) {
+            JsonNode n = json.readTree(mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+            if ("FINISHED".equals(n.get("status").asText()) || "FAILED".equals(n.get("status").asText())) {
+                return n;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("validation did not finish");
+    }
+
+    @Test
+    void createReturns202AndLocation() throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.fileName").value("a.mzTab")).andReturn();
+        String id = json.readTree(r.getResponse().getContentAsString()).get("id").asText();
+        assertTrue(r.getResponse().getHeader("Location").endsWith("/rest/v2/validations/" + id));
+        awaitFinished(id);
+    }
+
+    @Test
+    void pollingReachesFinished() throws Exception {
+        JsonNode created = create("poll.mzTab");
+        assertEquals("FINISHED", awaitFinished(created.get("id").asText()).get("status").asText());
+    }
+
+    @Test
+    void recordNamesTheEngineAndKeepsTheMessageJson() throws Exception {
+        JsonNode created = create("engine.mzTab");
+        assertTrue(created.has("engine"), created.toString());
+        assertTrue(created.get("engine").isNull(), "a queued validation has no engine yet: " + created);
+        assertFalse(created.get("defaultVersionApplied").asBoolean());
+
+        JsonNode done = awaitFinished(created.get("id").asText());
+
+        assertEquals("FINISHED", done.get("status").asText(), done.toString());
+        assertTrue(done.get("engine").asText().startsWith("mzTab-M 2.0 · jmzTab-m "), done.get("engine").asText());
+        assertFalse(done.get("defaultVersionApplied").asBoolean());
+        assertEquals("2.0.0-M", done.get("mzTabVersion").asText());
+        JsonNode message = done.get("messages").get(0);
+        assertTrue(message != null, "the example produces messages: " + done);
+        java.util.Set<String> fields = new java.util.TreeSet<>();
+        message.fieldNames().forEachRemaining(fields::add);
+        assertTrue(java.util.Set.of("code", "category", "message_type", "message", "line_number", "suggestion",
+            "rule_id", "location", "cause").containsAll(fields), "message fields: " + fields);
+        assertTrue(java.util.List.of("error", "warn", "info").contains(message.get("message_type").asText()),
+            message.toString());
+        assertTrue(java.util.List.of("format", "logical", "cross_check").contains(message.get("category").asText()),
+            message.toString());
+    }
+
+    @Test
+    void profileAndMappingTogetherIs400() throws Exception {
+        mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab"))
+            .file(new MockMultipartFile("mappingFile", "m.xml", "text/xml", "<x/>".getBytes()))
+            .param("validationProfile", "mztab-m-2.0-default"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").exists());
+    }
+
+    @Test
+    void maxErrorsOutOfRangeIs400() throws Exception {
+        for (String v : new String[]{"0", "501"}) {
+            mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")).param("maxErrors", v))
+                .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    void hostileFileNameIsStoredSafely() throws Exception {
+        for (String name : new String[]{"../../evil.mzTab", "..\\..\\evil.mzTab"}) {
+            MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file(name)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.fileName").value("evil.mzTab")).andReturn();
+            awaitFinished(json.readTree(r.getResponse().getContentAsString()).get("id").asText());
+        }
+        // a traversal would land one or two levels above the storage root
+        assertTrue(!Files.exists(storageRoot.resolve("../evil.mzTab")));
+        assertTrue(!Files.exists(storageRoot.resolve("../../evil.mzTab")));
+        assertTrue(!Files.exists(storageRoot.resolve("../../../evil.mzTab")));
+    }
+
+    @Test
+    void nonUuidIdIs404() throws Exception {
+        mvc.perform(get("/rest/v2/validations/not-a-uuid"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value(UNKNOWN));
+    }
+
+    @Test
+    void deleteThenGetIs404() throws Exception {
+        String id = create("del.mzTab").get("id").asText();
+        awaitFinished(id);
+        mvc.perform(delete("/rest/v2/validations/" + id)).andExpect(status().isNoContent());
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value(UNKNOWN));
+        mvc.perform(delete("/rest/v2/validations/" + id)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reportCsvHasHeaderAndRows() throws Exception {
+        String id = create("rep.mzTab").get("id").asText();
+        awaitFinished(id);
+        MvcResult r = mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "csv"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition", "attachment; filename=\"rep.mzTab-validation.csv\""))
+            .andReturn();
+        String body = r.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", body.lines().findFirst().orElseThrow());
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "json"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition", "attachment; filename=\"rep.mzTab-validation.json\""))
+            .andExpect(jsonPath("$").isArray());
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "xml"))
+            .andExpect(status().isBadRequest());
+    }
+
+    private String emptyParameterFile() throws Exception {
+        String text = new String(example(), StandardCharsets.UTF_8);
+        return text.replace("[MS, MS:1000624, inductive detector, ]", "[, , , ]");
+    }
+
+    private String createFrom(String name, String content) throws Exception {
+        MockMultipartFile f = new MockMultipartFile("file", name, "text/plain", content.getBytes(StandardCharsets.UTF_8));
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(f).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+        String id = json.readTree(r.getResponse().getContentAsString()).get("id").asText();
+        awaitFinished(id);
+        return id;
+    }
+
+    @Test
+    void finishedResultCarriesGuidance() throws Exception {
+        String id = createFrom("guided.mzTab", emptyParameterFile());
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.guidance[0].entryId").value("empty-parameter"))
+            .andExpect(jsonPath("$.guidance[0].lines[0].lineNumber").isNumber());
+    }
+
+    @Test
+    void reportAsMarkdown() throws Exception {
+        String id = createFrom("md.mzTab", emptyParameterFile());
+        MvcResult r = mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "md"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Type", "text/markdown;charset=UTF-8"))
+            .andExpect(header().string("Content-Disposition", "attachment; filename=\"md.mzTab-problems.md\""))
+            .andReturn();
+        assertTrue(r.getResponse().getContentAsString(StandardCharsets.UTF_8)
+            .contains("# Validation problems in md.mzTab"));
+    }
+
+    @Test
+    void guidanceIsNotRecomputedForAnEndedValidation() throws Exception {
+        String id = createFrom("cached.mzTab", emptyParameterFile());
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk());
+        try (var files = Files.walk(storageRoot)) {
+            for (Path p : files.filter(f -> f.getFileName().toString().equals("upload.mztab")).toList()) {
+                Files.delete(p);
+            }
+        }
+        mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.guidance[0].entryId").value("empty-parameter"))
+            .andExpect(jsonPath("$.guidance[0].lines[0].lineNumber").isNumber());
+    }
+
+    @Test
+    void markdownReportOfAnUnfinishedValidationIs409() throws Exception {
+        UUID id = UUID.randomUUID();
+        var queued = org.lifstools.mztab.validator.webapp.session.ValidationRecord.queued(id, "q.mzTab",
+            org.lifstools.mztab.validator.engine.api.ValidationLevel.INFO, 100,
+            new org.lifstools.mztab.validator.webapp.session.ProfileRef(
+                org.lifstools.mztab.validator.webapp.session.ProfileRef.Kind.NONE, null, null),
+            java.time.Instant.now(), java.time.Instant.now().plusSeconds(60));
+        org.mockito.Mockito.doReturn(java.util.Optional.of(queued)).when(sessionSpy).find(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "md"))
+            .andExpect(status().isConflict());
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "csv"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void unknownReportFormatIs400() throws Exception {
+        String id = create("pdf.mzTab").get("id").asText();
+        awaitFinished(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "pdf"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void metadataEndpointsWork() throws Exception {
+        String id = create("meta.mzTab").get("id").asText();
+        awaitFinished(id);
+        MvcResult r = mvc.perform(get("/rest/v2/validations/" + id + "/metadata")).andExpect(status().isOk())
+            .andReturn();
+        JsonNode groups = json.readTree(r.getResponse().getContentAsString());
+        assertTrue(groups.size() > 0);
+        String group = groups.get(0).get("name").asText();
+        mvc.perform(get("/rest/v2/validations/" + id + "/metadata/" + group).param("size", "5"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/rest/v2/validations/" + UUID.randomUUID() + "/metadata")).andExpect(status().isNotFound());
+        mvc.perform(get("/rest/v2/validations/" + id + "/metadata/no-such-group"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+    }
+
+    @Test
+    void tablesEndpointPagesWithColumns() throws Exception {
+        String id = create("tab.mzTab").get("id").asText();
+        awaitFinished(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("columns", "SML_ID").param("size", "5"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.columns[0]").value("SML_ID"))
+            .andExpect(jsonPath("$.columns.length()").value(1))
+            .andExpect(jsonPath("$.rows[0].cells.length()").value(1));
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("columns", "NOPE"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("size", "201"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/xyz")).andExpect(status().isNotFound());
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("filter", "SML_ID:zzzzqqq"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalRows").value(0));
+    }
+
+    @Test
+    void tooManyRequestedColumnsAre400() throws Exception {
+        String id = create("cols.mzTab").get("id").asText();
+        awaitFinished(id);
+        String tooMany = String.join(",", java.util.Collections.nCopies(201, "SML_ID"));
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml").param("columns", tooMany))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("At most 200 columns can be requested."));
+    }
+
+    @Test
+    void absentTableIs404() throws Exception {
+        mvc.perform(get("/rest/v2/validations/" + UUID.randomUUID() + "/tables/sml"))
+            .andExpect(status().isNotFound());
+        // a file that is not mzTab never gets section tables
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations")
+            .file(new MockMultipartFile("file", "junk.txt", "text/plain", "not an mzTab file".getBytes())))
+            .andExpect(status().isAccepted()).andReturn();
+        String id = json.readTree(r.getResponse().getContentAsString()).get("id").asText();
+        awaitFinished(id);
+        mvc.perform(get("/rest/v2/validations/" + id + "/tables/sml")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void csvNeutralisesFormulasAndQuotesPerRfc4180() {
+        ValidationMessage formula = message(ValidationMessage.MessageType.ERROR, ValidationMessage.Category.FORMAT,
+            3L, "1001", "=HYPERLINK(\"http://evil\",\"x\")");
+        ValidationMessage plain = message(ValidationMessage.MessageType.INFO, ValidationMessage.Category.FORMAT, 4L, "2", "a, \"b\" c");
+        ValidationMessage dash = message(ValidationMessage.MessageType.INFO, null, null, null, "-1+2");
+        String[] lines = ValidationsApiController.csv(List.of(formula, plain, dash)).split("\r\n");
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", lines[0]);
+        // level and category are both upper-case enum names
+        assertTrue(lines[1].startsWith("ERROR,3,FORMAT,1001,"), lines[1]);
+        assertTrue(lines[2].startsWith("INFO,4,FORMAT,2,"), lines[2]);
+        assertTrue(lines[1].endsWith(",\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\",,,,,,,"), lines[1]);
+        assertTrue(lines[2].endsWith(",\"a, \"\"b\"\" c\",,,,,,,"), lines[2]);
+        assertTrue(lines[3].endsWith(",'-1+2,,,,,,,"), lines[3]);
+    }
+
+    @Test
+    void csvHasLocationColumnsAndEscapesCode() {
+        ValidationMessage m = message(ValidationMessage.MessageType.ERROR, ValidationMessage.Category.LOGICAL, 5L,
+            "[Error-2009] line 5: \"x\", y", "m");
+        m.setSuggestion("Add the column.");
+        ValidationLocation location = new ValidationLocation();
+        location.setSection(ValidationLocation.Section.SML);
+        location.setRowIndex(1);
+        location.setColumn("reliability");
+        m.setLocation(location);
+        String[] lines = ValidationsApiController.csv(List.of(m)).split("\r\n");
+        assertEquals("level,line,category,code,message,suggestion,rule_id,section,row,column,metadata_key,metadata_group", lines[0]);
+        assertEquals("ERROR,5,LOGICAL,\"[Error-2009] line 5: \"\"x\"\", y\",m,Add the column.,,sml,2,reliability,,", lines[1]);
+    }
+
+    @Test
+    void csvStripsTheTrailingLineBreakOfTheCode() {
+        ValidationMessage m = message(null, null, null, "[Error-2009] line 5: \"x\", y\r\n", "m");
+        String csv = ValidationsApiController.csv(List.of(m));
+        String[] lines = csv.split("\r\n");
+        assertEquals(2, lines.length, csv);
+        assertTrue(lines[1].contains(",\"[Error-2009] line 5: \"\"x\"\", y\",m,"), lines[1]);
+    }
+
+    @Test
+    void csvWithoutLocationLeavesColumnsEmpty() {
+        ValidationMessage m = message(null, null, null, "1001", "m");
+        String[] lines = ValidationsApiController.csv(List.of(m)).split("\r\n");
+        assertTrue(lines[1].endsWith(",1001,m,,,,,,,"), lines[1]);
+        assertEquals(12, lines[1].split(",", -1).length);
+    }
+
+    @Test
+    void metadataPageAcceptsKey() throws Exception {
+        String id = create("key.mzTab").get("id").asText();
+        awaitFinished(id);
+        String base = "/rest/v2/validations/" + id + "/metadata/assay";
+        JsonNode all = json.readTree(mvc.perform(get(base).param("size", "200")).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString()).get("entries");
+        String key = all.get(2).get("key").asText();
+        mvc.perform(get(base).param("size", "1").param("key", key))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.page").value(2))
+            .andExpect(jsonPath("$.entries[0].key").value(key));
+    }
+
+    @Test
+    void controlCharactersInFileNameAreStrippedAndHeaderIsWellFormed() throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a\r\nb\"c.mzTab")))
+            .andExpect(status().isAccepted()).andReturn();
+        JsonNode created = json.readTree(r.getResponse().getContentAsString());
+        String name = created.get("fileName").asText();
+        assertTrue(name.chars().noneMatch(Character::isISOControl), name);
+        String id = created.get("id").asText();
+        awaitFinished(id);
+        String disposition = mvc.perform(get("/rest/v2/validations/" + id + "/report"))
+            .andExpect(status().isOk()).andReturn().getResponse().getHeader("Content-Disposition");
+        assertTrue(disposition.startsWith("attachment;"), disposition);
+        assertTrue(disposition.chars().noneMatch(Character::isISOControl), disposition);
+        assertTrue(disposition.indexOf("c.mzTab") > 0 || disposition.contains("%"), disposition);
+    }
+
+    @Test
+    void tableFilterIsNotSplitAtCommasAndBracketColumnsWork() throws Exception {
+        String id = create("flt.mzTab").get("id").asText();
+        awaitFinished(id);
+        String base = "/rest/v2/validations/" + id + "/tables/sml";
+        mvc.perform(get(base).param("filter", "SML_ID:a,b:c")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalRows").value(0));
+        JsonNode all = json.readTree(mvc.perform(get(base).param("size", "1")).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString()).get("allColumns");
+        String bracket = null;
+        for (JsonNode c : all) {
+            if (c.asText().contains("[")) {
+                bracket = c.asText();
+                break;
+            }
+        }
+        assertTrue(bracket != null, "example has a bracketed column");
+        mvc.perform(get(base).param("columns", "SML_ID," + bracket).param("filter", bracket + ":"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.columns.length()").value(2));
+    }
+
+    @Test
+    void malformedJsonToLegacyValidateStillIs400() throws Exception {
+        mvc.perform(post("/rest/v2/validate").contentType("application/json").content("{not json"))
+            .andExpect(status().isBadRequest());
+    }
+
+    /** Unlike /rest/v2/validate, which answers 400, an upload ends not parsed with one message. */
+    @Test
+    void uploadedJsonThatIsNotAModelIsNotParsed() throws Exception {
+        MockMultipartFile upload = new MockMultipartFile("file", "no-model.json", "application/json",
+            "{\"metadata\": 5}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(upload).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+
+        JsonNode done = awaitFinished(json.readTree(r.getResponse().getContentAsString()).get("id").asText());
+
+        assertEquals("NOT_PARSED", done.get("outcome").asText(), done.toString());
+        assertEquals(1, done.get("messages").size(), done.toString());
+        JsonNode message = done.get("messages").get(0);
+        assertEquals("json_not_read", message.get("code").asText());
+        assertEquals("error", message.get("message_type").asText());
+        assertTrue(message.get("message").asText().startsWith("The JSON file could not be read: "), message.toString());
+    }
+
+    /** F1: one ISO-8859-1 byte after the version line must not send a 2.1 file to the 2.0 engine. */
+    @Test
+    void nonUtf8FileOfALineWithoutEngineGetsTheUnsupportedMessage() throws Exception {
+        MockMultipartFile upload = new MockMultipartFile("file", "latin1.mztab", "text/plain",
+            org.lifstools.mztab.validator.webapp.VersionFixtures.LATIN1_21);
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(upload).param("level", "INFO"))
+            .andExpect(status().isAccepted()).andReturn();
+
+        JsonNode done = awaitFinished(json.readTree(r.getResponse().getContentAsString()).get("id").asText());
+
+        assertEquals("FAILED", done.get("status").asText(), done.toString());
+        assertEquals("2.1.0-M", done.get("mzTabVersion").asText(), done.toString());
+        assertFalse(done.get("defaultVersionApplied").asBoolean(), done.toString());
+        assertTrue(done.get("engine").isNull(), "no engine validated the file: " + done);
+        assertEquals(1, done.get("messages").size(), done.toString());
+        assertEquals("This file declares mzTab-version 2.1.0-M. This validator supports mzTab-M 2.0.",
+            done.get("messages").get(0).get("message").asText());
+    }
+
+    @Test
+    void bindingErrorsDoNotLeakJavaTypes() throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab")).param("maxErrors", "abc"))
+            .andExpect(status().isBadRequest()).andReturn();
+        String body = r.getResponse().getContentAsString();
+        assertTrue(body.contains("Invalid value for parameter 'maxErrors'."), body);
+        assertTrue(!body.contains("java.lang"), body);
+    }
+
+    @Test
+    void mappingOver5MbIs400() throws Exception {
+        byte[] big = new byte[5 * 1024 * 1024 + 1];
+        java.util.Arrays.fill(big, (byte) ' ');
+        mvc.perform(multipart("/rest/v2/validations").file(file("a.mzTab"))
+            .file(new MockMultipartFile("mappingFile", "m.xml", "text/xml", big)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("The mapping file is larger than 5 MB."));
+    }
+
+    private static ValidationMessage message(ValidationMessage.MessageType type, ValidationMessage.Category category,
+        Long line, String code, String text) {
+        ValidationMessage m = new ValidationMessage();
+        m.setMessageType(type);
+        m.setCategory(category);
+        m.setLineNumber(line);
+        m.setCode(code);
+        m.setMessage(text);
+        return m;
+    }
+
+    @Test
+    void openApiListsNewEndpoints() throws Exception {
+        mvc.perform(get("/v3/api-docs/mztab-m-api")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.paths['/rest/v2/validations']").exists())
+            .andExpect(jsonPath("$.paths['/rest/v2/validations/{id}/tables/{section}']").exists());
+    }
+}

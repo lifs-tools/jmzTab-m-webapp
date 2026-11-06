@@ -1,0 +1,34 @@
+<section class="about lifs-card" aria-labelledby="about-mztabm-title">
+  <h2 id="about-mztabm-title" class="lifs-card__title">About mzTab-M</h2>
+  <div class="about__cols">
+    <div class="about__col">
+      <h3>What it is</h3>
+      <p>
+        The HUPO-PSI standard for reporting the results of mass-spectrometry metabolomics and lipidomics: one
+        tab-separated text file with the study's metadata, the identified molecules with their quantities, and the
+        features and evidence behind them.
+      </p>
+    </div>
+    <div class="about__col">
+      <h3>What it is for</h3>
+      <p>
+        Depositing results in public repositories, exchanging them between tools, and reanalysing published studies
+        without the software that produced them.
+      </p>
+    </div>
+    <div class="about__col">
+      <h3>Who uses it</h3>
+      <p>
+        Researchers whose software exports mzTab-M or who prepare their results for a repository, the tools that
+        write and read it, and the repositories that accept it, LipidCompass among them.
+      </p>
+    </div>
+  </div>
+  <p class="about__links">
+    <a routerLink="/docs/getting-started">Get started with mzTab-M</a> ·
+    @if (tourOffered()) {
+      <app-tour-button [exampleId]="tour" /> ·
+    }
+    <a routerLink="/docs">Read the documentation</a>
+  </p>
+</section>

@@ -1,0 +1,3 @@
+[
+  {"id": "a", "codes": ["Error-1000"], "messagePattern": "([unclosed", "title": "t", "explanation": "e", "fixHere": "h", "fixInTool": "f", "stopsParsing": false, "tools": []}
+]

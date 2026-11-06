@@ -1,0 +1,71 @@
+
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p,
+ul,
+ol,
+blockquote {
+  margin: 0;
+  line-height: 1.65;
+}
+.engines,
+.changes {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+
+  th,
+  td {
+    text-align: left;
+    padding: 6px 14px 6px 0;
+    border-bottom: 1px solid var(--lifs-line);
+  }
+  thead th {
+    font-family: var(--lifs-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 400;
+    color: var(--lifs-grey);
+  }
+  tbody th {
+    font-weight: 500;
+    color: var(--lifs-ink);
+  }
+}
+
+.changes td,
+.changes tbody th {
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.steps {
+  padding-left: 22px;
+
+  li + li {
+    margin-top: 6px;
+  }
+}
+
+h3 {
+  margin: 8px 0 0;
+}
+
+.look-for {
+  font-size: 13px;
+}
+
+.changes .source {
+  font-size: 11px;
+  color: var(--lifs-grey);
+  overflow-wrap: anywhere;
+}

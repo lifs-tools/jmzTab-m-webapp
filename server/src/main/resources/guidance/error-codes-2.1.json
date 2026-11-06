@@ -1,0 +1,477 @@
+[ {
+  "code" : 1000,
+  "level" : "Error",
+  "keyword" : "LinePrefix"
+}, {
+  "code" : 1001,
+  "level" : "Error",
+  "keyword" : "CountMatch"
+}, {
+  "code" : 1002,
+  "level" : "Error",
+  "keyword" : "IndexedElement"
+}, {
+  "code" : 1003,
+  "level" : "Error",
+  "keyword" : "AbundanceColumn"
+}, {
+  "code" : 1004,
+  "level" : "Error",
+  "keyword" : "StableColumn"
+}, {
+  "code" : 1005,
+  "level" : "Error",
+  "keyword" : "MsRunOptionalColumn"
+}, {
+  "code" : 1007,
+  "level" : "Error",
+  "keyword" : "OptionalCVParamColumn"
+}, {
+  "code" : 1008,
+  "level" : "Error",
+  "keyword" : "MTDLine"
+}, {
+  "code" : 1009,
+  "level" : "Error",
+  "keyword" : "MTDDefineLabel"
+}, {
+  "code" : 1010,
+  "level" : "Error",
+  "keyword" : "MZTabMode"
+}, {
+  "code" : 1011,
+  "level" : "Error",
+  "keyword" : "MZTabType"
+}, {
+  "code" : 1012,
+  "level" : "Error",
+  "keyword" : "Param"
+}, {
+  "code" : 1013,
+  "level" : "Error",
+  "keyword" : "ParamList"
+}, {
+  "code" : 1014,
+  "level" : "Error",
+  "keyword" : "Publication"
+}, {
+  "code" : 1015,
+  "level" : "Error",
+  "keyword" : "URI"
+}, {
+  "code" : 1016,
+  "level" : "Error",
+  "keyword" : "URL"
+}, {
+  "code" : 1017,
+  "level" : "Error",
+  "keyword" : "Email"
+}, {
+  "code" : 1018,
+  "level" : "Error",
+  "keyword" : "Integer"
+}, {
+  "code" : 1019,
+  "level" : "Error",
+  "keyword" : "Double"
+}, {
+  "code" : 1020,
+  "level" : "Error",
+  "keyword" : "Reliability"
+}, {
+  "code" : 1021,
+  "level" : "Error",
+  "keyword" : "StringList"
+}, {
+  "code" : 1022,
+  "level" : "Error",
+  "keyword" : "DoubleList"
+}, {
+  "code" : 1023,
+  "level" : "Error",
+  "keyword" : "ModificationList"
+}, {
+  "code" : 1024,
+  "level" : "Error",
+  "keyword" : "GOTermList"
+}, {
+  "code" : 1025,
+  "level" : "Error",
+  "keyword" : "MZBoolean"
+}, {
+  "code" : 1026,
+  "level" : "Error",
+  "keyword" : "SpectraRef"
+}, {
+  "code" : 1027,
+  "level" : "Error",
+  "keyword" : "CHEMMODSAccession"
+}, {
+  "code" : 1028,
+  "level" : "Warn",
+  "keyword" : "Sequence"
+}, {
+  "code" : 1029,
+  "level" : "Error",
+  "keyword" : "ColUnit"
+}, {
+  "code" : 1031,
+  "level" : "Error",
+  "keyword" : "MZTabVersion"
+}, {
+  "code" : 1032,
+  "level" : "Error",
+  "keyword" : "MZTabId"
+}, {
+  "code" : 1033,
+  "level" : "Error",
+  "keyword" : "IntegerList"
+}, {
+  "code" : 1034,
+  "level" : "Error",
+  "keyword" : "RegexMismatch"
+}, {
+  "code" : 1035,
+  "level" : "Warn",
+  "keyword" : "ParamAccessionNotNamespaced"
+}, {
+  "code" : 1036,
+  "level" : "Error",
+  "keyword" : "InvalidColunitFormat"
+}, {
+  "code" : 1037,
+  "level" : "Error",
+  "keyword" : "Orcid"
+}, {
+  "code" : 1038,
+  "level" : "Error",
+  "keyword" : "MZTabProfile"
+}, {
+  "code" : 2000,
+  "level" : "Error",
+  "keyword" : "NULL"
+}, {
+  "code" : 2001,
+  "level" : "Warn",
+  "keyword" : "NotNULL"
+}, {
+  "code" : 2002,
+  "level" : "Error",
+  "keyword" : "LineOrder"
+}, {
+  "code" : 2003,
+  "level" : "Error",
+  "keyword" : "HeaderLine"
+}, {
+  "code" : 2004,
+  "level" : "Error",
+  "keyword" : "NoHeaderLine"
+}, {
+  "code" : 2005,
+  "level" : "Error",
+  "keyword" : "MsRunNotDefined"
+}, {
+  "code" : 2006,
+  "level" : "Error",
+  "keyword" : "AssayNotDefined"
+}, {
+  "code" : 2007,
+  "level" : "Error",
+  "keyword" : "StudyVariableNotDefined"
+}, {
+  "code" : 2008,
+  "level" : "Error",
+  "keyword" : "NotDefineInMetadata"
+}, {
+  "code" : 2009,
+  "level" : "Error",
+  "keyword" : "NotDefineInHeader"
+}, {
+  "code" : 2010,
+  "level" : "Error",
+  "keyword" : "DuplicationDefine"
+}, {
+  "code" : 2011,
+  "level" : "Error",
+  "keyword" : "DuplicationAccession"
+}, {
+  "code" : 2012,
+  "level" : "Error",
+  "keyword" : "AssayRefs"
+}, {
+  "code" : 2013,
+  "level" : "Error",
+  "keyword" : "ProteinCoverage"
+}, {
+  "code" : 2014,
+  "level" : "Error",
+  "keyword" : "IdNumber"
+}, {
+  "code" : 2015,
+  "level" : "Error",
+  "keyword" : "ModificationPosition"
+}, {
+  "code" : 2016,
+  "level" : "Warn",
+  "keyword" : "CHEMMODS"
+}, {
+  "code" : 2017,
+  "level" : "Error",
+  "keyword" : "SubstituteIdentifier"
+}, {
+  "code" : 2018,
+  "level" : "Warn",
+  "keyword" : "SoftwareVersion"
+}, {
+  "code" : 2019,
+  "level" : "Error",
+  "keyword" : "AbundanceColumnTogether"
+}, {
+  "code" : 2020,
+  "level" : "Error",
+  "keyword" : "AbundanceColumnSameId"
+}, {
+  "code" : 2021,
+  "level" : "Warn",
+  "keyword" : "SpectraRef"
+}, {
+  "code" : 2022,
+  "level" : "Warn",
+  "keyword" : "AmbiguityMod"
+}, {
+  "code" : 2023,
+  "level" : "Warn",
+  "keyword" : "MsRunLocation"
+}, {
+  "code" : 2024,
+  "level" : "Error",
+  "keyword" : "FixedMod"
+}, {
+  "code" : 2025,
+  "level" : "Error",
+  "keyword" : "VariableMod"
+}, {
+  "code" : 2026,
+  "level" : "Warn",
+  "keyword" : "PeptideSection"
+}, {
+  "code" : 2027,
+  "level" : "Error",
+  "keyword" : "QuantificationAbundance"
+}, {
+  "code" : 2028,
+  "level" : "Error",
+  "keyword" : "DuplicationID"
+}, {
+  "code" : 2029,
+  "level" : "Warn",
+  "keyword" : "ProteinSearchEngineScoreNotDefined"
+}, {
+  "code" : 2030,
+  "level" : "Warn",
+  "keyword" : "PeptideSearchEngineScoreNotDefined"
+}, {
+  "code" : 2031,
+  "level" : "Warn",
+  "keyword" : "PSMSearchEngineScoreNotDefined"
+}, {
+  "code" : 2032,
+  "level" : "Warn",
+  "keyword" : "SmallMoleculeSearchEngineScoreNotDefined"
+}, {
+  "code" : 2033,
+  "level" : "Error",
+  "keyword" : "MsRunHashMethodNotDefined"
+}, {
+  "code" : 2034,
+  "level" : "Error",
+  "keyword" : "ColumnNotValid"
+}, {
+  "code" : 2035,
+  "level" : "Error",
+  "keyword" : "HeaderNotValid"
+}, {
+  "code" : 2036,
+  "level" : "Info",
+  "keyword" : "NoSmallMoleculeSummarySection"
+}, {
+  "code" : 2037,
+  "level" : "Info",
+  "keyword" : "NoSmallMoleculeFeatureSection"
+}, {
+  "code" : 2038,
+  "level" : "Info",
+  "keyword" : "NoSmallMoleculeEvidenceSection"
+}, {
+  "code" : 2039,
+  "level" : "Error",
+  "keyword" : "NoSmallMoleculeQuantificationUnit"
+}, {
+  "code" : 2040,
+  "level" : "Error",
+  "keyword" : "NoSmallMoleculeFeatureQuantificationUnit"
+}, {
+  "code" : 2041,
+  "level" : "Info",
+  "keyword" : "NoSmallMoleculeIdentificationReliability"
+}, {
+  "code" : 2042,
+  "level" : "Error",
+  "keyword" : "ExternalStudyIdFormatNotDefined"
+}, {
+  "code" : 2043,
+  "level" : "Error",
+  "keyword" : "ExternalStudyFormatNotDefined"
+}, {
+  "code" : 2044,
+  "level" : "Error",
+  "keyword" : "NoDatabaseMustHaveNullPrefix"
+}, {
+  "code" : 2045,
+  "level" : "Error",
+  "keyword" : "NoMetadataSection"
+}, {
+  "code" : 2046,
+  "level" : "Error",
+  "keyword" : "ItemNumberMismatch"
+}, {
+  "code" : 2047,
+  "level" : "Error",
+  "keyword" : "UnknownRefId"
+}, {
+  "code" : 2048,
+  "level" : "Error",
+  "keyword" : "SingleStudyVariableName"
+}, {
+  "code" : 2049,
+  "level" : "Error",
+  "keyword" : "UndefinedStudyVariableNameOnceOnly"
+}, {
+  "code" : 2050,
+  "level" : "Error",
+  "keyword" : "SpectraIdFormatNotValid"
+}, {
+  "code" : 2051,
+  "level" : "Warn",
+  "keyword" : "SpectraIdFormatNotSupported"
+}, {
+  "code" : 2052,
+  "level" : "Info",
+  "keyword" : "ProfileInferred"
+}, {
+  "code" : 2053,
+  "level" : "Error",
+  "keyword" : "ProfileTableMissing"
+}, {
+  "code" : 2054,
+  "level" : "Error",
+  "keyword" : "ProfileTableForbidden"
+}, {
+  "code" : 2055,
+  "level" : "Error",
+  "keyword" : "ProfileUnsupportedCombination"
+}, {
+  "code" : 2056,
+  "level" : "Warn",
+  "keyword" : "ProfileMSFDiscouraged"
+}, {
+  "code" : 2057,
+  "level" : "Info",
+  "keyword" : "ProfileFieldMismatch"
+}, {
+  "code" : 2058,
+  "level" : "Error",
+  "keyword" : "ProfileSmfIdRefsForbidden"
+}, {
+  "code" : 2059,
+  "level" : "Error",
+  "keyword" : "ProfileSmfIdRefsRequired"
+}, {
+  "code" : 2060,
+  "level" : "Error",
+  "keyword" : "ProfileSmeIdRefsForbidden"
+}, {
+  "code" : 2061,
+  "level" : "Error",
+  "keyword" : "ProfileAmbiguityCodeMustBeNull"
+}, {
+  "code" : 2062,
+  "level" : "Error",
+  "keyword" : "DuplicateColumnHeader"
+}, {
+  "code" : 2063,
+  "level" : "Warn",
+  "keyword" : "MsRunUsiIdentifierInvalid"
+}, {
+  "code" : 2064,
+  "level" : "Error",
+  "keyword" : "UndefinedStudyVariableAssayRefs"
+}, {
+  "code" : 2065,
+  "level" : "Error",
+  "keyword" : "InstrumentNotReferenced"
+}, {
+  "code" : 2066,
+  "level" : "Error",
+  "keyword" : "SampleNotReferenced"
+}, {
+  "code" : 2067,
+  "level" : "Warn",
+  "keyword" : "StudyVariableFactorsRemoved"
+}, {
+  "code" : 2068,
+  "level" : "Error",
+  "keyword" : "ReferenceBeforeDefinition"
+}, {
+  "code" : 3000,
+  "level" : "Warn",
+  "keyword" : "Species"
+}, {
+  "code" : 3005,
+  "level" : "Warn",
+  "keyword" : "CvTermNotAllowed"
+}, {
+  "code" : 3006,
+  "level" : "Error",
+  "keyword" : "CvTermRequired"
+}, {
+  "code" : 3007,
+  "level" : "Warn",
+  "keyword" : "CvTermRecommended"
+}, {
+  "code" : 3008,
+  "level" : "Info",
+  "keyword" : "CvTermOptional"
+}, {
+  "code" : 3009,
+  "level" : "Warn",
+  "keyword" : "CvTermNotInRule"
+}, {
+  "code" : 3010,
+  "level" : "Info",
+  "keyword" : "RulePointerObjectNullOptional"
+}, {
+  "code" : 3011,
+  "level" : "Error",
+  "keyword" : "CvTermXor"
+}, {
+  "code" : 3012,
+  "level" : "Error",
+  "keyword" : "CvTermMalformed"
+}, {
+  "code" : 3013,
+  "level" : "Error",
+  "keyword" : "CvUndefinedInMetadata"
+}, {
+  "code" : 3014,
+  "level" : "Warn",
+  "keyword" : "CvUnused"
+}, {
+  "code" : 3015,
+  "level" : "Error",
+  "keyword" : "SemanticValidationException"
+}, {
+  "code" : 3016,
+  "level" : "Error",
+  "keyword" : "CvAccessionMalformed"
+} ]

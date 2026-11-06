@@ -1,0 +1,3 @@
+<pre class="excerpt" tabindex="0" role="region" [attr.aria-label]="'Lines ' + range().from + ' to ' + range().to + ' of the file'"><code>@for (l of excerpt(); track l.no) {<span class="no" aria-hidden="true">{{ l.no }}</span>@if (l.marked) {<mark><ng-container *ngTemplateOutlet="fields; context: { $implicit: l.fields }" /></mark>} @else {<ng-container *ngTemplateOutlet="fields; context: { $implicit: l.fields }" />}{{ '\n' }}}</code></pre>
+
+<ng-template #fields let-fields>@for (f of fields; track $index) {@if ($index > 0) {<span class="tab" aria-hidden="true">→</span><span class="visually-hidden">tab</span>}{{ f }}}</ng-template>

@@ -1,0 +1,24 @@
+
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p,
+ul,
+blockquote {
+  margin: 0;
+  line-height: 1.65;
+}
+
+ul {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

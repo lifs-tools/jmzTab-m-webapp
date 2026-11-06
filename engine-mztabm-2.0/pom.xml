@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.lifs-tools</groupId>
+        <artifactId>mztab-validator-engine-parent</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+        <relativePath>../engine-parent/pom.xml</relativePath>
+    </parent>
+    <artifactId>mztab-validator-engine-2.0</artifactId>
+    <packaging>jar</packaging>
+    <name>MzTab validator engine for mzTab-M 2.0.</name>
+    <description>Validates and converts mzTab-M 2.0 files with jmzTab-m 1.0.x. The engine logic is shared with the
+        other engines and lives in engine-core-src, its build in engine-parent; this module only selects the
+        jmzTab-m line.</description>
+
+    <properties>
+        <!-- written into application.properties by resource filtering -->
+        <engine.line>2.0</engine.line>
+        <engine.mztab-versions>2.0.0-M</engine.mztab-versions>
+        <engine.jmztabm-version>${jmztabm20.version}</engine.jmztabm-version>
+        <engine.port>8084</engine.port>
+    </properties>
+</project>

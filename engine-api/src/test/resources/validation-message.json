@@ -1,0 +1,1 @@
+{"code":"0042","category":"cross_check","message_type":"warn","message":"Something is odd","line_number":17,"suggestion":"Fix it","rule_id":"rule-1","location":{"section":"sml","row_index":3,"column":"smallmolecule_identifier","metadata_key":"assay[1]-sample_ref","metadata_group":"assay[1]","element_path":"/metadata/assay/0"}}
