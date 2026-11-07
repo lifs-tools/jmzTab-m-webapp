@@ -212,6 +212,49 @@ describe('MetadataViewComponent editing', () => {
     expect(el.querySelectorAll<HTMLElement>('.mat-expansion-panel-header')[1].getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('removing the last entry of a group: the group goes after the reload, the others stay, no error', async () => {
+    src = new EditableFakeDocumentSource();
+    TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });
+    const fixture = TestBed.createComponent(HostComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      for (let i = 0; i < 3; i++) {
+        fixture.detectChanges();
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      fixture.detectChanges();
+    };
+    fixture.detectChanges();
+    src.oneGroups().reply([{ name: 'general', count: 2 }, { name: 'sample', count: 1 }]);
+    await settle();
+    src.onePage('general').reply({ group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES });
+    fixture.componentInstance.highlight.set({ group: 'sample', keys: ['sample[1]'], focusKey: 'sample[1]', moveFocus: false });
+    await settle();
+    src.onePage('sample').reply({ group: 'sample', page: 0, size: 50, total: 1, entries: [{ lineNumber: 9, key: 'sample[1]', value: 's' }] });
+    await settle();
+    const sample = el.querySelectorAll('mztabm-metadata-group')[1];
+    sample.querySelector<HTMLButtonElement>('button.entry-remove')!.click();
+    await settle();
+    const removal = src.oneEdit();
+    expect(removal.args).toEqual([{ op: 'DeleteLine', line: 9 }]);
+    // the entry goes at once; its panel stays until the document is read again
+    expect(sample.querySelectorAll('.entry').length).toBe(0);
+
+    removal.reply();
+    src.changes.next();
+    await settle();
+    src.oneGroups().reply([{ name: 'general', count: 2 }]);
+    src.pages.filter((p) => !p.taken).forEach((p) => {
+      p.taken = true;
+      p.reply(p.args.group === 'general' ? { group: 'general', page: 0, size: 50, total: 2, entries: ENTRIES }
+        : { group: 'sample', page: 0, size: 50, total: 0, entries: [] });
+    });
+    await settle();
+    expect([...el.querySelectorAll('mat-panel-title')].map((t) => t.textContent?.trim())).toEqual(['general (2)']);
+    expect(el.querySelector('[role="alert"]')).toBeNull();
+    expect(el.querySelectorAll('.entry').length).toBe(2);
+  });
+
   it('passes the page\'s readAt with its SetMetadataValue and DeleteLine', async () => {
     src = new EditableFakeDocumentSource();
     TestBed.configureTestingModule({ providers: [{ provide: DocumentSource, useValue: src }] });

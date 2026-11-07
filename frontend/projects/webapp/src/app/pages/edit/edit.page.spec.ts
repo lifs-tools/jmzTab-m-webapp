@@ -806,6 +806,9 @@ describe('EditPage', () => {
     const help = el.querySelector('[data-testid=help]')!;
     expect(help.querySelector('summary')?.textContent?.trim()).toBe('How to fix this file');
     expect(help.textContent).toContain('last 100 steps');
+    expect(help.textContent).toContain('Choose a message, or one of its occurrences, to see its place in the document');
+    expect(help.textContent).toContain('the entry, row, cell or column is marked');
+    expect(help.textContent).toContain('(Remove this line) removes the line; Undo brings it back');
     expect(help.textContent).toContain(`press ${QUICK_FIX_PREVIEW_LABEL} to see`);
     expect(help.textContent).toContain('Fix all N like this');
     expect(help.textContent).not.toContain('Fix it here');
