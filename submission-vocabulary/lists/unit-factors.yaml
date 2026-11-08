@@ -1,0 +1,6 @@
+# Unit conversion factors for the mapping language's convert-unit form (schema/mapping-language.md).
+# A value in `from` times `factor` is the value in `to`. An integer factor keeps integers integers, as in Python.
+# Not a value list: its name has a hyphen, which no list name has.
+factors:
+  - {from: "nmol/mL", to: "µmol/L", factor: 1}
+  - {from: "pmol/mL", to: "nmol/L", factor: 1}

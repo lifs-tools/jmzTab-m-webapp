@@ -8,8 +8,10 @@ The submission vocabulary is the public field dictionary for describing a lipido
 |---|---|
 | `vocabulary/vocabulary.yaml` | The groups and their fields, and the conventions of the workbook layout. |
 | `lists/<list>.yaml` | One file per value list, named exactly as the list key a field refers to. An entry is a CV term (`cv`, `accession`, `label`) or a fixed text (`text`, optional `note`, optional `encoding`). Order is the order of preference. |
-| `schema/*.schema.json` | JSON Schemas (draft 2020-12) for the vocabulary file and the list files. |
-| `mappings/` | Mapping files that connect an input or an output format to the vocabulary. |
+| `lists/unit-factors.yaml` | The unit conversion factors of the mapping language's `convert-unit` form. Not a value list. |
+| `schema/*.schema.json` | JSON Schemas (draft 2020-12) for the vocabulary file, the list files and the mapping files. |
+| `schema/mapping-language.md` | The mapping language: its rules and expression forms. It is normative. |
+| `mappings/` | Mapping files that connect an input or an output format to the vocabulary (`mappings/input/<id>.yaml`, `mappings/output/<id>.yaml`). |
 | `examples/` | Example instances. |
 
 Groups with `workbook: true` are rendered in the v3 workbook exactly as before. The group `runs` is optional and is not rendered there: it describes one data file per row (file name, format, paired raw or mzML file, sample, assay, fraction, and polarity, instrument and fragmentation from the mzML header). Dataset-level fields stay the fallback for run-level ones.
@@ -34,6 +36,11 @@ v.version();                          // "1.0.0"
 v.group("study").fields();            // the fields of the Study sheet
 v.list("species").entries();          // CV terms and texts
 v.encodingOf("mol% (mole percent of the measured lipidome)");
+
+Mapping m = MappingLoader.load("mztab-2.0.0-M");   // validated against schema/mapping.schema.json
+Evaluator e = new Evaluator(m.let(), v, functions);
+Scope s = Scope.root(instance, Map.of("study_id", "LCS-00123"), new Notes());
+e.metadata(m.metadata(), s);                       // the metadata lines, before rendering
 ```
 
 ## Licence

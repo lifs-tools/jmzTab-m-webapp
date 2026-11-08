@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -45,6 +46,8 @@ public final class Vocabulary {
 
     private static final String ROOT = "submission-vocabulary/";
     private static final YAMLMapper YAML = new YAMLMapper();
+    /** A list name; other files in {@code lists/}, such as {@code unit-factors.yaml}, are not value lists. */
+    private static final Pattern LIST_NAME = Pattern.compile("[a-z][a-z0-9_]*");
 
     /** A field of a group. Optional attributes are null when absent; {@code required} is the v3 value rendered as text. */
     public record Field(String id, String label, String required, String list, String type, String versionOf,
@@ -140,7 +143,7 @@ public final class Vocabulary {
 
     /** The value list with the given name. */
     public ValueList list(String name) {
-        if (!name.matches("[a-z][a-z0-9_]*")) {
+        if (!LIST_NAME.matcher(name).matches()) {
             throw new IllegalArgumentException("Not a list name: " + name);
         }
         return lists.computeIfAbsent(name, n -> {
@@ -186,7 +189,8 @@ public final class Vocabulary {
     private static List<String> names(Path dir) throws IOException {
         try (Stream<Path> files = Files.list(dir)) {
             return files.map(p -> p.getFileName().toString()).filter(n -> n.endsWith(".yaml"))
-                    .map(n -> n.substring(0, n.length() - ".yaml".length())).sorted().toList();
+                    .map(n -> n.substring(0, n.length() - ".yaml".length())).filter(n -> LIST_NAME.matcher(n).matches())
+                    .sorted().toList();
         }
     }
 

@@ -1,0 +1,8 @@
+id: unknown-form
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+metadata:
+  - key: title
+    value: {bogus: {literal: x}}

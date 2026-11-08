@@ -1,0 +1,35 @@
+# A minimal output mapping: every top-level key, one rule of each kind.
+id: minimal
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+parameters: [study_id, dataset_index]
+cvs:
+  NCBITaxon: {full-name: NCBI organismal classification, version: "2026-07-12", uri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"}
+let:
+  dataset: {at: {list: {field: datasets}, index: {field: params.dataset_index}}}
+metadata:
+  - key: mzTab-version
+    value: {literal: 2.0.0-M}
+  - key: mzTab-ID
+    value: {format: {template: "{0}-{1:02}", args: [{field: params.study_id}, {field: params.dataset_index}]}}
+  - each: {field: samples}
+    as: s
+    where: {not-empty: {field: s.sample_name}}
+    lines:
+      - key: "sample[{s#}]"
+        value: {field: s.sample_name}
+tables:
+  - section: SML
+    header: SMH
+    rows: {field: dataset.lipids}
+    as: l
+    columns:
+      - header: SML_ID
+        value: {pos: l}
+      - each: {field: samples}
+        as: a
+        columns:
+          - header: "abundance_assay[{a#}]"
+            value: {literal: "null"}
