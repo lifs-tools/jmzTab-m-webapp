@@ -34,6 +34,12 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <!-- the mapping language and the vocabulary; the engine applies output mappings of its own versions -->
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>mztab-validator-submission-vocabulary</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.lifs-tools</groupId>
             <artifactId>jmztabm-io</artifactId>
             <version>${engine.jmztabm-version}</version>
@@ -137,6 +143,20 @@
                             <sources>
                                 <source>${engine.core.dir}/src/test/java</source>
                             </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-engine-core-test-resources</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>add-test-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${engine.core.dir}/src/test/resources</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>
