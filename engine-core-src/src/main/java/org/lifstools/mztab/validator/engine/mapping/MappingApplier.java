@@ -309,7 +309,7 @@ public final class MappingApplier {
                 case Value.Text t -> Render.text(t.value());
                 case Value.Int i -> Numbers.python(i);
                 case Value.Dbl d -> Numbers.python(d);
-                default -> throw new IllegalArgumentException("An element's name must be a text or a number, not " + v);
+                default -> throw new MappingRequestException("An element's name must be a text or a number, not " + v);
             };
             return name.isEmpty() ? null : name;
         }
@@ -341,14 +341,14 @@ public final class MappingApplier {
                 case Value.ParamV p -> Objects.requireNonNullElse(Render.param(p.value()), "");
                 case Value.Ref ref -> ref(ref);
                 case Value.ListV list -> String.join("|", list.value().stream().map(this::cell).filter(c -> !c.isEmpty()).toList());
-                case Value.Obj o -> throw new IllegalArgumentException("An object cannot be written into a cell: " + o);
+                case Value.Obj o -> throw new MappingRequestException("An object cannot be written into a cell: " + o);
             };
         }
 
         /** A value as a table cell, where Null is an error. */
         private String tableCell(Value v, String column) {
             if (v == Value.Null.INSTANCE) {
-                throw new IllegalArgumentException("The column " + column + " has a Null cell; use number to write null");
+                throw new MappingRequestException("The column " + column + " has a Null cell; use number to write null");
             }
             return cell(v);
         }

@@ -34,7 +34,7 @@ public final class Numbers {
             case Value.Int i -> Long.toString(i.value());
             case Value.Dbl d -> python(d.value());
             case Value.Text t -> t.value();
-            default -> throw new IllegalArgumentException("Not a number or a text: " + v);
+            default -> throw new MappingRequestException("Not a number or a text: " + v);
         };
     }
 

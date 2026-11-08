@@ -107,7 +107,7 @@ public final class PyMath {
     /** {@code statistics.fmean}: {@code fsum(values) / n}. */
     public static double fmean(double[] values) {
         if (values.length == 0) {
-            throw new IllegalArgumentException("fmean requires at least one data point");
+            throw new MappingRequestException("fmean requires at least one data point");
         }
         return fsum(values) / values.length;
     }
@@ -119,7 +119,7 @@ public final class PyMath {
     public static double stdev(double[] values) {
         int count = values.length;
         if (count < 2) {
-            throw new IllegalArgumentException("stdev requires at least two data points");
+            throw new MappingRequestException("stdev requires at least two data points");
         }
         BigDecimal sx = BigDecimal.ZERO;
         BigDecimal sxx = BigDecimal.ZERO;

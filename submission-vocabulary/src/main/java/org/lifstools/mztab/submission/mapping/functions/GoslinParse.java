@@ -22,6 +22,7 @@ import org.lifstools.jgoslin.domain.ElementTable;
 import org.lifstools.jgoslin.domain.Elements;
 import org.lifstools.jgoslin.domain.LipidAdduct;
 import org.lifstools.jgoslin.parser.LipidParser;
+import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.submission.mapping.PyMath;
 import org.lifstools.mztab.submission.mapping.Value;
 
@@ -47,7 +48,7 @@ final class GoslinParse {
             return name;
         }
         if (!(name instanceof Value.Text text)) {
-            throw new IllegalArgumentException("goslin-parse needs a text, not " + name);
+            throw new MappingRequestException("goslin-parse needs a text, not " + name);
         }
         LipidAdduct lipid;
         try {

@@ -116,7 +116,7 @@ public sealed interface Value {
         }
         if (node.isIntegralNumber()) {
             if (!node.canConvertToLong()) {
-                throw new IllegalArgumentException("Integer out of range: " + node.asText());
+                throw new MappingRequestException("Integer out of range: " + node.asText());
             }
             return new Int(node.longValue());
         }
@@ -129,7 +129,7 @@ public sealed interface Value {
         if (node.isTextual()) {
             return new Text(node.textValue());
         }
-        throw new IllegalArgumentException("Not a value: " + node.getNodeType());
+        throw new MappingRequestException("Not a value: " + node.getNodeType());
     }
 
     /** True for Null, the text "", an empty list and an empty object. Numbers, 0 included, are not empty. */

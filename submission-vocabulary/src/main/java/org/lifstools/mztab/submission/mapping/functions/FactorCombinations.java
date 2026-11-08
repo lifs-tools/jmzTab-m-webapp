@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.submission.mapping.Value;
 
 /**
@@ -63,7 +64,7 @@ final class FactorCombinations {
             String name = text(n, "a sample name");
             Value sample = byName.get(name);
             if (sample == null) {
-                throw new IllegalArgumentException("factor-combinations: no sample is called '" + name + "'");
+                throw new MappingRequestException("factor-combinations: no sample is called '" + name + "'");
             }
             List<Value> key = new ArrayList<>(primary.size());
             for (String factor : primary) {
@@ -119,7 +120,7 @@ final class FactorCombinations {
         if (v instanceof Value.ListV l) {
             return l.value();
         }
-        throw new IllegalArgumentException("factor-combinations needs a list of " + what + ", not " + v);
+        throw new MappingRequestException("factor-combinations needs a list of " + what + ", not " + v);
     }
 
     private static Value field(Value v, String key) {
@@ -130,6 +131,6 @@ final class FactorCombinations {
         if (v instanceof Value.Text t) {
             return t.value();
         }
-        throw new IllegalArgumentException("factor-combinations needs " + what + " as a text, not " + v);
+        throw new MappingRequestException("factor-combinations needs " + what + " as a text, not " + v);
     }
 }

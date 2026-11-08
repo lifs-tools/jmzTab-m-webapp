@@ -359,7 +359,7 @@ public final class Evaluator {
             return new Value.ListV(List.of());
         }
         if (!(v instanceof Value.Obj o)) {
-            throw new IllegalArgumentException("entries needs an object, not " + v);
+            throw new MappingRequestException("entries needs an object, not " + v);
         }
         List<Value> out = new ArrayList<>();
         o.value().forEach((k, x) -> {
@@ -535,7 +535,7 @@ public final class Evaluator {
             case Value.Int i -> Long.toString(i.value());
             case Value.Dbl d -> Numbers.python(d.value());
             case Value.ParamV p -> Objects.requireNonNullElse(Render.param(p.value()), "");
-            default -> throw new IllegalArgumentException(form + " needs a text or a number, not " + v);
+            default -> throw new MappingRequestException(form + " needs a text or a number, not " + v);
         };
     }
 
@@ -551,7 +551,7 @@ public final class Evaluator {
         if (v instanceof Value.ListV l) {
             return l.value();
         }
-        throw new IllegalArgumentException(form + " needs a list, not " + v);
+        throw new MappingRequestException(form + " needs a list, not " + v);
     }
 
     /** An integer, or a text that is one (as parameters are). */
@@ -566,14 +566,14 @@ public final class Evaluator {
                 // fall through
             }
         }
-        throw new IllegalArgumentException(form + " needs an integer, not " + v);
+        throw new MappingRequestException(form + " needs an integer, not " + v);
     }
 
     private static Value checkNumber(Value v, String form) {
         if (v instanceof Value.Int || v instanceof Value.Dbl) {
             return v;
         }
-        throw new IllegalArgumentException(form + " needs a number, not " + v);
+        throw new MappingRequestException(form + " needs a number, not " + v);
     }
 
     private static double asDouble(Value v) {

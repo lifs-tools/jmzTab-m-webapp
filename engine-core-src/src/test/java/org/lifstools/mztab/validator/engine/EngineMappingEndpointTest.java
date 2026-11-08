@@ -113,6 +113,19 @@ class EngineMappingEndpointTest extends EngineContextTest {
     }
 
     @Test
+    void anInstanceOfTheWrongShapeIsInvalid() throws Exception {
+        Assumptions.assumeTrue(servesTwoZero(), "the mapping targets 2.0.0-M; another engine refuses it first");
+        for (String field : new String[] {"samples", "lipids", "contacts"}) {
+            MappingApplyRequest r = v3Request("mztab-2.0.0-M");
+            ((ObjectNode) r.instance()).put(field, "not a list");
+            mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(r)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_request"));
+        }
+    }
+
+    @Test
     void aMissingOrNullInstanceIsInvalid() throws Exception {
         for (String body : new String[] {
             "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\"}",
