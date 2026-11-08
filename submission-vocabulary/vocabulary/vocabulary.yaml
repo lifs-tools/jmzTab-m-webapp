@@ -502,7 +502,7 @@ groups:
         label: "File name"
         required: false
         type: "text"
-        help: "Name of the data file, as uploaded (raw or mzML)."
+        help: "Name of the data file (raw or mzML) as chosen on the researcher's computer; the file itself is not uploaded."
         example: "plasma_01.mzML"
       - id: "file_format"
         label: "File format"
