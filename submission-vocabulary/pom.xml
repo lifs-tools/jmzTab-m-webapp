@@ -26,6 +26,11 @@
             <version>1.5.9</version>
         </dependency>
         <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jgoslin-parsers</artifactId>
+            <version>2.2.1</version>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>

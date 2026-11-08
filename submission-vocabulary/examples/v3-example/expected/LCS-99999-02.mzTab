@@ -1,0 +1,201 @@
+MTD	mzTab-version	2.0.0-M
+MTD	mzTab-ID	LCS-99999-02
+MTD	title	EXAMPLE (fictitious data): Plasma lipidome of healthy adults and patients with type 2 diabetes: Plasma lipidome, RP-LC-MS/MS negative mode
+MTD	description	Targeted plasma lipidomics of 40 adults (20 with type 2 diabetes, 20 controls), measured by RP-LC-MS/MS in positive and negative mode. 8 plasma samples (EXAMPLE), RP-LC-MS/MS on a Q Exactive in negative mode.
+MTD	publication[1]	doi:10.1234/example.2026.001
+MTD	contact[1]-name	Jane Doe (EXAMPLE)
+MTD	contact[1]-affiliation	Institute of Example Lipidomics, Example University, Example City, Exampleland
+MTD	contact[1]-email	jane.doe@example.org
+MTD	contact[2]-name	John Roe (EXAMPLE)
+MTD	contact[2]-affiliation	Institute of Example Lipidomics, Example University, Example City, Exampleland
+MTD	contact[2]-email	john.roe@example.org
+MTD	external_study_uri[1]	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	instrument[1]-name	[MS, MS:1001911, Q Exactive, ]
+MTD	instrument[1]-source	[MS, MS:1000073, electrospray ionization, ]
+MTD	instrument[1]-analyzer[1]	[MS, MS:1000484, orbitrap, ]
+MTD	instrument[1]-detector	[MS, MS:1000624, inductive detector, ]
+MTD	software[1]	[MS, MS:1003966, LipidSearch, 4.2]
+MTD	software[2]	[MS, MS:1000532, Xcalibur, 4.1]
+MTD	sample_processing[1]	[, , MTBE extraction (Matyash), ]|[, , sample preparation, "20 uL plasma; SPLASH LIPIDOMIX added before extraction; dried under nitrogen, reconstituted in 100 uL methanol."]
+MTD	sample_processing[2]	[CHMO, CHMO:0001050, reversed-phase liquid chromatography, ]|[, , chromatography column, "Waters Acquity UPLC BEH C18, 2.1 x 100 mm, 1.7 um"]|[, , separation details, "A: ACN/H2O 60:40, B: IPA/ACN 90:10, both 10 mM ammonium formate; 20 min gradient"]
+MTD	custom[1]	[, , study type, Lipidome study]
+MTD	custom[2]	[, , data licence, CC-BY-4.0]
+MTD	custom[3]	[, , lipid nomenclature, "Shorthand 2020 (Liebisch et al., Goslin-compatible)"]
+MTD	custom[4]	[, , dataset content, individual samples]
+MTD	custom[5]	[, , measuring laboratory, Example Lipidomics Core Facility]
+MTD	custom[6]	[MS, MS:1003221, data-dependent acquisition, ]
+MTD	custom[7]	[, , identification database, LIPID MAPS LMSD (2025-06)]
+MTD	custom[8]	[, , what the numbers are, "concentration (calibrated, absolute)"]
+MTD	custom[9]	[, , internal standards, "SPLASH LIPIDOMIX (Avanti 330707), one standard per class"]
+MTD	custom[10]	[, , missing values, empty cell = not detected or not measured]
+MTD	sample[1]	P001
+MTD	sample[1]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[1]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[1]-disease[1]	[NCIT, NCIT:C26747, Type 2 Diabetes Mellitus, ]
+MTD	sample[1]-description	individual sample
+MTD	sample[1]-custom[1]	[NCIT, NCIT:C28421, Sex, Male]
+MTD	sample[1]-custom[2]	[NCIT, NCIT:C25150, Age, 45 years]
+MTD	sample[1]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 29.7 kg/m2]
+MTD	sample[2]	P002
+MTD	sample[2]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[2]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[2]-disease[1]	[NCIT, NCIT:C26747, Type 2 Diabetes Mellitus, ]
+MTD	sample[2]-description	individual sample
+MTD	sample[2]-custom[1]	[NCIT, NCIT:C28421, Sex, Female]
+MTD	sample[2]-custom[2]	[NCIT, NCIT:C25150, Age, 48 years]
+MTD	sample[2]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 22.3 kg/m2]
+MTD	sample[3]	P003
+MTD	sample[3]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[3]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[3]-disease[1]	[NCIT, NCIT:C26747, Type 2 Diabetes Mellitus, ]
+MTD	sample[3]-description	individual sample
+MTD	sample[3]-custom[1]	[NCIT, NCIT:C28421, Sex, Male]
+MTD	sample[3]-custom[2]	[NCIT, NCIT:C25150, Age, 51 years]
+MTD	sample[3]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 25.3 kg/m2]
+MTD	sample[4]	P004
+MTD	sample[4]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[4]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[4]-disease[1]	[NCIT, NCIT:C26747, Type 2 Diabetes Mellitus, ]
+MTD	sample[4]-description	individual sample
+MTD	sample[4]-custom[1]	[NCIT, NCIT:C28421, Sex, Female]
+MTD	sample[4]-custom[2]	[NCIT, NCIT:C25150, Age, 54 years]
+MTD	sample[4]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 24.7 kg/m2]
+MTD	sample[5]	P005
+MTD	sample[5]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[5]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[5]-disease[1]	[NCIT, NCIT:C28143, Control Group, ]
+MTD	sample[5]-description	individual sample
+MTD	sample[5]-custom[1]	[NCIT, NCIT:C28421, Sex, Male]
+MTD	sample[5]-custom[2]	[NCIT, NCIT:C25150, Age, 57 years]
+MTD	sample[5]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 30.8 kg/m2]
+MTD	sample[6]	P006
+MTD	sample[6]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[6]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[6]-disease[1]	[NCIT, NCIT:C28143, Control Group, ]
+MTD	sample[6]-description	individual sample
+MTD	sample[6]-custom[1]	[NCIT, NCIT:C28421, Sex, Female]
+MTD	sample[6]-custom[2]	[NCIT, NCIT:C25150, Age, 60 years]
+MTD	sample[6]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 30.1 kg/m2]
+MTD	sample[7]	P007
+MTD	sample[7]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[7]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[7]-disease[1]	[NCIT, NCIT:C28143, Control Group, ]
+MTD	sample[7]-description	individual sample
+MTD	sample[7]-custom[1]	[NCIT, NCIT:C28421, Sex, Male]
+MTD	sample[7]-custom[2]	[NCIT, NCIT:C25150, Age, 63 years]
+MTD	sample[7]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 32.7 kg/m2]
+MTD	sample[8]	P008
+MTD	sample[8]-species[1]	[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]
+MTD	sample[8]-tissue[1]	[BTO, BTO:0000131, blood plasma, ]
+MTD	sample[8]-disease[1]	[NCIT, NCIT:C28143, Control Group, ]
+MTD	sample[8]-description	individual sample
+MTD	sample[8]-custom[1]	[NCIT, NCIT:C28421, Sex, Female]
+MTD	sample[8]-custom[2]	[NCIT, NCIT:C25150, Age, 66 years]
+MTD	sample[8]-custom[3]	[NCIT, NCIT:C16358, Body Mass Index, 23 kg/m2]
+MTD	ms_run[1]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[1]-instrument_ref	instrument[1]
+MTD	ms_run[1]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[1]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[2]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[2]-instrument_ref	instrument[1]
+MTD	ms_run[2]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[2]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[3]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[3]-instrument_ref	instrument[1]
+MTD	ms_run[3]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[3]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[4]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[4]-instrument_ref	instrument[1]
+MTD	ms_run[4]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[4]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[5]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[5]-instrument_ref	instrument[1]
+MTD	ms_run[5]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[5]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[6]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[6]-instrument_ref	instrument[1]
+MTD	ms_run[6]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[6]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[7]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[7]-instrument_ref	instrument[1]
+MTD	ms_run[7]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[7]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	ms_run[8]-location	https://www.ebi.ac.uk/metabolights/MTBLS0000
+MTD	ms_run[8]-instrument_ref	instrument[1]
+MTD	ms_run[8]-scan_polarity[1]	[MS, MS:1000129, negative scan, ]
+MTD	ms_run[8]-fragmentation_method[1]	[MS, MS:1000422, beam-type collision-induced dissociation, ]
+MTD	assay[1]	P001
+MTD	assay[1]-sample_ref	sample[1]
+MTD	assay[1]-ms_run_ref	ms_run[1]
+MTD	assay[2]	P002
+MTD	assay[2]-sample_ref	sample[2]
+MTD	assay[2]-ms_run_ref	ms_run[2]
+MTD	assay[3]	P003
+MTD	assay[3]-sample_ref	sample[3]
+MTD	assay[3]-ms_run_ref	ms_run[3]
+MTD	assay[4]	P004
+MTD	assay[4]-sample_ref	sample[4]
+MTD	assay[4]-ms_run_ref	ms_run[4]
+MTD	assay[5]	P005
+MTD	assay[5]-sample_ref	sample[5]
+MTD	assay[5]-ms_run_ref	ms_run[5]
+MTD	assay[6]	P006
+MTD	assay[6]-sample_ref	sample[6]
+MTD	assay[6]-ms_run_ref	ms_run[6]
+MTD	assay[7]	P007
+MTD	assay[7]-sample_ref	sample[7]
+MTD	assay[7]-ms_run_ref	ms_run[7]
+MTD	assay[8]	P008
+MTD	assay[8]-sample_ref	sample[8]
+MTD	assay[8]-ms_run_ref	ms_run[8]
+MTD	study_variable[1]	Type 2 Diabetes Mellitus
+MTD	study_variable[1]-assay_refs	assay[1]|assay[2]|assay[3]|assay[4]
+MTD	study_variable[1]-average_function	[MS, MS:1002962, mean, ]
+MTD	study_variable[1]-variation_function	[MS, MS:1002963, variation coefficient, ]
+MTD	study_variable[1]-factors	[NCIT, NCIT:C2991, Disease or Disorder, Type 2 Diabetes Mellitus]
+MTD	study_variable[1]-description	disease: Type 2 Diabetes Mellitus
+MTD	study_variable[2]	Control Group
+MTD	study_variable[2]-assay_refs	assay[5]|assay[6]|assay[7]|assay[8]
+MTD	study_variable[2]-average_function	[MS, MS:1002962, mean, ]
+MTD	study_variable[2]-variation_function	[MS, MS:1002963, variation coefficient, ]
+MTD	study_variable[2]-factors	[NCIT, NCIT:C2991, Disease or Disorder, Control Group]
+MTD	study_variable[2]-description	disease: Control Group
+MTD	database[1]	[, , goslin normalized lipid shorthand name, ]
+MTD	database[1]-prefix	goslin
+MTD	database[1]-version	2.1
+MTD	database[1]-uri	https://github.com/lifs-tools/goslin
+MTD	quantification_method	[PRIDE, PRIDE:0000651, Absolute quantification, ]
+MTD	small_molecule-quantification_unit	[NCIT, NCIT:C48508, Micromole per Liter, ]
+MTD	small_molecule_feature-quantification_unit	[NCIT, NCIT:C48508, Micromole per Liter, ]
+MTD	id_confidence_measure[1]	[MS, MS:1002890, fragmentation score, ]
+MTD	small_molecule-identification_reliability	[MS, MS:1002896, compound identification confidence level, ]
+MTD	cv[1]-label	MS
+MTD	cv[1]-full_name	PSI-MS controlled vocabulary
+MTD	cv[1]-version	4.2.2
+MTD	cv[1]-uri	http://purl.obolibrary.org/obo/ms.owl
+MTD	cv[2]-label	PRIDE
+MTD	cv[2]-full_name	PRIDE PRoteomics IDEntifications (PRIDE) database controlled vocabulary
+MTD	cv[2]-version	2026-09-22
+MTD	cv[2]-uri	https://www.ebi.ac.uk/ols4/ontologies/pride
+MTD	cv[3]-label	NCIT
+MTD	cv[3]-full_name	National Cancer Institute Thesaurus
+MTD	cv[3]-version	26.02d
+MTD	cv[3]-uri	http://purl.obolibrary.org/obo/ncit.owl
+MTD	cv[4]-label	NCBITaxon
+MTD	cv[4]-full_name	NCBI organismal classification
+MTD	cv[4]-version	2026-07-12
+MTD	cv[4]-uri	http://purl.obolibrary.org/obo/ncbitaxon.owl
+MTD	cv[5]-label	BTO
+MTD	cv[5]-full_name	BRENDA tissue / enzyme source
+MTD	cv[5]-version	2021-10-26
+MTD	cv[5]-uri	http://purl.obolibrary.org/obo/bto.owl
+MTD	cv[6]-label	CHMO
+MTD	cv[6]-full_name	Chemical Methods Ontology
+MTD	cv[6]-version	2026-05-28
+MTD	cv[6]-uri	http://purl.obolibrary.org/obo/chmo.owl
+
+SMH	SML_ID	SMF_ID_REFS	database_identifier	chemical_formula	smiles	inchi	chemical_name	uri	theoretical_neutral_mass	adduct_ions	reliability	best_id_confidence_measure	best_id_confidence_value	abundance_assay[1]	abundance_assay[2]	abundance_assay[3]	abundance_assay[4]	abundance_assay[5]	abundance_assay[6]	abundance_assay[7]	abundance_assay[8]	abundance_study_variable[1]	abundance_variation_study_variable[1]	abundance_study_variable[2]	abundance_variation_study_variable[2]	opt_global_original_name	opt_global_internal_standard
+SML	1	null	goslin:PE 38:4	C43H78NO8P	null	null	PE 38:4	null	767.54650577	null	2	[MS, MS:1002890, fragmentation score, ]	null	7.084	8.245	8.631	7.298	6.409	10.592	8.449	7.548	7.8145	0.09497218445971534	8.2495	0.21464917088490124	PE 38:4	false
+SML	2	null	goslin:PI 38:4	C47H83O13P	null	null	PI 38:4	null	886.557130095	null	2	[MS, MS:1002890, fragmentation score, ]	null	4.755	3.185	null	3.802	3.907	3.321	5.532	4.603	3.914	0.2020872912820598	4.34075	0.21919464861698681	PI 38:4	false
+SML	3	null	goslin:Cer 18:1;O2/24:1	C42H81NO3	null	null	Cer 18:1;O2/24:1	null	647.621645725	null	2	[MS, MS:1002890, fragmentation score, ]	null	1.405	1.254	0.913	0.948	1.7	1.034	0.864	1.316	1.13	0.21141245331276107	1.2285	0.2974758151037369	Cer 18:1;O2/24:1	false
+SML	4	null	goslin:FA 18:2	C18H32O2	null	null	FA 18:2	null	280.24023038	null	2	[MS, MS:1002890, fragmentation score, ]	null	90.282	68.371	66.252	42.51	66.292	94.564	66.824	69.454	66.85374999999999	0.2921177650892448	74.2835	0.18295876641621894	FA 18:2	false

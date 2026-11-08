@@ -461,15 +461,66 @@ A reference to the output element of kind `element` (lower case letters and `_`,
 
 A named function with `args`. The functions are exactly these:
 
-- `goslin-parse`;
-- `factor-combinations`;
-- `formula-check`;
+- [`goslin-parse`](#goslin-parse);
+- [`factor-combinations`](#factor-combinations);
+- [`formula-check`](#formula-check);
 - `index-allocate`.
 
-Each is defined in its own section of this document when it is implemented. An implementation must provide all of them to be conformant. Functions may add notes.
+Each is defined in its own section of this document when it is implemented. An implementation must provide all of them to be conformant. Functions may add notes. A call with the wrong number of arguments is an error.
 
 ```yaml
 {fn: {name: goslin-parse, args: [{field: lipid}]}}
+```
+
+#### goslin-parse
+
+`args: [name]`. The lipid name as Goslin reads it (`conv:162-167`, `conv:291-296`), an Obj with these members:
+
+- `normalised` (Text): Goslin's lipid string, e.g. `PC 15:0_18:1[M[2]H7]` for `PC 15:0-18:1(d7)`.
+- `formula` (Text or Null): Goslin's sum formula when it is plain, that is, when all of it matches `(?:[A-Z][a-z]?\d*)+`. A formula with heavy isotopes, such as `C41H73NO8PH'7`, gives Null.
+- `mass` (Dbl): the mass as pygoslin's `LipidAdduct.get_mass` computes it. The terms are the mass of each element times its count, including the adduct's elements, and they are added in Goslin's element order (C, C13, H, H2, N, N15, O, O17, O18, P, P32, S, S34, S33, F, Cl, Br, I, As) with Python's builtin `sum`, which is Neumaier's compensated summation. With an adduct of charge z ≠ 0, the mass is then `(sum - z × 0.00054857990946) / |z|`. jgoslin's `getMass()` adds plainly and can differ in the last digit, so it is not used.
+
+When no Goslin grammar reads the name, the result is Null, without a note. Null gives Null. Any other value than a text is an error.
+
+```yaml
+{fn: {name: goslin-parse, args: [{literal: PC 34:1}]}}   # {normalised: PC 34:1, formula: C42H82NO8P, mass: 759.57780591}
+```
+
+#### factor-combinations
+
+`args: [names, samples, factors]`. The study groups of a dataset, as `Converter.study_variables` (`conv:333-340`) forms them:
+
+- `names` is the dataset's list of sample names, in assay order.
+- `samples` is the list of sample records, each found by its `sample_name`. The last record of a name counts (`conv:156`). An Obj of the records keyed by name is accepted as well.
+- `factors` is the list of factor records. The primary factors are those whose `primary.text` is `yes`, in list order.
+
+The value of a factor for a sample is read as `factor_value` reads it (`conv:169-173`). For `sex`, `age` and `disease`, it is the sample's own field of that name. For every other factor, it is the first entry of the sample's `factors` object whose key equals the factor name, ignoring case. A value that Python takes as false (Null, `""`, an empty list or object, 0 or 0.0) becomes `{text: not specified}`.
+
+The result is a List with one Obj per combination of the primary factors' values, in order of first appearance among the names:
+
+- `key` is a List of `{factor, value}`, one per primary factor: the factor name as the record gives it, and the sample's value.
+- `members` is the List of the 1-based positions (Int) in `names` of the samples with that combination.
+
+Two keys are the same combination when they are equal as JSON with sorted object keys (`conv:338`), so `1` and `1.0` differ. Without a primary factor, there is one group, with the key `[]`, holding every sample. A name that no sample has is an error.
+
+```yaml
+{fn: {name: factor-combinations, args: [{field: d.quantities.samples}, {field: samples}, {field: factors}]}}
+# [{key: [{factor: disease, value: {cv: NCIT, ...}}], members: [1, 2, 3, 4]}, ...]
+```
+
+#### formula-check
+
+`args: [sheet, name, parsed, stated]`. A stated sum formula checked against the name, as `Converter.formula` (`conv:291-309`) does. `parsed` is the name's [`goslin-parse`](#goslin-parse), which may be Null, and `stated` the stated formula. `sheet` and `name` are read as text for the notes. The result is an Obj `{formula, mass}`:
+
+1. When nothing is stated (Null, `""`, or anything else Python takes as false), the result is `parsed`'s formula and mass, both Null when the name does not parse.
+2. Otherwise the stated value is read as text, with its whitespace normalised as in [cell rendering](#cell-rendering). When it is not plain (all of it must match `(?:[A-Z][a-z]?\d*)+`), the result is as in 1, with the note `<sheet>: sum formula '<stated>' of '<name>' is not a plain formula (e.g. C42H82NO8P); not written`.
+3. When Goslin gives a plain formula, and the element counts of the two formulas differ, the result is the stated formula without a mass (Null). The note is `<sheet>: sum formula <stated> of '<name>' does not match the name (<formula>, Goslin); the stated formula is written, without a mass`. The counts are compared, not the texts: an element without a count counts 1, and repeats add up, so `H82C42NO8P1` matches `C42H82NO8P`.
+4. Otherwise the result is the stated formula with `parsed`'s mass. When the name parses but Goslin gives no plain formula, the note is `<sheet>: sum formula <stated> of '<name>' not checked (Goslin gives no plain formula)`.
+
+`\d` is any Unicode decimal digit.
+
+```yaml
+{fn: {name: formula-check, args: [{literal: Q_D1}, {field: l}, {fn: {name: goslin-parse, args: [{field: l}]}}, {field: note.sum_formula}]}}
 ```
 
 ## Cell rendering

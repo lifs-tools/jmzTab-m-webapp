@@ -1,0 +1,825 @@
+{
+ "template": {
+  "template_id": "lipidcompass-submission-template",
+  "template_version": "3.0.0",
+  "generated": "2026-11-03",
+  "schema": "submission-template-schema.json",
+  "contact": "contact@lifs-tools.org"
+ },
+ "study": {
+  "study_title": "EXAMPLE (fictitious data): Plasma lipidome of healthy adults and patients with type 2 diabetes",
+  "study_description": "Targeted plasma lipidomics of 40 adults (20 with type 2 diabetes, 20 controls), measured by RP-LC-MS/MS in positive and negative mode.",
+  "study_type": {
+   "text": "Lipidome study"
+  },
+  "publication_doi": "10.1234/example.2026.001",
+  "related_dois": null,
+  "pubmed_id": null,
+  "licence": {
+   "text": "CC-BY-4.0"
+  },
+  "access_conditions": null,
+  "embargo_until": null,
+  "repository_links": "https://www.ebi.ac.uk/metabolights/MTBLS0000",
+  "lipidomics_checklist_doi": null,
+  "lipid_nomenclature": {
+   "text": "Shorthand 2020 (Liebisch et al., Goslin-compatible)"
+  },
+  "submitter_comment": null,
+  "lcs_id": null
+ },
+ "contacts": [
+  {
+   "name": "Jane Doe (EXAMPLE)",
+   "email": "jane.doe@example.org",
+   "affiliation": "Institute of Example Lipidomics, Example University, Example City, Exampleland",
+   "orcid": "0000-0002-1825-0097",
+   "role": {
+    "text": "corresponding author"
+   }
+  },
+  {
+   "name": "John Roe (EXAMPLE)",
+   "email": "john.roe@example.org",
+   "affiliation": "Institute of Example Lipidomics, Example University, Example City, Exampleland",
+   "orcid": null,
+   "role": {
+    "text": "submitter"
+   }
+  }
+ ],
+ "datasets": [
+  {
+   "dataset_id": "D1",
+   "dataset_title": "Plasma lipidome, RP-LC-MS/MS positive mode",
+   "dataset_description": "8 plasma samples (EXAMPLE), RP-LC-MS/MS on a Q Exactive in positive mode.",
+   "dataset_content": {
+    "text": "individual samples"
+   },
+   "laboratory": "Example Lipidomics Core Facility",
+   "quantities_sheet": "Q_D1",
+   "quantities_layout": {
+    "text": "lipids in columns"
+   },
+   "extraction_method": {
+    "text": "MTBE extraction (Matyash)"
+   },
+   "sample_preparation": "20 uL plasma; SPLASH LIPIDOMIX added before extraction; dried under nitrogen, reconstituted in 100 uL methanol.",
+   "separation_method": {
+    "cv": "CHMO",
+    "accession": "CHMO:0001050",
+    "name": "reversed-phase liquid chromatography"
+   },
+   "column": "Waters Acquity UPLC BEH C18, 2.1 x 100 mm, 1.7 um",
+   "separation_details": "A: ACN/H2O 60:40, B: IPA/ACN 90:10, both 10 mM ammonium formate; 20 min gradient",
+   "instrument_name": {
+    "cv": "MS",
+    "accession": "MS:1001911",
+    "name": "Q Exactive"
+   },
+   "ion_source": {
+    "cv": "MS",
+    "accession": "MS:1000073",
+    "name": "electrospray ionization"
+   },
+   "analyzer": {
+    "cv": "MS",
+    "accession": "MS:1000484",
+    "name": "orbitrap"
+   },
+   "detector": {
+    "cv": "MS",
+    "accession": "MS:1000624",
+    "name": "inductive detector"
+   },
+   "scan_polarity": {
+    "cv": "MS",
+    "accession": "MS:1000130",
+    "name": "positive scan"
+   },
+   "acquisition_mode": {
+    "cv": "MS",
+    "accession": "MS:1003221",
+    "name": "data-dependent acquisition"
+   },
+   "dissociation_method": {
+    "cv": "MS",
+    "accession": "MS:1000422",
+    "name": "beam-type collision-induced dissociation"
+   },
+   "acquisition_software": {
+    "cv": "MS",
+    "accession": "MS:1000532",
+    "name": "Xcalibur"
+   },
+   "acquisition_software_version": "4.1",
+   "processing_software": {
+    "cv": "MS",
+    "accession": "MS:1003966",
+    "name": "LipidSearch"
+   },
+   "processing_software_version": "4.2",
+   "identification_database": "LIPID MAPS LMSD (2025-06)",
+   "id_confidence_measure": {
+    "cv": "MS",
+    "accession": "MS:1002890",
+    "name": "fragmentation score"
+   },
+   "identification_reliability": {
+    "cv": "MS",
+    "accession": "MS:1002896",
+    "name": "compound identification confidence level"
+   },
+   "quantification_method": {
+    "cv": "PRIDE",
+    "accession": "PRIDE:0000651",
+    "name": "Absolute quantification"
+   },
+   "quantification_unit": {
+    "cv": "NCIT",
+    "accession": "NCIT:C48508",
+    "name": "Micromole per Liter"
+   },
+   "data_processing_level": {
+    "text": "concentration (calibrated, absolute)"
+   },
+   "internal_standards": "SPLASH LIPIDOMIX (Avanti 330707), one standard per class",
+   "missing_value_encoding": {
+    "text": "empty cell = not detected or not measured"
+   },
+   "raw_data_location": null,
+   "dataset_comment": null,
+   "quantities": {
+    "sheet": "Q_D1",
+    "layout": "lipids in columns",
+    "samples": [
+     "P001",
+     "P002",
+     "P003",
+     "P004",
+     "P005",
+     "P006",
+     "P007",
+     "P008"
+    ],
+    "lipids": [
+     "PC 34:1",
+     "PC 34:2",
+     "SM 34:1;O2",
+     "LPC 16:0",
+     "PC 15:0-18:1(d7)"
+    ],
+    "values": [
+     [
+      173.893,
+      250.727,
+      138.207,
+      63.481,
+      23.163
+     ],
+     [
+      165.974,
+      430.05,
+      174.789,
+      138.383,
+      26.736
+     ],
+     [
+      160.239,
+      null,
+      173.215,
+      93.186,
+      12.728
+     ],
+     [
+      142.317,
+      252.476,
+      131.513,
+      79.219,
+      17.646
+     ],
+     [
+      106.939,
+      253.582,
+      129.663,
+      76.292,
+      18.984
+     ],
+     [
+      200.991,
+      444.463,
+      104.967,
+      88.089,
+      21.394
+     ],
+     [
+      170.322,
+      204.17,
+      149.049,
+      62.799,
+      17.75
+     ],
+     [
+      136.241,
+      238.312,
+      78.082,
+      105.793,
+      15.005
+     ]
+    ]
+   }
+  },
+  {
+   "dataset_id": "D2",
+   "dataset_title": "Plasma lipidome, RP-LC-MS/MS negative mode",
+   "dataset_description": "8 plasma samples (EXAMPLE), RP-LC-MS/MS on a Q Exactive in negative mode.",
+   "dataset_content": {
+    "text": "individual samples"
+   },
+   "laboratory": "Example Lipidomics Core Facility",
+   "quantities_sheet": "Q_D2",
+   "quantities_layout": {
+    "text": "lipids in rows"
+   },
+   "extraction_method": {
+    "text": "MTBE extraction (Matyash)"
+   },
+   "sample_preparation": "20 uL plasma; SPLASH LIPIDOMIX added before extraction; dried under nitrogen, reconstituted in 100 uL methanol.",
+   "separation_method": {
+    "cv": "CHMO",
+    "accession": "CHMO:0001050",
+    "name": "reversed-phase liquid chromatography"
+   },
+   "column": "Waters Acquity UPLC BEH C18, 2.1 x 100 mm, 1.7 um",
+   "separation_details": "A: ACN/H2O 60:40, B: IPA/ACN 90:10, both 10 mM ammonium formate; 20 min gradient",
+   "instrument_name": {
+    "cv": "MS",
+    "accession": "MS:1001911",
+    "name": "Q Exactive"
+   },
+   "ion_source": {
+    "cv": "MS",
+    "accession": "MS:1000073",
+    "name": "electrospray ionization"
+   },
+   "analyzer": {
+    "cv": "MS",
+    "accession": "MS:1000484",
+    "name": "orbitrap"
+   },
+   "detector": {
+    "cv": "MS",
+    "accession": "MS:1000624",
+    "name": "inductive detector"
+   },
+   "scan_polarity": {
+    "cv": "MS",
+    "accession": "MS:1000129",
+    "name": "negative scan"
+   },
+   "acquisition_mode": {
+    "cv": "MS",
+    "accession": "MS:1003221",
+    "name": "data-dependent acquisition"
+   },
+   "dissociation_method": {
+    "cv": "MS",
+    "accession": "MS:1000422",
+    "name": "beam-type collision-induced dissociation"
+   },
+   "acquisition_software": {
+    "cv": "MS",
+    "accession": "MS:1000532",
+    "name": "Xcalibur"
+   },
+   "acquisition_software_version": "4.1",
+   "processing_software": {
+    "cv": "MS",
+    "accession": "MS:1003966",
+    "name": "LipidSearch"
+   },
+   "processing_software_version": "4.2",
+   "identification_database": "LIPID MAPS LMSD (2025-06)",
+   "id_confidence_measure": {
+    "cv": "MS",
+    "accession": "MS:1002890",
+    "name": "fragmentation score"
+   },
+   "identification_reliability": {
+    "cv": "MS",
+    "accession": "MS:1002896",
+    "name": "compound identification confidence level"
+   },
+   "quantification_method": {
+    "cv": "PRIDE",
+    "accession": "PRIDE:0000651",
+    "name": "Absolute quantification"
+   },
+   "quantification_unit": {
+    "cv": "NCIT",
+    "accession": "NCIT:C48508",
+    "name": "Micromole per Liter"
+   },
+   "data_processing_level": {
+    "text": "concentration (calibrated, absolute)"
+   },
+   "internal_standards": "SPLASH LIPIDOMIX (Avanti 330707), one standard per class",
+   "missing_value_encoding": {
+    "text": "empty cell = not detected or not measured"
+   },
+   "raw_data_location": null,
+   "dataset_comment": null,
+   "quantities": {
+    "sheet": "Q_D2",
+    "layout": "lipids in rows",
+    "samples": [
+     "P001",
+     "P002",
+     "P003",
+     "P004",
+     "P005",
+     "P006",
+     "P007",
+     "P008"
+    ],
+    "lipids": [
+     "PE 38:4",
+     "PI 38:4",
+     "Cer 18:1;O2/24:1",
+     "FA 18:2"
+    ],
+    "values": [
+     [
+      7.084,
+      4.755,
+      1.405,
+      90.282
+     ],
+     [
+      8.245,
+      3.185,
+      1.254,
+      68.371
+     ],
+     [
+      8.631,
+      null,
+      0.913,
+      66.252
+     ],
+     [
+      7.298,
+      3.802,
+      0.948,
+      42.51
+     ],
+     [
+      6.409,
+      3.907,
+      1.7,
+      66.292
+     ],
+     [
+      10.592,
+      3.321,
+      1.034,
+      94.564
+     ],
+     [
+      8.449,
+      5.532,
+      0.864,
+      66.824
+     ],
+     [
+      7.548,
+      4.603,
+      1.316,
+      69.454
+     ]
+    ]
+   }
+  }
+ ],
+ "samples": [
+  {
+   "sample_name": "P001",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C26747",
+    "name": "Type 2 Diabetes Mellitus"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C20197",
+    "name": "Male"
+   },
+   "age": 45,
+   "sample_description": null,
+   "factors": {
+    "BMI": 29.7
+   }
+  },
+  {
+   "sample_name": "P002",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C26747",
+    "name": "Type 2 Diabetes Mellitus"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C16576",
+    "name": "Female"
+   },
+   "age": 48,
+   "sample_description": null,
+   "factors": {
+    "BMI": 22.3
+   }
+  },
+  {
+   "sample_name": "P003",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C26747",
+    "name": "Type 2 Diabetes Mellitus"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C20197",
+    "name": "Male"
+   },
+   "age": 51,
+   "sample_description": null,
+   "factors": {
+    "BMI": 25.3
+   }
+  },
+  {
+   "sample_name": "P004",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C26747",
+    "name": "Type 2 Diabetes Mellitus"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C16576",
+    "name": "Female"
+   },
+   "age": 54,
+   "sample_description": null,
+   "factors": {
+    "BMI": 24.7
+   }
+  },
+  {
+   "sample_name": "P005",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C28143",
+    "name": "Control Group"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C20197",
+    "name": "Male"
+   },
+   "age": 57,
+   "sample_description": null,
+   "factors": {
+    "BMI": 30.8
+   }
+  },
+  {
+   "sample_name": "P006",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C28143",
+    "name": "Control Group"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C16576",
+    "name": "Female"
+   },
+   "age": 60,
+   "sample_description": null,
+   "factors": {
+    "BMI": 30.1
+   }
+  },
+  {
+   "sample_name": "P007",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C28143",
+    "name": "Control Group"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C20197",
+    "name": "Male"
+   },
+   "age": 63,
+   "sample_description": null,
+   "factors": {
+    "BMI": 32.7
+   }
+  },
+  {
+   "sample_name": "P008",
+   "sample_type": {
+    "text": "individual sample"
+   },
+   "species": {
+    "cv": "NCBITaxon",
+    "accession": "NCBITaxon:9606",
+    "name": "Homo sapiens"
+   },
+   "tissue": {
+    "cv": "BTO",
+    "accession": "BTO:0000131",
+    "name": "blood plasma"
+   },
+   "cell_type": null,
+   "disease": {
+    "cv": "NCIT",
+    "accession": "NCIT:C28143",
+    "name": "Control Group"
+   },
+   "sex": {
+    "cv": "NCIT",
+    "accession": "NCIT:C16576",
+    "name": "Female"
+   },
+   "age": 66,
+   "sample_description": null,
+   "factors": {
+    "BMI": 23
+   }
+  }
+ ],
+ "factors": [
+  {
+   "factor_name": "disease",
+   "factor_term": {
+    "cv": "NCIT",
+    "accession": "NCIT:C2991",
+    "name": "Disease or Disorder"
+   },
+   "unit": null,
+   "primary": {
+    "text": "yes"
+   },
+   "factor_description": "Type 2 diabetes vs controls"
+  },
+  {
+   "factor_name": "sex",
+   "factor_term": {
+    "cv": "NCIT",
+    "accession": "NCIT:C28421",
+    "name": "Sex"
+   },
+   "unit": null,
+   "primary": {
+    "text": "no"
+   },
+   "factor_description": null
+  },
+  {
+   "factor_name": "age",
+   "factor_term": {
+    "cv": "NCIT",
+    "accession": "NCIT:C25150",
+    "name": "Age"
+   },
+   "unit": "years",
+   "primary": {
+    "text": "no"
+   },
+   "factor_description": null
+  },
+  {
+   "factor_name": "BMI",
+   "factor_term": {
+    "cv": "NCIT",
+    "accession": "NCIT:C16358",
+    "name": "Body Mass Index"
+   },
+   "unit": "kg/m2",
+   "primary": {
+    "text": "no"
+   },
+   "factor_description": null
+  }
+ ],
+ "lipids": [
+  {
+   "dataset_id": "D1",
+   "lipid_name": "PC 34:1",
+   "sum_formula": null,
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D1",
+   "lipid_name": "PC 34:2",
+   "sum_formula": null,
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D1",
+   "lipid_name": "SM 34:1;O2",
+   "sum_formula": null,
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D1",
+   "lipid_name": "LPC 16:0",
+   "sum_formula": null,
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D1",
+   "lipid_name": "PC 15:0-18:1(d7)",
+   "sum_formula": null,
+   "internal_standard": {
+    "text": "yes"
+   },
+   "identification_level": null,
+   "lipid_comment": "deuterated internal standard"
+  },
+  {
+   "dataset_id": "D2",
+   "lipid_name": "PE 38:4",
+   "sum_formula": "C43H78NO8P",
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D2",
+   "lipid_name": "PI 38:4",
+   "sum_formula": "C47H83O13P",
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D2",
+   "lipid_name": "Cer 18:1;O2/24:1",
+   "sum_formula": "C42H81NO3",
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  },
+  {
+   "dataset_id": "D2",
+   "lipid_name": "FA 18:2",
+   "sum_formula": "C18H32O2",
+   "internal_standard": {
+    "text": "no"
+   },
+   "identification_level": {
+    "text": "2"
+   },
+   "lipid_comment": null
+  }
+ ],
+ "issues": []
+}
