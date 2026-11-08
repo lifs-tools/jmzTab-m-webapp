@@ -68,6 +68,8 @@ class V3EquivalenceTwoZeroTest {
     void v3ExampleMatchesTheConverter(String n) {
         MappingApplyResult result = apply(n);
 
+        // the allowed software[3] lines record the v3 route (R11) before they are dropped
+        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.0.0\n");
         assertThat(normalised(result.text())).isEqualTo(normalised(text("expected/LCS-99999-" + n + ".mzTab")));
     }
 

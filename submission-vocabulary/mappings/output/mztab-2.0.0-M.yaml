@@ -3,8 +3,9 @@
 # Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
 # ../../schema/mapping-language.md.
 #
-# Parameters: study_id (e.g. LCS-00123), and the dataset as its 1-based position in datasets (dataset_index), which
-# also numbers the file (mzTab-ID <study_id>-<NN>). dataset_id is the dataset's id, given for the caller's records.
+# Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
+# numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
+# informational only: it is not read, and nothing checks that it is the id of the selected dataset.
 #
 # A sample, a run and an assay are written for each sample of the dataset's quantities, in their order (conv:223-251).
 # Runs and assays are written over the same list, so the engine pairs ms_run[n] with the assay that names it.
@@ -16,6 +17,7 @@ version: 1.0.0
 kind: output
 vocabulary: 1.0.0
 target: 2.0.0-M
+# dataset_index selects the dataset; dataset_id is informational (not read, not checked)
 parameters: [study_id, dataset_id, dataset_index]
 
 # cv[] entries, in the converter's order; versions as published by OLS4 on 2026-10-13 (conv:65-78)
@@ -109,16 +111,27 @@ let:
       - {user-param: {name: {literal: unknown confidence measure}}}
 
   # The SML table, one item per lipid of the dataset's quantities, in their order (conv:342-392)
-  dataset_lipids: {filter: {in: {field: lipids}, as: x, where: {eq: [{field: x.dataset_id}, {field: dataset.dataset_id}]}}}
-  # each lipid's row on the Lipids sheet; the last row of a name counts (conv:344)
+  # conv:344, notes: the dataset's rows on the Lipids sheet, the last row of a name counting. A row is kept when its
+  # position is the last position among the dataset's rows of its name.
+  dataset_lipids:
+    filter:
+      in: {field: lipids}
+      as: x
+      where:
+        when:
+          if: {eq: [{field: x.dataset_id}, {field: dataset.dataset_id}]}
+          then:
+            eq:
+              - {pos: x}
+              - at:
+                  list: {filter: {in: {map: {over: {field: lipids}, as: y, value: {when: {if: {when: {if: {eq: [{field: y.dataset_id}, {field: dataset.dataset_id}]}, then: {eq: [{field: y.lipid_name}, {field: x.lipid_name}]}}}, then: {pos: y}}}}}, as: p, where: {field: p}}}
+                  index: {count: {filter: {in: {map: {over: {field: lipids}, as: y, value: {when: {if: {when: {if: {eq: [{field: y.dataset_id}, {field: dataset.dataset_id}]}, then: {eq: [{field: y.lipid_name}, {field: x.lipid_name}]}}}, then: {pos: y}}}}}, as: p, where: {field: p}}}}
+  # each lipid's row in dataset_lipids, or Null
   lipid_notes:
     map:
       over: {field: dataset.quantities.lipids}
       as: l
-      value:
-        at:
-          list: {filter: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}
-          index: {count: {filter: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}}
+      value: {find: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}
   parsed:
     map: {over: {field: dataset.quantities.lipids}, as: l, value: {fn: {name: goslin-parse, args: [{field: l}]}}}
   normalised_names:
@@ -599,4 +612,5 @@ tables:
         value: {field: lipid}
       - header: opt_global_internal_standard
         value: {at: {list: {ref: internal_standard_flags}, index: {pos: lipid}}}
+        # conv:345: any of the dataset's rows (the last of each name) has an internal_standard
         where: {find: {in: {ref: dataset_lipids}, as: l, where: {not-empty: {field: l.internal_standard}}}}

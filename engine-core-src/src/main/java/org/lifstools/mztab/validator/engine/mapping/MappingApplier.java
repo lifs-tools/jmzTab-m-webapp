@@ -189,8 +189,8 @@ public final class MappingApplier {
         }
 
         /**
-         * One note naming every run written with the location {@code null} (N13): no data file, raw data link or
-         * repository link located it.
+         * One note naming every run written with the location {@code null} (N13): the mapping found no location for
+         * it.
          */
         private void noteNullLocations(List<KeyValue> written) {
             List<String> runs = new ArrayList<>();
@@ -201,7 +201,7 @@ public final class MappingApplier {
                 }
             }
             if (!runs.isEmpty()) {
-                notes.add("ms_run[" + String.join(",", runs) + "]-location is null: no raw data link or repository link was given");
+                notes.add("ms_run[" + String.join(",", runs) + "]-location is null: no location was given");
             }
         }
 

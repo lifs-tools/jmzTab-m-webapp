@@ -17,6 +17,10 @@ package org.lifstools.mztab.submission;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.submission.mapping.Mapping;
@@ -44,6 +48,23 @@ class InputMappingCoverageTest {
                     .flatMap(s -> s.columns().values().stream()).toList();
             assertThat(read).as(group.id())
                     .containsExactlyInAnyOrderElementsOf(group.fields().stream().map(Vocabulary.Field::id).toList());
+        }
+    }
+
+    @Test
+    void layoutsAreConventionsAndSheetNamesAreFields() throws IOException {
+        Vocabulary vocabulary = Vocabulary.load();
+        List<String> conventions = new ArrayList<>();
+        try (InputStream in = getClass().getResourceAsStream("/submission-vocabulary/vocabulary/vocabulary.yaml")) {
+            new YAMLMapper().readTree(in).get("conventions").fieldNames().forEachRemaining(conventions::add);
+        }
+        for (Mapping.Sheet sheet : MappingLoader.load("v3-workbook").sheets()) {
+            assertThat(conventions).as("layout of " + sheet).contains(sheet.layout());
+            if (sheet.namedBy() != null) {
+                String[] field = sheet.namedBy().split("\\.");
+                assertThat(vocabulary.group(field[0]).fields()).as("named-by of " + sheet)
+                        .extracting(Vocabulary.Field::id).contains(field[1]);
+            }
         }
     }
 }

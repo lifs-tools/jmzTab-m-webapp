@@ -216,7 +216,7 @@ class MappingApplierTest {
                 + "{\"sample_name\":\"P2\",\"location\":\"https://example.org/P2.mzML\"},{\"sample_name\":\"P3\"}]}", "", false),
                 TWO_ZERO);
         assertThat(r.text()).contains("MTD\tms_run[1]-location\tnull\n", "MTD\tms_run[3]-location\tnull\n");
-        assertThat(r.notes()).containsExactly("ms_run[1,3]-location is null: no raw data link or repository link was given");
+        assertThat(r.notes()).containsExactly("ms_run[1,3]-location is null: no location was given");
 
         MappingApplyResult located = applier().apply(request("runs",
                 "{\"samples\":[{\"sample_name\":\"P1\",\"location\":\"https://example.org/P1.mzML\"}]}", "", false), TWO_ZERO);
