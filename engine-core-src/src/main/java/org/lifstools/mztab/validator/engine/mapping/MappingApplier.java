@@ -79,7 +79,8 @@ public final class MappingApplier {
     private static final Map<String, String> COLUMN_ELEMENTS = Map.of("abundance_assay", "assay",
             "abundance_study_variable", "study_variable", "abundance_variation_study_variable", "study_variable");
 
-    private static volatile Vocabulary vocabulary;
+    /** Guarded by the class: see {@link #vocabulary()}. */
+    private static Vocabulary vocabulary;
 
     private final Function<String, Mapping> mappings;
 
@@ -125,13 +126,12 @@ public final class MappingApplier {
         return new Run(mapping, r).result();
     }
 
-    private static Vocabulary vocabulary() {
-        Vocabulary v = vocabulary;
-        if (v == null) {
-            v = Vocabulary.load();
-            vocabulary = v;
+    /** The vocabulary, loaded once on first use; a failed load is tried again on the next use. */
+    private static synchronized Vocabulary vocabulary() {
+        if (vocabulary == null) {
+            vocabulary = Vocabulary.load();
         }
-        return v;
+        return vocabulary;
     }
 
     /** One application: the copy, the indexes given out, and what is written. */

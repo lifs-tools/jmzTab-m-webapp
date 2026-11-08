@@ -52,7 +52,8 @@ public final class MappingLoader {
     private static final Pattern KEY_PLACEHOLDER = Pattern.compile("\\{([^{}]*)\\}");
     private static final Pattern FORMAT_PLACEHOLDER = Pattern.compile("\\{\\{|\\}\\}|\\{(\\d+)(?::(0?)(\\d+))?\\}|[{}]");
     private static final YAMLMapper YAML = YAMLMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
-    private static volatile JsonSchema schema;
+    /** Guarded by the class: see {@link #schema()}. */
+    private static JsonSchema schema;
 
     private MappingLoader() {
     }
@@ -139,22 +140,21 @@ public final class MappingLoader {
         return new Parser(null).expr(node, "");
     }
 
-    private static JsonSchema schema() {
-        JsonSchema s = schema;
-        if (s == null) {
+    /** The mapping schema, read once on first use; a failed read is tried again on the next use. */
+    private static synchronized JsonSchema schema() {
+        if (schema == null) {
             try (InputStream in = MappingLoader.class.getClassLoader().getResourceAsStream(ROOT + "schema/mapping.schema.json")) {
                 if (in == null) {
                     throw new IllegalStateException("No mapping.schema.json in the submission vocabulary");
                 }
                 SchemaValidatorsConfig config = SchemaValidatorsConfig.builder().pathType(PathType.JSON_POINTER)
                         .locale(Locale.ENGLISH).build();
-                s = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(YAML.readTree(in), config);
-                schema = s;
+                schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(YAML.readTree(in), config);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
-        return s;
+        return schema;
     }
 
     private static List<String> iterable(java.util.Iterator<String> it) {

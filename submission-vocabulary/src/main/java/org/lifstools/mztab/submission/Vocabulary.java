@@ -24,6 +24,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +49,8 @@ public final class Vocabulary {
     private static final YAMLMapper YAML = new YAMLMapper();
     /** A list name; other files in {@code lists/}, such as {@code unit-factors.yaml}, are not value lists. */
     private static final Pattern LIST_NAME = Pattern.compile("[a-z][a-z0-9_]*");
+    /** Serialises the opening and closing of zip file systems for listing {@code lists/} inside a jar. */
+    private static final Object JAR_LISTING = new Object();
 
     /** A field of a group. Optional attributes are null when absent; {@code required} is the v3 value rendered as text. */
     public record Field(String id, String label, String required, String list, String type, String versionOf,
@@ -78,19 +81,39 @@ public final class Vocabulary {
     public record ValueList(String name, List<Entry> entries) {
     }
 
+    private final ClassLoader loader;
     private final String version;
     private final Map<String, Group> groups;
     private final Map<String, ValueList> lists = new java.util.concurrent.ConcurrentHashMap<>();
-    private volatile Map<String, Param> encodings;
+    /** The list names, read once when the vocabulary is loaded. */
+    private final List<String> listNames;
+    /** The agreed encodings of the text entries of all lists, computed once when the vocabulary is loaded. */
+    private final Map<String, Param> encodings;
 
-    private Vocabulary(String version, Map<String, Group> groups) {
+    private Vocabulary(ClassLoader loader, String version, Map<String, Group> groups) {
+        this.loader = loader;
         this.version = version;
         this.groups = groups;
+        this.listNames = readListNames(loader);
+        Map<String, Param> m = new TreeMap<>();
+        for (String name : listNames) {
+            for (Entry e : list(name).entries()) {
+                if (e instanceof Entry.Text t && t.encoding() != null) {
+                    m.put(t.text(), t.encoding());
+                }
+            }
+        }
+        this.encodings = Collections.unmodifiableMap(m);
     }
 
     /** Loads the vocabulary from the classpath. */
     public static Vocabulary load() {
-        JsonNode root = read("vocabulary/vocabulary.yaml");
+        return load(Vocabulary.class.getClassLoader());
+    }
+
+    /** Loads the vocabulary from the resources of {@code loader}; for tests. */
+    static Vocabulary load(ClassLoader loader) {
+        JsonNode root = read(loader, "vocabulary/vocabulary.yaml");
         Map<String, Group> groups = new LinkedHashMap<>();
         root.get("groups").properties().forEach(g -> {
             List<Field> fields = new ArrayList<>();
@@ -98,7 +121,7 @@ public final class Vocabulary {
             groups.put(g.getKey(), new Group(g.getKey(), g.getValue().get("workbook").asBoolean(),
                     List.copyOf(fields), text(g.getValue(), "help")));
         });
-        return new Vocabulary(root.get("vocabulary").get("version").asText(), Collections.unmodifiableMap(groups));
+        return new Vocabulary(loader, root.get("vocabulary").get("version").asText(), Collections.unmodifiableMap(groups));
     }
 
     private static Field field(JsonNode f) {
@@ -116,8 +139,8 @@ public final class Vocabulary {
         return n.has(key) ? n.get(key).asText() : null;
     }
 
-    private static JsonNode read(String path) {
-        try (InputStream in = Vocabulary.class.getClassLoader().getResourceAsStream(ROOT + path)) {
+    private static JsonNode read(ClassLoader loader, String path) {
+        try (InputStream in = loader.getResourceAsStream(ROOT + path)) {
             if (in == null) {
                 throw new IllegalArgumentException("Not in the submission vocabulary: " + path);
             }
@@ -152,7 +175,7 @@ public final class Vocabulary {
             throw new IllegalArgumentException("Not a list name: " + name);
         }
         return lists.computeIfAbsent(name, n -> {
-            JsonNode root = read("lists/" + n + ".yaml");
+            JsonNode root = read(loader, "lists/" + n + ".yaml");
             List<Entry> entries = new ArrayList<>();
             root.get("entries").forEach(e -> {
                 if (e.has("accession")) {
@@ -172,18 +195,35 @@ public final class Vocabulary {
 
     /** The names of all value lists, sorted. */
     public List<String> listNames() {
+        return listNames;
+    }
+
+    /**
+     * Lists {@code lists/} of the resources of {@code loader}. Inside a jar this needs a zip file system, of which
+     * there is one per jar and JVM: it is opened under {@link #JAR_LISTING} and closed again, and one that another
+     * component opened is reused and left open.
+     */
+    private static List<String> readListNames(ClassLoader loader) {
         try {
-            URL url = Vocabulary.class.getClassLoader().getResource(ROOT + "lists");
+            URL url = loader.getResource(ROOT + "lists");
             if (url == null) {
                 throw new IllegalStateException("No lists in the submission vocabulary");
             }
             URI uri = url.toURI();
-            if ("jar".equals(uri.getScheme())) {
-                try (FileSystem fs = FileSystems.newFileSystem(uri, Map.of())) {
+            if (!"jar".equals(uri.getScheme())) {
+                return names(Path.of(uri));
+            }
+            synchronized (JAR_LISTING) {
+                FileSystem opened;
+                try {
+                    opened = FileSystems.newFileSystem(uri, Map.of());
+                } catch (FileSystemAlreadyExistsException e) {
+                    return names(FileSystems.getFileSystem(uri).getPath("/" + ROOT + "lists"));
+                }
+                try (FileSystem fs = opened) {
                     return names(fs.getPath("/" + ROOT + "lists"));
                 }
             }
-            return names(Path.of(uri));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } catch (URISyntaxException e) {
@@ -201,18 +241,6 @@ public final class Vocabulary {
 
     /** The agreed encoding of a text entry in any list, if there is one. */
     public Optional<Param> encodingOf(String text) {
-        Map<String, Param> m = encodings;
-        if (m == null) {
-            m = new TreeMap<>();
-            for (String name : listNames()) {
-                for (Entry e : list(name).entries()) {
-                    if (e instanceof Entry.Text t && t.encoding() != null) {
-                        m.put(t.text(), t.encoding());
-                    }
-                }
-            }
-            encodings = m;
-        }
-        return Optional.ofNullable(m.get(text));
+        return Optional.ofNullable(encodings.get(text));
     }
 }
