@@ -53,6 +53,124 @@
         },
         "type" : "object"
       },
+      "InsertColumn" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/LineEdit"
+        }, {
+          "properties" : {
+            "fill" : {
+              "type" : "string"
+            },
+            "header" : {
+              "type" : "string"
+            },
+            "name" : {
+              "type" : "string"
+            },
+            "position" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InsertLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/LineEdit"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "JsonNode" : { },
+      "LineEdit" : {
+        "description" : "A text edit of a working copy; op names the edit, as in the webapp's edit operations.",
+        "discriminator" : {
+          "mapping" : {
+            "InsertColumn" : "#/components/schemas/InsertColumn",
+            "InsertLine" : "#/components/schemas/InsertLine",
+            "SetCell" : "#/components/schemas/SetCell"
+          },
+          "propertyName" : "op"
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/SetCell"
+        }, {
+          "$ref" : "#/components/schemas/InsertLine"
+        }, {
+          "$ref" : "#/components/schemas/InsertColumn"
+        } ],
+        "properties" : {
+          "op" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "op" ]
+      },
+      "MappingApplyRequest" : {
+        "properties" : {
+          "inputMapping" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "mapping" : {
+            "type" : "string"
+          },
+          "mappingVersion" : {
+            "type" : "string"
+          },
+          "parameters" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "provenance" : {
+            "type" : "boolean"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MappingApplyResult" : {
+        "properties" : {
+          "edits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LineEdit"
+            },
+            "type" : "array"
+          },
+          "notes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "suggestions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Suggestion"
+            },
+            "type" : "array"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "MetadataLine" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/ValidationEvent"
@@ -107,6 +225,41 @@
           },
           "sml" : {
             "$ref" : "#/components/schemas/TableDims"
+          }
+        },
+        "type" : "object"
+      },
+      "SetCell" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/LineEdit"
+        }, {
+          "properties" : {
+            "cell" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "line" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Suggestion" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "NEW", "REPLACES_EXISTING", "UNCHANGED", "CONFLICTS" ],
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -440,6 +593,67 @@
           }
         },
         "summary" : "info",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/mappings/apply" : {
+      "post" : {
+        "description" : "Applies an output mapping of the submission vocabulary to the text of a working copy and returns the edits, the suggestions and the notes. Only mappings that target an mzTab-M version of this engine are applied.",
+        "operationId" : "applyMapping",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MappingApplyRequest"
+              }
+            }
+          },
+          "description" : "The mapping, its parameters, the vocabulary instance and the working copy's text.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MappingApplyResult"
+                }
+              }
+            },
+            "description" : "The result of the mapping"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The body is not a mapping request, the mapping or its version is unknown, it targets a version this engine does not serve, or a cell holds a tab or line break (invalid_request)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The body is larger than the upload limit (file_too_large)"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "applyMapping",
         "tags" : [ "engine" ]
       }
     },

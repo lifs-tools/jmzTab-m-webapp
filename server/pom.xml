@@ -26,6 +26,12 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <!-- the public, versioned submission vocabulary, published read-only from the classpath -->
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>mztab-validator-submission-vocabulary</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.lifs-tools</groupId>
             <artifactId>mztab-validator-frontend</artifactId>
             <version>${project.version}</version>

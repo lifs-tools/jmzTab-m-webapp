@@ -37,13 +37,18 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.EngineError;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
+import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
+import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
@@ -96,6 +101,7 @@ public class EngineController {
     private final EngineConverter converter;
     private final ValidationStreamWriter streamWriter;
     private final JobLimiter limiter;
+    private final MappingApplier mappingApplier = new MappingApplier();
     private final ObjectMapper objectMapper;
     private final String line;
     private final List<String> mzTabVersions;
@@ -277,6 +283,58 @@ public class EngineController {
         } finally {
             deleteQuietly(body);
         }
+    }
+
+    @Operation(summary = "applyMapping", description = "Applies an output mapping of the submission vocabulary to the "
+        + "text of a working copy and returns the edits, the suggestions and the notes. Only mappings that target an "
+        + "mzTab-M version of this engine are applied.",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "The mapping, its parameters, the vocabulary instance and the working copy's text.",
+            required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = MappingApplyRequest.class))))
+    @ApiResponse(responseCode = "200", description = "The result of the mapping",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+            schema = @Schema(implementation = MappingApplyResult.class)))
+    @ApiResponse(responseCode = "400", description = "The body is not a mapping request, the mapping or its version is "
+        + "unknown, it targets a version this engine does not serve, or a cell holds a tab or line break "
+        + "(invalid_request)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "413", description = "The body is larger than the upload limit (file_too_large)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "503", description = "The engine is busy (busy); retry after Retry-After seconds",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @PostMapping(value = "/mappings/apply", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MappingApplyResult> applyMapping(HttpServletRequest request) throws IOException {
+        Path body = null;
+        try (JobLimiter.Permit permit = acquire()) {
+            body = receive(request);
+            MappingApplyRequest mappingRequest = readMappingRequest(body);
+            try {
+                return ResponseEntity.ok(mappingApplier.apply(mappingRequest, Set.copyOf(mzTabVersions)));
+            } catch (IllegalArgumentException e) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    shorten(String.valueOf(e.getMessage())));
+            }
+        } finally {
+            deleteQuietly(body);
+        }
+    }
+
+    private MappingApplyRequest readMappingRequest(Path body) throws IOException {
+        MappingApplyRequest r;
+        try (InputStream in = Files.newInputStream(body)) {
+            r = objectMapper.readValue(in, MappingApplyRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                "The body is not a mapping request: " + jsonDetail(e));
+        }
+        if (r == null || r.mapping() == null || r.mappingVersion() == null || r.instance() == null) {
+            throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                "A mapping request needs mapping, mappingVersion and instance.");
+        }
+        return new MappingApplyRequest(r.mapping(), r.mappingVersion(),
+            r.parameters() == null ? Map.of() : r.parameters(), r.instance(), r.text() == null ? "" : r.text(),
+            r.provenance(), r.inputMapping());
     }
 
     private JobLimiter.Permit acquire() {
