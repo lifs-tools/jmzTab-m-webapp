@@ -26,8 +26,10 @@ import java.util.Map;
  * @param parameters the mapping's parameters, e.g. {@code study_id}
  * @param instance the vocabulary instance (JSON)
  * @param text the working copy's text; empty for a new file
- * @param provenance whether the webapp, the vocabulary and the mapping are recorded as a {@code software[n]} entry
+ * @param provenance whether the webapp, the vocabulary and the mappings are recorded as a {@code software[n]} entry
+ * @param inputMapping the input mapping that produced {@code instance}, as {@code "<id> <version>"} (e.g.
+ *     {@code v3-workbook 1.0.0}), recorded with the provenance; null when there was none or it is not known
  */
 public record MappingApplyRequest(String mapping, String mappingVersion, Map<String, String> parameters,
-    JsonNode instance, String text, boolean provenance) {
+    JsonNode instance, String text, boolean provenance, String inputMapping) {
 }

@@ -60,11 +60,12 @@ class LineEditWireTest {
     @Test
     void request() throws IOException {
         String json = "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\",\"parameters\":{\"study_id\":\"LCS-99999\"},"
-            + "\"instance\":{\"samples\":[]},\"text\":\"\",\"provenance\":true}";
+            + "\"instance\":{\"samples\":[]},\"text\":\"\",\"provenance\":true,\"inputMapping\":\"v3-workbook 1.0.0\"}";
         MappingApplyRequest r = mapper.readValue(json, MappingApplyRequest.class);
         assertEquals("mztab-2.0.0-M", r.mapping());
         assertEquals("LCS-99999", r.parameters().get("study_id"));
         assertEquals(0, r.instance().get("samples").size());
+        assertEquals("v3-workbook 1.0.0", r.inputMapping());
         assertEquals(json, mapper.writeValueAsString(r));
     }
 

@@ -453,6 +453,8 @@ Results are always Dbl.
 
 A reference to the output element of kind `element` (lower case letters and `_`, e.g. `sample`, `assay`, `ms_run`, `study_variable`) called `name`. The engine that writes the output resolves it to that element's index, and every reference to the same element gets the same index.
 
+No metadata line names a run, so an engine pairs the runs a mapping writes with the names of its `ref-to ms_run` values by order: the run written as `ms_run[n]` (its key numbered with `{x#}`) is the one with the `n`th distinct name among those references, in order of first reference. Runs and the assays that refer to them must therefore be written over the same list.
+
 ```yaml
 {ref-to: {element: sample, name: {field: x}}}
 ```

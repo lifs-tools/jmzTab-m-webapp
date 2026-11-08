@@ -18,6 +18,7 @@ package org.lifstools.mztab.validator.engine.mapping;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -28,8 +29,8 @@ import org.lifstools.mztab.submission.mapping.Render;
 
 /**
  * The webapp as a {@code software[k]} entry of the file it helped to write (design §5.3): the parameter
- * {@code [, , jmzTab-m-webapp, <version>]}, with the vocabulary version and the output mapping that was applied as
- * its settings. When the copy already lists the webapp with this version, that entry is used again, else {@code k}
+ * {@code [, , jmzTab-m-webapp, <version>]}, with its settings: {@code vocabulary <version>}, the output mapping
+ * applied ({@code <id> <version>}) and, when known, the input mapping that produced the instance. When the copy already lists the webapp with this version, that entry is used again, else {@code k}
  * is the next free software index.
  */
 final class Provenance {
@@ -59,8 +60,10 @@ final class Provenance {
      * @param written the metadata lines written so far, whose {@code software[n]} indexes are taken
      * @param vocabularyVersion the version of the vocabulary the mapping was applied with
      * @param mapping the output mapping
+     * @param inputMapping the input mapping as {@code "<id> <version>"}, or null to leave setting 3 out
      */
-    static Entry of(CopyIndex copy, List<MappingApplier.KeyValue> written, String vocabularyVersion, Mapping mapping) {
+    static Entry of(CopyIndex copy, List<MappingApplier.KeyValue> written, String vocabularyVersion, Mapping mapping,
+            String inputMapping) {
         String software = Render.param(new Param("", "", NAME, webappVersion()));
         int index = copy.indexOf("software", software);
         boolean existing = index > 0;
@@ -74,9 +77,13 @@ final class Provenance {
             }
         }
         String k = "software[" + index + "]";
-        return new Entry(index, existing, List.of(new MappingApplier.KeyValue(k, software),
+        List<MappingApplier.KeyValue> lines = new ArrayList<>(List.of(new MappingApplier.KeyValue(k, software),
                 new MappingApplier.KeyValue(k + "-setting[1]", "vocabulary " + vocabularyVersion),
                 new MappingApplier.KeyValue(k + "-setting[2]", mapping.id() + " " + mapping.version())));
+        if (inputMapping != null) {
+            lines.add(new MappingApplier.KeyValue(k + "-setting[3]", inputMapping));
+        }
+        return new Entry(index, existing, List.copyOf(lines));
     }
 
     /**

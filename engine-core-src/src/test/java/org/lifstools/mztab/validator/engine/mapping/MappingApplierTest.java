@@ -51,7 +51,7 @@ class MappingApplierTest {
     }
 
     static MappingApplyRequest request(String mapping, String instance, String text, boolean provenance) {
-        return new MappingApplyRequest(mapping, "1.0.0", Map.of(), json(instance), text, provenance);
+        return new MappingApplyRequest(mapping, "1.0.0", Map.of(), json(instance), text, provenance, null);
     }
 
     @Test
@@ -86,7 +86,7 @@ class MappingApplierTest {
 
     @Test
     void anUnknownMappingVersionIsRefused() {
-        MappingApplyRequest r = new MappingApplyRequest("tiny", "9.9.9", Map.of(), json("{}"), "", false);
+        MappingApplyRequest r = new MappingApplyRequest("tiny", "9.9.9", Map.of(), json("{}"), "", false, null);
         assertThatThrownBy(() -> applier().apply(r, TWO_ZERO)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("mapping tiny has version 1.0.0, not 9.9.9");
     }
@@ -114,6 +114,37 @@ class MappingApplierTest {
         assertThat(lines.get(3)).matches("MTD\tsoftware\\[1\\]\t\\[, , jmzTab-m-webapp, \\d+\\.\\d+\\.\\d+[^\\]]*\\]");
         assertThat(lines.subList(4, 7)).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.0.0",
                 "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tcv[1]-label\tNCBITaxon");
+    }
+
+    @Test
+    void aTabOrLineBreakThatWouldReachACellIsRefused() {
+        // a parameter's cv and accession are written as given, so they are the way an instance value reaches a cell raw
+        assertThatThrownBy(() -> applier().apply(request("tiny", "{\"samples\":[{\"sample_name\":\"P001\",\"species\":"
+                + "{\"cv\":\"NCBITaxon\",\"accession\":\"NCBITaxon:9606\\tx\",\"name\":\"Homo sapiens\"}}]}", "", false), TWO_ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("sample[1]-species[1]: value contains a tab or line break");
+        assertThatThrownBy(() -> applier().apply(request("tiny", "{\"samples\":[{\"sample_name\":\"P001\",\"species\":"
+                + "{\"cv\":\"NCBI\\nTaxon\",\"accession\":\"NCBITaxon:9606\",\"name\":\"Homo sapiens\"}}]}", "", false), TWO_ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("sample[1]-species[1]: value contains a tab or line break");
+    }
+
+    @Test
+    void aTabOrLineBreakInATextIsWrittenAsTheConverterWritesIt() {
+        // texts are rendered as conv:112-114 does, " ".join(s.split()), so a sample name with a tab and a title with a
+        // line break are written with a space, not refused
+        MappingApplyResult r = applier().apply(request("merge", MappingApplierMergeTest.INSTANCE
+                .replace("\"P001\"", "\"P\\t001\"").replace("New title", "New\\ntitle"), "", false), TWO_ZERO);
+        assertThat(r.text()).contains("MTD\tsample[1]\tP 001\n", "MTD\ttitle\tNew title\n", "MTD\tassay[1]-sample_ref\tsample[1]\n");
+    }
+
+    @Test
+    void provenanceListsTheInputMappingAsTheThirdSetting() {
+        MappingApplyRequest request = new MappingApplyRequest("tiny", "1.0.0", Map.of(), json("{\"samples\":[]}"), "", true,
+                "v3-workbook 1.0.0");
+        MappingApplyResult r = applier().apply(request, TWO_ZERO);
+        assertThat(r.text().lines().skip(2).toList()).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.0.0",
+                "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tsoftware[1]-setting[3]\tv3-workbook 1.0.0");
     }
 
     @Test

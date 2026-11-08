@@ -52,8 +52,10 @@ import org.lifstools.mztab.validator.engine.api.SuggestionState;
  * <p>The mapping's lines and tables are evaluated first, with their references symbolic. The elements are then
  * given indexes through {@link CopyIndex}, in the order they are written: {@code sample}, {@code assay} and
  * {@code study_variable} by the value of {@code element[n]}, {@code contact} by {@code contact[n]-name}, and
- * {@code ms_run} by the name its references give it (the {@code n}th distinct name referred to is the run written
- * as {@code ms_run[n]}). An element the copy has by that name keeps its index, any other takes the next free one,
+ * {@code ms_run} by the name its references give it. No line names a run, so runs are paired with names by order:
+ * the run written as {@code ms_run[n]} is the {@code n}th distinct name among the {@code ref-to ms_run} values, in
+ * order of first reference. Runs and the assays that refer to them must therefore be written over the same list.
+ * An element the copy has by that name keeps its index, any other takes the next free one,
  * and every key, reference and abundance column of an element is written with the same index. Other keys keep the
  * index the mapping gives them. Last, the lines are compared with the copy:
  * <ul>
@@ -166,7 +168,8 @@ public final class MappingApplier {
                 }
             }
             if (request.provenance()) {
-                Provenance.Entry p = Provenance.of(copy, written, vocabulary().version(), mapping);
+                Provenance.Entry p = Provenance.of(copy, written, vocabulary().version(), mapping,
+                        request.inputMapping());
                 written.addAll(p.lines());
                 if (p.existing()) {
                     matched.add("software[" + p.index() + "]");
@@ -305,11 +308,26 @@ public final class MappingApplier {
             return cell(v);
         }
 
+        /**
+         * {@code text}, when it holds no tab, CR or LF: a key or cell is never rewritten here, so clean input is written
+         * exactly as the converter writes it, but text that would split a cell or a line is refused.
+         *
+         * @throws IllegalArgumentException naming {@code key} otherwise
+         */
+        private static String checked(String key, String text) {
+            if (text.indexOf('\t') >= 0 || text.indexOf('\r') >= 0 || text.indexOf('\n') >= 0) {
+                throw new IllegalArgumentException(key + ": value contains a tab or line break");
+            }
+            return text;
+        }
+
         // -----------------------------------------------------------------------------------------------------------
         // Edits
 
         private void metadata(List<KeyValue> written, List<LineEdit> edits, List<Insert> inserts, List<Suggestion> suggestions) {
             for (KeyValue kv : written) {
+                checked(kv.key(), kv.key());
+                checked(kv.key(), kv.value());
                 int line = copy.metadataLine(kv.key());
                 SuggestionState state;
                 if (line == 0) {
@@ -338,11 +356,12 @@ public final class MappingApplier {
             List<List<String>> added = new ArrayList<>();
             for (Evaluator.Table table : tables) {
                 List<String> columns = table.columns().stream().map(this::key).toList();
+                columns.forEach(column -> checked(table.header(), column));
                 List<String> rows = new ArrayList<>();
                 for (List<Value> row : table.rows()) {
                     List<String> cells = new ArrayList<>(row.size());
                     for (int c = 0; c < row.size(); c++) {
-                        cells.add(tableCell(row.get(c), columns.get(c)));
+                        cells.add(checked(columns.get(c), tableCell(row.get(c), columns.get(c))));
                     }
                     rows.add(String.join("\t", cells));
                 }

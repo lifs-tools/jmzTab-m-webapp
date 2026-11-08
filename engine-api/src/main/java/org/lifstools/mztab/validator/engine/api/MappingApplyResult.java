@@ -23,7 +23,9 @@ import java.util.List;
  * @param edits the edits, in the order they are to be applied as one batch
  * @param suggestions every line the mapping writes, with its state, in the order written
  * @param notes notes for the person who submitted the data
- * @param text the working copy's text with the edits applied
+ * @param text the working copy's text with the edits applied, as a preview: it may differ from the text the
+ *     server has after applying {@code edits} only in the last line's terminator (inserted lines here always end
+ *     with a line break, so a new file ends with one)
  */
 public record MappingApplyResult(List<LineEdit> edits, List<Suggestion> suggestions, List<String> notes, String text) {
 

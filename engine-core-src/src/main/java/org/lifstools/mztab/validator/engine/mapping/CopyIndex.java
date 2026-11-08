@@ -33,7 +33,9 @@ import org.lifstools.mztab.submission.mapping.Render;
  * line by line; it need not be valid mzTab-M.
  *
  * <p>An element's name is the value of {@code element[n]} (e.g. {@code sample[1]  P001}), for a contact the value
- * of {@code contact[n]-name}, and for a run the name of the assay whose {@code -ms_run_ref} names it. Names are
+ * of {@code contact[n]-name}, and for a run the name of the assay whose {@code -ms_run_ref} names it. (On the
+ * mapping's side, {@link MappingApplier} pairs runs with the names of {@code ref-to ms_run} by order of first
+ * reference.) Names are
  * compared as cell text ({@link Render#text}).
  */
 final class CopyIndex {
