@@ -108,7 +108,8 @@ The evidence (§3) makes the reason concrete: the converter reads protocols only
   - the workbook;
   - `templates/v3/submission-template-schema.json`;
   - `options.resolved.json` (OLS labels, cached).
-- **The reader** (`read_submission_template.py`) loads the repository's current schema JSON, not the workbook's embedded `_schema`. 26 filled v3 workbooks exist in the repository.
+- **The reader** (`read_submission_template.py`) loads the repository's current schema JSON, not the workbook's embedded `_schema`. Four filled v3 workbooks exist on `origin/master` (bb8dcbf), `submissions/LCS-0012{1..4}/supplementary/`, besides the example.
+- **Pin.** Facts about the converter refer to `origin/master` bb8dcbf (2026-11-08, after PRs #226 and #227).
 - **`submission-template-schema.json` is a field dictionary, not a JSON Schema.** Its top-level keys are:
   - `template`;
   - `conventions` (the sheet layout);
@@ -279,11 +280,13 @@ The evidence (§3) makes the reason concrete: the converter reads protocols only
 - removing or renaming a field id is a major change;
 - adding a field or a list entry is a minor change.
 
-The v3 template's `template.version` becomes the vocabulary version it was generated from.
+The v3 template keeps `template.version` (3.0.0, the workbook layout's version, which filled workbooks carry). It gains `template.vocabulary`, the vocabulary version it was generated from [evidence, N-1 plan review].
 
 **What lipidcompass-submissions keeps.** The v3 workbook stays a submission route. `build_submission_template.py` reads the vocabulary from its published location, pinned by version, instead of its own `fields.yaml` and `options.yaml`. Those two files are deleted there once the move is done.
 
-**Before publishing.** Help texts that mention private curation codes (P6, B21 and others, from the private `CURATION-GUIDELINES.md`) are reworded without the codes.
+**Help texts stay as they are [evidence].** They mention curation codes (P6, B21 and others), but the v3 workbook that carries them is already public: it is downloaded from lipidcompass.org (docs design D11). Rewording them would change the workbook for no gain.
+
+**The vocabulary instance is the v3 reader's JSON [my call].** It is what `read_submission_template.py` writes: `study`, `contacts`, `datasets` (each with its `quantities`: `sheet`, `layout`, `samples`, `lipids`, `values`), `samples` (with `factors`), `factors` and `lipids`. List values appear as `{"text": …}` or `{"cv", "accession", "name"}`. Every input mapping produces this shape, so the existing reader is already a conformant `v3-workbook` input implementation.
 
 ### 5.3 Mapping files
 
@@ -317,24 +320,36 @@ How each one addresses its input:
 - **Rendering:** how the value becomes a cell. It is a parameter for terms, a user parameter for free text, or text, number or URI.
 - **Condition:** an optional condition on other fields.
 
-**Transforms.** A mapping may use only a fixed, small set of transforms. Anything outside this set belongs in a tool, not in a mapping:
+**Transforms.** A mapping may use only a fixed set of transforms. Anything outside this set belongs in a tool, not in a mapping. The set is amended after the N-1 plan review (2026-11-08) [evidence]: rendering the v3 converter's rules needs plain list and value operations, but nothing domain-specific.
 
-- copy;
-- value-list lookup (text to term);
+- copy, a literal, a reference to a named value;
+- value-list lookup (text to term, including a list entry's agreed encoding);
 - split on a separator;
 - regular-expression match, with a named group as the result;
-- normalise a DOI, an ORCID or an e-mail address (the rules of lipidcompass-submissions `curation/identifiers.py`, written down in the mapping language's documentation);
+- normalise a DOI or an e-mail address (the rules of lipidcompass-submissions `curation/identifiers.py`, written down in the mapping language's documentation; that file has no ORCID rule, so ORCID normalisation waits until one exists);
 - unit conversion by a published factor table (nmol/mL → µmol/L);
-- default value;
-- group aggregate (mean, standard deviation, coefficient of variation), for study-variable columns, as the v3 converter computes them;
-- join several fields into one parameter list, as v3's two `sample_processing` entries do.
+- default value, first non-empty, conditional, equality and emptiness tests, lower case;
+- string template;
+- list operations:
+  - find, filter;
+  - map;
+  - element at a position;
+  - count;
+  - concatenate;
+  - the entries of an object;
+  - an item's position;
+- group aggregate (mean, standard deviation, coefficient of variation), for study-variable columns, with Python's arithmetic as the v3 converter computes them;
+- join several values into one, as v3's two `sample_processing` entries do;
+- render a value as a CV parameter, a user parameter, a label or a number.
 
-**Named functions.** A small, documented set:
+The mapping language's documentation (`schema/mapping-language.md`) is the normative list.
 
-- `goslin-parse`: a lipid name to its normalised name, formula and mass;
+**Named functions.** These are the documented set; an implementation must provide all of them to be conformant.
+
+- `goslin-parse`: a lipid name to its normalised name, formula and mass. The mass is the sum of the element masses with compensated (Neumaier) summation, as pygoslin computes it under Python 3.12 or later.
+- `factor-combinations`: the study groups as the combinations of the primary factors' values, with their members, as the v3 converter forms them [added, evidence].
+- `formula-check`: a stated sum formula checked against the parsed name, as the v3 converter does [added, evidence].
 - `index-allocate` (§5.7).
-
-An implementation must provide them to be conformant.
 
 **Conformance examples.** Each mapping ships with pairs of an input and the mzTab-M lines it should produce. The v3 example workbook is the first; a checklist export is the second. An implementation that produces the same lines, compared after normalising the order of metadata lines, is conformant.
 
@@ -557,7 +572,7 @@ LipidCompass reads 2.0 only (jmzTab-m 1.0.6), so files meant for it are 2.0 unti
 
 | Phase | Scope | Done when |
 |---|---|---|
-| N-1 | Vocabulary 1.0.0 (v3 unchanged plus the additive groups), lists, mapping language and schema, the 2.0 output mapping, the `v3-workbook` input mapping, conformance examples, and the engine operation "apply output mapping" for 2.0. The v3 workbook build reads the published vocabulary. | The 2.0 engine turns the v3 example into the converter's checked-in output, except for the listed differences. All 26 filled v3 workbooks and the example read identically through the generated schema. |
+| N-1 | Vocabulary 1.0.0 (v3 unchanged plus the additive groups), lists, mapping language and schema, the 2.0 output mapping, the `v3-workbook` input mapping, conformance examples, and the engine operation "apply output mapping" for 2.0. The v3 workbook build reads the published vocabulary. | The 2.0 engine turns the v3 example into the converter's checked-in output, except for the listed differences. The rebuilt schema JSON equals the committed one apart from `template.vocabulary`, and the four filled v3 workbooks and the example read identically. |
 | N-2 | **New file** (route, skeleton, field rules); the samples table; data files and mzML headers; the summary table; suggestions and apply. The 2.1 output mapping without protocols. | A 2.0 file made from a samples table, data file names and a summary table has no errors under the default 2.0 profile, imports into a LipidCompass-equivalent parser (jmzTab-m 1.0.x), and converts with mztab2mtbls, passing its OPA validation with no errors. On `-dev`, the same holds for 2.1 under the default 2.1 profile. |
 | N-3 | Lipidomics Checklist import (`checklist` form). | The checklist's conformance example passes. |
 | N-4 | Methods text and the language model, on `-dev`. | The evaluation set shows the per-field results, and the lead accepts the default model and the deployment terms. |
@@ -588,7 +603,7 @@ LipidCompass reads 2.0 only (jmzTab-m 1.0.6), so files meant for it are 2.0 unti
   - the provenance entries (§5.3).
 
   The golden output is refreshed when the converter changes. Both outputs validate with jmzTab-m with no errors.
-- **v3 reading:** the generated schema JSON reads all 26 filled workbooks and the example with output identical to today's reader.
+- **v3 reading:** the rebuilt schema JSON equals the committed one apart from `template.vocabulary`, and it reads the four filled workbooks and the example with output identical to today's reader.
 - **Index allocation (engine):**
   - imports into a copy that already has samples, assays and CVs: matching names update, new names get the next index, nothing is renumbered;
   - a stale revision is refused (webapp).
