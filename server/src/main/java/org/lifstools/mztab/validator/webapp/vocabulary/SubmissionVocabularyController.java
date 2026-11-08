@@ -17,6 +17,9 @@ package org.lifstools.mztab.validator.webapp.vocabulary;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,6 +71,11 @@ public class SubmissionVocabularyController {
     @Operation(operationId = "getSubmissionVocabularyFile", summary = "A file of the submission vocabulary",
         description = "The vocabulary, its lists, mappings, schemas and examples, and the README and LICENSE, of "
             + "the version this webapp carries.")
+    @ApiResponse(responseCode = "200", description = "The file, as YAML, JSON, Markdown, plain text or TSV",
+        content = @Content(mediaType = "*/*", schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "400", description = "The path is not that of a published file", content = @Content)
+    @ApiResponse(responseCode = "404", description = "The webapp does not carry that version, or there is no such file",
+        content = @Content)
     @GetMapping("/{version}/{*path}")
     public ResponseEntity<byte[]> file(@Parameter(description = "The vocabulary version, e.g. 1.0.0")
         @PathVariable("version") String requestedVersion,

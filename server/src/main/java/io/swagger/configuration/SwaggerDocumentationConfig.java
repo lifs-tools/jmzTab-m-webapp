@@ -41,7 +41,8 @@ public class SwaggerDocumentationConfig {
                 .group("mztab-m-api")
                 .displayName("mzTab validation and conversion API.")
                 .pathsToMatch("/rest/v2/**")
-                .packagesToScan("org.lifstools.mztab2.server.api")
+                // the generated mzTab-M API, and the published submission vocabulary files
+                .packagesToScan("org.lifstools.mztab2.server.api", "org.lifstools.mztab.validator.webapp.vocabulary")
                 // the mzTab-M models of the engines' lines; not a bean, so it customizes this group only
                 .addOpenApiCustomizer(new MzTabSchemasCustomizer())
                 .build();

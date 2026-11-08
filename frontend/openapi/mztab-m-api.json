@@ -4077,6 +4077,50 @@
         "tags" : [ "guidance" ]
       }
     },
+    "/rest/v2/submission-vocabulary/{version}/{path}" : {
+      "get" : {
+        "description" : "The vocabulary, its lists, mappings, schemas and examples, and the README and LICENSE, of the version this webapp carries.",
+        "operationId" : "getSubmissionVocabularyFile",
+        "parameters" : [ {
+          "description" : "The vocabulary version, e.g. 1.0.0",
+          "in" : "path",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The file below the version, e.g. vocabulary/vocabulary.yaml",
+          "in" : "path",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "format" : "binary",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "The file, as YAML, JSON, Markdown, plain text or TSV"
+          },
+          "400" : {
+            "description" : "The path is not that of a published file"
+          },
+          "404" : {
+            "description" : "The webapp does not carry that version, or there is no such file"
+          }
+        },
+        "summary" : "A file of the submission vocabulary",
+        "tags" : [ "submission-vocabulary" ]
+      }
+    },
     "/rest/v2/validate" : {
       "post" : {
         "description" : "Validates an mzTab file in JSON representation and reports syntactic, structural, and semantic errors. The file's declared mzTab-version decides the validator and the model the JSON is read with; semantic validation uses the default rules of that version. A version that this instance does not validate is reported with one error and 422.",
