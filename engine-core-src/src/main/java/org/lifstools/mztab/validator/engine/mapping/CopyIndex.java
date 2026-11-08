@@ -36,12 +36,13 @@ import org.lifstools.mztab.submission.mapping.Render;
  * of {@code contact[n]-name}, and for a run the name of the assay whose {@code -ms_run_ref} names it. (On the
  * mapping's side, {@link MappingApplier} pairs runs with the names of {@code ref-to ms_run} by order of first
  * reference.) Names are
- * compared as cell text ({@link Render#text}).
+ * compared as cell text ({@link Render#text}); a value that renders empty names nothing.
  */
 final class CopyIndex {
 
     private static final Pattern LINE_BREAK = Pattern.compile("\r\n|\r|\n");
-    private static final Pattern INDEXED = Pattern.compile("^([A-Za-z_]+)\\[(\\d{1,9})\\](.*)$", Pattern.DOTALL);
+    /** A key with an index: the element, its index (at most 9 digits) and the rest, e.g. {@code sample}, {@code 1}, {@code -species[1]}. */
+    static final Pattern INDEXED = Pattern.compile("^([A-Za-z_]+)\\[(\\d{1,9})\\](.*)$", Pattern.DOTALL);
     private static final Pattern PREFIX = Pattern.compile("^[A-Za-z_]+");
     private static final Pattern RUN_REF = Pattern.compile("^ms_run\\[(\\d{1,9})\\]");
 
@@ -99,7 +100,10 @@ final class CopyIndex {
         String rest = indexed.group(3);
         highest.merge(element, index, Math::max);
         if ("contact".equals(element) ? "-name".equals(rest) : rest.isEmpty()) {
-            byName.putIfAbsent(nameKey(element, Render.text(value)), index);
+            String name = Render.text(value);
+            if (!name.isEmpty()) {
+                byName.putIfAbsent(nameKey(element, name), index);
+            }
         } else if ("assay".equals(element) && "-ms_run_ref".equals(rest)) {
             Matcher run = RUN_REF.matcher(value.strip());
             if (run.find()) {
@@ -131,9 +135,13 @@ final class CopyIndex {
 
     /**
      * The index of the element {@code element} called {@code name}: the copy's, else the one handed out for that name
-     * before, else the next free one, which is then taken.
+     * before, else the next free one, which is then taken. A name that renders empty is no name: it always takes
+     * the next free index.
      */
     int allocate(String element, String name) {
+        if (Render.text(name).isEmpty()) {
+            return reserve(element);
+        }
         int existing = indexOf(element, name);
         if (existing > 0) {
             return existing;

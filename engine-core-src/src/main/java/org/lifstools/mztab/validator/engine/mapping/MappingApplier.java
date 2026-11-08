@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,6 @@ import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.lifstools.mztab.submission.Vocabulary;
 import org.lifstools.mztab.submission.mapping.Evaluator;
 import org.lifstools.mztab.submission.mapping.Mapping;
@@ -76,7 +76,6 @@ public final class MappingApplier {
             "small_molecule-identification_reliability");
     /** The elements whose indexes are allocated by name. */
     private static final Set<String> ALLOCATED = Set.of("sample", "assay", "study_variable", "ms_run", "contact");
-    private static final Pattern INDEXED = Pattern.compile("^([A-Za-z_]+)\\[(\\d{1,9})\\](.*)$", Pattern.DOTALL);
     private static final Map<String, String> COLUMN_ELEMENTS = Map.of("abundance_assay", "assay",
             "abundance_study_variable", "study_variable", "abundance_variation_study_variable", "study_variable");
 
@@ -145,6 +144,8 @@ public final class MappingApplier {
         private final Map<String, Integer> indexes = new HashMap<>();
         /** The elements the copy has by name, by their key in the copy, e.g. {@code sample[3]}. */
         private final Set<String> matched = new HashSet<>();
+        /** The indexes of references without a name, by reference (identity: equal references are distinct elements). */
+        private final Map<Value.Ref, Integer> unnamed = new IdentityHashMap<>();
 
         Run(Mapping mapping, MappingApplyRequest request) {
             this.mapping = mapping;
@@ -200,14 +201,17 @@ public final class MappingApplier {
                 names.put("ms_run[" + (i + 1) + "]", runs.get(i));
             }
             for (Evaluator.MetadataLine line : lines) {
-                Matcher m = INDEXED.matcher(line.key());
+                Matcher m = CopyIndex.INDEXED.matcher(line.key());
                 if (m.matches() && ALLOCATED.contains(m.group(1)) && !"ms_run".equals(m.group(1))
                         && ("contact".equals(m.group(1)) ? "-name".equals(m.group(3)) : m.group(3).isEmpty())) {
-                    names.putIfAbsent(m.group(1) + "[" + Integer.parseInt(m.group(2)) + "]", name(line.value()));
+                    String name = name(line.value());
+                    if (name != null) {
+                        names.putIfAbsent(m.group(1) + "[" + Integer.parseInt(m.group(2)) + "]", name);
+                    }
                 }
             }
             for (Evaluator.MetadataLine line : lines) {
-                Matcher m = INDEXED.matcher(line.key());
+                Matcher m = CopyIndex.INDEXED.matcher(line.key());
                 if (m.matches() && ALLOCATED.contains(m.group(1))) {
                     String element = m.group(1);
                     indexes.computeIfAbsent(element + "[" + Integer.parseInt(m.group(2)) + "]", written -> {
@@ -234,8 +238,9 @@ public final class MappingApplier {
             List<String> names = new ArrayList<>();
             for (Evaluator.MetadataLine line : lines) {
                 refs(line.value(), ref -> {
-                    if ("ms_run".equals(ref.element())) {
-                        names.add(name(ref.name()));
+                    String name = name(ref.name());
+                    if ("ms_run".equals(ref.element()) && name != null) {
+                        names.add(name);
                     }
                 });
             }
@@ -250,28 +255,37 @@ public final class MappingApplier {
             }
         }
 
-        /** The index of the element a reference names. */
+        /**
+         * The index of the element a reference names. A reference without a name gets a fresh index of its own, the
+         * same each time this reference is rendered.
+         */
         private int index(Value.Ref ref) {
             if (!ALLOCATED.contains(ref.element())) {
                 throw new IllegalArgumentException("ref-to " + ref.element() + " is not resolved by this engine; it resolves "
                         + String.join(", ", new TreeSet<>(ALLOCATED)));
             }
-            return copy.allocate(ref.element(), name(ref.name()));
+            String name = name(ref.name());
+            if (name == null) {
+                return unnamed.computeIfAbsent(ref, r -> copy.reserve(r.element()));
+            }
+            return copy.allocate(ref.element(), name);
         }
 
-        /** An element's name as cell text. */
+        /** An element's name as cell text, or null when it has none (Null, or a text that renders empty). */
         private static String name(Value v) {
-            return switch (v) {
+            String name = switch (v) {
+                case Value.Null n -> "";
                 case Value.Text t -> Render.text(t.value());
                 case Value.Int i -> Numbers.python(i);
                 case Value.Dbl d -> Numbers.python(d);
                 default -> throw new IllegalArgumentException("An element's name must be a text or a number, not " + v);
             };
+            return name.isEmpty() ? null : name;
         }
 
         /** A key, or an abundance column name, with the index given to its element. */
         private String key(String key) {
-            Matcher m = INDEXED.matcher(key);
+            Matcher m = CopyIndex.INDEXED.matcher(key);
             if (!m.matches()) {
                 return key;
             }
@@ -348,7 +362,7 @@ public final class MappingApplier {
 
         /** The element a key belongs to, e.g. {@code sample[2]} for {@code sample[2]-species[1]}, or the key. */
         private static String elementOf(String key) {
-            Matcher m = INDEXED.matcher(key);
+            Matcher m = CopyIndex.INDEXED.matcher(key);
             return m.matches() ? m.group(1) + "[" + m.group(2) + "]" : key;
         }
 

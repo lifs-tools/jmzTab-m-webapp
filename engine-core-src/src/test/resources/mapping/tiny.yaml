@@ -11,6 +11,8 @@ metadata:
     value: {literal: 2.0.0-M}
   - key: description
     value: {field: study.description}
+  - key: "custom[1]"
+    value: {field: study.custom}
   - each: {field: samples}
     as: s
     lines:

@@ -111,7 +111,7 @@ class MappingApplierTest {
         MappingApplyResult r = applier().apply(request("tiny",
                 "{\"samples\":[{\"sample_name\":\"P001\",\"species\":" + HOMO_SAPIENS + "}]}", "", true), TWO_ZERO);
         List<String> lines = r.text().lines().toList();
-        assertThat(lines.get(3)).matches("MTD\tsoftware\\[1\\]\t\\[, , jmzTab-m-webapp, \\d+\\.\\d+\\.\\d+[^\\]]*\\]");
+        assertThat(lines.get(3)).isEqualTo("MTD\tsoftware[1]\t[, , jmzTab-m-webapp, " + Provenance.webappVersion() + "]");
         assertThat(lines.subList(4, 7)).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.0.0",
                 "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tcv[1]-label\tNCBITaxon");
     }
@@ -136,6 +136,38 @@ class MappingApplierTest {
         MappingApplyResult r = applier().apply(request("merge", MappingApplierMergeTest.INSTANCE
                 .replace("\"P001\"", "\"P\\t001\"").replace("New title", "New\\ntitle"), "", false), TWO_ZERO);
         assertThat(r.text()).contains("MTD\tsample[1]\tP 001\n", "MTD\ttitle\tNew title\n", "MTD\tassay[1]-sample_ref\tsample[1]\n");
+    }
+
+    @Test
+    void aPositionalKeyTheCopyHasWithAnotherValueConflictsAndIsLeftAlone() {
+        String copy = "MTD\tmzTab-version\t2.0.0-M\nMTD\tcustom[1]\ttheirs\n";
+        MappingApplyResult r = applier().apply(request("tiny", "{\"study\":{\"custom\":\"mine\"},\"samples\":[]}", copy, false),
+                TWO_ZERO);
+        assertThat(r.suggestions()).containsExactly(new Suggestion("mzTab-version", "2.0.0-M", SuggestionState.UNCHANGED),
+                new Suggestion("custom[1]", "mine", SuggestionState.CONFLICTS));
+        assertThat(r.edits()).isEmpty();
+        assertThat(r.text()).isEqualTo(copy);
+    }
+
+    @Test
+    void elementsWithoutANameTakeFreshIndexes() {
+        // two contacts whose names render empty are two contacts, not one
+        MappingApplyResult contacts = applier().apply(request("merge",
+                "{\"contacts\":[{\"name\":\" \",\"email\":\"a@example.org\"},{\"name\":\"\\t\",\"email\":\"b@example.org\"}]}",
+                "", false), TWO_ZERO);
+        assertThat(contacts.text()).isEqualTo("MTD\tmzTab-version\t2.0.0-M\nMTD\tcontact[1]-email\ta@example.org\n"
+                + "MTD\tcontact[2]-email\tb@example.org\n\nSMH\tSML_ID\tchemical_name\n");
+        // a copy line with an empty value names nothing, so a sample whose name renders empty does not match it
+        String copy = "MTD\tmzTab-version\t2.0.0-M\nMTD\tsample[1]\t\n";
+        MappingApplyResult samples = applier().apply(request("tiny",
+                "{\"samples\":[{\"sample_name\":\" \",\"species\":" + HOMO_SAPIENS + "}]}", copy, false), TWO_ZERO);
+        assertThat(samples.text()).startsWith(copy + "MTD\tsample[2]-species[1]\t[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]\n");
+        assertThat(samples.edits()).allMatch(e -> e instanceof LineEdit.InsertLine);
+        // a reference without a name gets an index of its own instead of failing the whole application
+        MappingApplyResult refs = applier().apply(request("merge",
+                "{\"samples\":[{\"species\":" + HOMO_SAPIENS + ",\"raw\":\"file:///x.mzML\"}]}", "", false), TWO_ZERO);
+        assertThat(refs.text()).contains("MTD\tsample[1]-species[1]\t", "MTD\tms_run[1]-location\tfile:///x.mzML\n",
+                "MTD\tassay[1]-sample_ref\tsample[2]\n", "MTD\tassay[1]-ms_run_ref\tms_run[2]\n");
     }
 
     @Test
