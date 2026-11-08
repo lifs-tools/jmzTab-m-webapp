@@ -1,0 +1,18 @@
+# Value list cell_type, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: cell_type
+entries:
+  - {cv: "CL", accession: "CL:0000182", label: "hepatocyte"}
+  - {cv: "CL", accession: "CL:0000235", label: "macrophage"}
+  - {cv: "CL", accession: "CL:0000576", label: "monocyte"}
+  - {cv: "CL", accession: "CL:0000084", label: "T cell"}
+  - {cv: "CL", accession: "CL:0000236", label: "B cell"}
+  - {cv: "CL", accession: "CL:0000232", label: "erythrocyte"}
+  - {cv: "CL", accession: "CL:0000233", label: "platelet"}
+  - {cv: "CL", accession: "CL:0000136", label: "adipocyte"}
+  - {cv: "CL", accession: "CL:0000057", label: "fibroblast"}
+  - {cv: "CL", accession: "CL:0000540", label: "neuron"}
+  - {cv: "CL", accession: "CL:0000127", label: "astrocyte"}
+  - {cv: "CL", accession: "CL:0000128", label: "oligodendrocyte"}
+  - {cv: "CL", accession: "CL:0000066", label: "epithelial cell"}
+  - {cv: "CL", accession: "CL:0000115", label: "endothelial cell"}
+  - {cv: "CL", accession: "CL:0000034", label: "stem cell"}

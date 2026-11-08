@@ -1,0 +1,8 @@
+# Value list dataset_content, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: dataset_content
+entries:
+  - text: "individual samples"
+  - text: "group means"
+    note: "one row per group; describe the groups on the Samples sheet (sample type: pooled sample)"
+  - text: "group medians"
+    note: "as group means"

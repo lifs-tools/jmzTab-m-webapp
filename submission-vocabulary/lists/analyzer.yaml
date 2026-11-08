@@ -1,0 +1,9 @@
+# Value list analyzer, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: analyzer
+entries:
+  - {cv: "MS", accession: "MS:1000484", label: "orbitrap"}
+  - {cv: "MS", accession: "MS:1000081", label: "quadrupole"}
+  - {cv: "MS", accession: "MS:1000082", label: "quadrupole ion trap"}
+  - {cv: "MS", accession: "MS:1000084", label: "time-of-flight"}
+  - {cv: "MS", accession: "MS:1000083", label: "radial ejection linear ion trap"}
+  - {cv: "MS", accession: "MS:1000079", label: "fourier transform ion cyclotron resonance"}

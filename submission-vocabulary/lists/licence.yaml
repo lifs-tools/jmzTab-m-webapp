@@ -1,0 +1,11 @@
+# Value list licence, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: licence
+entries:
+  - text: "CC-BY-4.0"
+    note: "Creative Commons Attribution 4.0 (recommended)"
+  - text: "CC0-1.0"
+    note: "public domain dedication"
+  - text: "CC-BY-NC-4.0"
+    note: "non-commercial; inspected by curators (P21)"
+  - text: "Proprietary"
+    note: "access-controlled (e.g. sensitive data): LipidCompass may display the data, but neither the submissions repository nor LipidCompass makes them available for download by default; give the access conditions; inspected by curators (P21)"

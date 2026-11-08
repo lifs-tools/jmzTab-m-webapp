@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lifs-tools.org/submission-vocabulary/schema/vocabulary.schema.json",
+  "title": "Submission vocabulary",
+  "type": "object",
+  "required": ["vocabulary", "conventions", "groups"],
+  "additionalProperties": false,
+  "properties": {
+    "vocabulary": {
+      "type": "object",
+      "required": ["id", "version", "licence", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"const": "submission-vocabulary"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "licence": {"type": "string", "minLength": 1},
+        "origin": {"type": "string", "minLength": 1}
+      }
+    },
+    "conventions": {"type": "object", "additionalProperties": {"type": "string"}},
+    "groups": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/group"}
+    }
+  },
+  "$defs": {
+    "group": {
+      "type": "object",
+      "required": ["workbook", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "workbook": {"type": "boolean"},
+        "help": {"type": "string"},
+        "fields": {"type": "array", "items": {"$ref": "#/$defs/field"}}
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "label": {"type": "string", "minLength": 1},
+        "required": {"type": ["boolean", "string"]},
+        "list": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "type": {"enum": ["text", "number", "date", "url", "email", "doi", "orcid", "version"]},
+        "version_of": {"type": "string"},
+        "mztab": {"type": "string"},
+        "ontologies": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "help": {"type": "string"},
+        "example": {"type": "string"}
+      }
+    }
+  }
+}

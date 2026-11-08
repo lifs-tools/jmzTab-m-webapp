@@ -1,0 +1,7 @@
+# Value list id_confidence_measure, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: id_confidence_measure
+entries:
+  - {cv: "MS", accession: "MS:1002890", label: "fragmentation score"}
+  - text: "MS1 accurate mass match"
+  - text: "MS2 spectral match"
+  - text: "retention time and MS2 match to an authentic standard"

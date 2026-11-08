@@ -1,0 +1,7 @@
+# Value list scan_polarity, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: scan_polarity
+entries:
+  - {cv: "MS", accession: "MS:1000130", label: "positive scan"}
+  - {cv: "MS", accession: "MS:1000129", label: "negative scan"}
+  - text: "positive scan and negative scan"
+    note: "both polarities in one dataset; written as two scan_polarity params"

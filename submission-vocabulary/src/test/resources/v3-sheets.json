@@ -1,0 +1,627 @@
+{
+ "study": [
+  {
+   "id": "study_title",
+   "label": "Study title",
+   "required": true,
+   "mztab": "title",
+   "help": "The title of the publication, or of the study if it is unpublished.",
+   "example": "Plasma lipidome of healthy adults and patients with type 2 diabetes"
+  },
+  {
+   "id": "study_description",
+   "label": "Study description",
+   "required": true,
+   "mztab": "description",
+   "help": "Two to five sentences: aim, cohort or samples, design. Datasets are described on the Datasets sheet.",
+   "example": "Targeted plasma lipidomics of 40 adults (20 with type 2 diabetes, 20 controls), measured by RP-LC-MS/MS in positive and negative mode."
+  },
+  {
+   "id": "study_type",
+   "label": "Study type",
+   "required": true,
+   "list": "study_type",
+   "help": "Lipidome study (many classes), technical study (method development, few classes), reference material study, or ring trial study (several laboratories measure the same samples; one dataset per laboratory, named in Measuring laboratory).",
+   "example": "Lipidome study"
+  },
+  {
+   "id": "publication_doi",
+   "label": "Publication DOI",
+   "required": "true, or 'unpublished'",
+   "type": "doi",
+   "mztab": "publication[1]",
+   "help": "DOI of the article that reports these data, starting with 10. Write 'unpublished' and send us the manuscript if there is none yet.",
+   "example": "10.1234/example.2026.001"
+  },
+  {
+   "id": "related_dois",
+   "label": "Related publication DOIs",
+   "required": false,
+   "type": "doi",
+   "mztab": "publication[2..n]",
+   "help": "Companion papers or the methods paper, separated by ';'.",
+   "example": ""
+  },
+  {
+   "id": "pubmed_id",
+   "label": "PubMed ID",
+   "required": false,
+   "mztab": "publication[1]",
+   "help": "PMID of the article, if it has one.",
+   "example": ""
+  },
+  {
+   "id": "licence",
+   "label": "Data licence",
+   "required": true,
+   "list": "licence",
+   "help": "Licence for the data you submit. CC-BY-4.0 is recommended; other licences are checked by the curators (P21). Proprietary: LipidCompass may display the data, but neither the submissions repository nor LipidCompass makes them available for download by default (access-controlled data, e.g. sensitive data); describe the access conditions below.",
+   "example": "CC-BY-4.0"
+  },
+  {
+   "id": "access_conditions",
+   "label": "Data access conditions",
+   "required": "if Proprietary",
+   "help": "Only for Proprietary data: who may get access to the data, and how (contact, data access committee, agreement).",
+   "example": ""
+  },
+  {
+   "id": "embargo_until",
+   "label": "Embargo until",
+   "required": false,
+   "type": "date",
+   "help": "Date (YYYY-MM-DD) before which the data must not be published, e.g. the expected publication date.",
+   "example": ""
+  },
+  {
+   "id": "repository_links",
+   "label": "Raw data repository links",
+   "required": "recommended",
+   "type": "url",
+   "mztab": "external_study_uri[n]",
+   "help": "Links to the raw data, e.g. MetaboLights, Metabolomics Workbench or Zenodo, separated by ';'.",
+   "example": "https://www.ebi.ac.uk/metabolights/MTBLS0000"
+  },
+  {
+   "id": "lipidomics_checklist_doi",
+   "label": "Lipidomics Minimal Reporting Checklist DOI",
+   "required": "recommended",
+   "type": "doi",
+   "help": "DOI or URL of your completed Lipidomics Standards Initiative reporting checklist.",
+   "example": ""
+  },
+  {
+   "id": "lipid_nomenclature",
+   "label": "Lipid nomenclature used",
+   "required": "recommended",
+   "list": "lipid_nomenclature",
+   "help": "How lipid names on the quantities sheets are written. Shorthand 2020 (Liebisch et al.) is preferred.",
+   "example": "Shorthand 2020 (Liebisch et al., Goslin-compatible)"
+  },
+  {
+   "id": "submitter_comment",
+   "label": "Comments for the curators",
+   "required": false,
+   "help": "Anything the curators should know (special sample types, data processing, deviations from the template).",
+   "example": ""
+  },
+  {
+   "id": "lcs_id",
+   "label": "LipidCompass study id",
+   "required": "filled in by curation",
+   "mztab": "mzTab-ID (prefix)",
+   "help": "Assigned by the curators (LCS-XXXXX). Leave empty.",
+   "example": ""
+  }
+ ],
+ "contacts": [
+  {
+   "id": "name",
+   "label": "Name",
+   "required": true,
+   "mztab": "contact[n]-name",
+   "example": "Jane Doe",
+   "help": "Full name."
+  },
+  {
+   "id": "email",
+   "label": "E-mail",
+   "required": true,
+   "type": "email",
+   "mztab": "contact[n]-email",
+   "example": "jane.doe@example.org",
+   "help": "Work e-mail address."
+  },
+  {
+   "id": "affiliation",
+   "label": "Affiliation",
+   "required": true,
+   "mztab": "contact[n]-affiliation",
+   "example": "Institute of Example Lipidomics, Example University, Example City, Country",
+   "help": "Institute, university, city, country."
+  },
+  {
+   "id": "orcid",
+   "label": "ORCID",
+   "required": "recommended",
+   "type": "orcid",
+   "mztab": "contact[n]-orcid",
+   "example": "0000-0002-1825-0097",
+   "help": "16-digit ORCID iD (https://orcid.org)."
+  },
+  {
+   "id": "role",
+   "label": "Role",
+   "required": true,
+   "list": "contact_role",
+   "example": "corresponding author",
+   "help": "At least one corresponding author and one submitter (can be the same person)."
+  }
+ ],
+ "datasets": [
+  {
+   "id": "dataset_id",
+   "label": "Dataset id",
+   "required": true,
+   "example": "D1",
+   "help": "Short id of your choice, e.g. D1, D2. One dataset = consecutive measurements of one sample set with one method; positive and negative mode, different platforms, labs or cohorts are separate datasets."
+  },
+  {
+   "id": "dataset_title",
+   "label": "Dataset title",
+   "required": true,
+   "mztab": "title",
+   "example": "Plasma lipidome, RP-LC-MS/MS positive mode",
+   "help": "What this dataset is: matrix, method, mode, lab or cohort."
+  },
+  {
+   "id": "dataset_description",
+   "label": "Dataset description",
+   "required": true,
+   "mztab": "description",
+   "example": "40 plasma samples, RP-LC-MS/MS on a Q Exactive in positive mode; class-specific internal standards.",
+   "help": "Samples, method and anything that sets this dataset apart from the others."
+  },
+  {
+   "id": "dataset_content",
+   "label": "Dataset content",
+   "required": true,
+   "list": "dataset_content",
+   "example": "individual samples",
+   "help": "Individual samples, or summary statistics per group (means / medians) when per-sample data are not available (P4, B21)."
+  },
+  {
+   "id": "laboratory",
+   "label": "Measuring laboratory",
+   "required": "if several labs",
+   "example": "Example Lipidomics Core Facility",
+   "help": "Laboratory that measured this dataset; needed when datasets of the study come from different labs or sites."
+  },
+  {
+   "id": "quantities_sheet",
+   "label": "Quantities sheet",
+   "required": true,
+   "example": "Q_D1",
+   "help": "Name of the sheet with this dataset's quantities (Q_<dataset id>). Copy a Q_ sheet for every further dataset."
+  },
+  {
+   "id": "quantities_layout",
+   "label": "Quantities layout",
+   "required": true,
+   "list": "quantities_layout",
+   "example": "lipids in columns",
+   "help": "How the quantities sheet is arranged: samples in rows and lipids in columns, or lipids in rows and samples in columns (as many tools export). Choose per dataset."
+  },
+  {
+   "id": "extraction_method",
+   "label": "Lipid extraction",
+   "required": true,
+   "list": "extraction_method",
+   "mztab": "sample_processing[n]",
+   "example": "MTBE extraction (Matyash)",
+   "help": "Extraction protocol; add details in 'Sample preparation details'."
+  },
+  {
+   "id": "sample_preparation",
+   "label": "Sample preparation details",
+   "required": false,
+   "mztab": "sample_processing[n]",
+   "example": "20 uL plasma; SPLASH LIPIDOMIX added before extraction; dried under nitrogen, reconstituted in 100 uL methanol.",
+   "help": "Volumes, internal standards, derivatisation, storage."
+  },
+  {
+   "id": "separation_method",
+   "label": "Separation",
+   "required": true,
+   "list": "separation_method",
+   "mztab": "sample_processing[n]",
+   "example": "reversed-phase liquid chromatography",
+   "help": "Chromatography type, or direct infusion."
+  },
+  {
+   "id": "column",
+   "label": "Column",
+   "required": "if chromatography",
+   "mztab": "sample_processing[n]",
+   "example": "Waters Acquity UPLC BEH C18, 2.1 x 100 mm, 1.7 um",
+   "help": "Commercial column name and dimensions."
+  },
+  {
+   "id": "separation_details",
+   "label": "Separation details",
+   "required": false,
+   "mztab": "sample_processing[n]",
+   "example": "A: ACN/H2O 60:40, B: IPA/ACN 90:10, both 10 mM ammonium formate; 20 min gradient",
+   "help": "Solvents, gradient, flow."
+  },
+  {
+   "id": "instrument_name",
+   "label": "Mass spectrometer",
+   "required": true,
+   "list": "instrument_name",
+   "mztab": "instrument[n]-name",
+   "example": "Q Exactive",
+   "help": "Commercial instrument model."
+  },
+  {
+   "id": "ion_source",
+   "label": "Ion source",
+   "required": true,
+   "list": "ion_source",
+   "mztab": "instrument[n]-source",
+   "example": "electrospray ionization",
+   "help": "Ionisation method."
+  },
+  {
+   "id": "analyzer",
+   "label": "Mass analyzer",
+   "required": "recommended",
+   "list": "analyzer",
+   "mztab": "instrument[n]-analyzer[k]",
+   "example": "orbitrap",
+   "help": "Analyzer(s) used for the reported data."
+  },
+  {
+   "id": "detector",
+   "label": "Detector",
+   "required": false,
+   "list": "detector",
+   "mztab": "instrument[n]-detector",
+   "example": "inductive detector",
+   "help": "Detector type (Orbitrap instruments: inductive detector)."
+  },
+  {
+   "id": "scan_polarity",
+   "label": "Scan polarity",
+   "required": true,
+   "list": "scan_polarity",
+   "mztab": "ms_run[n]-scan_polarity[k]",
+   "example": "positive scan",
+   "help": "Polarity of the reported data; both polarities in one dataset are allowed."
+  },
+  {
+   "id": "acquisition_mode",
+   "label": "Acquisition mode",
+   "required": true,
+   "list": "acquisition_mode",
+   "example": "data-dependent acquisition",
+   "help": "DDA, DIA, SRM/MRM, PRM, precursor/neutral loss scans, or MS1 only."
+  },
+  {
+   "id": "dissociation_method",
+   "label": "Fragmentation (dissociation) method",
+   "required": "if MS/MS",
+   "list": "dissociation_method",
+   "mztab": "ms_run[n]-fragmentation_method[k]",
+   "example": "beam-type collision-induced dissociation",
+   "help": "How ions were fragmented, e.g. CID, or HCD (= beam-type CID). Not the acquisition mode."
+  },
+  {
+   "id": "acquisition_software",
+   "label": "Acquisition software",
+   "required": false,
+   "list": "software",
+   "mztab": "software[n]",
+   "example": "Xcalibur",
+   "help": "Instrument control software; its version goes in the next column."
+  },
+  {
+   "id": "acquisition_software_version",
+   "label": "Acquisition software version",
+   "required": "recommended",
+   "type": "version",
+   "version_of": "acquisition_software",
+   "mztab": "software[n] (parameter value)",
+   "example": "4.1",
+   "help": "Version of the acquisition software, e.g. 4.1. Leave empty if unknown (the curators get a warning)."
+  },
+  {
+   "id": "processing_software",
+   "label": "Identification / quantification software",
+   "required": true,
+   "list": "software",
+   "mztab": "software[n]",
+   "example": "LipidSearch",
+   "help": "Software for identification and quantification; its version goes in the next column."
+  },
+  {
+   "id": "processing_software_version",
+   "label": "Identification / quantification software version",
+   "required": "recommended",
+   "type": "version",
+   "version_of": "processing_software",
+   "mztab": "software[n] (parameter value)",
+   "example": "4.2",
+   "help": "Version of the identification / quantification software, e.g. 4.2. Leave empty if unknown (the curators get a warning)."
+  },
+  {
+   "id": "identification_database",
+   "label": "Identification database / library",
+   "required": "recommended",
+   "mztab": "database[n]",
+   "example": "LIPID MAPS LMSD (2025-06)",
+   "help": "Database, spectral library or rule set used for identification."
+  },
+  {
+   "id": "id_confidence_measure",
+   "label": "Identification confidence measure",
+   "required": "recommended",
+   "list": "id_confidence_measure",
+   "mztab": "id_confidence_measure[n]",
+   "example": "fragmentation score",
+   "help": "The score that supports identifications."
+  },
+  {
+   "id": "identification_reliability",
+   "label": "Identification reliability scheme",
+   "required": "recommended",
+   "list": "identification_reliability",
+   "mztab": "small_molecule-identification_reliability",
+   "example": "compound identification confidence level",
+   "help": "The scheme of the per-lipid levels on the Lipids sheet (MSI levels 1-4)."
+  },
+  {
+   "id": "quantification_method",
+   "label": "Quantification method",
+   "required": true,
+   "list": "quantification_method",
+   "mztab": "quantification_method",
+   "example": "absolute quantification",
+   "help": "Absolute only for calibrated concentrations or amounts; IS-normalised ratios and raw intensities are relative (P6)."
+  },
+  {
+   "id": "quantification_unit",
+   "label": "Quantification unit",
+   "required": true,
+   "list": "quantification_unit",
+   "mztab": "small_molecule-quantification_unit",
+   "example": "Micromole per Liter",
+   "help": "Unit of the numbers on the quantities sheet. nmol/mL = umol/L; pmol/mL = nmol/L. Raw intensities: number of detector counts."
+  },
+  {
+   "id": "data_processing_level",
+   "label": "What the numbers are",
+   "required": true,
+   "list": "data_processing_level",
+   "example": "concentration (calibrated, absolute)",
+   "help": "Concentrations, normalised ratios or raw intensities (B10)."
+  },
+  {
+   "id": "internal_standards",
+   "label": "Internal standards",
+   "required": "if used",
+   "example": "SPLASH LIPIDOMIX (Avanti 330707), one standard per class",
+   "help": "Internal standard mix and how it was used for normalisation. If the quantities include internal standards, mark them on the Lipids sheet."
+  },
+  {
+   "id": "missing_value_encoding",
+   "label": "Missing values",
+   "required": true,
+   "list": "missing_value_encoding",
+   "example": "empty cell = not detected or not measured",
+   "help": "How missing and below-LoD values are written (P12: empty = null)."
+  },
+  {
+   "id": "raw_data_location",
+   "label": "Raw data of this dataset",
+   "required": false,
+   "type": "url",
+   "mztab": "ms_run[n]-location",
+   "example": "",
+   "help": "Link to this dataset's raw files, if different from the study's repository link."
+  },
+  {
+   "id": "dataset_comment",
+   "label": "Comments",
+   "required": false,
+   "example": "",
+   "help": "Anything special about this dataset."
+  }
+ ],
+ "samples": [
+  {
+   "id": "sample_name",
+   "label": "Sample name",
+   "required": true,
+   "mztab": "sample[n]",
+   "example": "P001",
+   "help": "Unique name; exactly as in column A of the quantities sheets. A sample measured in several datasets is listed once."
+  },
+  {
+   "id": "sample_type",
+   "label": "Sample type",
+   "required": true,
+   "list": "sample_type",
+   "mztab": "sample[n]-description",
+   "example": "individual sample",
+   "help": "Individual sample, pooled sample, QC, blank or reference material (B21, B23.7)."
+  },
+  {
+   "id": "species",
+   "label": "Species",
+   "required": true,
+   "list": "species",
+   "mztab": "sample[n]-species[1]",
+   "ontologies": [
+    "NCBITaxon"
+   ],
+   "example": "Homo sapiens",
+   "help": "Most specific taxon (strain where known)."
+  },
+  {
+   "id": "tissue",
+   "label": "Tissue / matrix",
+   "required": "tissue or cell type",
+   "list": "tissue",
+   "mztab": "sample[n]-tissue[1]",
+   "ontologies": [
+    "BTO",
+    "UBERON"
+   ],
+   "example": "blood plasma",
+   "help": "As stated in the Methods: EDTA/heparin/citrate tubes = plasma, clotted = serum (P2). BTO terms are preferred; UBERON terms (listed after the BTO terms) are accepted."
+  },
+  {
+   "id": "cell_type",
+   "label": "Cell type",
+   "required": "tissue or cell type",
+   "list": "cell_type",
+   "mztab": "sample[n]-cell_type[1]",
+   "ontologies": [
+    "CL",
+    "BTO"
+   ],
+   "example": "",
+   "help": "For isolated or cultured cells."
+  },
+  {
+   "id": "disease",
+   "label": "Disease",
+   "required": "if applicable",
+   "list": "disease",
+   "mztab": "sample[n]-disease[1]",
+   "ontologies": [
+    "NCIT",
+    "DOID"
+   ],
+   "example": "Type 2 Diabetes Mellitus",
+   "help": "Disease of the donor; controls: Control Group (P10). NCIT terms are preferred; Disease Ontology (DOID) terms (listed after the NCIT terms) are accepted."
+  },
+  {
+   "id": "sex",
+   "label": "Sex",
+   "required": "if known",
+   "list": "sex",
+   "mztab": "sample[n]-custom[k] (NCIT:C28421 Sex)",
+   "example": "Female",
+   "help": "Biological sex of the donor (P10)."
+  },
+  {
+   "id": "age",
+   "label": "Age (years)",
+   "required": "if known",
+   "type": "number",
+   "mztab": "sample[n]-custom[k] (NCIT:C25150 Age)",
+   "example": "54",
+   "help": "Age at sampling in years (use a factor column for other units)."
+  },
+  {
+   "id": "sample_description",
+   "label": "Sample description",
+   "required": false,
+   "mztab": "sample[n]-description",
+   "example": "",
+   "help": "Free text, e.g. how a pooled sample was made."
+  }
+ ],
+ "factors": [
+  {
+   "id": "factor_name",
+   "label": "Factor (column name)",
+   "required": true,
+   "example": "Disease",
+   "help": "A Samples column (sex, age, disease) or the name of a factor column added on the Samples sheet."
+  },
+  {
+   "id": "factor_term",
+   "label": "Factor term",
+   "required": "recommended",
+   "list": "factor",
+   "mztab": "study_variable[n]-factors",
+   "example": "Disease or Disorder",
+   "help": "What the factor is, as a CV term."
+  },
+  {
+   "id": "unit",
+   "label": "Unit",
+   "required": "if numeric",
+   "example": "",
+   "help": "Unit of numeric factors, e.g. 'kg/m2'."
+  },
+  {
+   "id": "primary",
+   "label": "Defines the study groups",
+   "required": true,
+   "list": "yes_no",
+   "example": "yes",
+   "help": "'yes' for the factors the paper compares (become study variables); 'no' for covariates (B18)."
+  },
+  {
+   "id": "factor_description",
+   "label": "Description",
+   "required": false,
+   "example": "Type 2 diabetes vs controls",
+   "help": "Optional."
+  }
+ ],
+ "lipids": [
+  {
+   "id": "dataset_id",
+   "label": "Dataset id",
+   "required": true,
+   "example": "D1",
+   "help": "Dataset the lipid column belongs to."
+  },
+  {
+   "id": "lipid_name",
+   "label": "Lipid name",
+   "required": true,
+   "mztab": "chemical_name / opt_global_original_name",
+   "example": "PC 16:0_18:1",
+   "help": "Exactly as on the quantities sheet (row 2, or column A with lipids in rows)."
+  },
+  {
+   "id": "sum_formula",
+   "label": "Sum formula (neutral)",
+   "required": false,
+   "mztab": "chemical_formula",
+   "example": "C42H82NO8P",
+   "help": "Sum formula of the neutral lipid (no adduct), if you have it. The curators check it against the lipid name."
+  },
+  {
+   "id": "internal_standard",
+   "label": "Internal standard?",
+   "required": false,
+   "list": "yes_no",
+   "mztab": "opt_global_internal_standard (T25)",
+   "example": "no",
+   "help": "'yes' for internal standards that are part of the quantities (kept and annotated, P6). If your lab removed them after quantification, there is nothing to mark."
+  },
+  {
+   "id": "identification_level",
+   "label": "Identification level",
+   "required": false,
+   "list": "identification_level",
+   "mztab": "reliability",
+   "example": "2",
+   "help": "Per-lipid level of the scheme on the Datasets sheet (MSI 1-4). Without a level, a lipid name in shorthand notation counts as level 3."
+  },
+  {
+   "id": "lipid_comment",
+   "label": "Comment",
+   "required": false,
+   "example": "",
+   "help": "E.g. isomers summed, co-eluting species, sterol analyte (P7, P8)."
+  }
+ ]
+}

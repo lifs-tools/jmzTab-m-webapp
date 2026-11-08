@@ -1,0 +1,12 @@
+# Value list separation_method, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: separation_method
+entries:
+  - {cv: "CHMO", accession: "CHMO:0001050", label: "reversed-phase liquid chromatography"}
+  - {cv: "CHMO", accession: "CHMO:0002262", label: "hydrophilic interaction chromatography"}
+  - {cv: "CHMO", accession: "CHMO:0001051", label: "normal-phase liquid chromatography"}
+  - {cv: "CHMO", accession: "CHMO:0001003", label: "supercritical-fluid chromatography"}
+  - {cv: "CHMO", accession: "CHMO:0001002", label: "gas chromatography"}
+  - {cv: "CHMO", accession: "CHMO:0000795", label: "ultra high performance liquid chromatography"}
+  - {cv: "MS", accession: "MS:1000060", label: "infusion"}
+  - text: "direct infusion (shotgun lipidomics)"
+    note: "no chromatographic separation"

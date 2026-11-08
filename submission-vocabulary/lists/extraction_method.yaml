@@ -1,0 +1,9 @@
+# Value list extraction_method, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: extraction_method
+entries:
+  - text: "MTBE extraction (Matyash)"
+  - text: "Folch extraction"
+  - text: "Bligh and Dyer extraction"
+  - text: "BUME extraction (butanol/methanol)"
+  - text: "one-phase extraction (methanol, isopropanol or butanol/methanol)"
+  - text: "solid-phase extraction"

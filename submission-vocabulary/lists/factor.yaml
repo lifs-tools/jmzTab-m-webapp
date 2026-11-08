@@ -1,0 +1,18 @@
+# Value list factor, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: factor
+entries:
+  - {cv: "NCIT", accession: "NCIT:C28421", label: "Sex"}
+  - {cv: "NCIT", accession: "NCIT:C25150", label: "Age"}
+  - {cv: "NCIT", accession: "NCIT:C16358", label: "Body Mass Index"}
+  - {cv: "NCIT", accession: "NCIT:C2991", label: "Disease or Disorder"}
+  - {cv: "NCIT", accession: "NCIT:C49236", label: "Therapeutic Procedure"}
+  - {cv: "NCIT", accession: "NCIT:C15222", label: "Diet"}
+  - {cv: "NCIT", accession: "NCIT:C68568", label: "Timepoint"}
+  - {cv: "NCIT", accession: "NCIT:C16631", label: "Genotype"}
+  - {cv: "NCIT", accession: "NCIT:C95501", label: "Strain"}
+  - {cv: "NCIT", accession: "NCIT:C16564", label: "Ethnic Group"}
+  - text: "Biological replicate"
+    note: "replicate number; not a biological factor"
+  - {cv: "NCIT", accession: "NCIT:C19796", label: "Smoking Status"}
+  - text: "Batch"
+    note: "analytical batch / plate; not a biological factor"

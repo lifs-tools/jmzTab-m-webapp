@@ -1,0 +1,19 @@
+# Value list species, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: species
+entries:
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9606", label: "Homo sapiens"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:10090", label: "Mus musculus"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:4932", label: "Saccharomyces cerevisiae"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:10116", label: "Rattus norvegicus"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9823", label: "Sus scrofa"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9615", label: "Canis lupus familiaris"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:6239", label: "Caenorhabditis elegans"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:5833", label: "Plasmodium falciparum"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9913", label: "Bos taurus"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:7955", label: "Danio rerio"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:7227", label: "Drosophila melanogaster"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9544", label: "Macaca mulatta"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9986", label: "Oryctolagus cuniculus"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:9031", label: "Gallus gallus"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:562", label: "Escherichia coli"}
+  - {cv: "NCBITaxon", accession: "NCBITaxon:3702", label: "Arabidopsis thaliana"}

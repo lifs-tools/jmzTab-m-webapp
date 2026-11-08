@@ -1,0 +1,7 @@
+# Value list missing_value_encoding, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: missing_value_encoding
+entries:
+  - text: "empty cell = not detected or not measured"
+  - text: "0 = below limit of detection"
+  - text: "NA = not measured"
+  - text: "imputed values present (describe the method in the dataset description)"

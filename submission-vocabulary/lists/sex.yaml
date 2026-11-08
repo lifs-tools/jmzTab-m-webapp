@@ -1,0 +1,5 @@
+# Value list sex, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: sex
+entries:
+  - {cv: "NCIT", accession: "NCIT:C20197", label: "Male"}
+  - {cv: "NCIT", accession: "NCIT:C16576", label: "Female"}

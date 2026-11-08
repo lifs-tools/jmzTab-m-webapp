@@ -1,0 +1,16 @@
+# Value list software, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: software
+entries:
+  - {cv: "MS", accession: "MS:1003966", label: "LipidSearch"}
+  - {cv: "MS", accession: "MS:1002968", label: "LipidXplorer"}
+  - {cv: "MS", accession: "MS:1003082", label: "MS-DIAL"}
+  - {cv: "MS", accession: "MS:1000922", label: "Skyline"}
+  - {cv: "MS", accession: "MS:1002965", label: "Lipid Data Analyzer"}
+  - {cv: "MS", accession: "MS:1000681", label: "MassHunter Quantitative Analysis"}
+  - {cv: "MS", accession: "MS:1000551", label: "Analyst"}
+  - {cv: "MS", accession: "MS:1000532", label: "Xcalibur"}
+  - {cv: "MS", accession: "MS:1003962", label: "TraceFinder"}
+  - {cv: "MS", accession: "MS:1002342", label: "mzmine"}
+  - text: "Lipidyzer Workflow Manager"
+  - text: "LipidCreator"
+  - text: "Lipostar"

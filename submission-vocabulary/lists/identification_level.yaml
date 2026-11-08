@@ -1,0 +1,11 @@
+# Value list identification_level, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: identification_level
+entries:
+  - text: "1"
+    note: "identified compound: confirmed with a reference standard"
+  - text: "2"
+    note: "putatively annotated compound (spectral match)"
+  - text: "3"
+    note: "putatively characterised compound class"
+  - text: "4"
+    note: "unknown compound"

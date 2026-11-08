@@ -1,0 +1,6 @@
+# Value list identification_reliability, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: identification_reliability
+entries:
+  - {cv: "MS", accession: "MS:1002896", label: "compound identification confidence level"}
+  - text: "Lipidomics Standards Initiative reporting level"
+    note: "level per lipid on the Lipids sheet"

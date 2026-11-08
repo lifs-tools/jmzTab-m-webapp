@@ -1,0 +1,38 @@
+# Value list tissue, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: tissue
+entries:
+  - {cv: "BTO", accession: "BTO:0000131", label: "blood plasma"}
+  - {cv: "BTO", accession: "BTO:0000133", label: "blood serum"}
+  - {cv: "BTO", accession: "BTO:0000089", label: "blood"}
+  - {cv: "BTO", accession: "BTO:0000142", label: "brain"}
+  - {cv: "BTO", accession: "BTO:0000759", label: "liver"}
+  - {cv: "BTO", accession: "BTO:0000763", label: "lung"}
+  - {cv: "BTO", accession: "BTO:0000671", label: "kidney"}
+  - {cv: "BTO", accession: "BTO:0000562", label: "heart"}
+  - {cv: "BTO", accession: "BTO:0001103", label: "skeletal muscle"}
+  - {cv: "BTO", accession: "BTO:0001487", label: "adipose tissue"}
+  - {cv: "BTO", accession: "BTO:0000155", label: "bronchoalveolar lavage fluid"}
+  - {cv: "BTO", accession: "BTO:0000232", label: "cerebellum"}
+  - {cv: "BTO", accession: "BTO:0000601", label: "hippocampus"}
+  - {cv: "BTO", accession: "BTO:0000237", label: "cerebrospinal fluid"}
+  - {cv: "BTO", accession: "BTO:0000132", label: "blood platelet"}
+  - {cv: "BTO", accession: "BTO:0000424", label: "erythrocyte"}
+  - {cv: "BTO", accession: "BTO:0001253", label: "skin"}
+  - {cv: "BTO", accession: "BTO:0001419", label: "urine"}
+  - {cv: "BTO", accession: "BTO:0001202", label: "saliva"}
+  - {cv: "BTO", accession: "BTO:0001489", label: "whole body"}
+  - {cv: "BTO", accession: "BTO:0000214", label: "cell culture"}
+  - {cv: "UBERON", accession: "UBERON:0001969", label: "blood plasma"}
+  - {cv: "UBERON", accession: "UBERON:0001977", label: "blood serum"}
+  - {cv: "UBERON", accession: "UBERON:0000178", label: "blood"}
+  - {cv: "UBERON", accession: "UBERON:0000955", label: "brain"}
+  - {cv: "UBERON", accession: "UBERON:0002107", label: "liver"}
+  - {cv: "UBERON", accession: "UBERON:0002048", label: "lung"}
+  - {cv: "UBERON", accession: "UBERON:0002113", label: "kidney"}
+  - {cv: "UBERON", accession: "UBERON:0000948", label: "heart"}
+  - {cv: "UBERON", accession: "UBERON:0001134", label: "skeletal muscle tissue"}
+  - {cv: "UBERON", accession: "UBERON:0001013", label: "adipose tissue"}
+  - {cv: "UBERON", accession: "UBERON:0001359", label: "cerebrospinal fluid"}
+  - {cv: "UBERON", accession: "UBERON:0002097", label: "skin of body"}
+  - {cv: "UBERON", accession: "UBERON:0001088", label: "urine"}
+  - {cv: "UBERON", accession: "UBERON:0001836", label: "saliva"}

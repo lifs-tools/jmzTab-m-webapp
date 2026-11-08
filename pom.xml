@@ -9,6 +9,7 @@
     <name>MzTab validator webapplication parent.</name>
     <modules>
         <module>frontend</module>
+        <module>submission-vocabulary</module>
         <module>engine-api</module>
         <module>engine-parent</module>
         <module>engine-mztabm-2.0</module>

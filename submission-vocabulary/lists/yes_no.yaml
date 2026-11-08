@@ -1,0 +1,5 @@
+# Value list yes_no, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: yes_no
+entries:
+  - text: "yes"
+  - text: "no"

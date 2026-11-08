@@ -1,0 +1,15 @@
+# Value list quantification_unit, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: quantification_unit
+entries:
+  - {cv: "NCIT", accession: "NCIT:C48508", label: "Micromole per Liter"}
+  - {cv: "NCIT", accession: "NCIT:C67432", label: "Nanomole per Liter"}
+  - {cv: "NCIT", accession: "NCIT:C64387", label: "Millimole per Liter"}
+  - {cv: "NCIT", accession: "NCIT:C85752", label: "Nanomole per Gram"}
+  - {cv: "NCIT", accession: "NCIT:C67433", label: "Nanomole per Milligram of Protein"}
+  - {cv: "NCIT", accession: "NCIT:C65045", label: "Picomole"}
+  - {cv: "NCIT", accession: "NCIT:C48517", label: "Nanomole"}
+  - text: "mol% (mole percent of the measured lipidome)"
+    note: "relative; no NCIT unit term"
+    encoding: {cv: UO, accession: "UO:0000076", name: mole fraction, value: "mol%"}
+  - {cv: "NCIT", accession: "NCIT:C75765", label: "Arbitrary Unit"}
+  - {cv: "MS", accession: "MS:1000042", label: "peak intensity"}
