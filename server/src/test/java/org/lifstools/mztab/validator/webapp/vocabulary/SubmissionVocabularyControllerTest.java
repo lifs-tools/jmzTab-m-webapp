@@ -16,6 +16,7 @@
 package org.lifstools.mztab.validator.webapp.vocabulary;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -84,14 +85,24 @@ class SubmissionVocabularyControllerTest {
 
     @Test
     void anotherVersionIsNotFound() throws Exception {
+        mvc.perform(get(BASE + "1.0.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
         mvc.perform(get(BASE + "0.9.0/vocabulary/vocabulary.yaml")).andExpect(status().isNotFound());
     }
 
     @Test
     void aPublishedPathWithoutAFileIsNotFound() throws Exception {
+        mvc.perform(get(BASE + "1.0.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
         mvc.perform(get(BASE + "1.0.0/vocabulary/none.yaml")).andExpect(status().isNotFound());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"examples/v3-example", "examples/v3-example/expected"})
+    void aDirectoryIsNotFound(String path) throws Exception {
+        mvc.perform(get(BASE + "1.0.0/" + path)).andExpect(status().isNotFound())
+            .andExpect(header().string("Cache-Control", not(containsString("public"))));
+    }
+
+    /** The firewall of Spring Security answers the dot segments first; the controller's own check is tested below. */
     @ParameterizedTest
     @ValueSource(strings = {"vocabulary/../../pom.xml", "src/x", "pom.xml", "vocabulary/../LICENSE", "mappings/x.yaml",
         "vocabulary/./vocabulary.yaml", "vocabulary/a b"})

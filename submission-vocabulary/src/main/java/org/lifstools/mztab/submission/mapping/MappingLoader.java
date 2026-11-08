@@ -60,12 +60,12 @@ public final class MappingLoader {
     /**
      * The mapping {@code id} from {@code submission-vocabulary/mappings/{input|output}/<id>.yaml}.
      *
-     * @throws IllegalArgumentException when there is no mapping {@code id}
+     * @throws MappingRequestException when {@code id} is not an id or there is no mapping {@code id}
      * @throws InvalidMappingException when the file is not a valid mapping
      */
     public static Mapping load(String id) {
         if (!ID.matcher(id).matches()) {
-            throw new IllegalArgumentException("Not a mapping id: " + id);
+            throw new MappingRequestException("Not a mapping id: " + id);
         }
         List<Mapping.Kind> found = new ArrayList<>();
         for (Mapping.Kind kind : Mapping.Kind.values()) {
@@ -74,7 +74,7 @@ public final class MappingLoader {
             }
         }
         if (found.isEmpty()) {
-            throw new IllegalArgumentException("Unknown mapping: " + id);
+            throw new MappingRequestException("Unknown mapping: " + id);
         }
         if (found.size() > 1) {
             throw new InvalidMappingException("mapping " + id + " is both an input and an output mapping");

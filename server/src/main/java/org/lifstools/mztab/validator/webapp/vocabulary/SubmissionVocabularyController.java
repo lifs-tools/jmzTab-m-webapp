@@ -21,9 +21,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import org.lifstools.mztab.submission.Vocabulary;
 import org.springframework.http.CacheControl;
@@ -80,13 +87,38 @@ public class SubmissionVocabularyController {
     }
 
     private static byte[] read(String resource) {
-        try (InputStream in = SubmissionVocabularyController.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such file");
-            }
+        URL url = SubmissionVocabularyController.class.getResource(resource);
+        if (url == null || isDirectory(url)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such file");
+        }
+        try (InputStream in = url.openStream()) {
             return in.readAllBytes();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    /** A directory of an exploded classpath, or an entry of a jar that names one. */
+    private static boolean isDirectory(URL url) {
+        try {
+            if ("file".equals(url.getProtocol())) {
+                return Files.isDirectory(Path.of(url.toURI()));
+            }
+            if (url.openConnection() instanceof JarURLConnection jar) {
+                jar.setUseCaches(false);
+                try (JarFile file = jar.getJarFile()) {
+                    JarEntry entry = jar.getJarEntry();
+                    if (entry == null || entry.isDirectory()) {
+                        return true;
+                    }
+                    // a jar need not hold entries for its directories: anything below the name makes it one
+                    String below = entry.getName() + "/";
+                    return file.stream().anyMatch(e -> e.getName().startsWith(below));
+                }
+            }
+            return false;
+        } catch (IOException | URISyntaxException e) {
+            throw new IllegalStateException(e);
         }
     }
 

@@ -42,17 +42,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.validator.engine.api.EngineError;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
 import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
-import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
 import org.lifstools.mztab2.model.MzTab;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -311,7 +312,7 @@ public class EngineController {
             MappingApplyRequest mappingRequest = readMappingRequest(body);
             try {
                 return ResponseEntity.ok(mappingApplier.apply(mappingRequest, Set.copyOf(mzTabVersions)));
-            } catch (IllegalArgumentException e) {
+            } catch (MappingRequestException e) {
                 throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
                     shorten(String.valueOf(e.getMessage())));
             }
@@ -328,9 +329,18 @@ public class EngineController {
             throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
                 "The body is not a mapping request: " + jsonDetail(e));
         }
-        if (r == null || r.mapping() == null || r.mappingVersion() == null || r.instance() == null) {
+        if (r == null || r.mapping() == null || r.mappingVersion() == null || r.instance() == null
+            || r.instance().isNull() || r.instance().isMissingNode()) {
             throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
                 "A mapping request needs mapping, mappingVersion and instance.");
+        }
+        if (r.parameters() != null) {
+            r.parameters().forEach((name, value) -> {
+                if (value == null) {
+                    throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                        "The parameter " + shorten(String.valueOf(name)) + " has no value.");
+                }
+            });
         }
         return new MappingApplyRequest(r.mapping(), r.mappingVersion(),
             r.parameters() == null ? Map.of() : r.parameters(), r.instance(), r.text() == null ? "" : r.text(),

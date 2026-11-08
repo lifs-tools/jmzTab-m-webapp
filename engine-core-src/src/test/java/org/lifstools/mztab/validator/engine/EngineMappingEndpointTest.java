@@ -15,18 +15,23 @@
  */
 package org.lifstools.mztab.validator.engine;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Arrays;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,17 +52,16 @@ class EngineMappingEndpointTest extends EngineContextTest {
     @Test
     void theV3ExampleIsAppliedOnlyByAnEngineThatServesItsTarget() throws Exception {
         String body = objectMapper.writeValueAsString(v3Request("mztab-2.0.0-M"));
-        boolean serves = Arrays.stream(mzTabVersions).map(String::strip).anyMatch("2.0.0-M"::equals);
-        if (serves) {
+        if (servesTwoZero()) {
             mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.startsWith(
+                .andExpect(jsonPath("$.text").value(startsWith(
                     "MTD\tmzTab-version\t2.0.0-M\nMTD\tmzTab-ID\tLCS-99999-01")));
         } else {
             mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("invalid_request"))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("targets 2.0.0-M")));
+                .andExpect(jsonPath("$.message").value(containsString("targets 2.0.0-M")));
         }
     }
 
@@ -79,6 +83,60 @@ class EngineMappingEndpointTest extends EngineContextTest {
             .andExpect(jsonPath("$.code").value("invalid_request"));
     }
 
+    @Test
+    void aWrongMappingVersionIsInvalid() throws Exception {
+        MappingApplyRequest r = v3Request("mztab-2.0.0-M");
+        String body = objectMapper.writeValueAsString(new MappingApplyRequest(r.mapping(), "9.9.9", r.parameters(),
+            r.instance(), r.text(), r.provenance(), r.inputMapping()));
+        mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("invalid_request"));
+    }
+
+    @Test
+    void anInputMappingIsInvalid() throws Exception {
+        String body = objectMapper.writeValueAsString(v3Request("v3-workbook"));
+        mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("invalid_request"));
+    }
+
+    @Test
+    void aCellWithATabIsInvalid() throws Exception {
+        Assumptions.assumeTrue(servesTwoZero(), "the mapping targets 2.0.0-M; another engine refuses it first");
+        MappingApplyRequest r = v3Request("mztab-2.0.0-M");
+        ((ObjectNode) r.instance().get("samples").get(0).get("species")).put("accession", "NCBITaxon:\t9606");
+        mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(r)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("invalid_request"))
+            .andExpect(jsonPath("$.message").value(containsString("tab or line break")));
+    }
+
+    @Test
+    void aMissingOrNullInstanceIsInvalid() throws Exception {
+        for (String body : new String[] {
+            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\"}",
+            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\",\"instance\":null}"}) {
+            mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_request"));
+        }
+    }
+
+    @Test
+    void aNullParameterValueIsInvalid() throws Exception {
+        String body = "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\",\"instance\":{},"
+            + "\"parameters\":{\"study_id\":null}}";
+        mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("invalid_request"))
+            .andExpect(jsonPath("$.message").value(containsString("study_id")));
+    }
+
+    private boolean servesTwoZero() {
+        return Arrays.stream(mzTabVersions).map(String::strip).anyMatch("2.0.0-M"::equals);
+    }
+
     private MappingApplyRequest v3Request(String mapping) throws IOException {
         Map<String, String> parameters = new LinkedHashMap<>();
         objectMapper.readTree(text("parameters.json")).get(0).properties()
@@ -89,7 +147,7 @@ class EngineMappingEndpointTest extends EngineContextTest {
 
     private static String text(String name) {
         try (InputStream in = EngineMappingEndpointTest.class.getResourceAsStream(EXAMPLE + name)) {
-            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

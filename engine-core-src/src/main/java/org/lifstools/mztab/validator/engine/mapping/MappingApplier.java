@@ -32,6 +32,7 @@ import org.lifstools.mztab.submission.Vocabulary;
 import org.lifstools.mztab.submission.mapping.Evaluator;
 import org.lifstools.mztab.submission.mapping.Mapping;
 import org.lifstools.mztab.submission.mapping.MappingLoader;
+import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.submission.mapping.Notes;
 import org.lifstools.mztab.submission.mapping.Numbers;
 import org.lifstools.mztab.submission.mapping.Render;
@@ -104,20 +105,21 @@ public final class MappingApplier {
      * Applies the output mapping {@code r.mapping()} in version {@code r.mappingVersion()}.
      *
      * @param engineVersions the mzTab-M versions this engine serves
-     * @throws IllegalArgumentException when the mapping is unknown, is not an output mapping, has another version or
-     *     targets a version this engine does not serve, and when the mapping cannot be applied to the instance
+     * @throws MappingRequestException when the mapping is unknown, is not an output mapping, has another version or
+     *     targets a version this engine does not serve, and when a cell would hold a tab or line break
+     * @throws IllegalArgumentException when the mapping cannot be applied to the instance otherwise
      */
     public MappingApplyResult apply(MappingApplyRequest r, Set<String> engineVersions) {
         Mapping mapping = mappings.apply(r.mapping());
         if (mapping.kind() != Mapping.Kind.OUTPUT) {
-            throw new IllegalArgumentException("mapping " + mapping.id() + " is not an output mapping");
+            throw new MappingRequestException("mapping " + mapping.id() + " is not an output mapping");
         }
         if (!mapping.version().equals(r.mappingVersion())) {
-            throw new IllegalArgumentException("mapping " + mapping.id() + " has version " + mapping.version() + ", not "
+            throw new MappingRequestException("mapping " + mapping.id() + " has version " + mapping.version() + ", not "
                     + r.mappingVersion());
         }
         if (!engineVersions.contains(mapping.target())) {
-            throw new IllegalArgumentException("mapping " + mapping.id() + " targets " + mapping.target()
+            throw new MappingRequestException("mapping " + mapping.id() + " targets " + mapping.target()
                     + "; this engine serves " + String.join(", ", new TreeSet<>(engineVersions)));
         }
         return new Run(mapping, r).result();
@@ -355,11 +357,11 @@ public final class MappingApplier {
          * {@code text}, when it holds no tab, CR or LF: a key or cell is never rewritten here, so clean input is written
          * exactly as the converter writes it, but text that would split a cell or a line is refused.
          *
-         * @throws IllegalArgumentException naming {@code key} otherwise
+         * @throws MappingRequestException naming {@code key} otherwise
          */
         private static String checked(String key, String text) {
             if (text.indexOf('\t') >= 0 || text.indexOf('\r') >= 0 || text.indexOf('\n') >= 0) {
-                throw new IllegalArgumentException(key + ": value contains a tab or line break");
+                throw new MappingRequestException(key + ": value contains a tab or line break");
             }
             return text;
         }
