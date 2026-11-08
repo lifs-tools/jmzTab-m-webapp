@@ -460,7 +460,7 @@ void outputHasNoErrorsOrWarnings(String n) { /* validate result.text() in-proces
 - Create: `config/submission-vocabulary/1.0.0/`, a vendored copy of the webapp's `submission-vocabulary/{vocabulary,lists,schema,README.md,LICENSE}`, with `SOURCE` holding the webapp commit hash.
 - Create: `config/submission-template-v3/template.yaml`, the `template:` block moved verbatim from `fields.yaml:22-26`.
 - Create: `tools/submission_spec.py` with:
-  - `load_spec() -> dict`, which returns the exact dict `yaml.safe_load(fields.yaml)` returned before. It is assembled from `template.yaml`, the vocabulary's `workbook: true` groups, the `quantities.help`, and the `extra_lists` from the list files.
+  - `load_spec() -> dict`, which returns a dict equal (`==`) to the one `yaml.safe_load(fields.yaml)` returned before, without `extra_lists`. It is assembled from `template.yaml`, the vocabulary's `workbook: true` groups and the `quantities.help`. (Amended by ruling R23/R25: key order follows the vocabulary; the build orders lists by name.)
   - `load_options_raw() -> dict`, which returns what `options.yaml` plus `extra_lists` gave before.
 - Create: `tools/sync_submission_vocabulary.py` (`--webapp <checkout>`; copies the files and writes `SOURCE`).
 - Modify the callers, so they use `submission_spec`: `tools/build_submission_template.py` (`:72-73`, `:600`), `tools/migrate_submission_template.py:554`, `tests/unit/test_submission_template_v3.py:35`.
@@ -470,7 +470,7 @@ void outputHasNoErrorsOrWarnings(String n) { /* validate result.text() in-proces
 
 **Interfaces:**
 - Consumes: the vocabulary files (Task 1).
-- Produces: `templates/v3/submission-template-schema.json`, identical apart from `template.vocabulary`.
+- Produces: `templates/v3/submission-template-schema.json`, equal as parsed JSON apart from `template.vocabulary` (object member order may differ; lists are ordered by name — ruling R23).
 
 - [ ] **Step 1: Capture today's state.**
   1. Before any change, on `feat/vocabulary-from-webapp` at bb8dcbf, save the current spec: `python -c "import yaml,json;print(json.dumps(yaml.safe_load(open('config/submission-template-v3/fields.yaml'))))" > tests/fixtures/vocabulary-baseline/spec.json`.

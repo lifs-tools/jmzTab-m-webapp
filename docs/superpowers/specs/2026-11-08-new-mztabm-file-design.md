@@ -604,7 +604,7 @@ LipidCompass reads 2.0 only (jmzTab-m 1.0.6), so files meant for it are 2.0 unti
   - converter notes (conv stderr) are not compared; the engine and the mapping's functions give their own notes.
 
   The golden output is refreshed when the converter changes. Both outputs validate with jmzTab-m with no errors.
-- **v3 reading:** the rebuilt schema JSON equals the committed one apart from `template.vocabulary`, and it reads the four filled workbooks and the example with output identical to today's reader.
+- **v3 reading:** the rebuilt schema JSON equals the committed one (as parsed JSON) apart from `template.vocabulary`, and it reads the four filled workbooks and the example with output identical to today's reader; the rebuilt example differs only in `template.generated`.
 - **Index allocation (engine):**
   - imports into a copy that already has samples, assays and CVs: matching names update, new names get the next index, nothing is renumbered;
   - a stale revision is refused (webapp).
