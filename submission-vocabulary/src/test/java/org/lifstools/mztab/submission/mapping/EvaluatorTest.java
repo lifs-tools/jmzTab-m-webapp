@@ -24,6 +24,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.submission.Vocabulary;
 import org.lifstools.mztab.submission.Vocabulary.Param;
@@ -122,15 +123,12 @@ class EvaluatorTest {
     void fieldReadsIntoALetValue() {
         LinkedHashMap<String, Expr> let = new LinkedHashMap<>();
         let.put("dataset", expr("at: {list: {field: datasets}, index: {field: params.dataset_index}}"));
-        let.put("study", expr("literal: {title: shadowed}"));
         Evaluator e = new Evaluator(let, VOCABULARY, Evaluator.FunctionRegistry.NONE);
-        Scope root = Scope.root(json("{\"datasets\": [{\"t\": \"D1\"}, {\"t\": \"D2\"}], \"study\": {\"title\": \"T\"}}"),
+        Scope root = Scope.root(json("{\"datasets\": [{\"t\": \"D1\", \"q\": {\"n\": 3}}, {\"t\": \"D2\", \"q\": {\"n\": 4}}]}"),
                 Map.of("dataset_index", "2"), notes);
         assertThat(e.eval(expr("field: dataset.t"), root)).isEqualTo(text("D2"));
-        // a let name comes before an instance key, and a variable before a let name
-        assertThat(e.eval(expr("field: study.title"), root)).isEqualTo(text("shadowed"));
-        assertThat(e.eval(expr("map: {over: {literal: [{t: v}]}, as: dataset, value: {field: dataset.t}}"), root))
-                .isEqualTo(list(text("v")));
+        assertThat(e.eval(expr("field: dataset.q.n"), root)).isEqualTo(new Value.Int(4));
+        assertThat(e.eval(expr("field: dataset.missing"), root)).isSameAs(NULL);
     }
 
     @Test
@@ -284,6 +282,14 @@ class EvaluatorTest {
         assertThat(eval("term: {value: {literal: null}}")).isSameAs(NULL);
         assertThat(eval("term: {value: {literal: ''}}")).isSameAs(NULL);
         assertThat(eval("term: {value: {literal: ' '}}")).isSameAs(NULL);
+    }
+
+    @Test
+    void termGivesNullForAnEncodingThatRendersAsNothing() {
+        // as conv:137, param(*TEXT_TERMS[label]) is None without an accession and a name
+        Evaluator e = new Evaluator(Map.of(), text -> Optional.of(new Param("UO", "", " ", "x")),
+                Evaluator.FunctionRegistry.NONE);
+        assertThat(e.eval(expr("term: {value: {literal: {text: odd}}}"), Scope.root(json("{}"), Map.of(), notes))).isSameAs(NULL);
     }
 
     @Test

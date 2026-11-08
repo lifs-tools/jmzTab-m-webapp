@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import org.lifstools.mztab.submission.Vocabulary;
 import org.lifstools.mztab.submission.Vocabulary.Param;
@@ -67,7 +68,7 @@ public final class Evaluator {
     private static volatile Map<String, Value> unitFactors;
 
     private final Map<String, Expr> let;
-    private final Vocabulary vocabulary;
+    private final Function<String, Optional<Param>> encodings;
     private final FunctionRegistry functions;
 
     /**
@@ -77,8 +78,13 @@ public final class Evaluator {
      * @param functions the named functions
      */
     public Evaluator(Map<String, Expr> let, Vocabulary vocabulary, FunctionRegistry functions) {
+        this(let, vocabulary::encodingOf, functions);
+    }
+
+    /** As the public constructor, with the agreed encodings given directly; for tests. */
+    Evaluator(Map<String, Expr> let, Function<String, Optional<Param>> encodings, FunctionRegistry functions) {
         this.let = Map.copyOf(let);
-        this.vocabulary = Objects.requireNonNull(vocabulary);
+        this.encodings = Objects.requireNonNull(encodings);
         this.functions = Objects.requireNonNull(functions);
     }
 
@@ -406,9 +412,11 @@ public final class Evaluator {
             return param(text(o.get("cv"), "term"), text(o.get("accession"), "term"), text(o.get("name"), "term"), value);
         }
         String label = v instanceof Value.Obj o ? text(o.get("text"), "term") : text(v, "term");
-        Optional<Param> encoding = vocabulary.encodingOf(label);
+        Optional<Param> encoding = encodings.apply(label);
         if (encoding.isPresent()) {
-            return new Value.ParamV(encoding.get());
+            // param(*TEXT_TERMS[label]): None, too, when it would render as nothing
+            Param p = encoding.get();
+            return param(p.cv(), p.accession(), p.name(), p.value());
         }
         return param("", "", label, value);
     }

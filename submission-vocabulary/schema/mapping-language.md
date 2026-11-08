@@ -28,7 +28,7 @@ A mapping lives in `mappings/input/<id>.yaml` or `mappings/output/<id>.yaml`, wh
 | `target` | output only | The mzTab-M version an output mapping writes, e.g. `2.0.0-M`. An input mapping has none. |
 | `parameters` | no | The names of the parameters a run is given, e.g. `study_id`. Expressions read them as `params.<name>`. |
 | `cvs` | no | The CVs the mapping's parameters use, by label, each with `full-name`, `version` and `uri`. Their order is the order in which they are declared. |
-| `let` | no | Named values: name to expression. |
+| `let` | no | Named values: name to expression. A name never shadows: it is not `params`, not a top-level key of the vocabulary instance (`template`, `study`, `contacts`, `datasets`, `samples`, `factors`, `lipids`, `issues`) and not a vocabulary group id (`quantities`, `runs`). |
 | `metadata` | output only | Metadata rules. |
 | `tables` | output only | Table rules. |
 
@@ -75,7 +75,7 @@ The instance is the vocabulary instance as JSON (design §5.2). JSON integers st
 
 **As text.** Where a form needs a text, a value is read as Python's `str()` would write it: a text is itself, an Int is its digits, a Dbl is written as in [`number`](#number), a Param is its [rendered cell](#cell-rendering) (or `""` when it renders as nothing), and Null is `""`. An object, a list or a reference is an error there.
 
-**Positions.** `each`, `map`, `find` and `filter` bind each item of a list to a variable (`as`). The item's position is its 1-based index in that list, whether or not a `where` keeps it.
+**Positions.** `each`, `map`, `find` and `filter` bind each item of a list to a variable (`as`). The item's position is its 1-based index in that list. An `each` binds every item, with its position, before its `where` is evaluated, so the position counts the items its `where` drops as well. A key's `{x#}` numbers only the items that wrote a line (see [line](#line)).
 
 ## Rules
 
@@ -92,7 +92,7 @@ A line is one metadata line, a `key` and a `value`. A line whose value is empty 
 
 ### each
 
-`each` writes its `lines` for every item of a list. The item is bound to `as`. When `where` is given, only the items for which it holds are visited. `lines` may hold lines and further `each` rules.
+`each` binds every item of a list to `as`, with its position in that list, and evaluates `where` (optional) with it. For the items for which `where` holds, or for every item without a `where`, it writes `lines`. `lines` may hold lines and further `each` rules. An item that `where` drops keeps its place in the positions of the others, but writes nothing and takes no `{x#}` number.
 
 ```yaml
 - each: {field: contacts}
@@ -178,7 +178,7 @@ A fixed value, written as YAML. Booleans are not allowed: YAML reads an unquoted
 A path, `a.b.c`. The first segment is, in this order:
 
 1. a variable bound by an enclosing form, innermost first;
-2. a [`let`](#ref) name;
+2. a [`let`](#ref) name (which never equals `params` or an instance key);
 3. `params`, the run's parameters, each a text (absent ones are Null);
 4. a top-level key of the instance.
 
@@ -344,7 +344,7 @@ A value as an mzTab-M parameter, as `conv:129-139`. `param-value` (optional, as 
 - Null and `""` give Null.
 - An object with a non-empty `accession` gives the CV parameter `[cv, accession, name, param-value]`.
 - Otherwise the text is the object's `text`, or the value as text. When a vocabulary list entry with that text has an agreed `encoding`, the result is that encoding, and `param-value` is not used. Otherwise it is the user parameter `[, , text, param-value]`.
-- A parameter that would render as nothing (no accession and an empty name) gives Null.
+- Any of these parameters that would render as nothing (no accession and an empty name), an agreed encoding included, gives Null.
 
 ```yaml
 {term: {value: {field: d.quantification_unit}}}
@@ -492,6 +492,7 @@ A mapping file is rejected, naming the JSON pointer of the offending node, when:
 - it does not satisfy `mapping.schema.json`;
 - a `pos`, `{x#}` or column `{x#}` names a variable that no enclosing form binds;
 - a `ref` names no `let` entry;
+- a `let` name is `params`, a top-level instance key or a vocabulary group id;
 - a `match` regex does not compile or lacks its group;
 - a `format` template uses an argument it is not given, or holds a lone `{` or `}`;
 - a literal holds a boolean;

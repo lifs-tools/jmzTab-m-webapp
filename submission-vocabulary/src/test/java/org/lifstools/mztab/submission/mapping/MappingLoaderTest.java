@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class MappingLoaderTest {
 
@@ -101,6 +102,14 @@ class MappingLoaderTest {
                 .hasMessageContaining("/target");
         assertThatThrownBy(() -> parse(input.replace("kind: input", "kind: output"))).isInstanceOf(InvalidMappingException.class)
                 .hasMessageContaining("target");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"study", "params", "datasets", "template", "runs"})
+    void aLetNameNeverShadows(String name) {
+        assertThatThrownBy(() -> parse(HEAD + "let:\n  " + name + ": {literal: 1}\n")).isInstanceOf(InvalidMappingException.class)
+                .hasMessageContaining("/let").hasMessageContaining("'" + name + "'");
+        assertThat(parse(HEAD + "let:\n  dataset: {literal: 1}\n").let()).containsOnlyKeys("dataset");
     }
 
     @Test

@@ -28,7 +28,7 @@
     },
     "let": {
       "type": "object",
-      "propertyNames": {"$ref": "#/$defs/name"},
+      "propertyNames": {"$ref": "#/$defs/letName"},
       "additionalProperties": {"$ref": "#/$defs/expr"}
     },
     "metadata": {"type": "array", "items": {"$ref": "#/$defs/metadataRule"}},
@@ -47,6 +47,11 @@
   "$defs": {
     "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
     "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "letName": {
+      "description": "A let name never shadows: it is not params, a top-level key of the vocabulary instance, or a vocabulary group id.",
+      "allOf": [{"$ref": "#/$defs/name"}],
+      "not": {"enum": ["params", "template", "study", "contacts", "datasets", "samples", "factors", "lipids", "quantities", "runs", "issues"]}
+    },
     "variable": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "not": {"const": "params"}},
     "metadataRule": {
       "if": {"type": "object", "required": ["each"]},
