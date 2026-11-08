@@ -476,7 +476,7 @@ groups:
         label: "Internal standard?"
         required: false
         list: "yes_no"
-        mztab: "opt_global_internal_standard (T25)"
+        mztab: "opt_global_internal_standard"
         help: "'yes' for internal standards that are part of the quantities (kept and annotated, P6). If your lab removed them after quantification, there is nothing to mark."
         example: "no"
       - id: "identification_level"

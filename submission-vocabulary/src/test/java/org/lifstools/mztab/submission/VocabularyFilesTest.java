@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class VocabularyFilesTest {
@@ -34,6 +36,11 @@ class VocabularyFilesTest {
     private static final String ROOT = "/submission-vocabulary/";
     private static final YAMLMapper YAML = new YAMLMapper();
     private static final ObjectMapper JSON = new ObjectMapper();
+    /**
+     * The mzTab-M hints that differ from v3 3.0.0, by group and field id: an internal note was dropped from the hint.
+     * The hints are informative; the output mapping defines what is written.
+     */
+    private static final Map<String, String> AMENDED_HINTS = Map.of("lipids.internal_standard", "opt_global_internal_standard");
 
     private static JsonNode yaml(String path) throws IOException {
         try (InputStream in = VocabularyFilesTest.class.getResourceAsStream(ROOT + path)) {
@@ -75,11 +82,19 @@ class VocabularyFilesTest {
             }
         });
         assertThat(actual).containsExactlyElementsOf(expected);
-        // each field has exactly the keys and values of the v3 schema
+        // each field has exactly the keys and values of the v3 schema, apart from the amended mzTab-M hints
         JsonNode v3;
         try (InputStream in = getClass().getResourceAsStream("/v3-sheets.json")) {
             v3 = JSON.readTree(in);
         }
+        AMENDED_HINTS.forEach((field, hint) -> {
+            String[] gf = field.split("\\.");
+            v3.get(gf[0]).forEach(f -> {
+                if (f.get("id").asText().equals(gf[1])) {
+                    ((ObjectNode) f).put("mztab", hint);
+                }
+            });
+        });
         v3.fields().forEachRemaining(g -> {
             JsonNode fields = vocab.get(g.getKey()).get("fields");
             assertThat(fields.size()).as(g.getKey()).isEqualTo(g.getValue().size());

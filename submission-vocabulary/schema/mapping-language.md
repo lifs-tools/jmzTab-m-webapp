@@ -2,6 +2,8 @@
 
 This document is normative. A mapping file connects an input format to the submission vocabulary (an input mapping) or the vocabulary to an output format (an output mapping). It is plain YAML. `mapping.schema.json` (JSON Schema draft 2020-12) describes its shape, and this document defines what it means.
 
+The `mztab:` hint of a field in `vocabulary/vocabulary.yaml` is informative: it tells a reader where the field usually ends up in mzTab-M. What an engine writes is defined by the output mapping (e.g. `mappings/output/mztab-2.0.0-M.yaml`) alone, which is normative; where the two disagree, the output mapping is right.
+
 The language has only the expression forms and rule kinds listed here, and only the named functions listed under [`fn`](#fn). Adding either is a change of the language and of its documentation.
 
 Python behaviour is cited from lipidcompass-submissions commit bb8dcbf: `conv:NNN` is a line of `tools/convert_submission_template.py`, and `identifiers.py` is `src/curation/identifiers.py`. Python's numbers are those of CPython 3.12 or later.
@@ -46,7 +48,7 @@ parameters: [study_id, dataset_id, dataset_index]
 cvs:
   NCBITaxon: {full-name: NCBI organismal classification, version: "2026-07-12", uri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"}
 let:
-  dataset: {find: {in: {field: datasets}, as: d, where: {eq: [{field: d.dataset_id}, {field: params.dataset_id}]}}}
+  dataset: {at: {list: {field: datasets}, index: {field: params.dataset_index}}}
 metadata:
   - key: mzTab-version
     value: {literal: 2.0.0-M}
@@ -69,7 +71,7 @@ An expression evaluates to one of these values:
 | Param | A parameter: cv, accession, name and value. |
 | Ref | A reference to an element of the output by kind and name, e.g. the sample called `P001`. The engine that writes the output decides its index. |
 
-The instance is the vocabulary instance as JSON (design §5.2). JSON integers stay integers and JSON floats stay floats: `45` is an Int and `45.0` a Dbl. A JSON boolean becomes the text `true` or `false`.
+The instance is the vocabulary instance as JSON: an object with the vocabulary's groups as its keys. JSON integers stay integers and JSON floats stay floats: `45` is an Int and `45.0` a Dbl. A JSON boolean becomes the text `true` or `false`.
 
 **Empty.** Null, the text `""`, an empty list and an empty object are empty. Every other value is not empty; numbers, 0 included, are never empty.
 
@@ -362,7 +364,7 @@ The first item of `in` for which `where` holds, with the item bound to `as`, or 
 Every item of `in` for which `where` holds, with the item bound to `as`.
 
 ```yaml
-{filter: {in: {field: lipids}, as: l, where: {eq: [{field: l.dataset_id}, {field: params.dataset_id}]}}}
+{filter: {in: {field: lipids}, as: l, where: {eq: [{field: l.dataset_id}, {field: dataset.dataset_id}]}}}
 ```
 
 ### term
@@ -569,6 +571,8 @@ An engine writes a rule's value into a cell as follows (`conv:112-126` and `conv
 - **List:** its items rendered and joined with `|`, empty ones left out.
 - **Null:** the line is not written. In a table cell, Null is an error: use [`number`](#number) to write `null`.
 - **Obj:** an error.
+
+Only text is normalised. The other parts of a cell, such as a parameter's cv and accession, and the keys and column headers a rule writes, are written verbatim. When a verbatim part holds a tab, CR or LF, which would split the cell or the line, the engine refuses to write it and the application fails with an error naming the key or column.
 
 ## Errors
 

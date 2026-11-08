@@ -11,6 +11,21 @@
     <name>Submission vocabulary.</name>
     <description>The public, versioned submission vocabulary (field dictionary and value lists) of the LipidCompass submission template, with JSON Schemas and a loader.</description>
 
+    <licenses>
+        <license>
+            <name>CC-BY-4.0</name>
+            <url>https://creativecommons.org/licenses/by/4.0/legalcode</url>
+            <distribution>repo</distribution>
+            <comments>The vocabulary, its lists, schemas, mappings and examples (submission-vocabulary/ in the jar).</comments>
+        </license>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+            <comments>The Java code.</comments>
+        </license>
+    </licenses>
+
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

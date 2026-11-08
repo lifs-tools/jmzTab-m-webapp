@@ -10,8 +10,9 @@
 # A sample, a run and an assay are written for each sample of the dataset's quantities, in their order (conv:223-251).
 # Runs and assays are written over the same list, so the engine pairs ms_run[n] with the assay that names it.
 #
-# Not made (allowed for N-1, R19): conv:358-359 '<name>' does not parse with Goslin; conv:383-390 the counts of lipids
-# without an identification level. conv:241-242 is replaced by the engine's null-location note (N13).
+# Not made, and not needed for conformance: the notes of conv:358-359 ('<name>' does not parse with Goslin) and
+# conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
+# engine's note on runs whose location is null.
 id: mztab-2.0.0-M
 version: 1.0.0
 kind: output
@@ -97,7 +98,7 @@ let:
   # Converter.study_variables (conv:333-340): one study group per combination of the primary factors' values
   groups: {fn: {name: factor-combinations, args: [{field: dataset.quantities.samples}, {field: samples}, {field: factors}]}}
 
-  # conv:240, as N13 has it: the dataset's raw data link, else the study's first repository link, else null
+  # conv:240, never a file:// location: the dataset's raw data link, else the study's first repository link, else null
   location:
     first:
       - {field: dataset.raw_data_location}
