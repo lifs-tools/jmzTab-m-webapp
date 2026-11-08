@@ -22,7 +22,7 @@ The mzTab-M side lives in `engine-core-src`. It turns evaluated rules into lines
 - **Vocabulary 1.0.0** contains every v3 sheet and field id unchanged. New groups and fields are additive and optional (N15).
 - **What the workbook renders:** only the groups with `workbook: true` (N15).
 - **Licence:** data files under `submission-vocabulary/` are CC-BY-4.0. The Java code is Apache-2.0.
-- **Expressions and functions:** only the expression forms in `schema/mapping-language.md` (design §5.3, as amended 2026-11-08) and the named functions `goslin-parse`, `factor-combinations`, `formula-check` and `index-allocate`. Adding either is a design change.
+- **Expressions and functions:** only the expression forms in `schema/mapping-language.md` (design §5.3, as amended 2026-11-08) and the named functions `goslin-parse`, `factor-combinations`, `formula-check` and `index-allocate`. Adding either is a design change. (Amended 2026-11-08, final N-1 review: `index-allocate` is reserved, not required for vocabulary 1.0.0 conformance, and refused by the loader; index allocation is done by `ref-to` and the applier, design §5.3 and §5.7.)
 - **mzTab-M keys are read and written only in the engines** (engines design §2, N7).
 - **An engine applies only output mappings whose `target` is one of its own mzTab-M versions.** Otherwise it answers 400.
 - **`ms_run[n]-location` without a runs group:** the dataset's `raw_data_location`, else the study's first `repository_links` entry, else `null`, plus a note. Never `file://<sample>` (N13). The v3 example has a repository link, so its output equals the converter's.

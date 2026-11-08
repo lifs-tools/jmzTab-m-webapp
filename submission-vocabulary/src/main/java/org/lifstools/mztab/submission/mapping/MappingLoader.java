@@ -51,6 +51,8 @@ public final class MappingLoader {
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9.-]*");
     private static final Pattern KEY_PLACEHOLDER = Pattern.compile("\\{([^{}]*)\\}");
     private static final Pattern FORMAT_PLACEHOLDER = Pattern.compile("\\{\\{|\\}\\}|\\{(\\d+)(?::(0?)(\\d+))?\\}|[{}]");
+    /** Function names the schema accepts but the mapping language reserves without defining them. */
+    private static final Set<String> RESERVED_FUNCTIONS = Set.of("index-allocate");
     private static final YAMLMapper YAML = YAMLMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
     /** Guarded by the class: see {@link #schema()}. */
     private static JsonSchema schema;
@@ -358,7 +360,14 @@ public final class MappingLoader {
                 case "aggregate" -> new Expr.Aggregate(Expr.AggregateFunction.valueOf(a.get("fn").asText().toUpperCase(Locale.ROOT)),
                         expr(a.get("values"), p + "/values"));
                 case "ref-to" -> new Expr.RefTo(a.get("element").asText(), expr(a.get("name"), p + "/name"));
-                case "fn" -> new Expr.Fn(a.get("name").asText(), a.has("args") ? exprs(a.get("args"), p + "/args") : List.of());
+                case "fn" -> {
+                    String name = a.get("name").asText();
+                    if (RESERVED_FUNCTIONS.contains(name)) {
+                        throw new InvalidMappingException(p + "/name: " + name
+                                + " is reserved: it is not defined in this version of the mapping language");
+                    }
+                    yield new Expr.Fn(name, a.has("args") ? exprs(a.get("args"), p + "/args") : List.of());
+                }
                 default -> throw new InvalidMappingException(at + ": unknown expression " + form);
             };
         }

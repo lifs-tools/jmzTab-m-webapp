@@ -344,12 +344,12 @@ How each one addresses its input:
 
 The mapping language's documentation (`schema/mapping-language.md`) is the normative list.
 
-**Named functions.** These are the documented set; an implementation must provide all of them to be conformant.
+**Named functions.** These are the documented set; an implementation must provide all of them to be conformant, except a reserved one.
 
 - `goslin-parse`: a lipid name to its normalised name, formula and mass. The mass is the sum of the element masses with compensated (Neumaier) summation, as pygoslin computes it under Python 3.12 or later.
 - `factor-combinations`: the study groups as the combinations of the primary factors' values, with their members, as the v3 converter forms them [added, evidence].
 - `formula-check`: a stated sum formula checked against the parsed name, as the v3 converter does [added, evidence].
-- `index-allocate` (§5.7).
+- `index-allocate` (§5.7): **reserved** (amended 2026-11-08, final N-1 review). It was never defined or implemented, and index allocation needs no function: `ref-to` names the element and the engine's applier gives it its index (§5.7). It is therefore not one of the functions required for vocabulary 1.0.0 conformance, and a mapping that calls it is refused when it is loaded. A later minor version of the mapping language may define it.
 
 **Conformance examples.** Each mapping ships with pairs of an input and the mzTab-M lines it should produce. The v3 example workbook is the first; a checklist export is the second. An implementation that produces the same lines, compared after normalising the order of metadata lines, is conformant.
 

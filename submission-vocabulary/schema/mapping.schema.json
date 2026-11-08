@@ -226,7 +226,10 @@
         "fn": {
           "type": "object", "required": ["name"], "additionalProperties": false,
           "properties": {
-            "name": {"enum": ["goslin-parse", "factor-combinations", "formula-check", "index-allocate"]},
+            "name": {
+              "$comment": "index-allocate is reserved: not defined in this version of the mapping language, and a loader refuses a mapping that calls it.",
+              "enum": ["goslin-parse", "factor-combinations", "formula-check", "index-allocate"]
+            },
             "args": {"$ref": "#/$defs/exprs"}
           }
         }

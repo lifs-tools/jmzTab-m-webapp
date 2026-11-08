@@ -497,10 +497,11 @@ A named function with `args`. The functions are exactly these:
 
 - [`goslin-parse`](#goslin-parse);
 - [`factor-combinations`](#factor-combinations);
-- [`formula-check`](#formula-check);
-- `index-allocate`.
+- [`formula-check`](#formula-check).
 
-Each is defined in its own section of this document when it is implemented. An implementation must provide all of them to be conformant. Functions may add notes. A call with the wrong number of arguments is an error.
+Each is defined in its own section of this document. An implementation must provide all of them to be conformant. Functions may add notes. A call with the wrong number of arguments is an error.
+
+The name `index-allocate` is **reserved**. It is not defined in this version of the mapping language and is not one of the functions an implementation must provide for vocabulary 1.0.0. A mapping that calls it is an error when it is loaded. Indexes are given to the elements a mapping writes by [`ref-to`](#ref-to) and the engine that writes the output.
 
 ```yaml
 {fn: {name: goslin-parse, args: [{field: lipid}]}}
@@ -581,6 +582,7 @@ A mapping file is rejected, naming the JSON pointer of the offending node, when:
 - a `match` regex does not compile or lacks its group;
 - a `format` template uses an argument it is not given, or holds a lone `{` or `}`;
 - a literal holds a boolean;
+- an `fn` calls the reserved function `index-allocate`;
 - its `id` or `kind` differs from its file name or folder.
 
 Applying a form to the wrong kind of value is an error at run time. Examples are a list where a text is needed, or a number for `aggregate` that is a text.

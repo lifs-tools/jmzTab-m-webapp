@@ -130,6 +130,17 @@ class MappingLoaderTest {
     }
 
     @Test
+    void theReservedFunctionIndexAllocateIsRejected() {
+        assertThatThrownBy(() -> parse(HEAD + "metadata: [{key: k, value: {fn: {name: index-allocate, args: [{literal: sample}]}}}]\n"))
+                .isInstanceOf(InvalidMappingException.class)
+                .hasMessageContaining("/metadata/0/value/fn/name")
+                .hasMessageContaining("index-allocate is reserved");
+        assertThatThrownBy(() -> parse(HEAD + "let:\n  i: {first: [{fn: {name: index-allocate}}]}\n"))
+                .isInstanceOf(InvalidMappingException.class)
+                .hasMessageContaining("/let/i/first/0/fn/name");
+    }
+
+    @Test
     void idsMayHoldUpperCase() {
         assertThat(parse(HEAD.replace("id: t", "id: mztab-2.0.0-M")).id()).isEqualTo("mztab-2.0.0-M");
     }
