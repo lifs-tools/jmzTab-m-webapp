@@ -165,6 +165,7 @@ public final class MappingApplier {
                     written.add(new KeyValue(key(line.key()), value));
                 }
             }
+            noteNullLocations(written);
             if (request.provenance()) {
                 Provenance.Entry p = Provenance.of(copy, written, vocabulary().version(), mapping,
                         request.inputMapping());
@@ -185,6 +186,23 @@ public final class MappingApplier {
                 edits.add(new LineEdit.InsertLine(inserts.get(i).anchor() + i + 1L, inserts.get(i).text()));
             }
             return new MappingApplyResult(edits, suggestions, notes.all(), applied(edits));
+        }
+
+        /**
+         * One note naming every run written with the location {@code null} (N13): no data file, raw data link or
+         * repository link located it.
+         */
+        private void noteNullLocations(List<KeyValue> written) {
+            List<String> runs = new ArrayList<>();
+            for (KeyValue kv : written) {
+                Matcher m = CopyIndex.INDEXED.matcher(kv.key());
+                if (m.matches() && "ms_run".equals(m.group(1)) && "-location".equals(m.group(3)) && "null".equals(kv.value())) {
+                    runs.add(m.group(2));
+                }
+            }
+            if (!runs.isEmpty()) {
+                notes.add("ms_run[" + String.join(",", runs) + "]-location is null: no raw data link or repository link was given");
+            }
         }
 
         // -----------------------------------------------------------------------------------------------------------

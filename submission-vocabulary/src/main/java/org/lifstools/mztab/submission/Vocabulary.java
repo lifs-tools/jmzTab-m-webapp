@@ -132,6 +132,11 @@ public final class Vocabulary {
         return version;
     }
 
+    /** The groups, in the order the vocabulary lists them. */
+    public List<Group> groups() {
+        return List.copyOf(groups.values());
+    }
+
     /** The group with the given id, e.g. {@code study}. */
     public Group group(String id) {
         Group g = groups.get(id);

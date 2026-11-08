@@ -198,9 +198,26 @@ public final class MappingLoader {
                     tables.add(table(n.get("tables").get(i), "/tables/" + i));
                 }
             }
+            List<Mapping.Sheet> sheets = new ArrayList<>();
+            if (n.has("sheets")) {
+                n.get("sheets").forEach(s -> sheets.add(sheet(s)));
+            }
             return new Mapping(n.get("id").asText(), n.get("version").asText(),
                     Mapping.Kind.valueOf(n.get("kind").asText().toUpperCase(Locale.ROOT)), n.get("vocabulary").asText(),
-                    n.has("target") ? n.get("target").asText() : null, parameters, cvs, let, metadata, tables);
+                    n.has("target") ? n.get("target").asText() : null, parameters, cvs, let, metadata, tables, sheets);
+        }
+
+        private static Mapping.Sheet sheet(JsonNode s) {
+            LinkedHashMap<String, String> columns = new LinkedHashMap<>();
+            if (s.has("columns")) {
+                s.get("columns").properties().forEach(c -> columns.put(c.getKey(), c.getValue().asText()));
+            }
+            return new Mapping.Sheet(text(s, "sheet"), text(s, "named-by"), s.get("group").asText(), s.get("layout").asText(),
+                    columns, text(s, "factor-columns"));
+        }
+
+        private static String text(JsonNode n, String key) {
+            return n.has(key) ? n.get(key).asText() : null;
         }
 
         private List<Mapping.MetadataRule> metadataRules(JsonNode rules, String at) {

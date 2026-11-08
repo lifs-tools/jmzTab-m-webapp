@@ -600,7 +600,8 @@ LipidCompass reads 2.0 only (jmzTab-m 1.0.6), so files meant for it are 2.0 unti
 - **Requirement sources:** the N14 check. No vocabulary requirement level may disagree with a profile rule on the same path.
 - **v3 equivalence.** The v3 example workbook goes through the `v3-workbook` input mapping and the 2.0 output mapping in the 2.0 engine. The result must equal a **checked-in golden output** of `convert_submission_template.py`, after normalising line order. The allowed differences are listed next to the test:
   - `ms_run[n]-location` (N13);
-  - the provenance entries (§5.3).
+  - the provenance entries (§5.3);
+  - converter notes (conv stderr) are not compared; the engine and the mapping's functions give their own notes.
 
   The golden output is refreshed when the converter changes. Both outputs validate with jmzTab-m with no errors.
 - **v3 reading:** the rebuilt schema JSON equals the committed one apart from `template.vocabulary`, and it reads the four filled workbooks and the example with output identical to today's reader.

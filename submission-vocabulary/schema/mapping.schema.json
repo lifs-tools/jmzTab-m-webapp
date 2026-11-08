@@ -32,12 +32,13 @@
       "additionalProperties": {"$ref": "#/$defs/expr"}
     },
     "metadata": {"type": "array", "items": {"$ref": "#/$defs/metadataRule"}},
-    "tables": {"type": "array", "items": {"$ref": "#/$defs/table"}}
+    "tables": {"type": "array", "items": {"$ref": "#/$defs/table"}},
+    "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet"}}
   },
   "allOf": [
     {
       "if": {"properties": {"kind": {"const": "output"}}, "required": ["kind"]},
-      "then": {"required": ["target"]}
+      "then": {"required": ["target"], "properties": {"sheets": false}}
     },
     {
       "if": {"properties": {"kind": {"const": "input"}}, "required": ["kind"]},
@@ -51,6 +52,25 @@
       "description": "A let name never shadows: it is not params, a top-level key of the vocabulary instance, or a vocabulary group id.",
       "allOf": [{"$ref": "#/$defs/name"}],
       "not": {"enum": ["params", "template", "study", "contacts", "datasets", "samples", "factors", "lipids", "quantities", "runs", "issues"]}
+    },
+    "sheet": {
+      "description": "A sheet an input mapping reads: by its name, or named by the value of a field, one sheet per record of that field's group.",
+      "type": "object",
+      "required": ["group", "layout"],
+      "additionalProperties": false,
+      "oneOf": [{"required": ["sheet"]}, {"required": ["named-by"]}],
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1},
+        "named-by": {"type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"},
+        "group": {"$ref": "#/$defs/name"},
+        "layout": {"$ref": "#/$defs/name"},
+        "columns": {
+          "type": "object",
+          "propertyNames": {"minLength": 1},
+          "additionalProperties": {"$ref": "#/$defs/name"}
+        },
+        "factor-columns": {"$ref": "#/$defs/name"}
+      }
     },
     "variable": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "not": {"const": "params"}},
     "metadataRule": {

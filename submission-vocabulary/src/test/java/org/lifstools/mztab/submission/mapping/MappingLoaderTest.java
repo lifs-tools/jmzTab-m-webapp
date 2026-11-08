@@ -104,6 +104,23 @@ class MappingLoaderTest {
                 .hasMessageContaining("target");
     }
 
+    @Test
+    void anInputMappingListsItsSheetsAndAnOutputMappingHasNone() {
+        String input = "id: t\nversion: 1.0.0\nkind: input\nvocabulary: 1.0.0\nsheets:\n"
+                + "  - {sheet: Samples, group: samples, layout: table_sheets, columns: {sample_name: sample_name}, factor-columns: factors}\n"
+                + "  - {named-by: datasets.quantities_sheet, group: quantities, layout: quantities_sheets}\n";
+        assertThat(parse(input).sheets()).containsExactly(
+                new Mapping.Sheet("Samples", null, "samples", "table_sheets",
+                        new java.util.LinkedHashMap<>(java.util.Map.of("sample_name", "sample_name")), "factors"),
+                new Mapping.Sheet(null, "datasets.quantities_sheet", "quantities", "quantities_sheets",
+                        new java.util.LinkedHashMap<>(), null));
+        // a sheet is named or named by a field, not both
+        assertThatThrownBy(() -> parse(input.replace("{named-by:", "{sheet: Q, named-by:"))).isInstanceOf(InvalidMappingException.class)
+                .hasMessageContaining("/sheets/1");
+        assertThatThrownBy(() -> parse(HEAD + "sheets: []\n")).isInstanceOf(InvalidMappingException.class)
+                .hasMessageContaining("sheets");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"study", "params", "datasets", "template", "runs"})
     void aLetNameNeverShadows(String name) {

@@ -1,0 +1,109 @@
+# The v3 submission workbook (LipidCompass submission template 3.0.0) read into the submission vocabulary 1.0.0.
+# One to one: every column id in the workbook is the vocabulary field id it fills. The layouts are the vocabulary's
+# conventions. tools/read_submission_template.py of lipidcompass-submissions (bb8dcbf) reads workbooks this way, and
+# examples/v3-example/instance.json is what it reads from the example workbook.
+id: v3-workbook
+version: 1.0.0
+kind: input
+vocabulary: 1.0.0
+sheets:
+  - sheet: Study
+    group: study
+    layout: study_sheet
+    columns:
+      study_title: study_title
+      study_description: study_description
+      study_type: study_type
+      publication_doi: publication_doi
+      related_dois: related_dois
+      pubmed_id: pubmed_id
+      licence: licence
+      access_conditions: access_conditions
+      embargo_until: embargo_until
+      repository_links: repository_links
+      lipidomics_checklist_doi: lipidomics_checklist_doi
+      lipid_nomenclature: lipid_nomenclature
+      submitter_comment: submitter_comment
+      lcs_id: lcs_id
+  - sheet: Contacts
+    group: contacts
+    layout: table_sheets
+    columns:
+      name: name
+      email: email
+      affiliation: affiliation
+      orcid: orcid
+      role: role
+  - sheet: Datasets
+    group: datasets
+    layout: table_sheets
+    columns:
+      dataset_id: dataset_id
+      dataset_title: dataset_title
+      dataset_description: dataset_description
+      dataset_content: dataset_content
+      laboratory: laboratory
+      quantities_sheet: quantities_sheet
+      quantities_layout: quantities_layout
+      extraction_method: extraction_method
+      sample_preparation: sample_preparation
+      separation_method: separation_method
+      column: column
+      separation_details: separation_details
+      instrument_name: instrument_name
+      ion_source: ion_source
+      analyzer: analyzer
+      detector: detector
+      scan_polarity: scan_polarity
+      acquisition_mode: acquisition_mode
+      dissociation_method: dissociation_method
+      acquisition_software: acquisition_software
+      acquisition_software_version: acquisition_software_version
+      processing_software: processing_software
+      processing_software_version: processing_software_version
+      identification_database: identification_database
+      id_confidence_measure: id_confidence_measure
+      identification_reliability: identification_reliability
+      quantification_method: quantification_method
+      quantification_unit: quantification_unit
+      data_processing_level: data_processing_level
+      internal_standards: internal_standards
+      missing_value_encoding: missing_value_encoding
+      raw_data_location: raw_data_location
+      dataset_comment: dataset_comment
+  - sheet: Samples
+    group: samples
+    layout: table_sheets
+    factor-columns: factors
+    columns:
+      sample_name: sample_name
+      sample_type: sample_type
+      species: species
+      tissue: tissue
+      cell_type: cell_type
+      disease: disease
+      sex: sex
+      age: age
+      sample_description: sample_description
+  - sheet: Factors
+    group: factors
+    layout: table_sheets
+    columns:
+      factor_name: factor_name
+      factor_term: factor_term
+      unit: unit
+      primary: primary
+      factor_description: factor_description
+  - sheet: Lipids
+    group: lipids
+    layout: table_sheets
+    columns:
+      dataset_id: dataset_id
+      lipid_name: lipid_name
+      sum_formula: sum_formula
+      internal_standard: internal_standard
+      identification_level: identification_level
+      lipid_comment: lipid_comment
+  - named-by: datasets.quantities_sheet
+    group: quantities
+    layout: quantities_sheets

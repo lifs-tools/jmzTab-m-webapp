@@ -1,0 +1,19 @@
+# One run and one assay per sample; a run's location is the sample's, else null (N13).
+id: runs
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+metadata:
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "ms_run[{s#}]-location"
+        value: {first: [{field: s.location}, {literal: "null"}]}
+  - each: {field: samples}
+    as: a
+    lines:
+      - key: "assay[{a#}]"
+        value: {field: a.sample_name}
+      - key: "assay[{a#}]-ms_run_ref"
+        value: {ref-to: {element: ms_run, name: {field: a.sample_name}}}

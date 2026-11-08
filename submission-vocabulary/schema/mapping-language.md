@@ -11,6 +11,7 @@ Python behaviour is cited from lipidcompass-submissions commit bb8dcbf: `conv:NN
 - [Files](#files)
 - [Values](#values)
 - [Rules](#rules): [line](#line), [each](#each), [table](#table), [column](#column), [each column](#each-column)
+- [Sheets](#sheets)
 - [Expressions](#expressions)
 - [Cell rendering](#cell-rendering)
 - [Errors](#errors)
@@ -31,8 +32,9 @@ A mapping lives in `mappings/input/<id>.yaml` or `mappings/output/<id>.yaml`, wh
 | `let` | no | Named values: name to expression. A name never shadows: it is not `params`, not a top-level key of the vocabulary instance (`template`, `study`, `contacts`, `datasets`, `samples`, `factors`, `lipids`, `issues`) and not a vocabulary group id (`quantities`, `runs`). |
 | `metadata` | output only | Metadata rules. |
 | `tables` | output only | Table rules. |
+| `sheets` | input only | The [sheets](#sheets) of a workbook the mapping reads. |
 
-The body of an input mapping is not defined yet: an input mapping has only the keys common to both kinds.
+An output mapping has no `sheets`, and an input mapping has no `target`, `metadata` or `tables`.
 
 ```yaml
 id: mztab-2.0.0-M
@@ -157,6 +159,32 @@ An `each` in `columns` writes its `columns` for every item of a list, bound to `
     - header: "abundance_assay[{assay#}]"
       value: {number: {at: {list: {at: {list: {field: dataset.quantities.values}, index: {pos: assay}}}, index: {pos: lipid}}}}
 ```
+
+## Sheets
+
+An input mapping that reads a workbook lists its sheets. Each sheet fills one vocabulary group:
+
+| Key | Required | Meaning |
+|---|---|---|
+| `sheet` | one of `sheet` and `named-by` | The sheet's name. |
+| `named-by` | one of `sheet` and `named-by` | A field, `<group>.<field>`, whose value names the sheet: there is one such sheet for each record of that group. |
+| `group` | yes | The vocabulary group the sheet fills. |
+| `layout` | yes | How the sheet is laid out: a key of the vocabulary's `conventions`, e.g. `table_sheets`. |
+| `columns` | no | The field id each column fills, by the column's id in the sheet (for the `study_sheet` layout, the id in column A). A layout that fixes the sheet's content, such as `quantities_sheets`, has none. |
+| `factor-columns` | no | The member of each record that the factor columns fill, as the convention `samples_factor_columns` lays them out. |
+
+```yaml
+sheets:
+  - sheet: Contacts
+    group: contacts
+    layout: table_sheets
+    columns: {name: name, email: email, affiliation: affiliation, orcid: orcid, role: role}
+  - named-by: datasets.quantities_sheet
+    group: quantities
+    layout: quantities_sheets
+```
+
+How a layout is read, and how a cell becomes a value (for example `'label [ACCESSION]'` as a CV term, convention `cv_value`), is defined by the vocabulary's `conventions`.
 
 ## Expressions
 
