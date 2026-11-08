@@ -163,11 +163,17 @@ class MappingApplierTest {
                 "{\"samples\":[{\"sample_name\":\" \",\"species\":" + HOMO_SAPIENS + "}]}", copy, false), TWO_ZERO);
         assertThat(samples.text()).startsWith(copy + "MTD\tsample[2]-species[1]\t[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]\n");
         assertThat(samples.edits()).allMatch(e -> e instanceof LineEdit.InsertLine);
-        // a reference without a name gets an index of its own instead of failing the whole application
+        // a reference without a name refers to nothing: its line is not written, and no line names an unwritten index
         MappingApplyResult refs = applier().apply(request("merge",
-                "{\"samples\":[{\"species\":" + HOMO_SAPIENS + ",\"raw\":\"file:///x.mzML\"}]}", "", false), TWO_ZERO);
+                "{\"samples\":[{\"species\":" + HOMO_SAPIENS + ",\"raw\":\"file:///x.mzML\"},"
+                + "{\"sample_name\":\"P002\",\"species\":" + HOMO_SAPIENS + ",\"raw\":\"file:///y.mzML\"}],"
+                + "\"groups\":[{\"name\":\"all\",\"members\":[null,\"P002\"]},{\"name\":\"none\",\"members\":[null]}]}",
+                "", false), TWO_ZERO);
         assertThat(refs.text()).contains("MTD\tsample[1]-species[1]\t", "MTD\tms_run[1]-location\tfile:///x.mzML\n",
-                "MTD\tassay[1]-sample_ref\tsample[2]\n", "MTD\tassay[1]-ms_run_ref\tms_run[2]\n");
+                "MTD\tsample[2]\tP002\n", "MTD\tassay[2]-sample_ref\tsample[2]\n", "MTD\tassay[2]-ms_run_ref\tms_run[2]\n",
+                "MTD\tstudy_variable[1]-assay_refs\tassay[2]\n", "MTD\tstudy_variable[2]\tnone\n");
+        assertThat(refs.text()).doesNotContain("assay[1]-sample_ref", "assay[1]-ms_run_ref", "study_variable[2]-assay_refs",
+                "sample[3]", "ms_run[3]", "assay[3]");
     }
 
     @Test

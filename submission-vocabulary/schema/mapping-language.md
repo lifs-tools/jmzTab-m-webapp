@@ -457,9 +457,9 @@ A reference to the output element of kind `element` (lower case letters and `_`,
 {ref-to: {element: sample, name: {field: x}}}
 ```
 
-No metadata line names a run, so an engine pairs the runs a mapping writes with the names of its `ref-to ms_run` values by order: the run written as `ms_run[n]` (its key numbered with `{x#}`) is the one with the `n`th distinct name among those references, in order of first reference. Runs and the assays that refer to them must therefore be written over the same list.
+No metadata line names a run, so an engine pairs the runs a mapping writes with the names of its `ref-to ms_run` values by order: the run written as `ms_run[n]` (its key numbered with `{x#}`) is the one with the `n`th distinct name among those references, in order of first reference. A reference without a name (see below) takes a place of its own in that order, so the runs after it keep their pairing. Runs and the assays that refer to them must therefore be written over the same list.
 
-A name that is Null or renders as the empty text names nothing: the element, or the reference, gets a fresh index of its own and never matches an existing element.
+A name that is Null or renders as the empty text names nothing. An element written without a name gets a fresh index of its own and never matches an existing element. A reference without a name refers to nothing and renders as the empty text: a line whose value is such a reference is not written, and in a list (joined with `|`) the item is left out, so a list of only such references writes no line either.
 
 Abundance columns follow the same numbering. An engine writes the column `abundance_assay[n]` with the index of the assay that the metadata writes as `assay[n]`, and `abundance_study_variable[n]` and `abundance_variation_study_variable[n]` with the index of `study_variable[n]`. A table's `each` must therefore number assays and study variables as the metadata's `each` does. An item all of whose metadata values are empty (see [line](#line) and [each](#each)) takes no `{x#}` number there, so the table's `each` must leave it out too, for example with the same `where`.
 

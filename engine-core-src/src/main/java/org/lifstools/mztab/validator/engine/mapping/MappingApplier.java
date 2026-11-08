@@ -20,8 +20,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,7 +52,8 @@ import org.lifstools.mztab.validator.engine.api.SuggestionState;
  * {@code study_variable} by the value of {@code element[n]}, {@code contact} by {@code contact[n]-name}, and
  * {@code ms_run} by the name its references give it. No line names a run, so runs are paired with names by order:
  * the run written as {@code ms_run[n]} is the {@code n}th distinct name among the {@code ref-to ms_run} values, in
- * order of first reference. Runs and the assays that refer to them must therefore be written over the same list.
+ * order of first reference, where a reference without a name takes a place of its own (and its run has no name).
+ * A reference without a name renders empty, so a line holding only such references is not written. Runs and the assays that refer to them must therefore be written over the same list.
  * An element the copy has by that name keeps its index, any other takes the next free one,
  * and every key, reference and abundance column of an element is written with the same index. Other keys keep the
  * index the mapping gives them. Last, the lines are compared with the copy:
@@ -144,8 +143,6 @@ public final class MappingApplier {
         private final Map<String, Integer> indexes = new HashMap<>();
         /** The elements the copy has by name, by their key in the copy, e.g. {@code sample[3]}. */
         private final Set<String> matched = new HashSet<>();
-        /** The indexes of references without a name, by reference (identity: equal references are distinct elements). */
-        private final Map<Value.Ref, Integer> unnamed = new IdentityHashMap<>();
 
         Run(Mapping mapping, MappingApplyRequest request) {
             this.mapping = mapping;
@@ -196,9 +193,11 @@ public final class MappingApplier {
         /** Gives every element the mapping writes or refers to its index, in the order they are written. */
         private void allocate(List<Evaluator.MetadataLine> lines, List<Evaluator.Table> tables) {
             Map<String, String> names = new HashMap<>();
-            List<String> runs = new ArrayList<>(new LinkedHashSet<>(runNames(lines)));
+            List<String> runs = runNames(lines);
             for (int i = 0; i < runs.size(); i++) {
-                names.put("ms_run[" + (i + 1) + "]", runs.get(i));
+                if (runs.get(i) != null) {
+                    names.put("ms_run[" + (i + 1) + "]", runs.get(i));
+                }
             }
             for (Evaluator.MetadataLine line : lines) {
                 Matcher m = CopyIndex.INDEXED.matcher(line.key());
@@ -233,14 +232,26 @@ public final class MappingApplier {
             }
         }
 
-        /** The names the metadata values refer to runs by, in the order written. */
+        /** The cell of a reference: the element with its index, or empty for a reference without a name. */
+        private String ref(Value.Ref ref) {
+            Integer index = index(ref);
+            return index == null ? "" : ref.element() + "[" + index + "]";
+        }
+
+        /**
+         * The runs the metadata values refer to, in order of first reference: each distinct name once, and null for
+         * each reference without a name, which keeps its place so the runs after it pair with the right names.
+         */
         private static List<String> runNames(List<Evaluator.MetadataLine> lines) {
             List<String> names = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
             for (Evaluator.MetadataLine line : lines) {
                 refs(line.value(), ref -> {
-                    String name = name(ref.name());
-                    if ("ms_run".equals(ref.element()) && name != null) {
-                        names.add(name);
+                    if ("ms_run".equals(ref.element())) {
+                        String name = name(ref.name());
+                        if (name == null || seen.add(name)) {
+                            names.add(name);
+                        }
                     }
                 });
             }
@@ -256,17 +267,17 @@ public final class MappingApplier {
         }
 
         /**
-         * The index of the element a reference names. A reference without a name gets a fresh index of its own, the
-         * same each time this reference is rendered.
+         * The index of the element a reference names, or null for a reference without a name: it names no element,
+         * so it renders empty, and a line holding only such references is not written.
          */
-        private int index(Value.Ref ref) {
+        private Integer index(Value.Ref ref) {
             if (!ALLOCATED.contains(ref.element())) {
                 throw new IllegalArgumentException("ref-to " + ref.element() + " is not resolved by this engine; it resolves "
                         + String.join(", ", new TreeSet<>(ALLOCATED)));
             }
             String name = name(ref.name());
             if (name == null) {
-                return unnamed.computeIfAbsent(ref, r -> copy.reserve(r.element()));
+                return null;
             }
             return copy.allocate(ref.element(), name);
         }
@@ -308,7 +319,7 @@ public final class MappingApplier {
                 case Value.Int i -> Numbers.python(i);
                 case Value.Dbl d -> Numbers.python(d);
                 case Value.ParamV p -> Objects.requireNonNullElse(Render.param(p.value()), "");
-                case Value.Ref ref -> ref.element() + "[" + index(ref) + "]";
+                case Value.Ref ref -> ref(ref);
                 case Value.ListV list -> String.join("|", list.value().stream().map(this::cell).filter(c -> !c.isEmpty()).toList());
                 case Value.Obj o -> throw new IllegalArgumentException("An object cannot be written into a cell: " + o);
             };
