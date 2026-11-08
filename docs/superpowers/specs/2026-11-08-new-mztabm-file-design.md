@@ -1,6 +1,6 @@
 # Start a New mzTab-M File — Design
 
-Status: revised 2026-11-08 after a builder check and an evidence review. It builds on:
+Status: revised 2026-11-08 after a builder check and an evidence review; amended 2026-11-08 after the final N-1 review (§5.3 `index-allocate` reserved; §5.7 an entry criterion for N-2). It builds on:
 
 - the editor design (`2026-10-31-mztabm-editor-design.md`, phases 2a–2c);
 - the engines design (`2026-10-30-mztabm-version-engines-design.md`);
@@ -502,6 +502,7 @@ Both are drafted for the lead to file.
 - **CV declarations** follow the parameters: a CV is declared when a parameter uses it, and only then, as in the lipidcompass-submissions #213 fix.
 - **Table columns.** `abundance_assay[n]` and study-variable columns are inserted with `InsertColumn` and `SetCell`, never by reformatting a section.
 - **Undo.** The webapp applies the edits as one batch against the copy's current revision, so undo removes them all at once.
+- **N-2 entry criterion (amended 2026-11-08, final N-1 review).** The engine emits one `InsertLine` per new line, and the server refuses a batch of more than `WorkingCopyEditor.MAX_OPERATIONS` (5,000) operations. A large study, about 300 samples and 3,000 lipids, exceeds it. Before the webapp applies mapping results, N-2 therefore decides between an `InsertLines(before, List<String>)` operation shared by engine-api and the server, and a documented cap on the size of a mapping batch. Splitting the result into several batches is ruled out, because it breaks single-step undo.
 - **Stale suggestions.** If the copy changed since the preview, the batch is refused (409, as for all edits), and the preview is recomputed.
 
 **Validation.** After applying, the copy is validated as after any edit (editor design §5.4). The "still missing" checklist (§5.1) is recomputed from the messages, the profile's rules and the vocabulary's requirement levels (N14).
