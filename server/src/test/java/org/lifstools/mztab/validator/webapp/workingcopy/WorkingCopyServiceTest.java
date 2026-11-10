@@ -330,6 +330,23 @@ class WorkingCopyServiceTest {
         assertEquals(2L, second.messagesRevision());
     }
 
+    /** The revision of the last change after which lines or columns may have moved, for a client that reloads. */
+    @Test
+    void infoSaysWhichRevisionLastMovedLines() throws Exception {
+        UUID id = submit("layout.mzTab", example());
+        assertEquals(0L, copies.create(id, SourceEncoding.UTF_8).layoutRevision());
+        copies.edit(id, batch(0, new SetMetadataValue(3, "no move")));
+        assertEquals(0L, copies.info(id).layoutRevision(), "a value edit moves nothing");
+        copies.edit(id, batch(1, new EditOperation.DeleteLine(5)));
+        assertEquals(2L, copies.info(id).layoutRevision());
+        copies.edit(id, batch(2, new SetMetadataValue(3, "no move either")));
+        assertEquals(2L, copies.info(id).layoutRevision(), "later value edits leave it");
+        copies.undo(id, 3);
+        assertEquals(4L, copies.info(id).layoutRevision(), "an undo may move lines");
+        copies.edit(id, batch(4, new EditOperation.SetRawLine(5, "MTD\tdescription\tx")));
+        assertEquals(5L, copies.info(id).layoutRevision(), "a raw line counts, whatever line it is");
+    }
+
     @Test
     void supersededRunIsMarkedStale() throws Exception {
         UUID id = submit("stale.mzTab", example());

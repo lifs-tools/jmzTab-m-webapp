@@ -193,6 +193,22 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
       expect(store.messageRevision(structural)).toBe(5);
     });
 
+    it('knows a layout change of an earlier session from the first answer on', () => {
+      store.info.set(info(0));
+      expect(store.linesMovedSince(3)).toBe(false);
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe();
+      onePost().flush(info(5, { layoutRevision: 4 }));
+      expect(store.linesMovedSince(3)).toBe(true);
+      expect(store.linesMovedSince(4)).toBe(false);
+    });
+
+    it('a cell edit after the run of a message leaves the lines of the message valid', () => {
+      store.info.set(info(0, { validation: { status: 'DONE', revision: 0, messagesRevision: 0 } as WorkingCopyValidation }));
+      source.applyEdits([{ op: 'SetCell', line: 5, cell: 2, text: 'x' }]).subscribe();
+      onePost().flush(info(1, { validation: { status: 'DONE', revision: 0, messagesRevision: 0 } as WorkingCopyValidation }));
+      expect(store.linesMovedSince(store.messageRevision(structural))).toBe(false);
+    });
+
     it('says whether lines moved since it: after a line move was answered', () => {
       expect(store.linesMovedSince(0)).toBe(false);
       source.applyEdits([{ op: 'DeleteLine', line: 3 }]).subscribe();

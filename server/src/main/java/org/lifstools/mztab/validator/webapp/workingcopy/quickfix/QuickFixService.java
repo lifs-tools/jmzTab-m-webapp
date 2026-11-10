@@ -22,6 +22,8 @@ import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.guidance.Guidance;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyConflictException;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyService;
+import org.lifstools.mztab.validator.webapp.workingcopy.MessageDiff;
+import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyInfo;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyValidation;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyValidation.Status;
 import org.springframework.stereotype.Service;
@@ -58,7 +60,8 @@ public class QuickFixService {
         }
         QuickFix fix = QuickFixes.find(fixId)
             .orElseThrow(() -> new IllegalArgumentException("There is no quick fix " + fixId + "."));
-        WorkingCopyValidation v = copies.info(id).validation();
+        WorkingCopyInfo copy = copies.info(id);
+        WorkingCopyValidation v = copy.validation();
         if (v == null || v.status() != Status.DONE || v.stale()) {
             throw new WorkingCopyConflictException("Validate the current revision first.");
         }
@@ -80,6 +83,12 @@ public class QuickFixService {
             if (group.isEmpty()) {
                 group.add(chosen);
             }
+        }
+        // a structural run keeps the CV messages of the last CV check: after a change they describe an older text
+        boolean cvOutdated = copy.cvCheckedRevision() == null || copy.cvCheckedRevision() != v.revision();
+        if (cvOutdated && (MessageDiff.isCvRule(chosen) || (group != null && group.stream().anyMatch(MessageDiff::isCvRule)))) {
+            throw new WorkingCopyConflictException(
+                "This message is from a check of the CV rules of an older text. Check the CV rules again first.");
         }
         List<ValidationMessage> finalGroup = group;
         return copies.read(id, db -> {

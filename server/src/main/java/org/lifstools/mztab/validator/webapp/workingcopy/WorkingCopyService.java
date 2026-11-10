@@ -490,7 +490,8 @@ public class WorkingCopyService {
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
         // one read: a CV check stores both together
-        String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_CV_REVISION)});
+        String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_CV_REVISION),
+            db.meta(WorkingCopyEditor.LAYOUT_REVISION_KEY)});
         WorkingCopyValidation last = parseValidation(stored[0]);
         WorkingCopyValidation shown = last;
         synchronized (runs) {
@@ -513,7 +514,8 @@ public class WorkingCopyService {
         String version = db.meta(META_VERSION);
         return new WorkingCopyInfo(id, db.meta(META_FILE_NAME), revision,
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
-            expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]));
+            expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]),
+            stored[2] == null ? 0L : Long.parseLong(stored[2]));
     }
 
     /**

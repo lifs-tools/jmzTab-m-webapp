@@ -22,8 +22,8 @@ import {
 
 import { EditBatch } from '../../api/models/edit-batch';
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
-import { ValidationRecord } from '../../api/models/validation-record';
 import { ValidationMessage } from '../../api/models/validation-message';
+import { ValidationRecord } from '../../api/models/validation-record';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { ValidationsService } from '../../api/services/validations.service';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
@@ -583,6 +583,8 @@ export class WorkingCopyStore {
     const shown = this.info();
     if (!force && shown && this.isOlder(info, shown)) return;
     this.info.set(info);
+    // a layout change of an earlier session (or another tab) is known from the first answer on
+    this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.layoutRevision ?? 0);
     const v = info.validation;
     if (v?.status === 'DONE') this.reportReady.set(true);
     // only a run of the CV check asked for here, or a later one; not one that an earlier session left

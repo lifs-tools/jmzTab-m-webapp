@@ -300,12 +300,26 @@ export class EditPage {
     if (!m) return;
     this.selected.set(req.group.key);
     const target = targetOf(m);
-    if (target) this.jump(target, req);
     const line = m.line_number;
+    const readAt = this.store.messageRevision(m);
+    // a row, cell or line of the message is a position of the text it was checked in: after lines or columns
+    // moved it may be another one now, so nothing is marked or opened for it (a metadata key stays valid)
+    const positional = (line != null && line > 0) || (!!target && target.tab !== 'metadata');
+    if (positional && this.store.linesMovedSince(readAt)) {
+      this.metadataHighlight.set(null);
+      this.tableJump.set(null);
+      this.rawLine.set(null);
+      this.inspection++;
+      this.shownReadAt = readAt;
+      this.shownLine.set(line != null && line > 0 ? line : null);
+      this.store.notices.next(LINES_MOVED_NOTICE);
+      return;
+    }
+    if (target) this.jump(target, req);
     if (line != null && line > 0) {
       this.shownLine.set(line);
-      this.shownReadAt = this.store.messageRevision(m);
-      this.inspect(line, !target, this.shownReadAt);
+      this.shownReadAt = readAt;
+      this.inspect(line, !target, readAt);
     } else {
       this.shownLine.set(null);
       this.rawLine.set(null);
@@ -337,11 +351,6 @@ export class EditPage {
    */
   private inspect(n: number, jumpByLine: boolean, readAt: number): void {
     const run = ++this.inspection;
-    // the lines moved after the message was checked: line n may be another line now, so none is opened
-    if (this.store.linesMovedSince(readAt)) {
-      this.rawLine.set(null);
-      return;
-    }
     const id = this.store.id();
     const from = Math.max(1, n - 1);
     this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({

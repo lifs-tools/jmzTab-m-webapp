@@ -3683,6 +3683,10 @@
             "format" : "uuid",
             "type" : "string"
           },
+          "layoutRevision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "lineCount" : {
             "format" : "int64",
             "type" : "integer"

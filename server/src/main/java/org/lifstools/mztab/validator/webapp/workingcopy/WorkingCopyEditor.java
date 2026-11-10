@@ -94,6 +94,21 @@ public final class WorkingCopyEditor {
     record Step(String type, long at, int count, List<StoredLine> lines) {
     }
 
+    /** The key of the revision of the last change after which lines or columns may have moved. */
+    static final String LAYOUT_REVISION_KEY = "layout.revision";
+
+    /**
+     * Whether an operation moves lines or columns, or replaces a raw line (which may be any line): the line numbers
+     * and cell positions read before it may name other places afterwards. The same set as the SPA's LAYOUT_OPS.
+     */
+    static boolean changesLayout(EditOperation op) {
+        return op instanceof EditOperation.InsertLine || op instanceof EditOperation.DeleteLine
+            || op instanceof EditOperation.MoveRow || op instanceof EditOperation.JoinWithPrevious
+            || op instanceof EditOperation.InsertColumn || op instanceof EditOperation.DeleteColumn
+            || op instanceof EditOperation.MergeColumns || op instanceof EditOperation.RenameColumn
+            || op instanceof EditOperation.SplitCells || op instanceof EditOperation.SetRawLine;
+    }
+
     /** Applies the batch to the current revision; returns the new revision. */
     public long apply(WorkingCopyDb db, EditBatch batch) {
         if (batch == null || batch.operations() == null || batch.operations().isEmpty()) {
@@ -120,6 +135,9 @@ public final class WorkingCopyEditor {
             }
             db.addHistory(forward, inverse);
             db.pruneHistory(MAX_UNDO, Math.max(MIN_BUDGET_CHARS, 4 * textChars));
+            if (batch.operations().stream().anyMatch(WorkingCopyEditor::changesLayout)) {
+                db.setMeta(LAYOUT_REVISION_KEY, Long.toString(current + 1));
+            }
             db.setRevision(current + 1);
             return current + 1;
         });
@@ -133,6 +151,7 @@ public final class WorkingCopyEditor {
                 .orElseThrow(() -> new IllegalStateException("There is nothing to undo"));
             play(db, e.inverse());
             db.moveHistory(e.seq(), true);
+            db.setMeta(LAYOUT_REVISION_KEY, Long.toString(current + 1));
             db.setRevision(current + 1);
             return current + 1;
         });
@@ -146,6 +165,7 @@ public final class WorkingCopyEditor {
                 .orElseThrow(() -> new IllegalStateException("There is nothing to redo"));
             play(db, e.forward());
             db.moveHistory(e.seq(), false);
+            db.setMeta(LAYOUT_REVISION_KEY, Long.toString(current + 1));
             db.setRevision(current + 1);
             return current + 1;
         });

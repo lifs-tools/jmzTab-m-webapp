@@ -403,6 +403,8 @@ describe('EditPage', () => {
       answerDocs();
       expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
       expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      // the chip says so at once
+      expect(overlayText()).toContain(LINES_MOVED_NOTICE);
       button(el, 'edit-as-text').click();
       await settle(fixture);
 
@@ -426,6 +428,78 @@ describe('EditPage', () => {
       await settle(fixture);
       expect(el.querySelector('mztabm-raw-line-editor')).toBeTruthy();
       expect(overlayText()).not.toContain(LINES_MOVED_NOTICE);
+    });
+
+    it('a message of a table checked before a line move marks nothing and says so', async () => {
+      const column = msg({
+        code: '[Info-2057] line 80: x',
+        message: '"opt_global_x" is present but the profile "M+S" has no "small molecule feature (SMF)" section.',
+        message_type: 'info',
+        line_number: 80,
+        location: { section: 'sfh', column: 'opt_global_x' },
+      });
+      const shown = done({ messagesRevision: 0, messages: [{ message: column, state: 'OPEN' }] });
+      const { fixture, el } = await open(
+        info({ sections: { metadataLines: 60, sml: { rows: 2, columns: 20 }, smf: { rows: 1, columns: 2 } }, validation: shown }),
+      );
+      const { DocumentSource } = await import('@lifs-tools/mztabm-editor');
+      fixture.debugElement.injector.get(DocumentSource).applyEdits!([{ op: 'DeleteLine', line: 3 }]).subscribe({ error: () => undefined });
+      await settle(fixture);
+      postEdit().flush(info({ revision: 1, canUndo: true, validation: { ...shown, status: 'RUNNING', revision: 1 } }));
+      await settle(fixture);
+
+      chipOf(el, 'SFH · opt_global_x').click();
+      await settle(fixture);
+      answerDocs();
+
+      expect(el.querySelector('#edit-tab-features')?.getAttribute('aria-selected')).not.toBe('true');
+      expect(el.querySelectorAll('.col--hl').length).toBe(0);
+      expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
+      expect(overlayText()).toContain(LINES_MOVED_NOTICE);
+    });
+
+    it('a cell edit after the check of a message moves nothing: the line of the message is still opened', async () => {
+      const { fixture, el } = await open(
+        info({ validation: done({ messagesRevision: 0, messages: [{ message: msg(), state: 'OPEN' }] }) }),
+      );
+      const request = await editThroughSource(fixture);
+      request.flush(info({ revision: 1, canUndo: true, validation: done({ revision: 0, stale: true, messagesRevision: 0, messages: [{ message: msg(), state: 'OPEN' }] }) }));
+      await settle(fixture);
+
+      chipOf(el, 'instrument[1]-detector').click();
+      await settle(fixture);
+      answerDocs();
+      linesReq(23).flush([{ number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' }]);
+      await settle(fixture);
+      expect(button(el, 'edit-as-text')).toBeTruthy();
+      expect(overlayText()).not.toContain(LINES_MOVED_NOTICE);
+    });
+
+    it('a kept CV message is of the revision of its CV check, a structural one of the run that is shown', async () => {
+      const structural = { ...brokenLine };
+      const cv = msg({ category: 'cross_check', code: '[Warn-3014] x', message: 'cv[3] is never used', message_type: 'warn', line_number: 14, location: undefined });
+      // the lines moved at revision 1: the structural run of revision 2 knows, the CV check of revision 0 does not
+      const { fixture, el } = await open(
+        info({
+          revision: 2,
+          layoutRevision: 1,
+          cvCheckedRevision: 0,
+          validation: done({
+            revision: 2,
+            messagesRevision: 2,
+            messages: [{ message: structural, state: 'OPEN' }, { message: cv, state: 'OPEN' }],
+          }),
+        }),
+      );
+      chipOf(el, 'line 14').click();
+      await settle(fixture);
+      expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
+      expect(overlayText()).toContain(LINES_MOVED_NOTICE);
+
+      chipOf(el, 'line 12').click();
+      await settle(fixture);
+      expect(linesReq(11).request.params.get('from')).toBe('11');
+      http.match((r) => r.url.endsWith('working-copies/abc/lines')).forEach((r) => r.flush([]));
     });
 
     it.each([

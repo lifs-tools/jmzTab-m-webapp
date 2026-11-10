@@ -38,8 +38,12 @@ import org.springframework.lang.Nullable;
  * CV messages {@code validation} shows: 0 for the session's own validation with
  * a profile; null if the CV rules have not been checked. Less than
  * {@code revision} if the copy has changed since.
+ * @param layoutRevision the revision produced by the last change after which lines or columns may have moved (a
+ * line or column edit, a raw line, an undo or a redo); 0 if there was none. Line numbers and cell positions read at
+ * an earlier revision may name other places now.
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
-    @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision) {
+    @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision,
+    long layoutRevision) {
 }

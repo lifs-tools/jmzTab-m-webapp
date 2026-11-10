@@ -351,4 +351,35 @@ class QuickFixEngineTest {
         assertThrows(WorkingCopyConflictException.class, () -> fixes.preview(id, "remove-empty-parameter", message, false));
         assertThrows(StaleRevisionException.class, () -> copies.edit(id, preview.batch()));
     }
+
+    /**
+     * A structural run keeps the CV messages of the last CV check. After a change they describe an older text, so
+     * a fix for one is refused until the CV rules are checked again.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aKeptCvMessageOfAnOlderTextHasNoQuickFix(String line) throws Exception {
+        requireEngine(line);
+        String file = "engine-remove-unused-cv.mzTab";
+        UUID id = submit(file, resource(file, line).getBytes(StandardCharsets.UTF_8));
+        copies.create(id, SourceEncoding.UTF_8);
+        int message = indexOf(validate(id, 0, true), "Warn-3014");
+        assertEquals(0L, fixes.preview(id, "remove-unused-cv", message, false).revision(), "current CV check");
+
+        copies.edit(id, new org.lifstools.mztab.validator.webapp.workingcopy.EditBatch(0,
+            List.of(new org.lifstools.mztab.validator.webapp.workingcopy.EditOperation.SetMetadataValue(3, "x"))));
+        int kept = indexOf(validate(id, 1, false), "Warn-3014");
+
+        WorkingCopyConflictException e = assertThrows(WorkingCopyConflictException.class,
+            () -> fixes.preview(id, "remove-unused-cv", kept, false));
+        assertTrue(e.getMessage().contains("Check the CV rules again"), e.getMessage());
+        copies.requestValidation(id, true);
+        Instant end = Instant.now().plus(TIMEOUT);
+        while (!Long.valueOf(1L).equals(copies.info(id).cvCheckedRevision()) && Instant.now().isBefore(end)) {
+            Thread.sleep(50);
+        }
+        assertEquals(1L, copies.info(id).cvCheckedRevision());
+        int fresh = indexOf(copies.info(id).validation(), "Warn-3014");
+        assertEquals(1L, fixes.preview(id, "remove-unused-cv", fresh, false).revision());
+    }
 }
