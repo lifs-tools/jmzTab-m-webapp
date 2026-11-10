@@ -121,6 +121,31 @@ class OpenApiSpecExportTest {
         assertEquals(List.of(), dangling);
     }
 
+    /**
+     * jmzTab-m's descriptions carry hints for its own Java code generator
+     * ({@code x-class-extra-annotation}); they are not part of the HTTP
+     * contract. What a client needs, that a schema's objects are referenced
+     * by id ({@code x-mztab-serialize-by-id}), stays.
+     */
+    @Test
+    void codeGeneratorHintsAreNotPublished() throws Exception {
+        JsonNode schemas = MAPPER.readTree(mvc.perform(get("/v3/api-docs/mztab-m-api"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .path("components").path("schemas");
+        List<String> hinted = new ArrayList<>();
+        schemas.fields().forEachRemaining(e -> {
+            if (e.getValue().has("x-class-extra-annotation")) {
+                hinted.add(e.getKey());
+            }
+        });
+        assertEquals(List.of(), hinted);
+        assertTrue(schemas.path("Sample_2_0").path("x-mztab-serialize-by-id").asBoolean(),
+                "Sample_2_0 no longer says it is referenced by id");
+        assertTrue(schemas.path("Sample_2_1").path("x-mztab-serialize-by-id").asBoolean(),
+                "Sample_2_1 no longer says it is referenced by id");
+    }
+
     private static List<String> anyOfRefs(JsonNode schema) {
         List<String> refs = new ArrayList<>();
         schema.path("anyOf").forEach(s -> refs.add(s.path("$ref").asText()));

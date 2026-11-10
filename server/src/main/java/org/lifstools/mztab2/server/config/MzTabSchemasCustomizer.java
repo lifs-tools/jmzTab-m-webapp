@@ -49,7 +49,8 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
  * {@code MzTab_2_0} and {@code StudyVariable_2_1}, with every reference
  * {@code #/components/schemas/X} inside it rewritten to {@code X_<suffix>}.
  * {@code ValidationMessage}, {@code ValidationLocation} and {@code Error} are
- * left out: the webapp publishes its own messages and errors. The bodies are
+ * left out: the webapp publishes its own messages and errors. So are the hints
+ * for jmzTab-m's Java code generator ({@code x-class-extra-annotation}). The bodies are
  * then {@code anyOf} the {@code MzTab} schemas of the lines: a valid body
  * usually matches both, which {@code oneOf} would reject.
  */
@@ -58,6 +59,11 @@ public class MzTabSchemasCustomizer implements OpenApiCustomizer {
     static final String LOCATION = "/mztab-schemas/";
     static final String REF_PREFIX = "#/components/schemas/";
     static final Set<String> LEFT_OUT = Set.of("ValidationMessage", "ValidationLocation", "Error");
+    /**
+     * Extensions that only tell jmzTab-m's Java code generator what to write
+     * (e.g. the {@code @JsonIdentityInfo} of #194); not part of the contract.
+     */
+    static final Set<String> CODE_GENERATOR_ONLY = Set.of("x-class-extra-annotation");
     /** The lines whose models are published, in the order of the {@code anyOf}s. */
     static final List<String> LINES = List.of("2.0", "2.1");
 
@@ -112,6 +118,9 @@ public class MzTabSchemasCustomizer implements OpenApiCustomizer {
         Map<String, Schema> out = new LinkedHashMap<>();
         schemas.forEach((name, schema) -> {
             if (!LEFT_OUT.contains(name)) {
+                if (schema.getExtensions() != null) {
+                    schema.getExtensions().keySet().removeAll(CODE_GENERATOR_ONLY);
+                }
                 rewriteRefs(schema, rename);
                 out.put(name + suffix, schema);
             }
