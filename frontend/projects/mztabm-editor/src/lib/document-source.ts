@@ -113,6 +113,8 @@ export interface DocDuplicateColumn {
   conflictingRows?: number;
   /** Some of those rows. */
   samples?: DocDuplicateSample[];
+  /** For an editable document: the version the list was read at; edits that resolve it pass it back ({@link DocEditOptions}). */
+  readAt?: number;
 }
 
 /*
@@ -127,6 +129,8 @@ export interface SetCell {
   line: number;
   cell: number;
   text: string;
+  /** The header name the page showed for the column: the edit is refused when the column now has another. */
+  header?: string;
 }
 /** Sets the value (cell 2) of an MTD line. */
 export interface SetMetadataValue {

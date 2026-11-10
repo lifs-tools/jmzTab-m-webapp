@@ -72,6 +72,40 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void setCellRefusesAChangedHeader() throws Exception {
+        // the page showed "name" for cell 2 of the SML rows; a column was deleted since, so cell 2 is another column
+        apply(new InsertColumn("SMH", 2, "inserted", "x"));
+        long before = db.revision();
+        String text = text();
+        assertThrows(WorkingCopyConflictException.class,
+            () -> apply(new SetCell(4, 2, "PC 35:1", "name")));
+        assertEquals(text, text());
+        assertEquals(before, db.revision());
+        // the column that now has the name is the one edited
+        apply(new SetCell(4, 3, "PC 35:1", "name"));
+        assertEquals("SML\t1\tx\tPC 35:1", db.line(4).orElseThrow().text());
+        // a header without a cell there (an append) is refused as well
+        assertThrows(WorkingCopyConflictException.class, () -> apply(new SetCell(4, 4, "z", "name")));
+    }
+
+    @Test
+    void setCellWithTheExpectedHeaderOrNoneIsApplied() throws Exception {
+        apply(new SetCell(4, 2, "a", "name"));
+        apply(new SetCell(4, 2, "b"));
+        apply(new SetCell(8, 2, "c", "x"));
+        assertEquals("SML\t1\tb", db.line(4).orElseThrow().text());
+        assertEquals("SMF\t1\tc", db.line(8).orElseThrow().text());
+    }
+
+    @Test
+    void setCellRejectsAnInvalidHeaderExpectation() throws Exception {
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(4, 2, "a", "")));
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(4, 2, "a", "n\tame")));
+        // only a row of a table has a header
+        assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(2, 2, "a", "v")));
+    }
+
+    @Test
     void setCellChangesOneCell() throws Exception {
         assertEquals(1, apply(new SetCell(4, 2, "PC 35:1")));
         assertEquals(TEXT.replace("PC 34:1", "PC 35:1"), text());

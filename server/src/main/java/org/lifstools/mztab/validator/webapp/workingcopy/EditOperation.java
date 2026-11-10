@@ -44,8 +44,21 @@ import org.springframework.lang.Nullable;
     @JsonSubTypes.Type(value = EditOperation.SetRawLine.class, name = "SetRawLine")})
 public sealed interface EditOperation {
 
-    /** Sets cell {@code cell} (at least 1; at most the number of cells, which appends one). */
-    record SetCell(long line, int cell, String text) implements EditOperation {
+    /**
+     * Sets cell {@code cell} (at least 1; at most the number of cells, which appends one). With {@code header}
+     * (optional), the cell of that index in the header line of the row's table (SMH, SFH or SEH) must hold that
+     * name, or the edit is refused as a conflict: the columns changed since the view was read. A line that is no
+     * table row has no header; {@code header} is then rejected.
+     */
+    record SetCell(long line, int cell, String text, @Nullable String header) implements EditOperation {
+
+        @JsonCreator
+        public SetCell {
+        }
+
+        public SetCell(long line, int cell, String text) {
+            this(line, cell, text, null);
+        }
     }
 
     /** Sets the value (cell 2) of an MTD line. */

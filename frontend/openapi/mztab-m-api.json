@@ -2105,6 +2105,9 @@
               "format" : "int32",
               "type" : "integer"
             },
+            "header" : {
+              "type" : [ "string", "null" ]
+            },
             "line" : {
               "format" : "int64",
               "type" : "integer"

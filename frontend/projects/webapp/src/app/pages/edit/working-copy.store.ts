@@ -36,7 +36,7 @@ export const IDLE_MS = 1500;
 export const POLL_MS = 1000;
 
 export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
-export const LINES_MOVED_NOTICE = 'Lines moved before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
+export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
 export const CHECK_FAILED = 'The file could not be checked.';
 /** How often a check refused as busy (503) is asked for again by itself, after the server's Retry-After. */
@@ -49,9 +49,24 @@ export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.'
 
 export type EditOps = NonNullable<EditBatch['operations']>;
 
-/** Edits that move lines: the line numbers every view shows are stale afterwards. */
-export const LINE_OPS: ReadonlySet<string> = new Set(['DeleteLine', 'InsertLine', 'MoveRow', 'JoinWithPrevious']);
-const movesLines = (ops: readonly { op?: string }[] | undefined) => (ops ?? []).some((o) => LINE_OPS.has(o.op ?? ''));
+/**
+ * Edits that change the layout of the text: lines move, columns are inserted, deleted or merged, cells are split
+ * or a raw line is replaced. The line numbers and cell positions every view shows are stale afterwards. (A raw
+ * line is counted whatever line it is: the store cannot tell a table row from another.)
+ */
+export const LAYOUT_OPS: ReadonlySet<string> = new Set([
+  'DeleteLine',
+  'InsertLine',
+  'MoveRow',
+  'JoinWithPrevious',
+  'InsertColumn',
+  'DeleteColumn',
+  'MergeColumns',
+  'SplitCells',
+  'SetRawLine',
+]);
+const changesLayout = (ops: readonly { op?: string }[] | undefined) =>
+  (ops ?? []).some((o) => LAYOUT_OPS.has(o.op ?? ''));
 type View = 'loading' | 'ready' | 'notFound' | 'notUtf8' | 'error';
 
 /** A quick-fix preview was refused because the last check is not of the current text; a new one was started. */
@@ -87,10 +102,10 @@ const GONE = 'gone' as const;
  *
  * - Edits, undo, redo and applied quick fixes are queued: each request names the revision of the latest answer,
  *   so batches the user makes quickly one after another never conflict with each other. Not behind a batch that
- *   moves lines (or an undo or redo, which may): an edit made while such a batch is queued names the line numbers
+ *   changes the layout (or an undo or redo, which may): an edit made while such a batch is queued names the line numbers
  *   of the text before it, so it names the revision of the moment it was made, and the server refuses it (409)
  *   rather than apply it to the line that now has that number. The same holds for an edit of a page the views
- *   read before the last line move (`readAt`, a page's stamp), also once the move is answered: the views read
+ *   read before the last layout change (`readAt`, a page's stamp), also once the move is answered: the views read
  *   their pages again only after `changed`, one round trip later.
  * - After each accepted batch, a structural run is requested once the user has been idle for {@link IDLE_MS}.
  *   While a run is RUNNING, `GET /{id}` is polled every {@link POLL_MS}.
@@ -197,14 +212,14 @@ export class WorkingCopyStore {
   readonly notices = new Subject<string>();
 
   private readonly jobs = new Subject<() => Observable<unknown>>();
-  /** Queued requests that move lines (or may), not yet answered. */
-  private lineMovesQueued = 0;
+  /** Queued requests that change the layout (or may), not yet answered. */
+  private layoutChangesQueued = 0;
   /**
-   * The revision of the last answer after which lines may have moved (a line-moving batch, an undo or redo, a
+   * The revision of the last answer after which lines or columns may have moved (a batch that changes the layout, an undo or redo, a
    * reload after a conflict). An edit of a page read at an older revision names that revision, so the server
    * refuses it (409) and the views read again.
    */
-  private lastLineMoveRevision = -1;
+  private lastLayoutRevision = -1;
   private readonly idle = new Subject<boolean>();
   /** Each value starts polling anew: the previous poll, and a read it has in flight, are cancelled. */
   private readonly polls = new Subject<void>();
@@ -276,7 +291,7 @@ export class WorkingCopyStore {
 
   private create(encoding: 'UTF_8' | 'WINDOWS_1252'): void {
     // a new copy counts its revisions anew, and nothing has been asked of it yet
-    this.lastLineMoveRevision = -1;
+    this.lastLayoutRevision = -1;
     this.cvCheckPending = false;
     this.cvCheckedHere.set(false);
     this.cvRequestedAt = null;
@@ -327,16 +342,16 @@ export class WorkingCopyStore {
   edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
       (revision) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops } }),
-      { reload, movesLines: movesLines(ops), readAt },
+      { reload, layout: changesLayout(ops), readAt },
     );
   }
 
   undo(): void {
     if (!this.info()?.canUndo) return;
-    // undo names no line, so it may follow a line move; what it brings back or takes away may move lines
+    // undo names no line, so it may follow a layout change; what it brings back or takes away may change it
     this.enqueue((revision) => this.api.undoWorkingCopy({ id: this.id(), revision }), {
       reload: true,
-      movesLines: true,
+      layout: true,
       linesNamed: false,
     }).subscribe({ error: (err: unknown) => this.failed(err) });
   }
@@ -345,7 +360,7 @@ export class WorkingCopyStore {
     if (!this.info()?.canRedo) return;
     this.enqueue((revision) => this.api.redoWorkingCopy({ id: this.id(), revision }), {
       reload: true,
-      movesLines: true,
+      layout: true,
       linesNamed: false,
     }).subscribe({ error: (err: unknown) => this.failed(err) });
   }
@@ -354,7 +369,7 @@ export class WorkingCopyStore {
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
     return this.enqueue(() => this.api.editWorkingCopy({ id: this.id(), body: preview.batch ?? {} }), {
       reload: true,
-      movesLines: movesLines(preview.batch?.operations),
+      layout: changesLayout(preview.batch?.operations),
     });
   }
 
@@ -374,7 +389,7 @@ export class WorkingCopyStore {
 
   /**
    * Queues a request that changes the copy. The request is made when it is its turn, so it names the revision of
-   * the answer before it; unless a request that moves lines was queued when it was made (and it names lines),
+   * the answer before it; unless a request that changes the layout was queued when it was made (and it names lines),
    * then it names the revision of that moment. `reload` makes the views request their pages again (they did not
    * make the change).
    */
@@ -382,27 +397,27 @@ export class WorkingCopyStore {
     request: (revision: number) => Observable<WorkingCopyInfo>,
     {
       reload = false,
-      movesLines = false,
+      layout = false,
       linesNamed = true,
       readAt = null,
-    }: { reload?: boolean; movesLines?: boolean; linesNamed?: boolean; readAt?: number | null },
+    }: { reload?: boolean; layout?: boolean; linesNamed?: boolean; readAt?: number | null },
   ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
     const issued = this.revision();
-    const pinned = linesNamed && this.lineMovesQueued > 0;
-    if (movesLines) this.lineMovesQueued++;
+    const pinned = linesNamed && this.layoutChangesQueued > 0;
+    if (layout) this.layoutChangesQueued++;
     this.inFlight.update((n) => n + 1);
     this.jobs.next(() => {
       const now = this.revision();
-      // decided when it is sent: a page read before the last line move has numbers that may name other lines now
-      const stale = readAt != null && readAt < this.lastLineMoveRevision;
+      // decided when it is sent: a page read before the last layout change has numbers that may name other lines now
+      const stale = readAt != null && readAt < this.lastLayoutRevision;
       const revision = stale ? readAt : readAt == null && pinned ? issued : now;
-      // refused because the lines moved under it, not because of another tab
+      // refused because the layout changed under it, not because of another tab
       const moved = revision !== now;
       return defer(() => request(revision)).pipe(
         tap({
           next: (info) => {
-            if (movesLines) this.lineMoved(info);
+            if (layout) this.layoutChanged(info);
             this.setInfo(info);
             this.idlePending.set(true);
             this.idle.next(true);
@@ -411,13 +426,13 @@ export class WorkingCopyStore {
             result.complete();
           },
           error: (err: unknown) => {
-            if (statusOf(err) === 409) this.conflict(moved ? LINES_MOVED_NOTICE : CONFLICT_NOTICE);
+            if (statusOf(err) === 409) this.conflict(moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE);
             if (statusOf(err) === 404) this.view.set('notFound');
             result.error(err);
           },
           finalize: () => {
             this.inFlight.update((n) => n - 1);
-            if (movesLines) this.lineMovesQueued--;
+            if (layout) this.layoutChangesQueued--;
           },
         }),
       );
@@ -433,8 +448,8 @@ export class WorkingCopyStore {
   }
 
   /** Lines may have moved up to this answer: pages read before it are stale for edits that name lines. */
-  private lineMoved(info: WorkingCopyInfo): void {
-    this.lastLineMoveRevision = Math.max(this.lastLineMoveRevision, info.revision ?? 0);
+  private layoutChanged(info: WorkingCopyInfo): void {
+    this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.revision ?? 0);
   }
 
   /** The copy changed elsewhere, or under a queued edit: read it again and let the views reload. */
@@ -445,7 +460,7 @@ export class WorkingCopyStore {
       .subscribe({
         next: (info) => {
           // what changed elsewhere is not known: any line may have moved
-          this.lastLineMoveRevision = Math.max(this.lastLineMoveRevision, info.revision ?? 0);
+          this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.revision ?? 0);
           this.setInfo(info, true);
           this.changed.next();
           this.notices.next(notice);

@@ -825,7 +825,7 @@ describe('EditPage', () => {
     http
       .expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/columns/SFH/duplicates'))
       .flush([{ name: 'n', positions: [3, 7], conflictingRows: 0, samples: [] }]);
-    expect(found).toEqual([{ name: 'n', positions: [3, 7], conflictingRows: 0, samples: [] }]);
+    expect(found).toEqual([{ name: 'n', positions: [3, 7], conflictingRows: 0, samples: [], readAt: 1 }]);
     await vi.waitFor(() => undefined);
     http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).forEach((r) => r.flush(info({ revision: 1 })));
   });

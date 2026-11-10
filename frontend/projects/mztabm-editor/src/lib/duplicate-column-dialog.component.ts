@@ -106,7 +106,7 @@ export class DuplicateColumnDialogComponent {
     if (!ops.length || !this.source.applyEdits || this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
-    this.source.applyEdits(ops).subscribe({
+    this.source.applyEdits(ops, { readAt: this.duplicate()?.readAt }).subscribe({
       next: () => this.ref.close(true),
       error: (err: unknown) => {
         this.busy.set(false);

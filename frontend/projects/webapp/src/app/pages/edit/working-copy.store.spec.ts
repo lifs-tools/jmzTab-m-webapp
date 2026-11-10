@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { DocumentSource } from '@lifs-tools/mztabm-editor';
+import { DocEdit, DocumentSource } from '@lifs-tools/mztabm-editor';
 
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { AppInfoStore } from '../../core/app-info.store';
@@ -11,7 +11,7 @@ import {
   CONFLICT_NOTICE,
   EditOps,
   IDLE_MS,
-  LINES_MOVED_NOTICE,
+  LAYOUT_CHANGED_NOTICE,
   WorkingCopyStore,
 } from './working-copy.store';
 
@@ -23,7 +23,7 @@ const info = (revision: number, over: Partial<WorkingCopyInfo> = {}): WorkingCop
  * numbers are those of the text before the move, so the server refuses them (409) instead of applying them to
  * whatever line now has that number.
  */
-describe('WorkingCopyStore: edits behind a line move', () => {
+describe('WorkingCopyStore: edits behind a layout change', () => {
   let http: HttpTestingController;
   let store: WorkingCopyStore;
   let source: WorkingCopySource;
@@ -82,7 +82,7 @@ describe('WorkingCopyStore: edits behind a line move', () => {
 
     expect(errors).toEqual([{ status: 409, detail: null }]);
     expect(changed).toBe(2);
-    expect(notices).toEqual([LINES_MOVED_NOTICE]);
+    expect(notices).toEqual([LAYOUT_CHANGED_NOTICE]);
     expect(store.info()?.revision).toBe(1);
     http.verify();
   });
@@ -148,7 +148,7 @@ describe('WorkingCopyStore: edits behind a line move', () => {
     expect(revisionOf(second)).toBe(0);
     conflict(second);
     reread().flush(info(1));
-    expect(notices).toEqual([LINES_MOVED_NOTICE]);
+    expect(notices).toEqual([LAYOUT_CHANGED_NOTICE]);
   });
 
   it('a refused line move leaves the edit behind it valid: it names the revision the server still has', () => {
@@ -575,5 +575,74 @@ describe('WorkingCopyStore: a CV check is not replaced by a structural one', () 
     const sent = posts();
     expect(kinds(sent)).toEqual(['false']);
     sent[0].flush(running(1, false));
+  });
+});
+
+/**
+ * A column operation, a split of cells or a raw line edit changes what a cell index of a table page means (or
+ * which line a row is): a page read before it must not have its cells edited at the newer revision.
+ */
+describe('WorkingCopyStore: edits behind a column change', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+  let source: WorkingCopySource;
+  let notices: string[];
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        WorkingCopySource,
+        { provide: DocumentSource, useExisting: WorkingCopySource },
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    source = TestBed.inject(WorkingCopySource);
+    store.id.set('abc');
+    store.info.set(info(0));
+    notices = [];
+    store.notices.subscribe((n) => notices.push(n));
+  });
+
+  const post = (): TestRequest => {
+    const found = http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits'));
+    expect(found.length).toBe(1);
+    return found[0];
+  };
+  const revisionOf = (r: TestRequest) => (r.request.body as { revision: number }).revision;
+
+  const columnChanges: [string, DocEdit][] = [
+    ['DeleteColumn', { op: 'DeleteColumn', header: 'SMH', name: 'x' }],
+    ['InsertColumn', { op: 'InsertColumn', header: 'SMH', position: 2, name: 'x', fill: '' }],
+    ['MergeColumns', { op: 'MergeColumns', header: 'SMH', name: 'x', keep: 2, others: [3] }],
+    ['SplitCells', { op: 'SplitCells', line: 5 }],
+    ['SetRawLine', { op: 'SetRawLine', line: 5, text: 'SML\t1\ta' }],
+  ];
+
+  for (const [name, op] of columnChanges) {
+    it(`${name} raises the layout revision: a SetCell read before it is refused with the conflict notice`, () => {
+      source.applyEdits([op]).subscribe();
+      post().flush(info(1));
+      // the page was read at revision 0 and its reload is not in yet
+      source
+        .applyEdits([{ op: 'SetCell', line: 5, cell: 3, text: 'x', header: 'y' }], { readAt: 0 })
+        .subscribe({ error: () => undefined });
+      const second = post();
+      expect(revisionOf(second)).toBe(0);
+      second.flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+      http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).flush(info(1));
+      expect(notices).toEqual([LAYOUT_CHANGED_NOTICE]);
+    });
+  }
+
+  it('a SetCell of a page read after the column change is sent at the current revision', () => {
+    source.applyEdits([columnChanges[0][1]]).subscribe();
+    post().flush(info(1));
+    source.applyEdits([{ op: 'SetCell', line: 5, cell: 3, text: 'x', header: 'y' }], { readAt: 1 }).subscribe();
+    expect(revisionOf(post())).toBe(1);
   });
 });

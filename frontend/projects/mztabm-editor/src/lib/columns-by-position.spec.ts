@@ -81,7 +81,7 @@ describe('TableViewComponent columns by position', () => {
     input.value = 'new';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     await settle();
-    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 56, text: 'new' }]);
+    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 56, text: 'new', header: 'c3' }]);
   });
 
   it('sorts and filters a column by its position', async () => {

@@ -309,7 +309,7 @@ public final class WorkingCopyEditor {
 
     private void execute(Recorder r, EditOperation op) {
         switch (op) {
-            case SetCell o -> setCell(r, o.line(), o.cell(), o.text());
+            case SetCell o -> setCell(r, o.line(), o.cell(), o.text(), o.header());
             case SetMetadataValue o -> setMetadata(r, o.line(), 2, o.value());
             case RenameMetadataKey o -> setMetadata(r, o.line(), 1, o.key());
             case InsertLine o -> insertLine(r, o.before(), o.text());
@@ -366,9 +366,12 @@ public final class WorkingCopyEditor {
         return s;
     }
 
-    private void setCell(Recorder r, long n, int cell, String text) {
+    private void setCell(Recorder r, long n, int cell, String text, @Nullable String header) {
         Line l = lineAt(r.db, n);
         cell(text);
+        if (header != null && cell >= 1) {
+            requireHeader(r.db, l, cell, header);
+        }
         List<String> cells = new ArrayList<>(l.cells());
         if (cell < 1 || cell > cells.size()) {
             throw new IllegalArgumentException("Line " + n + " has no cell " + cell);
@@ -381,6 +384,23 @@ public final class WorkingCopyEditor {
         Line after = rebuild(n, cells, l.eol());
         noNewRepeat(l, after);
         r.replace(n, after);
+    }
+
+    /**
+     * Refuses an edit of a cell whose column is no longer the one the caller saw: the cell of that index in the
+     * header of the row's table must hold {@code expected}. Where several header lines of a kind exist, the first
+     * counts (as for the column operations).
+     */
+    private static void requireHeader(WorkingCopyDb db, Line row, int cell, String expected) {
+        name(expected);
+        String header = ROW_SECTION.entrySet().stream().filter(e -> e.getValue().equals(row.section()))
+            .map(Map.Entry::getKey).findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Line " + row.number() + " is not a table row"));
+        Line h = firstOf(db, header);
+        if (cell >= h.cells().size() || !h.cells().get(cell).equals(expected)) {
+            throw new WorkingCopyConflictException("Column " + cell + " of " + header + " is not " + expected
+                + " (anymore): the columns changed");
+        }
     }
 
     private void setMetadata(Recorder r, long n, int index, String value) {

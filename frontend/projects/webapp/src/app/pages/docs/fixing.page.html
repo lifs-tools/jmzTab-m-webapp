@@ -95,6 +95,12 @@
       apply it.
     </p>
     <p>You cannot rename a column to a name that another column already has, or insert one.</p>
+    <p>
+      A cell is saved into the column it was shown in. If the columns changed meanwhile (for example a column was
+      deleted, merged or inserted, here or in another tab), the change is not saved: the file is reloaded and the
+      editor says so, and you can make the change again. While a table is read again, or if reading it failed
+      (press <b>Retry</b>), its cells cannot be edited.
+    </p>
     <h3 id="guide-undo">Undo and redo</h3>
     <p>
       <b>Undo</b> and <b>Redo</b> (Ctrl+Z and Ctrl+Shift+Z) step through your changes. The last 100 steps are kept,

@@ -127,6 +127,11 @@ export class TableViewComponent {
 
   /** Editable mode: the cell that holds the table's one tab stop (page positions), the cell being edited. */
   protected readonly editable = computed(() => !this.isReadonly() && !!this.source.applyEdits);
+  /**
+   * Whether a cell can be edited now: not while the page reloads or after a failed reload, as the page shown may
+   * be one whose columns have moved since (Retry reads it again).
+   */
+  protected readonly canEdit = computed(() => this.editable() && !this.loading() && !this.error());
   protected readonly active = signal<{ row: number; col: number }>({ row: 0, col: 0 });
   protected readonly editing = signal<Editing | null>(null);
   protected readonly saveError = signal<string | null>(null);
@@ -591,13 +596,13 @@ export class TableViewComponent {
   }
 
   protected onCellClick(r: number, i: number): void {
-    if (!this.editable() || this.isEditing(r, i)) return;
+    if (!this.canEdit() || this.isEditing(r, i)) return;
     this.startEdit(r, i);
   }
 
   /** Arrow keys, Home and End move the tab stop; Enter or F2 edits the cell. */
   protected onCellKey(event: KeyboardEvent, r: number, i: number): void {
-    if (!this.editable() || (event.target as HTMLElement).tagName === 'INPUT') return;
+    if (!this.canEdit() || (event.target as HTMLElement).tagName === 'INPUT') return;
     const rows = this.rows().length;
     const cols = this.columns().length;
     let next: { row: number; col: number } | null = null;
@@ -682,7 +687,9 @@ export class TableViewComponent {
     if (text === this.cell(row, e.col)) return;
     const cell = this.cellOf(e.col);
     if (cell < 1) return;
-    const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text };
+    // the header the page showed for the column: the source refuses the edit if the column has another now
+    const header = this.columns()[e.col];
+    const op: DocEdit = { op: 'SetCell', line: row.lineNumber, cell, text, ...(header ? { header } : {}) };
     this.patch(row, e.col, text);
     this.source.applyEdits([op], { readAt: page.readAt }).subscribe({
       error: (err: unknown) => {

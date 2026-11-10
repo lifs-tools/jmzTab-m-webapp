@@ -16,7 +16,7 @@ import {
 
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { quietRequest } from '../../core/http-error.interceptor';
-import { EditOps, LINE_OPS, WorkingCopyStore, serverMessage } from './working-copy.store';
+import { EditOps, LAYOUT_OPS, WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
 const COLUMN_OPS = new Set(['InsertColumn', 'DeleteColumn', 'RenameColumn', 'MergeColumns']);
@@ -50,7 +50,7 @@ export class WorkingCopySource extends DocumentSource {
   /**
    * Each page carries `readAt`: the revision of the copy's last answer when the read was made. The server may
    * answer with a newer text (an edit was on its way), never an older one, so a line number of the page is valid
-   * at least from `readAt` on; the store refuses an edit of it when lines moved since.
+   * at least from `readAt` on; the store refuses an edit of it when the layout (lines, columns) changed since.
    */
   private stamped<T extends object>(read: () => Observable<T>): Observable<T & { readAt: number }> {
     return defer(() => {
@@ -90,7 +90,7 @@ export class WorkingCopySource extends DocumentSource {
    */
   override applyEdits(ops: DocEdit[], options?: DocEditOptions): Observable<void> {
     // a raw line may become (or stop being) a row or an entry the views show
-    const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LINE_OPS.has(o.op) || o.op === 'SetRawLine');
+    const reload = ops.some((o) => COLUMN_OPS.has(o.op) || LAYOUT_OPS.has(o.op));
     // DocEdit mirrors the server's EditOperation records field by field
     return this.store.edit(ops as unknown as EditOps, reload, options?.readAt ?? null).pipe(
       map(() => undefined),
@@ -102,7 +102,13 @@ export class WorkingCopySource extends DocumentSource {
   }
 
   override duplicateColumns(header: DocTableHeader): Observable<DocDuplicateColumn[]> {
-    return this.api.getWorkingCopyDuplicateColumns({ id: this.id, header }, quietRequest());
+    // stamped like a page: the edits that resolve the list pass the stamp back
+    return defer(() => {
+      const readAt = this.store.currentRevision();
+      return this.api
+        .getWorkingCopyDuplicateColumns({ id: this.id, header }, quietRequest())
+        .pipe(map((list) => list.map((d) => ({ ...d, readAt }))));
+    });
   }
 }
 

@@ -106,7 +106,7 @@ describe('TableViewComponent duplicate columns', () => {
     input.value = 'new';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     await settle();
-    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 7, text: 'new' }]);
+    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 7, text: 'new', header: 'name' }]);
   });
 
   it('keeps the chosen column and deletes the others, the rightmost first', async () => {
@@ -138,6 +138,18 @@ describe('TableViewComponent duplicate columns', () => {
     src.changes.next();
     await settle();
     src.oneTable();
+  });
+
+  it('passes the revision its column list was read at with the edits', async () => {
+    const { el, settle, dialog, button } = await render();
+    el.querySelector<HTMLButtonElement>('.resolve-dup')!.click();
+    await settle();
+    src.duplicates[0].reply([{ ...DUPLICATE, readAt: 4 }]);
+    await settle();
+    button(dialog()!, 'Delete the other columns')!.click();
+    await settle();
+    src.oneEdit();
+    expect(src.editOptions).toEqual([{ readAt: 4 }]);
   });
 
   it('merges into the column that wins where rows disagree, showing how many do', async () => {

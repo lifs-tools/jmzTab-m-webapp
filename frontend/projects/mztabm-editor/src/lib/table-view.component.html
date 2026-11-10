@@ -36,9 +36,7 @@
   <div class="callout" role="alert">
     <div>
       {{ msg }}
-      @if (!data() || columnsStale()) {
-        <button type="button" class="retry" (click)="retry()">Retry</button>
-      }
+      <button type="button" class="retry" (click)="retry()">Retry</button>
     </div>
   </div>
 }
@@ -98,7 +96,7 @@
               <td
                 [class.sticky]="i === 0"
                 [class.null]="c === 'null'"
-                [class.editable]="editable()"
+                [class.editable]="canEdit()"
                 [class.cell--hl]="hit && !!highlight()?.column && columns()[i] === highlight()?.column"
                 [attr.tabindex]="tabIndexOf(r, i, focusCell)"
                 [attr.data-hl-focus]="focusCell ? '' : null"

@@ -79,7 +79,7 @@ describe('TableViewComponent editing', () => {
 
     const batch = src.oneEdit();
     // cell 0 of a line is its prefix: header column 3 is cell 4 of line 41
-    expect(batch.args).toEqual([{ op: 'SetCell', line: 41, cell: 4, text: 'PC 34:1' }]);
+    expect(batch.args).toEqual([{ op: 'SetCell', line: 41, cell: 4, text: 'PC 34:1', header: 'col[3]' }]);
     expect(el.querySelector('input.cell-input')).toBeNull();
     // shown at once, and kept: no reload after the own edit
     expect(cell(1, 3).textContent?.trim()).toBe('PC 34:1');
@@ -148,7 +148,7 @@ describe('TableViewComponent editing', () => {
     const input = cell(0, 6).querySelector<HTMLInputElement>('input')!;
     input.value = 'x';
     key(input, 'Enter');
-    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 56, text: 'x' }]);
+    expect(src.oneEdit().args).toEqual([{ op: 'SetCell', line: 40, cell: 56, text: 'x', header: 'col[55]' }]);
   });
 
   it('refuses a tab in a cell and keeps editing', async () => {
@@ -235,6 +235,44 @@ describe('TableViewComponent editing', () => {
     expect(hl.length).toBe(1);
     expect(hl[0].textContent?.trim()).toBe('b3');
     expect(document.activeElement).toBe(hl[0]);
+  });
+
+  it('offers no editing while the page reloads', async () => {
+    const { el, settle, cell } = await render();
+    src.changes.next();
+    await settle();
+    // the reload is in flight: the page shown may have columns in other places now
+    cell(0, 2).click();
+    await settle();
+    expect(el.querySelector('input.cell-input')).toBeNull();
+    src.oneTable().reply(page());
+    await settle();
+    cell(0, 2).click();
+    await settle();
+    expect(cell(0, 2).querySelector('input.cell-input')).toBeTruthy();
+  });
+
+  it('offers no editing after a failed reload, and a Retry that reads the page again', async () => {
+    const { el, settle, cell } = await render();
+    src.changes.next();
+    await settle();
+    src.oneTable().fail(500);
+    await settle();
+    expect(el.querySelector('[role="alert"]')).toBeTruthy();
+    cell(0, 2).click();
+    await settle();
+    expect(el.querySelector('input.cell-input')).toBeNull();
+    key(cell(0, 2), 'Enter');
+    await settle();
+    expect(el.querySelector('input.cell-input')).toBeNull();
+    el.querySelector<HTMLButtonElement>('.retry')!.click();
+    await settle();
+    src.oneTable().reply(page());
+    await settle();
+    expect(el.querySelector('[role="alert"]')).toBeNull();
+    cell(0, 2).click();
+    await settle();
+    expect(cell(0, 2).querySelector('input.cell-input')).toBeTruthy();
   });
 
   it('offers no editing when read-only', async () => {
