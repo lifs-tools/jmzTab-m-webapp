@@ -28,6 +28,9 @@ import org.springframework.lang.Nullable;
  * a client can keep showing them.
  *
  * @param revision the revision whose text is (being) validated
+ * @param messagesRevision the revision whose text the shown {@code messages} (their line numbers) are of: the run's
+ * own revision once it has ended, the previous run's while this one is {@link Status#RUNNING}. (The CV messages
+ * a structural run keeps are of {@code WorkingCopyInfo.cvCheckedRevision}.)
  * @param stale whether the copy has changed since that revision
  * @param parsed whether the engine read the whole text
  * @param readUpTo if not parsed: the first line at which the engine stopped
@@ -52,9 +55,10 @@ import org.springframework.lang.Nullable;
  * there are no rules for the line): why, in the engine's words; the CV
  * messages are then those of the last CV check, as they were
  */
-public record WorkingCopyValidation(Status status, long revision, boolean stale, boolean parsed,
-    @Nullable Long readUpTo, boolean semantic, List<TrackedMessage> messages, List<ValidationMessage> fixed,
-    List<Guidance> guidance, @Nullable String failureReason, @Nullable String cvNotChecked) {
+public record WorkingCopyValidation(Status status, long revision, long messagesRevision, boolean stale,
+    boolean parsed, @Nullable Long readUpTo, boolean semantic, List<TrackedMessage> messages,
+    List<ValidationMessage> fixed, List<Guidance> guidance, @Nullable String failureReason,
+    @Nullable String cvNotChecked) {
 
     public enum Status {
         /** Waiting for or being validated by the engine. */
@@ -71,6 +75,14 @@ public record WorkingCopyValidation(Status status, long revision, boolean stale,
         guidance = guidance == null ? List.of() : List.copyOf(guidance);
     }
 
+    /** A run of {@code revision} whose messages are of that revision. */
+    public WorkingCopyValidation(Status status, long revision, boolean stale, boolean parsed, @Nullable Long readUpTo,
+        boolean semantic, List<TrackedMessage> messages, List<ValidationMessage> fixed, List<Guidance> guidance,
+        @Nullable String failureReason, @Nullable String cvNotChecked) {
+        this(status, revision, revision, stale, parsed, readUpTo, semantic, messages, fixed, guidance, failureReason,
+            cvNotChecked);
+    }
+
     /** A run without a result. */
     static WorkingCopyValidation failed(long revision, boolean semantic, String reason) {
         return new WorkingCopyValidation(Status.FAILED, revision, false, false, null, semantic, List.of(), List.of(),
@@ -79,8 +91,8 @@ public record WorkingCopyValidation(Status status, long revision, boolean stale,
 
     /** A run of {@code revision} that has started; the lists of this (ended) one stay visible. */
     WorkingCopyValidation running(long revision, boolean semantic) {
-        return new WorkingCopyValidation(Status.RUNNING, revision, stale, parsed, readUpTo, semantic, messages, fixed,
-            guidance, null, cvNotChecked);
+        return new WorkingCopyValidation(Status.RUNNING, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, null, cvNotChecked);
     }
 
     /** The first run of a copy, before any result. */
@@ -90,8 +102,14 @@ public record WorkingCopyValidation(Status status, long revision, boolean stale,
     }
 
     WorkingCopyValidation withStale(boolean stale) {
-        return new WorkingCopyValidation(status, revision, stale, parsed, readUpTo, semantic, messages, fixed,
-            guidance, failureReason, cvNotChecked);
+        return new WorkingCopyValidation(status, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, failureReason, cvNotChecked);
+    }
+
+    /** The same, with the messages said to be of {@code messagesRevision}. */
+    WorkingCopyValidation withMessagesRevision(long messagesRevision) {
+        return new WorkingCopyValidation(status, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, failureReason, cvNotChecked);
     }
 
     /** Whether the run ended with a parsed file and without an error. */

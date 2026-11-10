@@ -23,6 +23,7 @@ import {
 import { EditBatch } from '../../api/models/edit-batch';
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
 import { ValidationRecord } from '../../api/models/validation-record';
+import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { ValidationsService } from '../../api/services/validations.service';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
@@ -37,6 +38,8 @@ export const POLL_MS = 1000;
 
 export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
 export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
+export const LINES_MOVED_NOTICE =
+  'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
 export const CHECK_FAILED = 'The file could not be checked.';
 /** How often a check refused as busy (503) is asked for again by itself, after the server's Retry-After. */
@@ -389,6 +392,23 @@ export class WorkingCopyStore {
   }
 
   /**
+   * The revision whose text a message's line numbers are of, which an action started from the message names as
+   * `readAt`: the CV check's for a CV message (a structural run keeps the CV messages of the last CV check), else
+   * the run's whose messages are shown (not the revision of a run still running, nor the current one).
+   */
+  messageRevision(m: ValidationMessage): number {
+    const copy = this.info();
+    const v = copy?.validation;
+    const own = v?.messagesRevision ?? v?.revision ?? this.revision();
+    return m.category === 'cross_check' ? (copy?.cvCheckedRevision ?? own) : own;
+  }
+
+  /** Whether lines or columns may have moved since `readAt`: line numbers read at that revision may name other lines. */
+  linesMovedSince(readAt: number): boolean {
+    return readAt < this.lastLayoutRevision;
+  }
+
+  /**
    * Queues a request that changes the copy. The request is made when it is its turn, so it names the revision of
    * the answer before it; unless a request that changes the layout was queued when it was made (and it names lines),
    * then it names the revision of that moment. `reload` makes the views request their pages again (they did not
@@ -411,7 +431,7 @@ export class WorkingCopyStore {
     this.jobs.next(() => {
       const now = this.revision();
       // decided when it is sent: a page read before the last layout change has numbers that may name other lines now
-      const stale = readAt != null && readAt < this.lastLayoutRevision;
+      const stale = readAt != null && this.linesMovedSince(readAt);
       const revision = stale ? readAt : readAt == null && pinned ? issued : now;
       // refused because the layout changed under it, not because of another tab
       const moved = revision !== now;

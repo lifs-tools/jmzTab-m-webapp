@@ -3,7 +3,9 @@ import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@a
 import { TestBed } from '@angular/core/testing';
 import { DocEdit, DocumentSource } from '@lifs-tools/mztabm-editor';
 
+import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
+import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
 import { AppInfoStore } from '../../core/app-info.store';
 import { WorkingCopySource } from './working-copy-source';
 import {
@@ -159,6 +161,45 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
     expect(revisionOf(second)).toBe(0);
     second.flush(info(1));
     expect(store.info()?.revision).toBe(1);
+  });
+
+  describe('the revision of a message', () => {
+    const structural = { category: 'format', message_type: 'error', line_number: 24 } as ValidationMessage;
+    const cv = { category: 'cross_check', message_type: 'error', line_number: 24 } as ValidationMessage;
+    const withValidation = (over: Partial<WorkingCopyValidation>, cvCheckedRevision?: number) =>
+      store.info.set(
+        info(5, {
+          cvCheckedRevision,
+          validation: { status: 'DONE', revision: 5, stale: false, parsed: true, semantic: false, ...over } as WorkingCopyValidation,
+        }),
+      );
+
+    it('is the revision of the messages shown, which is not the revision of a run that is running', () => {
+      withValidation({ status: 'RUNNING', revision: 5, messagesRevision: 3 });
+      expect(store.messageRevision(structural)).toBe(3);
+    });
+
+    it('is the revision of the last CV check for a CV message', () => {
+      withValidation({ revision: 5, messagesRevision: 5 }, 2);
+      expect(store.messageRevision(structural)).toBe(5);
+      expect(store.messageRevision(cv)).toBe(2);
+    });
+
+    it('falls back to the revision of the run, and to the current one without a run', () => {
+      withValidation({ revision: 4 });
+      expect(store.messageRevision(structural)).toBe(4);
+      expect(store.messageRevision(cv)).toBe(4);
+      store.info.set(info(5));
+      expect(store.messageRevision(structural)).toBe(5);
+    });
+
+    it('says whether lines moved since it: after a line move was answered', () => {
+      expect(store.linesMovedSince(0)).toBe(false);
+      source.applyEdits([{ op: 'DeleteLine', line: 3 }]).subscribe();
+      onePost().flush(info(1));
+      expect(store.linesMovedSince(0)).toBe(true);
+      expect(store.linesMovedSince(1)).toBe(false);
+    });
   });
 
   it('a conflict of an edit that was not pinned still says the file changed in another tab', () => {

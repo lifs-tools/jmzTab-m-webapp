@@ -502,7 +502,10 @@ public class WorkingCopyService {
             }
         }
         if (shown != null) {
-            shown = shown.withStale(shown.revision() != revision);
+            // the messages are those of the stored run (last), whatever run is running now; a stored run has ended,
+            // so the revision it validated is the one its line numbers are of (never the running run's)
+            shown = shown.withMessagesRevision(last != null ? last.revision() : shown.revision())
+                .withStale(shown.revision() != revision);
         }
         String changed = db.meta(META_CHANGED);
         Instant expiresAt = (changed == null ? Instant.now() : Instant.parse(changed))

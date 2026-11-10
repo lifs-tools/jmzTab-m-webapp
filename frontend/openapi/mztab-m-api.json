@@ -3729,6 +3729,10 @@
             },
             "type" : "array"
           },
+          "messagesRevision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "parsed" : {
             "type" : "boolean"
           },

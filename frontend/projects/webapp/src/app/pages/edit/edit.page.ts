@@ -32,7 +32,7 @@ import { DocTab, DocTarget, groupOf, targetOf } from '../result/message-groups';
 import { FixRequest, MessagesTabComponent, MessagesViewState, ShowRequest } from '../result/messages-tab.component';
 import { QuickFixDialogComponent } from './quick-fix-dialog.component';
 import { WorkingCopySource } from './working-copy-source';
-import { NotCheckedYet, WorkingCopyStore } from './working-copy.store';
+import { LINES_MOVED_NOTICE, NotCheckedYet, WorkingCopyStore } from './working-copy.store';
 
 const DAY_MS = 86_400_000;
 const PREFIXES = ['SML', 'SMF', 'SME'] as const;
@@ -202,6 +202,8 @@ export class EditPage {
   protected readonly rawMoved = signal<RawLine | null>(null);
   /** The line of the message shown last, which "Edit this line as text" opens in the raw line editor. */
   protected readonly shownLine = signal<number | null>(null);
+  /** The revision the line of the message shown last is a number of: what an action on that line names as `readAt`. */
+  protected shownReadAt = 0;
 
   /** Table headers by prefix, for the cells of quoted data lines; read for the sections the guidance quotes. */
   protected readonly headers = signal<ReadonlyMap<string, readonly string[]>>(new Map());
@@ -302,7 +304,8 @@ export class EditPage {
     const line = m.line_number;
     if (line != null && line > 0) {
       this.shownLine.set(line);
-      this.inspect(line, !target);
+      this.shownReadAt = this.store.messageRevision(m);
+      this.inspect(line, !target, this.shownReadAt);
     } else {
       this.shownLine.set(null);
       this.rawLine.set(null);
@@ -332,10 +335,14 @@ export class EditPage {
    * of cells differs from its header's, opens the raw line editor; an MTD line of a message without a document
    * target is shown in the metadata.
    */
-  private inspect(n: number, jumpByLine: boolean): void {
+  private inspect(n: number, jumpByLine: boolean, readAt: number): void {
     const run = ++this.inspection;
+    // the lines moved after the message was checked: line n may be another line now, so none is opened
+    if (this.store.linesMovedSince(readAt)) {
+      this.rawLine.set(null);
+      return;
+    }
     const id = this.store.id();
-    const readAt = this.store.currentRevision();
     const from = Math.max(1, n - 1);
     this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({
       next: (lines) => {
@@ -376,10 +383,18 @@ export class EditPage {
     });
   }
 
-  /** "Edit this line as text", or a cell past the end of a short row: the line opens in the raw line editor. */
-  protected editAsText(n: number): void {
+  /**
+   * "Edit this line as text", or a cell past the end of a short row: the line opens in the raw line editor.
+   * `readAt` is the revision the number is of: the message's for the line of a message, else (a table row the view
+   * shows) the copy's current one. A number of a revision before a line move is refused with a notice.
+   */
+  protected editAsText(n: number, readAt: number = this.store.currentRevision()): void {
     const run = ++this.inspection;
-    const readAt = this.store.currentRevision();
+    if (this.store.linesMovedSince(readAt)) {
+      this.rawLine.set(null);
+      this.store.notices.next(LINES_MOVED_NOTICE);
+      return;
+    }
     this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({
       next: (lines) => {
         const line = lines.find((l) => l.number === n);

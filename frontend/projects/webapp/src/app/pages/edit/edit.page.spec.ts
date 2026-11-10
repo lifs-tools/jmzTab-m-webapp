@@ -15,7 +15,7 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
 import { EditPage, isUnreadable } from './edit.page';
-import { CHECK_FAILED, CONFLICT_NOTICE, IDLE_MS, POLL_MS, WorkingCopyStore } from './working-copy.store';
+import { CHECK_FAILED, CONFLICT_NOTICE, IDLE_MS, LINES_MOVED_NOTICE, POLL_MS, WorkingCopyStore } from './working-copy.store';
 
 @Component({ template: '<p>a dialog</p>' })
 class SomeDialogComponent {}
@@ -387,6 +387,45 @@ describe('EditPage', () => {
       await removeLine(fixture, 3);
 
       expect(el.querySelector('[data-testid=line-actions]')).toBeNull();
+    });
+
+    it('"Edit this line as text" of a message checked before a line move gives the notice, not the moved line', async () => {
+      const shown = done({ messagesRevision: 0, messages: [{ message: msg(), state: 'OPEN' }] });
+      const { fixture, el } = await open(info({ validation: shown }));
+      const { DocumentSource } = await import('@lifs-tools/mztabm-editor');
+      fixture.debugElement.injector.get(DocumentSource).applyEdits!([{ op: 'DeleteLine', line: 3 }]).subscribe({ error: () => undefined });
+      await settle(fixture);
+      postEdit().flush(info({ revision: 1, canUndo: true, validation: { ...shown, status: 'RUNNING', revision: 1 } }));
+      await settle(fixture);
+      // the messages are still those of revision 0 (the check of revision 1 has not ended): line 24 is another line now
+      chipOf(el, 'instrument[1]-detector').click();
+      await settle(fixture);
+      answerDocs();
+      expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      button(el, 'edit-as-text').click();
+      await settle(fixture);
+
+      expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      expect(overlayText()).toContain(LINES_MOVED_NOTICE);
+    });
+
+    it('"Edit this line as text" of a message of the current text opens the line', async () => {
+      const { fixture, el } = await open(
+        info({ revision: 1, validation: done({ revision: 1, messagesRevision: 1, messages: [{ message: msg(), state: 'OPEN' }] }) }),
+      );
+      chipOf(el, 'instrument[1]-detector').click();
+      await settle(fixture);
+      answerDocs();
+      linesReq(23).flush([{ number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' }]);
+      await settle(fixture);
+      button(el, 'edit-as-text').click();
+      await settle(fixture);
+      linesReq(24).flush([{ number: 24, section: 'MTD', cells: ['MTD', 'instrument[1]-detector', '[,,,]'], eol: '\n' }]);
+      await settle(fixture);
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeTruthy();
+      expect(overlayText()).not.toContain(LINES_MOVED_NOTICE);
     });
 
     it.each([

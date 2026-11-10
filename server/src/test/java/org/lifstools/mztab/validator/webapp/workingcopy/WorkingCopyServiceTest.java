@@ -297,6 +297,39 @@ class WorkingCopyServiceTest {
         assertTrue(info.lineCount() >= 50);
     }
 
+    /**
+     * While a run is RUNNING, the messages shown are those of the run before: their line numbers are of that run's
+     * revision, which is what an action started from a message must name (never the running run's).
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void runningInfoKeepsTheMessagesRevision(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submit("running-" + line + ".mzTab", exampleOf(line));
+        copies.create(id, SourceEncoding.UTF_8);
+        copies.edit(id, batch(0, new SetMetadataValue(3, "revision-one")));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation first = awaitRun(id, 1);
+        assertEquals(Status.DONE, first.status(), "failure: " + first.failureReason());
+        assertEquals(1L, first.messagesRevision(), "an ended run's messages are of its own revision");
+
+        copies.edit(id, batch(1, new SetMetadataValue(3, "revision-two")));
+        EngineProxy.Gate gate = proxyOf(line).holdNextValidation();
+        copies.requestValidation(id, false);
+        assertTrue(gate.awaitArrival(TIMEOUT), "the second run reached the engine");
+
+        WorkingCopyValidation during = copies.info(id).validation();
+        assertEquals(Status.RUNNING, during.status());
+        assertEquals(2L, during.revision());
+        assertFalse(during.stale(), "the running run is of the current text");
+        assertEquals(first.messages(), during.messages(), "the messages of the run before stay shown");
+        assertEquals(1L, during.messagesRevision(), "and they are of that run's revision, not of the running one");
+
+        gate.release();
+        WorkingCopyValidation second = awaitRun(id, 2);
+        assertEquals(2L, second.messagesRevision());
+    }
+
     @Test
     void supersededRunIsMarkedStale() throws Exception {
         UUID id = submit("stale.mzTab", example());
