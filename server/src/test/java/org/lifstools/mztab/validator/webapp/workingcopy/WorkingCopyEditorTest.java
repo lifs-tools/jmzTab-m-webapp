@@ -73,7 +73,7 @@ class WorkingCopyEditorTest {
 
     @Test
     void setCellRefusesAChangedHeader() throws Exception {
-        // the page showed "name" for cell 2 of the SML rows; a column was deleted since, so cell 2 is another column
+        // the page showed "name" for cell 2 of the SML rows; a column was inserted before it since, so cell 2 is another column
         apply(new InsertColumn("SMH", 2, "inserted", "x"));
         long before = db.revision();
         String text = text();
@@ -86,6 +86,26 @@ class WorkingCopyEditorTest {
         assertEquals("SML\t1\tx\tPC 35:1", db.line(4).orElseThrow().text());
         // a header without a cell there (an append) is refused as well
         assertThrows(WorkingCopyConflictException.class, () -> apply(new SetCell(4, 4, "z", "name")));
+    }
+
+    @Test
+    void setCellRefusesAfterARenameAndWithoutAHeaderLine() throws Exception {
+        apply(new RenameColumn("SMH", "name", "title"));
+        assertThrows(WorkingCopyConflictException.class, () -> apply(new SetCell(4, 2, "a", "name")));
+        apply(new SetCell(4, 2, "a", "title"));
+        // the header line was replaced by a line that is no header: the columns changed
+        apply(new SetRawLine(3, "COM\tnot a header"));
+        assertThrows(WorkingCopyConflictException.class, () -> apply(new SetCell(4, 2, "b", "title")));
+    }
+
+    @Test
+    void aPositionedColumnEditOfAnOldRevisionIsAConflict() throws Exception {
+        long old = db.revision();
+        apply(new RenameColumn("SMH", "name", "title"));
+        // the revision the caller named is stale: 409, not the 400 for a name that is not at the position
+        assertThrows(StaleRevisionException.class, () -> editor.apply(db,
+            new EditBatch(old, List.of(new DeleteColumn("SMH", "name", 2)))));
+        assertThrows(IllegalArgumentException.class, () -> apply(new DeleteColumn("SMH", "name", 2)));
     }
 
     @Test

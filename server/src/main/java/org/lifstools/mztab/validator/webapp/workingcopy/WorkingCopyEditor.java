@@ -389,14 +389,17 @@ public final class WorkingCopyEditor {
     /**
      * Refuses an edit of a cell whose column is no longer the one the caller saw: the cell of that index in the
      * header of the row's table must hold {@code expected}. Where several header lines of a kind exist, the first
-     * counts (as for the column operations).
+     * counts (as for the column operations). A column whose header cell is empty cannot be protected: the SPA sends
+     * no {@code header} for it, and an empty one is rejected here.
      */
     private static void requireHeader(WorkingCopyDb db, Line row, int cell, String expected) {
         name(expected);
         String header = ROW_SECTION.entrySet().stream().filter(e -> e.getValue().equals(row.section()))
             .map(Map.Entry::getKey).findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Line " + row.number() + " is not a table row"));
-        Line h = firstOf(db, header);
+        // a table without a header line has changed too (a line replaced as text)
+        Line h = db.firstOf(header).orElseThrow(() -> new WorkingCopyConflictException(
+            "There is no " + header + " line (anymore): the columns changed"));
         if (cell >= h.cells().size() || !h.cells().get(cell).equals(expected)) {
             throw new WorkingCopyConflictException("Column " + cell + " of " + header + " is not " + expected
                 + " (anymore): the columns changed");
@@ -579,14 +582,7 @@ public final class WorkingCopyEditor {
 
     /** The first line of the section, or an error. */
     private static Line firstOf(WorkingCopyDb db, String section) {
-        Iterator<Line> it = db.allLines();
-        while (it.hasNext()) {
-            Line l = it.next();
-            if (section.equals(l.section())) {
-                return l;
-            }
-        }
-        throw new IllegalArgumentException("There is no " + section + " line");
+        return db.firstOf(section).orElseThrow(() -> new IllegalArgumentException("There is no " + section + " line"));
     }
 
     private static int columnIndex(Line header, String name) {

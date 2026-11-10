@@ -619,6 +619,7 @@ describe('WorkingCopyStore: edits behind a column change', () => {
     ['DeleteColumn', { op: 'DeleteColumn', header: 'SMH', name: 'x' }],
     ['InsertColumn', { op: 'InsertColumn', header: 'SMH', position: 2, name: 'x', fill: '' }],
     ['MergeColumns', { op: 'MergeColumns', header: 'SMH', name: 'x', keep: 2, others: [3] }],
+    ['RenameColumn', { op: 'RenameColumn', header: 'SMH', name: 'x', newName: 'y' }],
     ['SplitCells', { op: 'SplitCells', line: 5 }],
     ['SetRawLine', { op: 'SetRawLine', line: 5, text: 'SML\t1\ta' }],
   ];
@@ -638,6 +639,28 @@ describe('WorkingCopyStore: edits behind a column change', () => {
       expect(notices).toEqual([LAYOUT_CHANGED_NOTICE]);
     });
   }
+
+  it('a SetCell queued behind a rename in flight is refused with the conflict notice, not the other-tab one', () => {
+    source.applyEdits([{ op: 'RenameColumn', header: 'SMH', name: 'x', newName: 'y' }]).subscribe();
+    source
+      .applyEdits([{ op: 'SetCell', line: 5, cell: 3, text: 'x', header: 'x' }], { readAt: 0 })
+      .subscribe({ error: () => undefined });
+    post().flush(info(1));
+    const second = post();
+    expect(revisionOf(second)).toBe(0);
+    second.flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).flush(info(1));
+    expect(notices).toEqual([LAYOUT_CHANGED_NOTICE]);
+  });
+
+  it('a duplicate-column resolution read before a rename is refused as stale', () => {
+    source.applyEdits([{ op: 'RenameColumn', header: 'SMH', name: 'x', newName: 'y' }]).subscribe();
+    post().flush(info(1));
+    source
+      .applyEdits([{ op: 'DeleteColumn', header: 'SMH', name: 'x', position: 3 }], { readAt: 0 })
+      .subscribe({ error: () => undefined });
+    expect(revisionOf(post())).toBe(0);
+  });
 
   it('a SetCell of a page read after the column change is sent at the current revision', () => {
     source.applyEdits([columnChanges[0][1]]).subscribe();

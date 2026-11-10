@@ -144,16 +144,18 @@ class LargeFilePerformanceTest {
 
         long headerLine = LargeFiles.METADATA_LINES + 2;
         long[] revision = {info.revision()};
-        // the editor sends one SetCell per edit; the larger batch is reported for comparison
+        // the editor sends one SetCell per edit, with the header name of the column; the larger batch is reported
+        List<String> columns = reader.table(id, Section.SML, new TableQuery(0, 1, null, false, List.of(), List.of()))
+            .orElseThrow().allColumns();
         measure("one SetCell batch (1 cell)", 100, () -> {
-            WorkingCopyInfo after = copies.edit(id, batch(revision[0], new SetCell(headerLine + 1, 20, "1234.5")));
+            WorkingCopyInfo after = copies.edit(id, batch(revision[0], new SetCell(headerLine + 1, 20, "1234.5", columns.get(19))));
             revision[0] = after.revision();
             return after;
         });
         measure("one SetCell batch (100 cells)", -1, () -> {
             List<EditOperation> ops = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
-                ops.add(new SetCell(headerLine + 1 + (i % LargeFiles.ROWS), 20 + i, "1234." + i));
+                ops.add(new SetCell(headerLine + 1 + (i % LargeFiles.ROWS), 20 + i, "1234." + i, columns.get(19 + i)));
             }
             WorkingCopyInfo after = copies.edit(id, new EditBatch(revision[0], ops));
             revision[0] = after.revision();

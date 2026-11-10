@@ -331,6 +331,30 @@ class WorkingCopiesApiTest {
     }
 
     @Test
+    void setCellWithAnExpectedHeader() throws Exception {
+        String id = validation("header.mzTab", example());
+        create(id);
+        String url = BASE + "/" + id + "/edits";
+        JsonNode page = json.readTree(mvc.perform(get(BASE + "/" + id + "/tables/sml").param("size", "1"))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String row = page.get("rows").get(0).get("lineNumber").asText();
+        String header = page.get("allColumns").get(1).asText();
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(0,
+                "{\"op\":\"SetCell\",\"line\":" + row + ",\"cell\":2,\"text\":\"7\",\"header\":\"" + header + "\"}")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1));
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(1,
+                "{\"op\":\"SetCell\",\"line\":" + row + ",\"cell\":2,\"text\":\"8\",\"header\":\"other\"}")))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.message").isString());
+        for (String bad : new String[]{"\"\"", "\"a\\tb\""}) {
+            mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(1,
+                    "{\"op\":\"SetCell\",\"line\":" + row + ",\"cell\":2,\"text\":\"8\",\"header\":" + bad + "}")))
+                .andExpect(status().isBadRequest());
+        }
+        // nothing was changed by the refused ones
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.revision").value(1));
+    }
+
+    @Test
     void negativeRevisionIs400() throws Exception {
         String id = validation("negative.mzTab", example());
         create(id);

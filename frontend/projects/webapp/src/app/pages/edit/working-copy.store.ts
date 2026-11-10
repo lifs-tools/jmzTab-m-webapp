@@ -50,7 +50,7 @@ export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.'
 export type EditOps = NonNullable<EditBatch['operations']>;
 
 /**
- * Edits that change the layout of the text: lines move, columns are inserted, deleted or merged, cells are split
+ * Edits that change the layout of the text: lines move, columns are inserted, deleted, merged or renamed (a rename moves no column, but a cell edit queued behind it names the old header), cells are split
  * or a raw line is replaced. The line numbers and cell positions every view shows are stale afterwards. (A raw
  * line is counted whatever line it is: the store cannot tell a table row from another.)
  */
@@ -62,6 +62,7 @@ export const LAYOUT_OPS: ReadonlySet<string> = new Set([
   'InsertColumn',
   'DeleteColumn',
   'MergeColumns',
+  'RenameColumn',
   'SplitCells',
   'SetRawLine',
 ]);
