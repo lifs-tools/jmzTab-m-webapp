@@ -679,12 +679,24 @@ describe('EditPage', () => {
     expect(el.querySelector('[data-testid=run-status]')?.textContent).not.toContain('Checking your latest changes…');
   });
 
+  it('a check refused as busy (503) shows the server message', async () => {
+    const ctx = await render();
+    http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
+    await settle(ctx.fixture);
+    const full = 'Too many files are being checked. Please try again in a moment.';
+    postValidation().flush({ message: full }, { status: 503, statusText: 'Unavailable', headers: { 'Retry-After': '30' } });
+    await settle(ctx.fixture);
+    answerDocs();
+    expect(ctx.el.querySelector<HTMLElement>('[data-testid=check-failed]')!.textContent).toContain(full);
+  });
+
   it('a failed request for a check says so and offers Retry', async () => {
     const ctx = await render();
     http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
     http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(ctx.fixture);
-    postValidation().flush({ message: 'down' }, { status: 503, statusText: 'Unavailable' });
+    postValidation().flush({ message: 'down' }, { status: 500, statusText: 'Server Error' });
     await settle(ctx.fixture);
     answerDocs();
     const callout = ctx.el.querySelector<HTMLElement>('[data-testid=check-failed]')!;

@@ -16,13 +16,18 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 /**
- * The copy's database stayed locked by another change past the busy timeout (SQLite BUSY or LOCKED). The request
- * may be retried; nothing was changed by it.
+ * The copy's database stayed locked by another change past the busy timeout (SQLite BUSY or LOCKED), or no run of
+ * a check has room in the queue of the copies' runs. The request may be retried; nothing was changed by it.
  */
 public class WorkingCopyBusyException extends RuntimeException {
 
     public WorkingCopyBusyException(Throwable cause) {
         super("The file is busy with another change. Please try again in a moment.", cause);
+    }
+
+    /** Busy for another reason than a locked database: {@code message} is shown to the user as it is. */
+    public WorkingCopyBusyException(String message, Throwable cause) {
+        super(message, cause);
     }
 
     /** Whether {@code e} or one of its causes is SQLite reporting a busy or locked database. */

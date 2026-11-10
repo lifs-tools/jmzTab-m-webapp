@@ -105,7 +105,9 @@ import org.springframework.transaction.TransactionException;
  * revision and the lines come from one snapshot), detects its declared version
  * as an upload's is, and sends it to that version's engine with the session's
  * level, error limit and, for a semantic run, profile. It runs on
- * {@code toolThreadPoolTaskExecutor}; one run per copy at a time. A request
+ * {@code workingCopyRunExecutor} (its own bounded pool and queue, {@code workingcopy.runs.threads} and
+ * {@code workingcopy.runs.queue}, so that it never delays an upload's validation; a request that finds the queue
+ * full is a {@link WorkingCopyBusyException}); one run per copy at a time. A request
  * during a run, and an edit, undo or redo during a run, mark it to run again
  * when it ends, on the then latest revision; the run again is skipped if it
  * would validate the same revision the same way. A busy engine is asked again
@@ -138,6 +140,8 @@ public class WorkingCopyService {
     static final long USAGE_MAX_AGE_SECONDS = 5;
     private static final Duration MIN_RETRY = Duration.ofSeconds(1);
     private static final int STRIPES = 64;
+    /** Shown to the user when the queue of the copies' runs is full. */
+    static final String RUNS_BUSY = "Too many files are being checked. Please try again in a moment.";
     private static final int FACTS_CACHE_SIZE = 256;
 
     private static final String META_COMPLETE = "copy.complete";
@@ -222,7 +226,7 @@ public class WorkingCopyService {
         ValidationSessionService sessions, EngineRegistry registry, EngineResultReader results,
         EnginesProperties engines, ValidationProfileCatalog catalog, SynchronousEngineService conversions,
         GuidanceResolver guidance, ObjectMapper json, TaskScheduler scheduler,
-        @Qualifier("toolThreadPoolTaskExecutor") Executor executor,
+        @Qualifier("workingCopyRunExecutor") Executor executor,
         @Value("${minCleanupAge:7}") long retentionDays) {
         this.storage = storage;
         this.storageProperties = storageProperties;
@@ -616,7 +620,7 @@ public class WorkingCopyService {
             synchronized (runs) {
                 runs.remove(id, run);
             }
-            throw e;
+            throw new WorkingCopyBusyException(RUNS_BUSY, e);
         }
     }
 

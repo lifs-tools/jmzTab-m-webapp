@@ -39,6 +39,11 @@ export const CONFLICT_NOTICE = 'This file was changed in another tab. It was rel
 export const LINES_MOVED_NOTICE = 'Lines moved before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
 export const CHECK_FAILED = 'The file could not be checked.';
+/** How often a check refused as busy (503) is asked for again by itself, after the server's Retry-After. */
+export const BUSY_RETRIES = 3;
+/** The wait when a 503 gives no usable Retry-After, and the longest wait taken from one, in seconds. */
+const BUSY_DEFAULT_S = 5;
+const BUSY_MAX_S = 60;
 export const JSON_NOT_READY = 'JSON is offered once the latest changes are checked and have no errors.';
 export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.';
 
@@ -63,6 +68,14 @@ export function serverMessage(err: unknown): string | null {
   const body = err instanceof HttpErrorResponse ? err.error : null;
   const message = typeof body === 'object' && body ? (body as { message?: unknown }).message : undefined;
   return typeof message === 'string' && message.trim() ? message : null;
+}
+
+/** The wait the server asks for in a 503's Retry-After (seconds), or null for no usable one. */
+function retryAfterMs(err: unknown): number | null {
+  if (!(err instanceof HttpErrorResponse) || err.status !== 503) return null;
+  const seconds = Number(err.headers?.get('Retry-After'));
+  const s = Number.isFinite(seconds) && seconds > 0 ? seconds : BUSY_DEFAULT_S;
+  return Math.min(s, BUSY_MAX_S) * 1000;
 }
 
 /** A poll that found the copy gone (404). */
@@ -109,6 +122,10 @@ export class WorkingCopyStore {
   readonly saving = computed(() => this.inFlight() > 0);
   /** The last request for a check failed (not a run that failed: the request itself); Retry asks again. */
   readonly checkFailed = signal(false);
+  /** The server's reason the request for a check failed (e.g. "Too many files are being checked"), if it gave one. */
+  readonly checkFailure = signal<string | null>(null);
+  private busyRetries = 0;
+  private busyTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly validation = computed(() => this.info()?.validation ?? null);
   /** The messages of the last ended run, each NEW or OPEN against the run before. */
@@ -164,6 +181,7 @@ export class WorkingCopyStore {
   private lastVersion: string | null | undefined;
 
   constructor() {
+    this.destroyRef.onDestroy(() => clearTimeout(this.busyTimer));
     this.jobs.pipe(concatMap((run) => run().pipe(catchError(() => of(null)))), takeUntilDestroyed()).subscribe();
     this.idle
       .pipe(
@@ -405,18 +423,36 @@ export class WorkingCopyStore {
   /**
    * Requests a run (semantic: also the CV rules of the session's profile) and follows it until it ends. Its
    * answer restarts polling, so a read sent before it (which may still show the previous run) cannot end the
-   * poll. A failed request leaves {@link checkFailed} set until the next request.
+   * poll. A failed request leaves {@link checkFailed} set until the next request, with the server's reason in
+   * {@link checkFailure}. A request refused as busy (503) is made again after the Retry-After the server gave, up
+   * to {@link BUSY_RETRIES} times; a request of the user (Retry) starts the count anew.
    */
   validate(semantic: boolean): void {
+    this.busyRetries = 0;
+    this.request(semantic);
+  }
+
+  private request(semantic: boolean): void {
+    clearTimeout(this.busyTimer);
     this.checkFailed.set(false);
+    this.checkFailure.set(null);
     this.api
       .validateWorkingCopy({ id: this.id(), semantic }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => this.setInfo(info, false, true),
         error: (err: unknown) => {
-          if (statusOf(err) === 404) this.view.set('notFound');
-          else this.checkFailed.set(true);
+          if (statusOf(err) === 404) {
+            this.view.set('notFound');
+            return;
+          }
+          this.checkFailed.set(true);
+          const wait = retryAfterMs(err);
+          this.checkFailure.set(wait === null ? null : serverMessage(err));
+          if (wait !== null && this.busyRetries < BUSY_RETRIES) {
+            this.busyRetries++;
+            this.busyTimer = setTimeout(() => this.request(semantic), wait);
+          }
         },
       });
   }

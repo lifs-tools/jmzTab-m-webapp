@@ -6,7 +6,7 @@ import { DocumentSource } from '@lifs-tools/mztabm-editor';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { AppInfoStore } from '../../core/app-info.store';
 import { WorkingCopySource } from './working-copy-source';
-import { CONFLICT_NOTICE, EditOps, LINES_MOVED_NOTICE, WorkingCopyStore } from './working-copy.store';
+import { BUSY_RETRIES, CONFLICT_NOTICE, EditOps, LINES_MOVED_NOTICE, WorkingCopyStore } from './working-copy.store';
 
 const info = (revision: number, over: Partial<WorkingCopyInfo> = {}): WorkingCopyInfo =>
   ({ id: 'abc', fileName: 'x.mzTab', revision, mzTabVersion: '2.0.0-M', lineCount: 9, canUndo: true, canRedo: true, ...over }) as WorkingCopyInfo;
@@ -262,5 +262,104 @@ describe('WorkingCopyStore: edits behind a line move', () => {
       source.applyEdits([{ op: 'SetMetadataValue', line: 8, value: 'z' }], { readAt: b.readAt }).subscribe();
       expect(revisionOf(onePost())).toBe(3);
     });
+  });
+});
+
+/** A check refused because the server's queue of checks is full: its message is shown, and it is asked again. */
+describe('WorkingCopyStore: a busy check (503)', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+  const FULL = 'Too many files are being checked. Please try again in a moment.';
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    store.id.set('abc');
+    store.info.set(info(0));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const posts = () => http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'));
+  const refuse = (retryAfter: string | null, message = FULL) =>
+    posts()[0].flush(
+      { message },
+      { status: 503, statusText: 'Service Unavailable', headers: retryAfter === null ? {} : { 'Retry-After': retryAfter } },
+    );
+
+  it('shows the 503 message instead of the general one', () => {
+    store.validate(false);
+    refuse('2');
+    expect(store.checkFailed()).toBe(true);
+    expect(store.checkFailure()).toBe(FULL);
+  });
+
+  it('asks again after Retry-After, not before', () => {
+    store.validate(false);
+    refuse('2');
+    vi.advanceTimersByTime(1999);
+    expect(posts().length).toBe(0);
+    vi.advanceTimersByTime(1);
+    const again = posts();
+    expect(again.length).toBe(1);
+    expect(again[0].request.params.get('semantic')).toBe('false');
+    again[0].flush(info(0, { validation: { status: 'DONE', revision: 0 } as WorkingCopyInfo['validation'] }));
+    expect(store.checkFailed()).toBe(false);
+    expect(store.checkFailure()).toBeNull();
+  });
+
+  it('keeps the kind of check (CV rules) when it asks again', () => {
+    store.validate(true);
+    refuse('1');
+    vi.advanceTimersByTime(1000);
+    const [again] = posts();
+    expect(again.request.params.get('semantic')).toBe('true');
+    again.flush(info(0));
+  });
+
+  it('gives up after a few busy answers; Retry (a new request) starts again', () => {
+    store.validate(false);
+    for (let i = 0; i < BUSY_RETRIES; i++) {
+      refuse('1');
+      vi.advanceTimersByTime(1000);
+    }
+    refuse('1');
+    vi.advanceTimersByTime(120_000);
+    expect(posts().length).toBe(0);
+    expect(store.checkFailed()).toBe(true);
+    store.validate(false);
+    const fresh = posts();
+    expect(fresh.length).toBe(1);
+    fresh[0].flush(info(0));
+    http.verify();
+  });
+
+  it('does not ask again by itself for another failure, and keeps the general text', () => {
+    store.validate(false);
+    posts()[0].flush('oops', { status: 500, statusText: 'Server Error' });
+    vi.advanceTimersByTime(120_000);
+    expect(posts().length).toBe(0);
+    expect(store.checkFailed()).toBe(true);
+    expect(store.checkFailure()).toBeNull();
+  });
+
+  it('a 503 without Retry-After is asked again after the default wait', () => {
+    store.validate(false);
+    refuse(null);
+    vi.advanceTimersByTime(4999);
+    expect(posts().length).toBe(0);
+    vi.advanceTimersByTime(1);
+    const again = posts();
+    expect(again.length).toBe(1);
+    again[0].flush(info(0));
   });
 });

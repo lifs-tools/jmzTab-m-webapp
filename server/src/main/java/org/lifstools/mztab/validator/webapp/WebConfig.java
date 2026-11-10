@@ -21,6 +21,7 @@ import org.lifstools.mztab2.server.api.SynchronousSlotInterceptor;
 import org.lifstools.mztab2.server.config.LocalDateConverter;
 import org.lifstools.mztab2.server.config.LocalDateTimeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -55,6 +56,33 @@ public class WebConfig implements WebMvcConfigurer {
     public Executor threadPoolTaskExecutor() {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
         tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+        return tpe;
+    }
+
+    /**
+     * The pool of the runs of working copies (the editor's checks): bounded, with a queue of its own, apart from
+     * {@code toolThreadPoolTaskExecutor}, so that one person editing neither delays the validation of an upload nor
+     * queues without limit. A run that finds the queue full is refused (the service answers 503).
+     *
+     * @param threads {@code workingcopy.runs.threads}, default half the processors, at least 1
+     * @param queue {@code workingcopy.runs.queue}, default 16
+     * @throws IllegalArgumentException if either is not above 0, which stops the startup
+     */
+    @Bean(name = "workingCopyRunExecutor")
+    public Executor workingCopyRunExecutor(
+        @Value("${workingcopy.runs.threads:#{T(java.lang.Math).max(1, T(java.lang.Runtime).getRuntime().availableProcessors() / 2)}}") int threads,
+        @Value("${workingcopy.runs.queue:16}") int queue) {
+        if (threads <= 0) {
+            throw new IllegalArgumentException("workingcopy.runs.threads must be above 0, but is " + threads);
+        }
+        if (queue <= 0) {
+            throw new IllegalArgumentException("workingcopy.runs.queue must be above 0, but is " + queue);
+        }
+        ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
+        tpe.setCorePoolSize(threads);
+        tpe.setMaxPoolSize(threads);
+        tpe.setQueueCapacity(queue);
+        tpe.setThreadNamePrefix("workingcopy-run-");
         return tpe;
     }
 

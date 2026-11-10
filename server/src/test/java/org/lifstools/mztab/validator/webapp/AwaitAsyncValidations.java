@@ -17,6 +17,7 @@ package org.lifstools.mztab.validator.webapp;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -41,15 +42,18 @@ public class AwaitAsyncValidations implements AfterEachCallback {
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        ThreadPoolTaskExecutor executor = SpringExtension.getApplicationContext(context)
-            .getBean("toolThreadPoolTaskExecutor", ThreadPoolTaskExecutor.class);
+        var application = SpringExtension.getApplicationContext(context);
+        List<ThreadPoolTaskExecutor> executors = List.of(
+            application.getBean("toolThreadPoolTaskExecutor", ThreadPoolTaskExecutor.class),
+            application.getBean("workingCopyRunExecutor", ThreadPoolTaskExecutor.class));
         Instant deadline = Instant.now().plus(TIMEOUT);
         Instant idleSince = null;
         while (idleSince == null || Instant.now().isBefore(idleSince.plus(QUIET))) {
             if (Instant.now().isAfter(deadline)) {
                 throw new AssertionError("validations still running after " + TIMEOUT.toSeconds() + " s");
             }
-            boolean idle = executor.getActiveCount() == 0 && executor.getThreadPoolExecutor().getQueue().isEmpty();
+            boolean idle = executors.stream()
+                .allMatch(e -> e.getActiveCount() == 0 && e.getThreadPoolExecutor().getQueue().isEmpty());
             idleSince = idle ? (idleSince == null ? Instant.now() : idleSince) : null;
             Thread.sleep(10);
         }

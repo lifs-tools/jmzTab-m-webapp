@@ -32,7 +32,14 @@ The sections up to [Health and info endpoints](#health-and-info-endpoints) are t
 
 ### Working copies (the editor)
 
-"Fix this file" and "Open a file to fix" create a working copy of an upload. It is not configured separately; it uses the settings above.
+"Fix this file" and "Open a file to fix" create a working copy of an upload. Apart from the two properties for its checks below, it is not configured separately; it uses the settings above.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `workingcopy.runs.threads` | half the processors, at least 1 | How many checks of working copies run at the same time. They have a pool of their own, so editing never delays the validation of an uploaded file. Must be above 0, or the application does not start. |
+| `workingcopy.runs.queue` | `16` | How many checks may wait for a thread. When it is full, a request for a check answers 503 with `Retry-After` and "Too many files are being checked. Please try again in a moment."; the file stays as it was, and the editor asks again by itself. Must be above 0, or the application does not start. |
+
+One structural check of a 31 MB file takes about 1.5 seconds, so the default queue of 16 is about half a minute of waiting at most with one thread.
 
 - **Where it lives.** In the directory of the validation, in a slot named `WORKINGCOPY`, as one SQLite database file (`copy.db`) that holds the exact text of the file line by line, the undo history and the last validation. The upload stays untouched in its own slot. Deleting a result deletes its copy.
 - **Retention.** The same as the result: `minCleanupAge` days after the last change. Every edit, undo and redo starts the time again. The nightly cleanup (`oldFileMaintenanceSchedule`) removes the whole directory.
