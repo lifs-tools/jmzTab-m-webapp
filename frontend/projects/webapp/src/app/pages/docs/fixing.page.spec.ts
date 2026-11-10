@@ -92,6 +92,7 @@ describe('FixingPage', () => {
     expect(text).toContain('without the messages of the CV rules');
     expect(text).toContain('only its structure is checked again');
     expect(text).toContain('in an earlier session');
+    expect(text).toContain('does not hold back Download JSON by itself');
   });
 
   it('names the quick-fix button as the result page shows it', async () => {

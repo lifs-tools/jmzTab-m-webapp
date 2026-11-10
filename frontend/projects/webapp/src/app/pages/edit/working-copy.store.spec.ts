@@ -449,6 +449,25 @@ describe('WorkingCopyStore: a reopened copy', () => {
     expect(store.checkFailed()).toBe(true);
   });
 
+  it('says a current CV check is of an earlier session until this page checks the CV rules, also after a reload', () => {
+    const earlier = info(3, { cvCheckedRevision: 3, validation: run({ semantic: true }) });
+    store.open('abc');
+    http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies')).flush(earlier);
+    const EARLIER = 'CV rules checked at revision 3, in an earlier session: press Check CV rules to check them again.';
+    expect(store.cvStatus()).toBe(EARLIER);
+    // reading the same run again (a reload, as after a refused download, or a conflict) is no check of this page
+    store.reload();
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).flush(earlier);
+    expect(store.cvStatus()).toBe(EARLIER);
+
+    store.validate(true);
+    posts()[0].flush(info(3, { cvCheckedRevision: 3, validation: run({ status: 'RUNNING', semantic: true }) }));
+    expect(store.cvStatus()).toBe(EARLIER);
+    vi.advanceTimersByTime(1000);
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).flush(earlier);
+    expect(store.cvStatus()).toBe('CV rules checked at revision 3.');
+  });
+
   it('a reopen whose request meets a busy server shows its message and asks again after Retry-After, a few times', () => {
     reopen(run({ revision: 2, stale: true, semantic: true }));
     let pending = posts()[0];

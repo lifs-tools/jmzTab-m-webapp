@@ -166,8 +166,13 @@ export class WorkingCopyStore {
     const kind = this.record()?.validationProfile?.kind;
     return kind === 'CATALOG' || kind === 'CUSTOM';
   });
-  /** A CV check of this copy has ended (DONE) while the page was open, not only in an earlier session. */
+  /**
+   * A CV check that this page asked for has ended (DONE). A semantic run read again by a reload, a conflict or the
+   * opening, without a request of this page, is of an earlier session.
+   */
   private readonly cvCheckedHere = signal(false);
+  /** The revision of the last CV check this page asked for and the server accepted; null if none. */
+  private cvRequestedAt: number | null = null;
   /**
    * What the status line says about the CV messages shown: whether they are of the text as it is now. A structural
    * run keeps the CV messages of the last CV check (the session's at revision 0), so after a change they are shown
@@ -274,6 +279,7 @@ export class WorkingCopyStore {
     this.lastLineMoveRevision = -1;
     this.cvCheckPending = false;
     this.cvCheckedHere.set(false);
+    this.cvRequestedAt = null;
     this.api
       .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -490,7 +496,10 @@ export class WorkingCopyStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
-          if (semantic) this.cvCheckPending = false;
+          if (semantic) {
+            this.cvCheckPending = false;
+            this.cvRequestedAt = info.validation?.revision ?? info.revision ?? 0;
+          }
           this.setInfo(info, false, true);
         },
         error: (err: unknown) => {
@@ -540,8 +549,11 @@ export class WorkingCopyStore {
     this.info.set(info);
     const v = info.validation;
     if (v?.status === 'DONE') this.reportReady.set(true);
-    // the answer of create() is what an earlier session left; later answers are of checks made while open
-    if (v?.status === 'DONE' && v.semantic && this.view() === 'ready') this.cvCheckedHere.set(true);
+    // only a run of the CV check asked for here, or a later one; not one that an earlier session left
+    const requested = this.cvRequestedAt;
+    if (v?.status === 'DONE' && v.semantic && requested !== null && (v.revision ?? -1) >= requested) {
+      this.cvCheckedHere.set(true);
+    }
     if (v?.status === 'RUNNING') {
       if (restartPoll || !this.polling) this.polls.next();
     } else if (v) {

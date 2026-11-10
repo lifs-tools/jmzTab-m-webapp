@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -118,6 +121,9 @@ class WorkingCopyServiceTest {
 
     @Autowired
     StorageService storage;
+
+    @Autowired
+    ObjectMapper json;
 
     @AfterEach
     void forward() {
@@ -837,6 +843,56 @@ class WorkingCopyServiceTest {
         WorkingCopyValidation v = awaitRun(id, 1, false);
         assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
         assertCvKept(id, v, sessionCv, 0);
+        // no engine was asked, so no check of the rules was tried: the refusal's own error says why
+        assertNull(v.cvNotChecked(), "a refused text is not a CV check that failed");
+        assertTrue(v.messages().stream().anyMatch(t -> t.message().getMessage().contains("9.9")),
+            "the refusal names the version: " + v.messages());
+    }
+
+    /**
+     * A session whose CV check broke (the engine's "Semantic validation failed" error, code {@code cv_not_checked})
+     * did not check the CV rules: the copy has no CV check, and the first structural run neither shows the error
+     * as a CV message of revision 0 nor counts it as fixed. The session's record is written as such a session
+     * leaves it: its structural messages and the engine's error, no CV rule messages. (The webapp refuses at upload
+     * a mapping the engine's loader would refuse, so a real session gets there only by an engine-side failure.)
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aSessionWhoseCvCheckBrokeHasNoCvCheck(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("session-broke-" + line + ".mzTab", line);
+        ValidationMessage failed = new ValidationMessage();
+        failed.setCode(ValidationMessage.CV_NOT_CHECKED);
+        failed.setCategory(ValidationMessage.Category.CROSS_CHECK);
+        failed.setMessageType(ValidationMessage.MessageType.ERROR);
+        failed.setLineNumber(-1L);
+        failed.setMessage("Semantic validation failed for file 'session-broke.mzTab'\n with message: 'boom'\n");
+        ObjectNode record;
+        try (InputStream in = storage.read(id, StorageService.SLOT.RECORD, "record.json").orElseThrow()) {
+            record = (ObjectNode) json.readTree(in);
+        }
+        ArrayNode messages = json.createArrayNode();
+        record.get("messages").forEach(m -> {
+            if (!"cross_check".equals(m.path("category").asText())) {
+                messages.add(m);
+            }
+        });
+        messages.add(json.valueToTree(failed));
+        record.set("messages", messages);
+        storage.write(id, StorageService.SLOT.RECORD, "record.json",
+            new ByteArrayInputStream(json.writeValueAsBytes(record)));
+        assertTrue(sessions.find(id).orElseThrow().messages().stream().anyMatch(WorkingCopyServiceTest::notChecked),
+            "the session's record holds the engine's error");
+
+        assertNull(copies.create(id, SourceEncoding.UTF_8).cvCheckedRevision());
+        copies.requestValidation(id, false);
+        WorkingCopyValidation v = awaitRun(id, 0, false);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertEquals(List.of(), v.messages().stream().filter(t -> t.state() == TrackedMessage.State.NEW)
+            .map(t -> t.message().getMessage()).toList());
+        assertEquals(List.of(), v.fixed(), "the error of the broken check is not fixed by a structural run");
+        assertEquals(List.of(), cvMessagesOf(v), "no CV messages: the rules were not checked");
+        assertNull(copies.info(id).cvCheckedRevision());
     }
 
     /**
