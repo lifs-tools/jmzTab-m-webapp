@@ -6,7 +6,14 @@ import { DocumentSource } from '@lifs-tools/mztabm-editor';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { AppInfoStore } from '../../core/app-info.store';
 import { WorkingCopySource } from './working-copy-source';
-import { BUSY_RETRIES, CONFLICT_NOTICE, EditOps, LINES_MOVED_NOTICE, WorkingCopyStore } from './working-copy.store';
+import {
+  BUSY_RETRIES,
+  CONFLICT_NOTICE,
+  EditOps,
+  IDLE_MS,
+  LINES_MOVED_NOTICE,
+  WorkingCopyStore,
+} from './working-copy.store';
 
 const info = (revision: number, over: Partial<WorkingCopyInfo> = {}): WorkingCopyInfo =>
   ({ id: 'abc', fileName: 'x.mzTab', revision, mzTabVersion: '2.0.0-M', lineCount: 9, canUndo: true, canRedo: true, ...over }) as WorkingCopyInfo;
@@ -460,5 +467,93 @@ describe('WorkingCopyStore: a reopened copy', () => {
     vi.advanceTimersByTime(120_000);
     expect(posts().length).toBe(0);
     expect(store.checkFailed()).toBe(true);
+  });
+});
+
+/**
+ * CV rules are checked on request only; the structural check after each change runs by itself. A structural
+ * request never replaces a CV check that was asked for and not yet accepted: it is sent as a CV check instead.
+ */
+describe('WorkingCopyStore: a CV check is not replaced by a structural one', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    store.id.set('abc');
+    store.info.set(info(0));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const posts = () => http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'));
+  const kinds = (sent: TestRequest[]) => sent.map((r) => r.request.params.get('semantic'));
+  const running = (revision: number, semantic: boolean) =>
+    info(revision, { validation: { status: 'RUNNING', revision, semantic } as WorkingCopyInfo['validation'] });
+  /** An accepted edit: the structural check is due once the user is idle. */
+  const edited = (revision: number) => {
+    store.edit([{ op: 'SetMetadataValue', line: 3, value: `v${revision}` }] as EditOps).subscribe();
+    http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits')).flush(info(revision));
+  };
+  const busy = (seconds: string) =>
+    posts()[0].flush(
+      { message: 'Too many files are being checked.' },
+      { status: 503, statusText: 'Service Unavailable', headers: { 'Retry-After': seconds } },
+    );
+
+  it('"Check CV rules" during the idle wait cancels the structural check and checks the CV rules', () => {
+    edited(1);
+    vi.advanceTimersByTime(500);
+    store.validate(true);
+    const sent = posts();
+    expect(kinds(sent)).toEqual(['true']);
+    sent[0].flush(running(1, true));
+    vi.advanceTimersByTime(IDLE_MS * 2);
+    expect(posts()).toEqual([]);
+  });
+
+  it('an idle structural check while a refused CV check waits for its retry is sent as the CV check', () => {
+    store.validate(true);
+    busy('10');
+    edited(1);
+    vi.advanceTimersByTime(IDLE_MS);
+    const sent = posts();
+    expect(kinds(sent)).toEqual(['true']);
+    sent[0].flush(running(1, true));
+    // the CV check was accepted: its retry is not made as well
+    vi.advanceTimersByTime(20_000);
+    expect(posts()).toEqual([]);
+    expect(store.checkFailed()).toBe(false);
+  });
+
+  it('Retry after a refused CV check checks the CV rules', () => {
+    store.validate(true);
+    posts()[0].flush('oops', { status: 500, statusText: 'Server Error' });
+    expect(store.checkFailed()).toBe(true);
+    // the page's Retry
+    store.validate(false);
+    const sent = posts();
+    expect(kinds(sent)).toEqual(['true']);
+    sent[0].flush(running(0, true));
+  });
+
+  it('once a CV check is accepted, the check after the next change is structural again', () => {
+    store.validate(true);
+    posts()[0].flush(running(0, true));
+    edited(1);
+    vi.advanceTimersByTime(IDLE_MS);
+    const sent = posts();
+    expect(kinds(sent)).toEqual(['false']);
+    sent[0].flush(running(1, false));
   });
 });

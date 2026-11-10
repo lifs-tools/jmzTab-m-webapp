@@ -34,8 +34,12 @@ import org.springframework.lang.Nullable;
  * prefix (null without a header line)
  * @param expiresAt when the copy is deleted unless it changes again
  * @param validation the running or last ended validation run; null if none
+ * @param cvCheckedRevision the revision of the last check of the CV rules, whose
+ * CV messages {@code validation} shows: 0 for the session's own validation with
+ * a profile; null if the CV rules have not been checked. Less than
+ * {@code revision} if the copy has changed since.
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
-    @Nullable WorkingCopyValidation validation) {
+    @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision) {
 }

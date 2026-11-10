@@ -3665,6 +3665,10 @@
           "canUndo" : {
             "type" : "boolean"
           },
+          "cvCheckedRevision" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
           "expiresAt" : {
             "format" : "date-time",
             "type" : "string"

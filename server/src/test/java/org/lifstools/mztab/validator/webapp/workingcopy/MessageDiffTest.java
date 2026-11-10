@@ -16,7 +16,9 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -125,5 +127,77 @@ class MessageDiffTest {
 
         assertEquals(List.of(State.OPEN, State.NEW), r.current().stream().map(TrackedMessage::state).toList());
         assertEquals(1, r.fixed().size());
+    }
+
+    /** A message of the CV-rule check, as jmzTab-m gives it: category cross_check. */
+    private static ValidationMessage cv(String code, String key, long line) {
+        ValidationMessage m = atKey(code, key, line);
+        m.setCategory(ValidationMessage.Category.CROSS_CHECK);
+        return m;
+    }
+
+    @Test
+    void cvRuleMessagesAreTheCrossChecks() {
+        ValidationMessage note = msg("", "Semantic validation was skipped.", -1);
+        note.setCategory(ValidationMessage.Category.CROSS_CHECK);
+        ValidationMessage format = msg("Error-1012", "empty", 3);
+        format.setCategory(ValidationMessage.Category.FORMAT);
+        ValidationMessage logical = msg("Warn-2001", "logical", 4);
+        logical.setCategory(ValidationMessage.Category.LOGICAL);
+
+        assertTrue(MessageDiff.isCvRule(cv("Info-3010", "instrument[1]-source", 9)));
+        assertTrue(MessageDiff.isCvRule(note), "the engine's notes about the CV check are of it too");
+        assertFalse(MessageDiff.isCvRule(format));
+        assertFalse(MessageDiff.isCvRule(logical));
+        assertFalse(MessageDiff.isCvRule(new ValidationMessage()), "a message without a category is structural");
+    }
+
+    @Test
+    void aStructuralRunKeepsTheCvMessagesOpenAndFixesNoneOfThem() {
+        ValidationMessage a = atKey("Error-1012", "x", 3);
+        ValidationMessage b = msg("Error-2000", "broken", 7);
+        ValidationMessage a2 = atKey("Error-1012", "x", 3);
+        ValidationMessage cv1 = cv("Info-3010", "instrument[1]-source", 9);
+        ValidationMessage cv2 = cv("Error-3006", "ms_run[1]-format", 11);
+
+        MessageDiff.Result r = MessageDiff.compareRun(List.of(a, b), List.of(cv1, cv2), List.of(a2), false);
+
+        assertEquals(List.of(a2, cv1, cv2), r.current().stream().map(TrackedMessage::message).toList());
+        assertEquals(List.of(State.OPEN, State.OPEN, State.OPEN),
+            r.current().stream().map(TrackedMessage::state).toList());
+        assertEquals(List.of(b), r.fixed(), "only a structural message is fixed by a structural run");
+    }
+
+    @Test
+    void aSemanticRunComparesEachKindWithItsOwn() {
+        ValidationMessage a = atKey("Error-1012", "x", 3);
+        ValidationMessage b = msg("Error-2000", "broken", 7);
+        ValidationMessage cv1 = cv("Info-3010", "instrument[1]-source", 9);
+        ValidationMessage cv2 = cv("Error-3006", "ms_run[1]-format", 11);
+        ValidationMessage a2 = atKey("Error-1012", "x", 3);
+        ValidationMessage c = msg("Error-2000", "other", 8);
+        ValidationMessage cv1again = cv("Info-3010", "instrument[1]-source", 9);
+        ValidationMessage cv3 = cv("Error-3005", "sample[1]-species[1]", 14);
+
+        MessageDiff.Result r = MessageDiff.compareRun(List.of(a, b), List.of(cv1, cv2),
+            List.of(a2, cv1again, c, cv3), true);
+
+        assertEquals(List.of(a2, cv1again, c, cv3), r.current().stream().map(TrackedMessage::message).toList(),
+            "the run's own order");
+        assertEquals(List.of(State.OPEN, State.OPEN, State.NEW, State.NEW),
+            r.current().stream().map(TrackedMessage::state).toList());
+        assertEquals(List.of(b, cv2), r.fixed());
+    }
+
+    @Test
+    void aCvMessageIsNotMatchedWithAStructuralOne() {
+        // the same code and place in the other kind's list is not the message shown before
+        ValidationMessage structural = atKey("Error-3006", "ms_run[1]-format", 11);
+        ValidationMessage cvNow = cv("Error-3006", "ms_run[1]-format", 11);
+
+        MessageDiff.Result r = MessageDiff.compareRun(List.of(structural), List.of(), List.of(cvNow), true);
+
+        assertEquals(List.of(State.NEW), r.current().stream().map(TrackedMessage::state).toList());
+        assertEquals(List.of(structural), r.fixed());
     }
 }

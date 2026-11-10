@@ -143,6 +143,12 @@
               header says so; check again first for a report of the current text. The result page's report is the one of
               your upload.
             </li>
+            <li>
+              The structure is checked after each change, once you pause. The CV rules of your profile are
+              checked only when you press <b>Check CV rules</b>. Their messages stay shown after a change, and the
+              status line above the messages says whether they are of the current text: "CV rules checked at
+              revision n" or "CV rules not checked since your last change".
+            </li>
             <li>If the validator is busy, the editor shows its message and asks again by itself a few times. <b>Retry</b> asks at once. Your changes are kept.</li>
           </ul>
           <p><a routerLink="/docs/fixing">Read the guide: Fixing a file</a></p>
@@ -153,6 +159,9 @@
             <span>Checking your latest changes…</span>
           } @else if (noProblems()) {
             <span>No problems found.</span>
+          }
+          @if (store.cvStatus(); as cv) {
+            <span class="cv-status" data-testid="cv-status">{{ cv }}</span>
           }
         </div>
         @if (store.validating()) {

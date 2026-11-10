@@ -94,6 +94,9 @@ const GONE = 'gone' as const;
  *   their pages again only after `changed`, one round trip later.
  * - After each accepted batch, a structural run is requested once the user has been idle for {@link IDLE_MS}.
  *   While a run is RUNNING, `GET /{id}` is polled every {@link POLL_MS}.
+ * - The CV rules are checked on request only ("Check CV rules"), and such a request is never replaced by a
+ *   structural one: it cancels the idle wait, and until the server has accepted it (a refused one waits for its
+ *   retry, or for Retry) any request for a check is sent as a CV check.
  * - A 409 from an edit, undo or redo means the copy changed elsewhere (another tab): the info is read again,
  *   `changed` tells the views to reload, and the conflict notice is shown.
  */
@@ -126,6 +129,8 @@ export class WorkingCopyStore {
   readonly checkFailure = signal<string | null>(null);
   private busyRetries = 0;
   private busyTimer: ReturnType<typeof setTimeout> | undefined;
+  /** A CV check was asked for and the server has not accepted it yet. */
+  private cvCheckPending = false;
 
   /** A check of this copy has finished (DONE) since it was opened: only then has it a report (else 409). */
   readonly reportReady = signal(false);
@@ -160,6 +165,19 @@ export class WorkingCopyStore {
   readonly hasProfile = computed(() => {
     const kind = this.record()?.validationProfile?.kind;
     return kind === 'CATALOG' || kind === 'CUSTOM';
+  });
+  /**
+   * What the status line says about the CV messages shown: whether they are of the text as it is now. A structural
+   * run keeps the CV messages of the last CV check (the session's at revision 0), so after a change they are shown
+   * until the next CV check. Null for a copy without a profile whose CV rules were never checked.
+   */
+  readonly cvStatus = computed(() => {
+    const copy = this.info();
+    const checked = copy?.cvCheckedRevision;
+    if (checked == null) return this.hasProfile() ? 'CV rules not checked yet.' : null;
+    return checked === copy?.revision
+      ? `CV rules checked at revision ${checked}.`
+      : 'CV rules not checked since your last change.';
   });
 
   /** The document changed under the views (undo, redo, a quick fix, a reload): they request again what they show. */
@@ -246,8 +264,9 @@ export class WorkingCopyStore {
   }
 
   private create(encoding: 'UTF_8' | 'WINDOWS_1252'): void {
-    // a new copy counts its revisions anew
+    // a new copy counts its revisions anew, and nothing has been asked of it yet
     this.lastLineMoveRevision = -1;
+    this.cvCheckPending = false;
     this.api
       .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -441,14 +460,20 @@ export class WorkingCopyStore {
    * answer restarts polling, so a read sent before it (which may still show the previous run) cannot end the
    * poll. A failed request leaves {@link checkFailed} set until the next request, with the server's reason in
    * {@link checkFailure}. A request refused as busy (503) is made again after the Retry-After the server gave, up
-   * to {@link BUSY_RETRIES} times; a request of the user (Retry) starts the count anew.
+   * to {@link BUSY_RETRIES} times; a request of the user (Retry) starts the count anew. A CV check cancels the
+   * idle wait (it checks the structure too), and any request made before the server accepted it is sent as one.
    */
   validate(semantic: boolean): void {
     this.busyRetries = 0;
+    if (semantic) {
+      this.cvCheckPending = true;
+      if (this.idlePending()) this.idle.next(false);
+    }
     this.request(semantic);
   }
 
-  private request(semantic: boolean): void {
+  private request(asked: boolean): void {
+    const semantic = asked || this.cvCheckPending;
     clearTimeout(this.busyTimer);
     this.checkFailed.set(false);
     this.checkFailure.set(null);
@@ -456,7 +481,10 @@ export class WorkingCopyStore {
       .validateWorkingCopy({ id: this.id(), semantic }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (info) => this.setInfo(info, false, true),
+        next: (info) => {
+          if (semantic) this.cvCheckPending = false;
+          this.setInfo(info, false, true);
+        },
         error: (err: unknown) => {
           if (statusOf(err) === 404) {
             this.view.set('notFound');

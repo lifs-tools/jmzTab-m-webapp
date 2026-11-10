@@ -113,9 +113,12 @@ import org.springframework.transaction.TransactionException;
  * when it ends, on the then latest revision; the run again is skipped if it
  * would validate the same revision the same way. A busy engine is asked again
  * after its {@code Retry-After}, until {@code engines.job-timeout} after the
- * run started. The ended run, and per kind (structural or semantic) its
- * messages for the next comparison, are stored in the copy's meta table, so
- * they survive a restart; a running run is only held in memory. Each copy has
+ * run started. The ended run, and per kind of message (structural, and the
+ * CV messages of the last CV check with its revision) the messages for the
+ * next comparison, are stored in the copy's meta table, so they survive a
+ * restart; a running run is only held in memory. A structural run keeps the CV
+ * messages of the last CV check ({@link MessageDiff#compareRun}), and a CV
+ * check asked for is never replaced by a structural request. Each copy has
  * a generation id, so a run that outlives its copy (deleted and created again)
  * writes nothing into the new one.
  *
@@ -156,6 +159,8 @@ public class WorkingCopyService {
     private static final String META_LAST_DONE_AT = "validation.lastDoneAt";
     private static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
     private static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
+    /** The revision of the last CV check; 0 for the session's own, absent if the CV rules were never checked. */
+    private static final String META_CV_REVISION = "validation.cvRevision";
     private static final TypeReference<List<ValidationMessage>> MESSAGES = new TypeReference<>() {
     };
 
@@ -322,10 +327,14 @@ public class WorkingCopyService {
                 db.setMeta(META_VERSION, record.mzTabVersion() == null ? "" : record.mzTabVersion());
                 db.setMeta(META_CHANGED, Instant.now().toString());
                 if (record.status() == ValidationStatus.FINISHED) {
-                    // the first run of each kind is compared with the session's own validation of that kind
-                    boolean semantic = record.validationProfile() != null
-                        && record.validationProfile().kind() != ProfileRef.Kind.NONE;
-                    db.setMeta(baselineKey(semantic), json.writeValueAsString(record.messages()));
+                    // the first run is compared with the session's messages; the session's CV messages, if it
+                    // checked the CV rules, are those of revision 0
+                    db.setMeta(META_BASELINE_STRUCTURAL, json.writeValueAsString(ofKind(record.messages(), false)));
+                    if (record.validationProfile() != null
+                        && record.validationProfile().kind() != ProfileRef.Kind.NONE) {
+                        db.setMeta(META_BASELINE_SEMANTIC, json.writeValueAsString(ofKind(record.messages(), true)));
+                        db.setMeta(META_CV_REVISION, "0");
+                    }
                 }
                 db.setMeta(META_COMPLETE, "true");
                 storage.touch(id);
@@ -403,7 +412,7 @@ public class WorkingCopyService {
             WorkingCopyDb db = db(id);
             // the runs first, then the revision: the revision can only have grown since the run it labels
             String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_LAST_DONE),
-                db.meta(META_LAST_DONE_AT)});
+                db.meta(META_LAST_DONE_AT), db.meta(META_CV_REVISION)});
             long current = db.revision();
             WorkingCopyValidation latest = parseValidation(stored[0]);
             WorkingCopyValidation finished = parseValidation(stored[1]);
@@ -427,7 +436,8 @@ public class WorkingCopyService {
                 version == null || version.isEmpty() ? null : version, finished.revision(), current,
                 stored[2] == null ? null : Instant.parse(stored[2]), finished.semantic(), profile, running,
                 finished.parsed() ? null : finished.readUpTo(), failed ? latest.revision() : null,
-                failed ? latest.failureReason() : null), finished.guidance());
+                failed ? latest.failureReason() : null, stored[3] == null ? null : Long.valueOf(stored[3])),
+                finished.guidance());
         });
     }
 
@@ -475,7 +485,9 @@ public class WorkingCopyService {
         Facts f = facts(id, db, revision);
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
-        WorkingCopyValidation last = lastValidation(db);
+        // one read: a CV check stores both together
+        String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_CV_REVISION)});
+        WorkingCopyValidation last = parseValidation(stored[0]);
         WorkingCopyValidation shown = last;
         synchronized (runs) {
             Run run = runs.get(id);
@@ -494,7 +506,7 @@ public class WorkingCopyService {
         String version = db.meta(META_VERSION);
         return new WorkingCopyInfo(id, db.meta(META_FILE_NAME), revision,
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
-            expiresAt, shown);
+            expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]));
     }
 
     /**
@@ -644,8 +656,9 @@ public class WorkingCopyService {
                 started = new Run(generation, semantic, deadline());
                 runs.put(id, started);
             } else {
+                // a CV check asked for is not replaced by a structural request after it
+                run.againSemantic = run.again ? run.againSemantic || semantic : semantic;
                 run.again = true;
-                run.againSemantic = semantic;
             }
         }
         if (started != null) {
@@ -718,8 +731,9 @@ public class WorkingCopyService {
                 // not marked the run yet; one committed after it finds the run ended and leaves stale=true
                 long current = revisionQuietly(db.get());
                 boolean newer = run.revision >= 0 && current >= 0 && current != run.revision;
+                // a CV check covers a structural one of the same revision, not the other way round
                 boolean again = newer || run.again && (run.latest > run.revision
-                    || run.againSemantic != run.semantic || run.revision < 0 && current >= 0);
+                    || run.againSemantic && !run.semantic || run.revision < 0 && current >= 0);
                 if (!again) {
                     runs.remove(id);
                     return;
@@ -804,7 +818,8 @@ public class WorkingCopyService {
             Optional<String> rejection = EngineMessages.rejection(decision, engines.unavailableHintUrl());
             if (rejection.isPresent()) {
                 List<ValidationMessage> messages = List.of(ValidationMessage.error(rejection.get()));
-                persist(id, db, run, done(db, revision, semantic, false, declared.orElse(null), messages, text),
+                // nothing was checked, the CV rules neither
+                persist(id, db, run, done(db, revision, false, false, declared.orElse(null), messages, text),
                     declared.orElse(""));
                 return null;
             }
@@ -827,8 +842,10 @@ public class WorkingCopyService {
                 }
                 String version = outcome.mzTabVersion() == null || outcome.mzTabVersion().isBlank()
                     ? declared.orElse(null) : outcome.mzTabVersion();
-                persist(id, db, run, done(db, revision, semantic, outcome.parsed(), version, messages, text),
-                    version == null ? "" : version);
+                // the CV rules were not checked without a mapping (no default profile for the line), nor if the
+                // file could not be read into a model (the engine then says it skipped them)
+                persist(id, db, run, done(db, revision, semantic && mapping != null && outcome.parsed(),
+                    outcome.parsed(), version, messages, text), version == null ? "" : version);
                 return null;
             } catch (EngineBusyException busy) {
                 Duration delay = busy.retryAfter().compareTo(MIN_RETRY) < 0 ? MIN_RETRY : busy.retryAfter();
@@ -913,10 +930,16 @@ public class WorkingCopyService {
         }
     }
 
-    /** An ended run with a result: compared with the last run of its kind, with guidance from the validated text. */
+    /**
+     * An ended run with a result, compared with the messages shown before it ({@link MessageDiff#compareRun}: a
+     * structural run keeps the CV messages of the last CV check), with guidance from the validated text.
+     *
+     * @param semantic whether the run checked the CV rules
+     */
     private WorkingCopyValidation done(WorkingCopyDb db, long revision, boolean semantic, boolean parsed,
-        @Nullable String version, List<ValidationMessage> messages, Path text) throws IOException {
-        MessageDiff.Result diff = MessageDiff.compare(baseline(db, semantic), messages);
+        @Nullable String version, List<ValidationMessage> found, Path text) throws IOException {
+        MessageDiff.Result diff = MessageDiff.compareRun(baseline(db, false), baseline(db, true), found, semantic);
+        List<ValidationMessage> messages = diff.current().stream().map(TrackedMessage::message).toList();
         String line = MzTabVersions.lineOf(version).orElse(null);
         List<String> software;
         try (InputStream in = Files.newInputStream(text)) {
@@ -952,17 +975,22 @@ public class WorkingCopyService {
     }
 
     /**
-     * Stores an ended run; a DONE run also becomes the comparison for the next
-     * run of its kind. Nothing is stored into another copy than the run's.
+     * Stores an ended run. The structural messages of a DONE run become the
+     * comparison for the next run; the CV messages of a DONE CV check become
+     * the CV messages shown until the next one, with its revision. Nothing is
+     * stored into another copy than the run's.
      *
      * @param version the version to record, "" for none, or null to keep the recorded one
      */
     private void persist(UUID id, WorkingCopyDb db, Run run, WorkingCopyValidation v, @Nullable String version) {
         String last;
-        String messages;
+        String structural;
+        String cv;
         try {
             last = json.writeValueAsString(v);
-            messages = json.writeValueAsString(v.messages().stream().map(TrackedMessage::message).toList());
+            List<ValidationMessage> messages = v.messages().stream().map(TrackedMessage::message).toList();
+            structural = json.writeValueAsString(ofKind(messages, false));
+            cv = json.writeValueAsString(ofKind(messages, true));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not store the validation of working copy " + id, e);
         }
@@ -974,7 +1002,11 @@ public class WorkingCopyService {
             if (v.status() == Status.DONE) {
                 db.setMeta(META_LAST_DONE, last);
                 db.setMeta(META_LAST_DONE_AT, Instant.now().toString());
-                db.setMeta(baselineKey(v.semantic()), messages);
+                db.setMeta(META_BASELINE_STRUCTURAL, structural);
+                if (v.semantic()) {
+                    db.setMeta(META_BASELINE_SEMANTIC, cv);
+                    db.setMeta(META_CV_REVISION, Long.toString(v.revision()));
+                }
             }
             if (version != null) {
                 db.setMeta(META_VERSION, version);
@@ -992,17 +1024,20 @@ public class WorkingCopyService {
         }
     }
 
-    private static String baselineKey(boolean semantic) {
-        return semantic ? META_BASELINE_SEMANTIC : META_BASELINE_STRUCTURAL;
+    /** The CV messages ({@code cv}) or the structural ones of {@code messages}. */
+    private static List<ValidationMessage> ofKind(List<ValidationMessage> messages, boolean cv) {
+        return messages.stream().filter(m -> MessageDiff.isCvRule(m) == cv).toList();
     }
 
-    private List<ValidationMessage> baseline(WorkingCopyDb db, boolean semantic) {
-        String stored = db.meta(baselineKey(semantic));
+    /** The stored structural messages, or ({@code cv}) the CV messages of the last CV check. */
+    private List<ValidationMessage> baseline(WorkingCopyDb db, boolean cv) {
+        String stored = db.meta(cv ? META_BASELINE_SEMANTIC : META_BASELINE_STRUCTURAL);
         if (stored == null) {
             return List.of();
         }
         try {
-            return json.readValue(stored, MESSAGES);
+            // a copy stored before the kinds were kept apart has a run's whole list under either key
+            return ofKind(json.readValue(stored, MESSAGES), cv);
         } catch (JsonProcessingException e) {
             log.warn("Could not read the stored messages of a working copy; comparing with none", e);
             return List.of();

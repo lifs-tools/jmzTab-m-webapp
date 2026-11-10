@@ -40,10 +40,21 @@ public final class ResolutionReport {
      * @param readUpTo if the engine did not read the whole text: the line at which it stopped
      * @param failedRevision if the latest check gave no result: its revision
      * @param failureReason why the latest check gave no result
+     * @param cvRevision the revision of the last check of the CV rules (0: the upload's validation), whose CV
+     * messages a structural check keeps; null if none
      */
     public record CopyCheck(String fileName, @Nullable String version, long checkedRevision, long currentRevision,
         @Nullable Instant checkedAt, boolean semantic, @Nullable ProfileRef profile, boolean running,
-        @Nullable Long readUpTo, @Nullable Long failedRevision, @Nullable String failureReason) {
+        @Nullable Long readUpTo, @Nullable Long failedRevision, @Nullable String failureReason,
+        @Nullable Long cvRevision) {
+
+        /** A check of a copy whose CV rules were never checked. */
+        public CopyCheck(String fileName, @Nullable String version, long checkedRevision, long currentRevision,
+            @Nullable Instant checkedAt, boolean semantic, @Nullable ProfileRef profile, boolean running,
+            @Nullable Long readUpTo, @Nullable Long failedRevision, @Nullable String failureReason) {
+            this(fileName, version, checkedRevision, currentRevision, checkedAt, semantic, profile, running, readUpTo,
+                failedRevision, failureReason, null);
+        }
     }
 
     /** The problems of a working copy's last check, with the lines of the copy as it was checked. */
@@ -59,6 +70,11 @@ public final class ResolutionReport {
             md.append(check.checkedAt()).append(", ");
         }
         md.append(check.semantic() ? "with " + rules(check.profile()) : "structure only").append(".\n\n");
+        if (!check.semantic() && check.cvRevision() != null) {
+            md.append("The CV rule messages are those of ").append(check.cvRevision() == 0
+                ? "the validation of the upload (revision 0)" : "the check of revision " + check.cvRevision())
+                .append(".\n\n");
+        }
         if (check.checkedRevision() != check.currentRevision()) {
             md.append("This is the check of revision ").append(check.checkedRevision()).append("; the copy is at revision ")
                 .append(check.currentRevision()).append(". The line numbers are those of revision ")

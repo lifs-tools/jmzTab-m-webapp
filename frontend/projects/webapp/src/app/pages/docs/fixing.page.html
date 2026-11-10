@@ -104,8 +104,19 @@
     <p>
       After 1.5 seconds without a change, the editor checks the structure again and shows which problems are
       <em>new</em> and which are <em>fixed</em>. The mzTab-M version is read again from the text, so a change to
-      the version line is picked up. The rules for controlled vocabulary terms are checked when you press
-      <b>Check CV rules</b>, because they need the EBI Ontology Lookup Service and can take longer.
+      the version line is picked up. The rules for controlled vocabulary terms (the CV rules of your validation
+      profile) are checked only when you press <b>Check CV rules</b>, because they need the EBI Ontology Lookup
+      Service and can take longer. Pressing it while the editor waits for your pause checks the CV rules and the
+      structure together.
+    </p>
+    <p>
+      When you open a file that was validated with a profile, the editor's first check is of the structure. It is
+      compared with the result of your upload without the messages of the CV rules, so an unchanged file shows
+      nothing as new. The CV messages of your upload stay in the list. The CV messages of the last CV check always
+      stay in the list until the next one: a check of the structure does not remove them or count them as fixed.
+      The status line above the messages says which check they are from: "CV rules checked at revision n" (revision
+      0 is your upload; each change adds one) or, once you have changed the file, "CV rules not checked since your
+      last change". Press <b>Check CV rules</b> to bring them up to date.
     </p>
     <p>
       When many files are being checked at the same moment, the validator can be busy. The editor then shows the

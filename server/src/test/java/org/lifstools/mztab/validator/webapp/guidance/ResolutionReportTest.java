@@ -151,6 +151,23 @@ class ResolutionReportTest {
     }
 
     @Test
+    void reportOfAStructuralCheckSaysWhichCvCheckItsCvMessagesAreOf() {
+        ResolutionReport.CopyCheck kept = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 3, 3, null, false,
+            ProfileRef.catalog("lipidomics", "1.0"), false, null, null, null, 2L);
+        assertTrue(ResolutionReport.markdown(kept, List.of()).contains(
+            "The CV rule messages are those of the check of revision 2."));
+        ResolutionReport.CopyCheck upload = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 3, 3, null, false,
+            ProfileRef.catalog("lipidomics", "1.0"), false, null, null, null, 0L);
+        assertTrue(ResolutionReport.markdown(upload, List.of()).contains(
+            "The CV rule messages are those of the validation of the upload (revision 0)."));
+        // a CV check's own messages, and a copy whose CV rules were never checked, need no such line
+        assertFalse(ResolutionReport.markdown(check(3, 3, false, true, ProfileRef.catalog("lipidomics", "1.0")),
+            List.of()).contains("The CV rule messages are"));
+        assertFalse(ResolutionReport.markdown(check(3, 3, false, false, null), List.of())
+            .contains("The CV rule messages are"));
+    }
+
+    @Test
     void reportOfACopyKeepsFileNameAndVersionOnOneLine() {
         ResolutionReport.CopyCheck c = new ResolutionReport.CopyCheck("a\n## injected.mzTab", "2.0\n# x", 1, 1, null,
             false, null, false, null, null, null);

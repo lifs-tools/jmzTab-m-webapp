@@ -77,6 +77,47 @@ public final class MessageDiff {
         return new Result(List.copyOf(tracked), List.copyOf(fixed));
     }
 
+    /**
+     * Whether a message is of the CV-rule (semantic) check. jmzTab-m gives every message of that check the
+     * category {@code cross_check} (the error types 3000 to 3016), and the engines give their own notes about the
+     * check (skipped, messages omitted) that category too; the structural check never does.
+     */
+    public static boolean isCvRule(ValidationMessage m) {
+        return m.getCategory() == ValidationMessage.Category.CROSS_CHECK;
+    }
+
+    /**
+     * Compares a run with the messages shown before it, each kind with its own: the structural messages with the
+     * structural ones before, and, for a semantic run, its CV messages with the CV messages before. A structural
+     * run does not check the CV rules: the CV messages before it stay, OPEN, after its own, and none of them is
+     * fixed.
+     *
+     * @param structuralBefore the structural messages of the latest run, of either kind
+     * @param cvBefore the CV messages of the last CV check (or of the session's validation)
+     * @param semantic whether the run checked the CV rules
+     */
+    public static Result compareRun(List<ValidationMessage> structuralBefore, List<ValidationMessage> cvBefore,
+        List<ValidationMessage> current, boolean semantic) {
+        if (!semantic) {
+            Result structural = compare(structuralBefore, current);
+            List<TrackedMessage> shown = new ArrayList<>(structural.current());
+            cvBefore.forEach(m -> shown.add(new TrackedMessage(m, TrackedMessage.State.OPEN)));
+            return new Result(List.copyOf(shown), structural.fixed());
+        }
+        Result structural = compare(structuralBefore, current.stream().filter(m -> !isCvRule(m)).toList());
+        Result cv = compare(cvBefore, current.stream().filter(MessageDiff::isCvRule).toList());
+        // in the run's own order
+        List<TrackedMessage> shown = new ArrayList<>(current.size());
+        int s = 0;
+        int c = 0;
+        for (ValidationMessage m : current) {
+            shown.add(isCvRule(m) ? cv.current().get(c++) : structural.current().get(s++));
+        }
+        List<ValidationMessage> fixed = new ArrayList<>(structural.fixed());
+        fixed.addAll(cv.fixed());
+        return new Result(List.copyOf(shown), List.copyOf(fixed));
+    }
+
     /** The type code and the first place the message has. */
     static List<Object> key(ValidationMessage m) {
         String code = GuidanceCatalog.typeCodeOf(m);

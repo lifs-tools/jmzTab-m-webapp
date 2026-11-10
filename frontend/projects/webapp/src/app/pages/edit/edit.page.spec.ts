@@ -896,6 +896,56 @@ describe('EditPage', () => {
     run.flush(info({ validation: done({ status: 'DONE', semantic: true }) }));
   });
 
+  it('says when the CV rules were checked, and when they were not checked since the last change', async () => {
+    vi.useFakeTimers();
+    const cv = msg({
+      category: 'cross_check',
+      code: '[Info-3010] x',
+      message: 'derivatization_agent_may is empty',
+      message_type: 'info',
+      line_number: -1,
+      location: undefined,
+    });
+    /** A copy at `revision` whose CV rules were last checked at `cvCheckedRevision`, showing the CV message. */
+    const withCv = (revision: number, cvCheckedRevision: number, v: Partial<WorkingCopyValidation> = {}) =>
+      info({
+        revision,
+        canUndo: revision > 0,
+        cvCheckedRevision,
+        validation: done({ revision, messages: [{ message: cv, state: 'OPEN' }], ...v }),
+      });
+    const { fixture, el } = await open(withCv(0, 0), 'CATALOG');
+    const status = () => el.querySelector('[data-testid=run-status]')?.textContent ?? '';
+    expect(status()).toContain('CV rules checked at revision 0');
+    expect(el.querySelector('.new-badge')).toBeNull();
+
+    const edit = await editThroughSource(fixture);
+    edit.flush(withCv(1, 0, { revision: 0, stale: true }));
+    await settle(fixture);
+    expect(status()).toContain('CV rules not checked since your last change');
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    const structural = postValidation();
+    expect(structural.request.params.get('semantic')).toBe('false');
+    structural.flush(withCv(1, 0));
+    await settle(fixture);
+    // the CV messages of revision 0 stay shown, under the note
+    expect(status()).toContain('CV rules not checked since your last change');
+    expect(el.textContent).toContain('derivatization_agent_may is empty');
+
+    button(el, 'check-cv').click();
+    const semantic = postValidation();
+    expect(semantic.request.params.get('semantic')).toBe('true');
+    semantic.flush(withCv(1, 1, { semantic: true }));
+    await settle(fixture);
+    expect(status()).toContain('CV rules checked at revision 1');
+    expect(status()).not.toContain('not checked');
+  });
+
+  it('says nothing about CV rules for a session without a profile', async () => {
+    const { el } = await open(info(), 'NONE');
+    expect(el.querySelector('[data-testid=cv-status]')).toBeNull();
+  });
+
   describe('quick fixes', () => {
     const fixGuidance = (quickFix: string, messages = [0]): Guidance => ({
       typeCode: 'Error-1012',

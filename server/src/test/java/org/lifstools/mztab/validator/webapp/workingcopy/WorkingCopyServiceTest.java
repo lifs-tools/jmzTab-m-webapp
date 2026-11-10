@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -40,10 +41,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import org.lifstools.mztab.validator.webapp.EngineProxy;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceCatalog;
@@ -67,13 +71,15 @@ import org.springframework.test.context.DynamicPropertySource;
  * Working copies below the REST layer, validated by the real mzTab-M 2.0
  * engine ({@link org.lifstools.mztab.validator.webapp.EngineTestSupport})
  * behind an {@link EngineProxy}, which can hold a validation request to make
- * the overlap of a run and an edit deterministic.
+ * the overlap of a run and an edit deterministic. The 2.1 engine, if it was
+ * built, is behind a proxy of its own, for the tests that run on both lines.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
 @ExtendWith(AwaitAsyncValidations.class)
 class WorkingCopyServiceTest {
 
     static final EngineProxy ENGINE = EngineProxy.start();
+    static final EngineProxy ENGINE_21 = EngineProxy.start("2.1");
     private static final ValidationOptions STRUCTURAL = new ValidationOptions(ValidationLevel.INFO, 100, null, null);
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
     private static final String DETECTOR = "[MS, MS:1000624, inductive detector, ]";
@@ -85,6 +91,9 @@ class WorkingCopyServiceTest {
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
         ENGINE.register(registry);
+        if (EngineTestSupport.has21()) {
+            ENGINE_21.registerAt(registry, 1);
+        }
     }
 
     @Autowired
@@ -105,6 +114,7 @@ class WorkingCopyServiceTest {
     @AfterEach
     void forward() {
         ENGINE.reset();
+        ENGINE_21.reset();
     }
 
     static String example() throws IOException {
@@ -542,5 +552,171 @@ class WorkingCopyServiceTest {
 
         WorkingCopyValidation v = awaitRun(id, 0);
         assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+    }
+
+    // ---- CV rules (a session with a profile) ----
+
+    /** The example as a file of {@code line}. */
+    private static String exampleOf(String line) throws IOException {
+        String text = example();
+        assertTrue(text.contains("MTD\tmzTab-version\t2.0.0-M"));
+        return text.replace("MTD\tmzTab-version\t2.0.0-M", "MTD\tmzTab-version\t" + line + ".0-M");
+    }
+
+    private static EngineProxy proxyOf(String line) {
+        return line.equals("2.0") ? ENGINE : ENGINE_21;
+    }
+
+    private static void assumeLine(String line) {
+        assumeTrue(line.equals("2.0") || EngineTestSupport.has21(), "the 2.1 engine is not built");
+    }
+
+    /** Submits the example of {@code line} with that line's default profile (CV rules) and waits for its end. */
+    private UUID submitWithProfile(String name, String line) throws Exception {
+        UUID id = sessions.submit(name, new ByteArrayInputStream(exampleOf(line).getBytes(StandardCharsets.UTF_8)),
+            new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-" + line + "-default", null), null).id();
+        Instant end = Instant.now().plus(TIMEOUT);
+        while (Instant.now().isBefore(end)) {
+            ValidationRecord r = sessions.find(id).orElseThrow();
+            if (r.status() == ValidationStatus.FINISHED) {
+                assertFalse(cvMessages(r.messages()).isEmpty(), "the session reports CV rule messages: "
+                    + r.messages());
+                return id;
+            }
+            assertFalse(r.status() == ValidationStatus.FAILED, "the validation failed: " + r.messages());
+            Thread.sleep(50);
+        }
+        throw new AssertionError("validation " + id + " did not end");
+    }
+
+    private static List<String> cvMessages(List<ValidationMessage> messages) {
+        return messages.stream().filter(m -> m.getCategory() == ValidationMessage.Category.CROSS_CHECK)
+            .map(ValidationMessage::getMessage).toList();
+    }
+
+    private static List<String> cvMessagesOf(WorkingCopyValidation v) {
+        return cvMessages(v.messages().stream().map(TrackedMessage::message).toList());
+    }
+
+    /** Polls until the copy's last run has ended on {@code revision} and is of the kind asked for. */
+    private WorkingCopyValidation awaitRun(UUID id, long revision, boolean semantic) throws InterruptedException {
+        Instant end = Instant.now().plus(TIMEOUT);
+        while (Instant.now().isBefore(end)) {
+            WorkingCopyValidation v = copies.info(id).validation();
+            if (v != null && v.status() != Status.RUNNING && v.revision() == revision && v.semantic() == semantic) {
+                return v;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("no ended " + (semantic ? "semantic" : "structural") + " run on revision "
+            + revision + ": " + copies.info(id).validation());
+    }
+
+    /**
+     * The editor's first run is structural; it is compared with the session's messages without the CV ones, and
+     * the session's CV messages stay shown, as of revision 0: an unedited copy shows nothing new and nothing fixed.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void firstStructuralRunOfAProfiledSessionMarksNothingNew(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("profiled-" + line + ".mzTab", line);
+        List<String> sessionCv = cvMessages(sessions.find(id).orElseThrow().messages());
+
+        WorkingCopyInfo created = copies.create(id, SourceEncoding.UTF_8);
+        assertEquals(0L, created.cvCheckedRevision(), "the session checked the CV rules of revision 0");
+
+        copies.requestValidation(id, false);
+        WorkingCopyValidation v = awaitRun(id, 0, false);
+
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertEquals(List.of(), v.messages().stream().filter(t -> t.state() == TrackedMessage.State.NEW)
+            .map(t -> t.message().getMessage()).toList(), "nothing is new in an unedited copy");
+        assertEquals(List.of(), v.fixed(), "nothing is fixed in an unedited copy");
+        assertEquals(sessionCv, cvMessagesOf(v), "the session's CV messages stay shown");
+        assertEquals(0L, copies.info(id).cvCheckedRevision());
+    }
+
+    /**
+     * A structural run keeps the CV messages of the last CV check, never fixes them, and leaves the revision of
+     * that check; a semantic run replaces them and compares them with the CV messages before it.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void structuralRunsKeepTheMessagesOfTheLastCvCheck(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("kept-" + line + ".mzTab", line);
+        List<String> sessionCv = cvMessages(sessions.find(id).orElseThrow().messages());
+        copies.create(id, SourceEncoding.UTF_8);
+
+        copies.edit(id, batch(0, new SetMetadataValue(3, "edited-once")));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation structural = awaitRun(id, 1, false);
+        assertEquals(Status.DONE, structural.status(), "failure: " + structural.failureReason());
+        assertEquals(sessionCv, cvMessagesOf(structural), "a structural run keeps the CV messages");
+        assertEquals(List.of(), cvMessages(structural.fixed()), "nor does it fix any of them");
+        assertEquals(0L, copies.info(id).cvCheckedRevision(), "the CV rules were not checked since revision 0");
+
+        copies.requestValidation(id, true);
+        WorkingCopyValidation semantic = awaitRun(id, 1, true);
+        assertEquals(Status.DONE, semantic.status(), "failure: " + semantic.failureReason());
+        assertEquals(1L, copies.info(id).cvCheckedRevision());
+        assertEquals(sessionCv, cvMessagesOf(semantic), "the same text has the same CV messages");
+        assertTrue(semantic.messages().stream().allMatch(t -> t.state() == TrackedMessage.State.OPEN),
+            "each kind is compared with its own, so nothing is new: " + semantic.messages());
+        assertEquals(List.of(), semantic.fixed());
+
+        copies.edit(id, batch(1, new SetMetadataValue(3, "edited-twice")));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation after = awaitRun(id, 2, false);
+        assertEquals(sessionCv, cvMessagesOf(after));
+        assertEquals(1L, copies.info(id).cvCheckedRevision());
+    }
+
+    /** A structural request (the editor's idle check) during a CV check neither replaces it nor runs again. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aStructuralRequestDuringACvCheckDoesNotReplaceIt(String line) throws Exception {
+        assumeLine(line);
+        EngineProxy engine = proxyOf(line);
+        UUID id = submitWithProfile("during-" + line + ".mzTab", line);
+        copies.create(id, SourceEncoding.UTF_8);
+        int jobsBefore = engine.jobs().size();
+
+        EngineProxy.Gate gate = engine.holdNextValidation();
+        copies.requestValidation(id, true);
+        assertTrue(gate.awaitArrival(TIMEOUT), "the CV check reached the engine");
+        copies.requestValidation(id, false);
+        gate.release();
+
+        WorkingCopyValidation v = awaitRun(id, 0, true);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        WorkingCopyValidation last = copies.info(id).validation();
+        assertEquals(Status.DONE, last.status(), "no other run follows");
+        assertTrue(last.semantic());
+        assertEquals(1, engine.jobs().subList(jobsBefore, engine.jobs().size()).stream()
+            .filter(j -> j.path().startsWith("/engine/v1/validations")).count(),
+            "the CV check covers the structural one");
+    }
+
+    /** A CV check asked for during a run is not lost when a structural request follows it. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aPendingCvCheckIsNotDowngradedByALaterRequest(String line) throws Exception {
+        assumeLine(line);
+        EngineProxy engine = proxyOf(line);
+        UUID id = submitWithProfile("pending-" + line + ".mzTab", line);
+        copies.create(id, SourceEncoding.UTF_8);
+
+        EngineProxy.Gate gate = engine.holdNextValidation();
+        copies.requestValidation(id, false);
+        assertTrue(gate.awaitArrival(TIMEOUT), "the structural run reached the engine");
+        copies.requestValidation(id, true);
+        copies.requestValidation(id, false);
+        gate.release();
+
+        WorkingCopyValidation v = awaitRun(id, 0, true);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertEquals(0L, copies.info(id).cvCheckedRevision());
     }
 }

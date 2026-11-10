@@ -33,11 +33,17 @@ import org.springframework.lang.Nullable;
  * @param readUpTo if not parsed: the first line at which the engine stopped
  * reading (the smallest line of a message whose guidance says it stops the
  * parse); otherwise null
- * @param semantic whether the run checks the CV rules of a profile too
- * @param messages the messages of the run, each NEW or OPEN compared with the
- * last run of the same kind (structural or semantic) before it; the first run
- * compares with the session's own validation of that kind
- * @param fixed the messages of that run before that this run no longer reports
+ * @param semantic whether the run checks the CV rules of a profile too; an
+ * ended run asked to that could not (no rules for the line, or a file that was
+ * not read into a model) counts as structural
+ * @param messages the messages shown after the run, each NEW or OPEN: its
+ * structural messages compared with those of the latest run before it (the
+ * first run's with the session's, without its CV messages), then the CV
+ * messages: a CV check's own, compared with the CV messages before it; for a
+ * structural run, those of the last CV check (or of the session's validation)
+ * as they were, OPEN
+ * @param fixed the messages shown before that this run no longer reports;
+ * never a CV message after a structural run
  * @param guidance the guidance for {@code messages}; its message indexes refer
  * to that list
  * @param failureReason why the run ended {@link Status#FAILED}

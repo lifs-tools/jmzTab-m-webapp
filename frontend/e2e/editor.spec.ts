@@ -260,3 +260,35 @@ test('reloadingRightAfterAnEditStillEndsInACheck', async ({ page, request }) => 
   await expect(page.getByTestId('fixed').locator('summary')).toHaveText(/Fixed since the last check \(\d+\)/);
   await request.delete(`rest/v2/validations/${id}`);
 });
+
+/**
+ * Validated with the 2.0 default profile, so the session has CV rule messages. The session's own check needs EBI
+ * OLS; the editor's first check is structural and needs no network: it is compared with the session's messages
+ * without the CV ones, and the session's CV messages stay shown, as those of revision 0. Nothing is new.
+ */
+test('aProfiledSessionOpensWithoutNewMessages', async ({ page, request }) => {
+  const response = await request.post('rest/v2/validations', {
+    multipart: {
+      file: { name: 'profiled.mzTab', mimeType: 'text/plain', buffer: readFileSync(MZTAB_20) },
+      level: 'INFO',
+      validationProfile: 'mztab-m-2.0-default',
+    },
+  });
+  expect(response.status()).toBe(202);
+  const id = (await response.json()).id as string;
+  expect((await awaitEnd(request, id)).status).toBe('FINISHED');
+
+  const firstCheck = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().includes(`working-copies/${id}/validations`),
+  );
+  await openEditor(page, id);
+  const check = await firstCheck;
+  expect(check.status()).toBe(202);
+  expect(new URL(check.url()).searchParams.get('semantic')).toBe('false');
+
+  const messages = page.getByRole('region', { name: 'Messages' });
+  await expect(messages.locator('.grp').first()).toBeVisible();
+  await expect(page.getByTestId('cv-status')).toHaveText('CV rules checked at revision 0.');
+  await expect(messages.locator('.new-badge')).toHaveCount(0);
+  await request.delete(`rest/v2/validations/${id}`);
+});

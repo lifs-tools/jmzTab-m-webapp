@@ -49,6 +49,9 @@ h1 {
   align-items: center;
 }
 .status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
   min-height: 1.4em;
   font-size: 13.5px;
   color: var(--lifs-slate);
