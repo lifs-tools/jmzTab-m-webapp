@@ -71,6 +71,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 
 /**
  * Working copies below the REST layer, validated by the real mzTab-M 2.0
@@ -119,7 +123,7 @@ class WorkingCopyServiceTest {
     @Autowired
     ValidationProfileCatalog catalog;
 
-    @Autowired
+    @MockitoSpyBean
     StorageService storage;
 
     @Autowired
@@ -301,6 +305,22 @@ class WorkingCopyServiceTest {
      * While a run is RUNNING, the messages shown are those of the run before: their line numbers are of that run's
      * revision, which is what an action started from a message must name (never the running run's).
      */
+    @Test
+    void aStepAfterTheCommitCannotTurnACommittedEditIntoAnError() throws Exception {
+        UUID id = submit("post-commit.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        doThrow(new IllegalStateException("retention store is down")).when(storage).touch(any());
+        try {
+            WorkingCopyInfo edited = copies.edit(id, batch(0, new SetMetadataValue(3, "committed")));
+            assertEquals(1, edited.revision(), "the response carries the committed revision");
+            WorkingCopyInfo undone = copies.undo(id, 1);
+            assertEquals(2, undone.revision(), "an undo is the same");
+        } finally {
+            reset(storage);
+        }
+        assertEquals(2, copies.info(id).revision());
+    }
+
     @ParameterizedTest(name = "mzTab-M {0}")
     @ValueSource(strings = {"2.0", "2.1"})
     void runningInfoKeepsTheMessagesRevision(String line) throws Exception {

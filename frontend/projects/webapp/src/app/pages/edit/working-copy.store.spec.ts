@@ -14,6 +14,7 @@ import {
   EditOps,
   IDLE_MS,
   LAYOUT_CHANGED_NOTICE,
+  MAYBE_SAVED_NOTICE,
   WorkingCopyStore,
 } from './working-copy.store';
 
@@ -724,5 +725,119 @@ describe('WorkingCopyStore: edits behind a column change', () => {
     post().flush(info(1));
     source.applyEdits([{ op: 'SetCell', line: 5, cell: 3, text: 'x', header: 'y' }], { readAt: 1 }).subscribe();
     expect(revisionOf(post())).toBe(1);
+  });
+});
+
+describe('WorkingCopyStore: an edit whose answer failed after the server committed it', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+  let source: WorkingCopySource;
+  let notices: string[];
+  let changed: number;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        WorkingCopySource,
+        { provide: DocumentSource, useExisting: WorkingCopySource },
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    source = TestBed.inject(WorkingCopySource);
+    store.id.set('abc');
+    store.info.set(info(0));
+    notices = [];
+    changed = 0;
+    store.notices.subscribe((n) => notices.push(n));
+    store.changed.subscribe(() => changed++);
+  });
+
+  const post = () => http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits'));
+  const reread = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc'));
+  const fail = (r: TestRequest, status: number) => r.flush({ message: 'busy' }, { status, statusText: 'x' });
+  const edit = (results: unknown[], errors: unknown[]) =>
+    source
+      .applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }])
+      .subscribe({ next: (i) => results.push(i), error: (e) => errors.push(e) });
+
+  it('a 503 after the commit: the copy is read again, the edit counts as saved and the revision advances', () => {
+    const results: unknown[] = [];
+    const errors: unknown[] = [];
+    edit(results, errors);
+    fail(post(), 503);
+    reread().flush(info(1));
+    expect(errors).toEqual([]);
+    expect(results.length).toBe(1);
+    expect(store.info()?.revision).toBe(1);
+    expect(notices).toEqual([]);
+    http.verify();
+  });
+
+  it('a lost answer (no status) is recovered the same way', () => {
+    const results: unknown[] = [];
+    const errors: unknown[] = [];
+    edit(results, errors);
+    post().error(new ProgressEvent('error'));
+    reread().flush(info(1));
+    expect(errors).toEqual([]);
+    expect(results.length).toBe(1);
+    http.verify();
+  });
+
+  it('the next edit, queued behind it, names the committed revision and is not refused', () => {
+    const results: unknown[] = [];
+    edit(results, []);
+    source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }]).subscribe();
+    fail(post(), 503);
+    reread().flush(info(1));
+    const second = post();
+    expect((second.request.body as { revision: number }).revision).toBe(1);
+    http.verify();
+  });
+
+  it('a 503 that did not commit: the revision is unchanged and the failure is passed on', () => {
+    const errors: unknown[] = [];
+    edit([], errors);
+    fail(post(), 503);
+    reread().flush(info(0));
+    expect(errors.length).toBe(1);
+    expect(store.info()?.revision).toBe(0);
+    http.verify();
+  });
+
+  it('a rejected batch (400) is not re-read: nothing was changed', () => {
+    const errors: unknown[] = [];
+    edit([], errors);
+    fail(post(), 400);
+    expect(errors.length).toBe(1);
+    http.expectNone((r) => r.method === 'GET');
+    http.verify();
+  });
+
+  it('a revision further ahead may be another tab: the failure is passed on, the views reload and the notice says "may"', () => {
+    const errors: unknown[] = [];
+    edit([], errors);
+    fail(post(), 500);
+    reread().flush(info(3));
+    expect(errors.length).toBe(1);
+    expect(store.info()?.revision).toBe(3);
+    expect(changed).toBe(1);
+    expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
+    http.verify();
+  });
+
+  it('when the copy cannot be read either, the original failure is passed on', () => {
+    const errors: unknown[] = [];
+    edit([], errors);
+    fail(post(), 503);
+    fail(reread(), 503);
+    expect(errors.length).toBe(1);
+    expect((errors[0] as { status: number }).status).toBe(503);
+    http.verify();
   });
 });

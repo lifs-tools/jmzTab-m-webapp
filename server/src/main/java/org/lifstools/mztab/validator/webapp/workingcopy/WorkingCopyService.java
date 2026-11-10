@@ -569,7 +569,12 @@ public class WorkingCopyService {
         return guard(id, () -> {
             WorkingCopyDb db = db(id);
             requireCapacity();
-            long revision = editor.apply(db, batch);
+            // the retention stamp is written in the edit's own transaction: it commits with the edit or not at all
+            long revision = db.inTransaction(() -> {
+                long next = editor.apply(db, batch);
+                stamp(db);
+                return next;
+            });
             changed(id, db, revision);
             return info(id, db);
         });
@@ -607,16 +612,30 @@ public class WorkingCopyService {
             if (undo ? !editor.canUndo(db) : !editor.canRedo(db)) {
                 throw new WorkingCopyConflictException(undo ? "There is nothing to undo." : "There is nothing to redo.");
             }
-            return undo ? editor.undo(db, revision) : editor.redo(db, revision);
+            long applied = undo ? editor.undo(db, revision) : editor.redo(db, revision);
+            stamp(db);
+            return applied;
         });
         changed(id, db, next);
         return info(id, db);
     }
 
-    /** Restarts retention and marks a running validation to run again. */
-    private void changed(UUID id, WorkingCopyDb db, long revision) {
+    /** Restarts retention; inside the transaction of the change. */
+    private void stamp(WorkingCopyDb db) {
         db.setMeta(META_CHANGED, Instant.now().toString());
-        storage.touch(id);
+    }
+
+    /**
+     * What follows a committed change: restarts retention and marks a running validation to run again. The change is
+     * committed, so nothing here may fail the call (the caller would report a saved edit as failed); a failing step
+     * is logged.
+     */
+    private void changed(UUID id, WorkingCopyDb db, long revision) {
+        try {
+            storage.touch(id);
+        } catch (RuntimeException e) {
+            log.warn("Could not restart the retention of working copy {} after revision {}", id, revision, e);
+        }
         synchronized (runs) {
             Run run = runs.get(id);
             if (run != null) {

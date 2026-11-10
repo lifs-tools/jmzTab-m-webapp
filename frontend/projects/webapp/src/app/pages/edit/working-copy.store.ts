@@ -41,6 +41,8 @@ export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this c
 export const LINES_MOVED_NOTICE =
   'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
+export const MAYBE_SAVED_NOTICE =
+  'The copy changed while this change was being saved, so it may or may not have been saved. The file was reloaded: please check it.';
 export const CHECK_FAILED = 'The file could not be checked.';
 /** How often a check refused as busy (503) is asked for again by itself, after the server's Retry-After. */
 export const BUSY_RETRIES = 3;
@@ -372,6 +374,7 @@ export class WorkingCopyStore {
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
     return this.enqueue(() => this.api.editWorkingCopy({ id: this.id(), body: preview.batch ?? {} }), {
+      sentAt: preview.batch?.revision ?? null,
       reload: true,
       layout: changesLayout(preview.batch?.operations),
     });
@@ -421,7 +424,15 @@ export class WorkingCopyStore {
       layout = false,
       linesNamed = true,
       readAt = null,
-    }: { reload?: boolean; layout?: boolean; linesNamed?: boolean; readAt?: number | null },
+      sentAt = null,
+    }: {
+      reload?: boolean;
+      layout?: boolean;
+      linesNamed?: boolean;
+      readAt?: number | null;
+      /** The revision the request names, when it does not take the one it is given (a previewed batch's). */
+      sentAt?: number | null;
+    },
   ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
     const issued = this.revision();
@@ -436,6 +447,8 @@ export class WorkingCopyStore {
       // refused because the layout changed under it, not because of another tab
       const moved = revision !== now;
       return defer(() => request(revision)).pipe(
+        // before the next queued request is sent: it must name the revision this one produced, if it did
+        catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision)),
         tap({
           next: (info) => {
             if (layout) this.layoutChanged(info);
@@ -459,6 +472,34 @@ export class WorkingCopyStore {
       );
     });
     return result.asObservable();
+  }
+
+  /**
+   * A request failed in a way that does not say whether the server applied it (a 503 after the commit, a lost
+   * answer, a 500): the copy is read again. Applied requests produce `sent + 1`; a copy at exactly that revision
+   * counts as the answer of this request (the request was the only one this tab had in flight: the queue sends one at
+   * a time). The one case this cannot tell apart is another tab's edit landing in the same moment as a request
+   * that failed without committing. A copy further ahead is certainly changed by others: its views reload and the
+   * notice says the change may have been saved; the failure is passed on. A 4xx was refused before changing
+   * anything, and a copy that cannot be read leaves the failure as it was.
+   */
+  private committedOrFailed(err: unknown, sent: number): Observable<WorkingCopyInfo> {
+    const status = statusOf(err);
+    if (status !== undefined && status !== 0 && status < 500) return throwError(() => err);
+    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+      catchError(() => throwError(() => err)),
+      switchMap((info) => {
+        const now = info.revision ?? 0;
+        if (now === sent + 1) return of(info);
+        if (now > sent + 1) {
+          this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
+          this.setInfo(info, true);
+          this.changed.next();
+          this.notices.next(MAYBE_SAVED_NOTICE);
+        }
+        return throwError(() => err);
+      }),
+    );
   }
 
   /** Undo or redo failed: a conflict reloads and a vanished copy shows "not found"; else the server's reason. */
