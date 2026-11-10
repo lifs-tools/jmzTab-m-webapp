@@ -114,6 +114,23 @@ class EngineValidatorTest {
         verifyNoInteractions(lookupService);
     }
 
+    /** A CV check that throws says so with a message of its own kind and code, not as a structural error. */
+    @Test
+    void aFailedCvCheckSaysTheCvRulesWereNotChecked() throws IOException {
+        Path mapping = Files.writeString(dir.resolve("mapping.xml"), MappingFixtures.MAPPING_WITH_DOCTYPE);
+
+        List<ValidationMessage> messages = validator.validate(mzTabFile, ValidationLevel.INFO, 100, mapping)
+            .messages();
+
+        List<ValidationMessage> failed = messages.stream()
+            .filter(m -> m.getMessage().contains("Semantic validation failed")).toList();
+        assertEquals(1, failed.size(), "messages: " + messages);
+        assertEquals(ValidationMessage.CV_NOT_CHECKED, failed.get(0).getCode());
+        assertEquals(ValidationMessage.Category.CROSS_CHECK, failed.get(0).getCategory());
+        assertEquals(ValidationMessage.MessageType.ERROR, failed.get(0).getMessageType());
+        assertEquals(1, messages.stream().filter(m -> ValidationMessage.CV_NOT_CHECKED.equals(m.getCode())).count());
+    }
+
     @Test
     void bundledDefaultMappingIsAccepted() throws IOException {
         Path mapping = Files.write(dir.resolve("default-mapping.xml"), Fixtures.resource(Fixtures.BUNDLED_MAPPING));
@@ -185,7 +202,8 @@ class EngineValidatorTest {
             + "Fix them and validate again.", note.getMessage());
         assertEquals(ValidationMessage.MessageType.INFO, note.getMessageType());
         assertEquals(ValidationMessage.Category.CROSS_CHECK, note.getCategory());
-        assertEquals("", note.getCode());
+        // clients tell that the CV rules were not checked by the code, never by the text
+        assertEquals(ValidationMessage.CV_NOT_CHECKED, note.getCode());
         assertEquals(-1L, note.getLineNumber());
     }
 

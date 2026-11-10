@@ -121,7 +121,7 @@
             <span class="lifs-note" data-testid="report-note">The report is available after the first check.</span>
           }
           @if (!store.jsonReady()) {
-            <span class="lifs-note">JSON is offered once the file is checked without errors.</span>
+            <span class="lifs-note" data-testid="json-note">{{ jsonNote() }}</span>
           }
         </div>
 
@@ -144,8 +144,8 @@
               your upload.
             </li>
             <li>
-              The structure is checked after each change, once you pause. The CV rules of your profile are
-              checked only when you press <b>Check CV rules</b>. Their messages stay shown after a change, and the
+              The structure is checked after each change, once you pause, and when you open the file again. The
+              CV rules of your profile are checked only when you press <b>Check CV rules</b>. Their messages stay shown after a change, and the
               status line above the messages says whether they are of the current text: "CV rules checked at
               revision n" or "CV rules not checked since your last change".
             </li>
@@ -172,6 +172,14 @@
             <div>
               {{ store.checkFailure() ?? 'The file could not be checked.' }}
               <button mat-stroked-button type="button" (click)="store.validate(false)">Retry</button>
+            </div>
+          </div>
+        }
+        @if (validation()?.cvNotChecked; as reason) {
+          <div class="lifs-callout lifs-callout--warn" role="status" data-testid="cv-not-checked">
+            <div>
+              <b>The CV rules could not be checked.</b>
+              <p class="lifs-note cv-reason">{{ reason }}</p>
             </div>
           </div>
         }

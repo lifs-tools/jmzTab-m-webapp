@@ -155,11 +155,17 @@ class ResolutionReportTest {
         ResolutionReport.CopyCheck kept = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 3, 3, null, false,
             ProfileRef.catalog("lipidomics", "1.0"), false, null, null, null, 2L);
         assertTrue(ResolutionReport.markdown(kept, List.of()).contains(
-            "The CV rule messages are those of the check of revision 2."));
+            "The CV rule messages are those of the check of revision 2; their line numbers are those of revision 2."));
         ResolutionReport.CopyCheck upload = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 3, 3, null, false,
             ProfileRef.catalog("lipidomics", "1.0"), false, null, null, null, 0L);
         assertTrue(ResolutionReport.markdown(upload, List.of()).contains(
-            "The CV rule messages are those of the validation of the upload (revision 0)."));
+            "The CV rule messages are those of the validation of the upload (revision 0); their line numbers are "
+            + "those of revision 0."));
+        // a structural check of the revision the CV rules were checked at has one set of line numbers
+        ResolutionReport.CopyCheck same = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 3, 3, null, false,
+            ProfileRef.catalog("lipidomics", "1.0"), false, null, null, null, 3L);
+        assertTrue(ResolutionReport.markdown(same, List.of()).contains(
+            "The CV rule messages are those of the check of revision 3.\n"));
         // a CV check's own messages, and a copy whose CV rules were never checked, need no such line
         assertFalse(ResolutionReport.markdown(check(3, 3, false, true, ProfileRef.catalog("lipidomics", "1.0")),
             List.of()).contains("The CV rule messages are"));

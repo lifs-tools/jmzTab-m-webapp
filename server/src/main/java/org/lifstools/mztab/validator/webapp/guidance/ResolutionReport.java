@@ -72,8 +72,12 @@ public final class ResolutionReport {
         md.append(check.semantic() ? "with " + rules(check.profile()) : "structure only").append(".\n\n");
         if (!check.semantic() && check.cvRevision() != null) {
             md.append("The CV rule messages are those of ").append(check.cvRevision() == 0
-                ? "the validation of the upload (revision 0)" : "the check of revision " + check.cvRevision())
-                .append(".\n\n");
+                ? "the validation of the upload (revision 0)" : "the check of revision " + check.cvRevision());
+            if (check.cvRevision() != check.checkedRevision()) {
+                // they were kept from that check, with its lines
+                md.append("; their line numbers are those of revision ").append(check.cvRevision());
+            }
+            md.append(".\n\n");
         }
         if (check.checkedRevision() != check.currentRevision()) {
             md.append("This is the check of revision ").append(check.checkedRevision()).append("; the copy is at revision ")

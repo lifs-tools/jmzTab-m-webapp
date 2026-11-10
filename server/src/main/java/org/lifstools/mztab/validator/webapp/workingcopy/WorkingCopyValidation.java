@@ -47,10 +47,14 @@ import org.springframework.lang.Nullable;
  * @param guidance the guidance for {@code messages}; its message indexes refer
  * to that list
  * @param failureReason why the run ended {@link Status#FAILED}
+ * @param cvNotChecked if the run was asked to check the CV rules and did not
+ * (the engine skipped them for a file without a model, its check broke, or
+ * there are no rules for the line): why, in the engine's words; the CV
+ * messages are then those of the last CV check, as they were
  */
 public record WorkingCopyValidation(Status status, long revision, boolean stale, boolean parsed,
     @Nullable Long readUpTo, boolean semantic, List<TrackedMessage> messages, List<ValidationMessage> fixed,
-    List<Guidance> guidance, @Nullable String failureReason) {
+    List<Guidance> guidance, @Nullable String failureReason, @Nullable String cvNotChecked) {
 
     public enum Status {
         /** Waiting for or being validated by the engine. */
@@ -70,24 +74,24 @@ public record WorkingCopyValidation(Status status, long revision, boolean stale,
     /** A run without a result. */
     static WorkingCopyValidation failed(long revision, boolean semantic, String reason) {
         return new WorkingCopyValidation(Status.FAILED, revision, false, false, null, semantic, List.of(), List.of(),
-            List.of(), reason);
+            List.of(), reason, null);
     }
 
     /** A run of {@code revision} that has started; the lists of this (ended) one stay visible. */
     WorkingCopyValidation running(long revision, boolean semantic) {
         return new WorkingCopyValidation(Status.RUNNING, revision, stale, parsed, readUpTo, semantic, messages, fixed,
-            guidance, null);
+            guidance, null, cvNotChecked);
     }
 
     /** The first run of a copy, before any result. */
     static WorkingCopyValidation firstRunning(long revision, boolean semantic) {
         return new WorkingCopyValidation(Status.RUNNING, revision, false, false, null, semantic, List.of(), List.of(),
-            List.of(), null);
+            List.of(), null, null);
     }
 
     WorkingCopyValidation withStale(boolean stale) {
         return new WorkingCopyValidation(status, revision, stale, parsed, readUpTo, semantic, messages, fixed,
-            guidance, failureReason);
+            guidance, failureReason, cvNotChecked);
     }
 
     /** Whether the run ended with a parsed file and without an error. */

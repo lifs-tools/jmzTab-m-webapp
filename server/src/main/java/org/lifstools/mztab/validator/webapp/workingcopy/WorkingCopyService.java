@@ -146,6 +146,8 @@ public class WorkingCopyService {
     private static final int STRIPES = 64;
     /** Shown to the user when the queue of the copies' runs is full. */
     static final String RUNS_BUSY = "Too many files are being checked. Please try again in a moment.";
+    /** Why a run asked to check the CV rules did not, when the engine gave no reason. */
+    static final String CV_NOT_CHECKED = "The CV rules were not checked: the file could not be read.";
     private static final int FACTS_CACHE_SIZE = 256;
 
     private static final String META_COMPLETE = "copy.complete";
@@ -330,8 +332,10 @@ public class WorkingCopyService {
                     // the first run is compared with the session's messages; the session's CV messages, if it
                     // checked the CV rules, are those of revision 0
                     db.setMeta(META_BASELINE_STRUCTURAL, json.writeValueAsString(ofKind(record.messages(), false)));
+                    // the engine says when it did not check them (skipped, or the check broke)
                     if (record.validationProfile() != null
-                        && record.validationProfile().kind() != ProfileRef.Kind.NONE) {
+                        && record.validationProfile().kind() != ProfileRef.Kind.NONE
+                        && record.messages().stream().noneMatch(MessageDiff::isCvNotChecked)) {
                         db.setMeta(META_BASELINE_SEMANTIC, json.writeValueAsString(ofKind(record.messages(), true)));
                         db.setMeta(META_CV_REVISION, "0");
                     }
@@ -819,7 +823,7 @@ public class WorkingCopyService {
             if (rejection.isPresent()) {
                 List<ValidationMessage> messages = List.of(ValidationMessage.error(rejection.get()));
                 // nothing was checked, the CV rules neither
-                persist(id, db, run, done(db, revision, false, false, declared.orElse(null), messages, text),
+                persist(id, db, run, done(db, revision, false, false, declared.orElse(null), messages, text, null),
                     declared.orElse(""));
                 return null;
             }
@@ -843,9 +847,14 @@ public class WorkingCopyService {
                 String version = outcome.mzTabVersion() == null || outcome.mzTabVersion().isBlank()
                     ? declared.orElse(null) : outcome.mzTabVersion();
                 // the CV rules were not checked without a mapping (no default profile for the line), nor if the
-                // file could not be read into a model (the engine then says it skipped them)
-                persist(id, db, run, done(db, revision, semantic && mapping != null && outcome.parsed(),
-                    outcome.parsed(), version, messages, text), version == null ? "" : version);
+                // file could not be read into a model or the check broke: the engine then says so by its code
+                List<ValidationMessage> notChecked = messages.stream().filter(MessageDiff::isCvNotChecked).toList();
+                boolean cvChecked = semantic && mapping != null && outcome.parsed() && notChecked.isEmpty();
+                String why = !semantic || cvChecked ? null : notChecked.isEmpty() ? CV_NOT_CHECKED
+                    : String.join("\n", notChecked.stream().map(ValidationMessage::getMessage).toList());
+                messages.removeAll(notChecked);
+                persist(id, db, run, done(db, revision, cvChecked, outcome.parsed(), version, messages, text, why),
+                    version == null ? "" : version);
                 return null;
             } catch (EngineBusyException busy) {
                 Duration delay = busy.retryAfter().compareTo(MIN_RETRY) < 0 ? MIN_RETRY : busy.retryAfter();
@@ -922,7 +931,11 @@ public class WorkingCopyService {
             default -> {
                 Optional<ValidationProfile> p = catalog.defaultFor(line);
                 if (p.isEmpty()) {
-                    notes.add(ValidationMessage.info(EngineMessages.noDefaultProfile(line)));
+                    // no rules to check: said as the engine says it did not check them
+                    ValidationMessage note = ValidationMessage.info(EngineMessages.noDefaultProfile(line));
+                    note.setCode(ValidationMessage.CV_NOT_CHECKED);
+                    note.setCategory(ValidationMessage.Category.CROSS_CHECK);
+                    notes.add(note);
                     return null;
                 }
                 return toTempFile(catalog.mappingUrl(p.get()).openStream(), ".xml");
@@ -935,9 +948,11 @@ public class WorkingCopyService {
      * structural run keeps the CV messages of the last CV check), with guidance from the validated text.
      *
      * @param semantic whether the run checked the CV rules
+     * @param cvNotChecked why a run asked to check them did not
      */
     private WorkingCopyValidation done(WorkingCopyDb db, long revision, boolean semantic, boolean parsed,
-        @Nullable String version, List<ValidationMessage> found, Path text) throws IOException {
+        @Nullable String version, List<ValidationMessage> found, Path text, @Nullable String cvNotChecked)
+        throws IOException {
         MessageDiff.Result diff = MessageDiff.compareRun(baseline(db, false), baseline(db, true), found, semantic);
         List<ValidationMessage> messages = diff.current().stream().map(TrackedMessage::message).toList();
         String line = MzTabVersions.lineOf(version).orElse(null);
@@ -953,7 +968,7 @@ public class WorkingCopyService {
             }
         });
         return new WorkingCopyValidation(Status.DONE, revision, false, parsed, parsed ? null : readUpTo(messages,
-            resolved), semantic, diff.current(), diff.fixed(), resolved, null);
+            resolved), semantic, diff.current(), diff.fixed(), resolved, null, cvNotChecked);
     }
 
     /** The smallest line of a message whose guidance says the engine stops reading there. */

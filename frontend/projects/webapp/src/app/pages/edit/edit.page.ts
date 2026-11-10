@@ -140,6 +140,25 @@ export class EditPage {
     const v = this.validation();
     return v?.status === 'FAILED' ? (v.failureReason ?? 'The file could not be checked.') : null;
   });
+  /**
+   * Why JSON is not offered. When the only errors left are CV messages that a structural check kept from an
+   * earlier CV check, that check may be out of date: it says so, and how to check them again.
+   */
+  protected readonly jsonNote = computed(() => {
+    const v = this.validation();
+    const cv = this.info()?.cvCheckedRevision;
+    const errors = (v?.messages ?? []).map((t) => t.message).filter((m) => m?.message_type === 'error');
+    const keptCvOnly =
+      this.store.current() &&
+      !!v?.parsed &&
+      !v.semantic &&
+      cv != null &&
+      errors.length > 0 &&
+      errors.every((m) => m?.category === 'cross_check');
+    return keptCvOnly
+      ? `The errors left come from the CV check of revision ${cv}: press Check CV rules to check them again.`
+      : 'JSON is offered once the file is checked without errors.';
+  });
   /** Only for a check of the text as it is now: a run of an older text, whose recheck failed, says nothing. */
   protected readonly noProblems = computed(() => {
     const v = this.validation();

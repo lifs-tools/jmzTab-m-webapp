@@ -87,6 +87,15 @@ public final class MessageDiff {
     }
 
     /**
+     * Whether a message says that the CV rules were not checked although a run asked for them (the engine's
+     * {@link ValidationMessage#CV_NOT_CHECKED}: skipped for a file without a model, or the check broke). It is no
+     * result of the rules: it is neither a CV message to keep nor a structural one to compare.
+     */
+    public static boolean isCvNotChecked(ValidationMessage m) {
+        return ValidationMessage.CV_NOT_CHECKED.equals(m.getCode());
+    }
+
+    /**
      * Compares a run with the messages shown before it, each kind with its own: the structural messages with the
      * structural ones before, and, for a semantic run, its CV messages with the CV messages before. A structural
      * run does not check the CV rules: the CV messages before it stay, OPEN, after its own, and none of them is

@@ -116,7 +116,12 @@
       stay in the list until the next one: a check of the structure does not remove them or count them as fixed.
       The status line above the messages says which check they are from: "CV rules checked at revision n" (revision
       0 is your upload; each change adds one) or, once you have changed the file, "CV rules not checked since your
-      last change". Press <b>Check CV rules</b> to bring them up to date.
+      last change". Press <b>Check CV rules</b> to bring them up to date. When you open the file again later, only
+      its structure is checked again; if the CV messages are of the current text but of a check made earlier, the
+      status line says "in an earlier session". While CV messages from an earlier check are the only errors left,
+      <b>Download JSON</b> waits: the note next to it says which check they come from, and <b>Check CV rules</b>
+      checks them again. If a CV check cannot check the rules (for example because the file has errors that stop
+      jmzTab-m from reading it), the editor says why and keeps the CV messages of the last CV check.
     </p>
     <p>
       When many files are being checked at the same moment, the validator can be busy. The editor then shows the

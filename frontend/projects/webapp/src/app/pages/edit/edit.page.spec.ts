@@ -941,6 +941,84 @@ describe('EditPage', () => {
     expect(status()).not.toContain('not checked');
   });
 
+  it('says nothing about the CV rules until the first check of a new copy has ended', async () => {
+    vi.useFakeTimers();
+    const { fixture, el } = await open(info({ cvCheckedRevision: 0, validation: undefined }), 'CATALOG');
+    postValidation().flush(info({ cvCheckedRevision: 0, validation: done({ status: 'RUNNING' }) }));
+    await settle(fixture);
+    expect(el.querySelector('[data-testid=cv-status]')).toBeNull();
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    getInfo().flush(info({ cvCheckedRevision: 0 }));
+    await settle(fixture);
+    expect(el.querySelector('[data-testid=cv-status]')?.textContent).toBe('CV rules checked at revision 0.');
+  });
+
+  it('says that CV messages of the current text are of an earlier session when the copy is reopened', async () => {
+    const { fixture, el } = await open(
+      info({ revision: 3, canUndo: true, cvCheckedRevision: 3, validation: done({ revision: 3, semantic: true }) }),
+      'CATALOG',
+    );
+    const cvStatus = () => el.querySelector('[data-testid=cv-status]')?.textContent;
+    expect(cvStatus()).toBe(
+      'CV rules checked at revision 3, in an earlier session: press Check CV rules to check them again.',
+    );
+    button(el, 'check-cv').click();
+    postValidation().flush(
+      info({ revision: 3, canUndo: true, cvCheckedRevision: 3, validation: done({ revision: 3, semantic: true }) }),
+    );
+    await settle(fixture);
+    expect(cvStatus()).toBe('CV rules checked at revision 3.');
+  });
+
+  it('says when the only errors left are CV messages kept from an earlier CV check', async () => {
+    const cvError = msg({ category: 'cross_check', code: '[Error-3006] x', message: 'ms_run[1]-format is required' });
+    const { el } = await open(
+      info({
+        revision: 2,
+        canUndo: true,
+        cvCheckedRevision: 1,
+        validation: done({ revision: 2, messages: [{ message: cvError, state: 'OPEN' }] }),
+      }),
+      'CATALOG',
+    );
+    expect(button(el, 'download-json').disabled).toBe(true);
+    expect(el.querySelector('[data-testid=json-note]')?.textContent?.trim()).toBe(
+      'The errors left come from the CV check of revision 1: press Check CV rules to check them again.',
+    );
+  });
+
+  it('keeps the general JSON note when a structural error is left', async () => {
+    const cvError = msg({ category: 'cross_check', code: '[Error-3006] x', message: 'ms_run[1]-format is required' });
+    const { el } = await open(
+      info({
+        cvCheckedRevision: 0,
+        validation: done({ messages: [{ message: cvError, state: 'OPEN' }, { message: msg(), state: 'OPEN' }] }),
+      }),
+      'CATALOG',
+    );
+    expect(el.querySelector('[data-testid=json-note]')?.textContent?.trim()).toBe(
+      'JSON is offered once the file is checked without errors.',
+    );
+  });
+
+  it('says when a CV check could not check the rules, and why', async () => {
+    const { el } = await open(
+      info({
+        revision: 1,
+        canUndo: true,
+        cvCheckedRevision: 0,
+        validation: done({ revision: 1, cvNotChecked: 'Semantic validation failed: Mapping file rejected' }),
+      }),
+      'CATALOG',
+    );
+    const callout = el.querySelector('[data-testid=cv-not-checked]');
+    expect(callout?.textContent).toContain('The CV rules could not be checked.');
+    expect(callout?.textContent).toContain('Mapping file rejected');
+    expect(el.querySelector('[data-testid=cv-status]')?.textContent).toBe(
+      'CV rules not checked since your last change.',
+    );
+  });
+
   it('says nothing about CV rules for a session without a profile', async () => {
     const { el } = await open(info(), 'NONE');
     expect(el.querySelector('[data-testid=cv-status]')).toBeNull();

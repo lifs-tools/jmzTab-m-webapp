@@ -112,8 +112,8 @@ public class EngineValidator {
         MzTab mzTab = parser.getMZTabFile();
         if (mapping != null && mzTab == null) {
             // jmzTab-m builds no model when the file has errors; there is nothing to check
-            validationResults.add(note("Semantic validation was skipped: the errors above prevent reading "
-                + "the file's content. Fix them and validate again."));
+            validationResults.add(notChecked(note("Semantic validation was skipped: the errors above prevent "
+                + "reading the file's content. Fix them and validate again.")));
         } else if (mapping != null) {
             validationResults.addAll(capped(validateSemantics(file, mzTab, mapping), maxErrors));
         }
@@ -161,6 +161,18 @@ public class EngineValidator {
         return vm;
     }
 
+    /** Marks a message that says the CV rules were not checked ({@link ValidationMessage#CV_NOT_CHECKED}). */
+    private static org.lifstools.mztab2.model.ValidationMessage notChecked(
+        org.lifstools.mztab2.model.ValidationMessage vm) {
+        vm.setCategory(org.lifstools.mztab2.model.ValidationMessage.CategoryEnum.CROSS_CHECK);
+        vm.setCode(ValidationMessage.CV_NOT_CHECKED);
+        return vm;
+    }
+
+    /**
+     * The CV rules' messages; if the mapping cannot be loaded or the check breaks, one error that says so
+     * ({@link ValidationMessage#CV_NOT_CHECKED}).
+     */
     List<org.lifstools.mztab2.model.ValidationMessage> validateSemantics(Path file, MzTab mzTab, Path mapping) {
         try {
             CvMappingValidator cvValidator = CvMappingValidator.of(
@@ -184,7 +196,7 @@ public class EngineValidator {
             }
             message.append("Please check your file's structure and inspect further validation messages!\n");
             vm.setMessage(message.toString());
-            return List.of(vm);
+            return List.of(notChecked(vm));
         }
     }
 }

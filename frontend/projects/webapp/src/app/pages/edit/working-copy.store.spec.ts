@@ -373,8 +373,9 @@ describe('WorkingCopyStore: a busy check (503)', () => {
 
 /**
  * A copy is opened with the check it had: one that is not of the current text, and not running (the page was
- * left during the idle wait, the check failed, the server restarted: runs live in memory), is requested again,
- * of the same kind as the last one. One that is running is polled; one that is current is left alone.
+ * left during the idle wait, the check failed, the server restarted: runs live in memory), is checked again,
+ * structurally only, whatever the kind of the last one: the CV rules are checked on request only. One that is
+ * running is polled; one that is current is left alone.
  */
 describe('WorkingCopyStore: a reopened copy', () => {
   let http: HttpTestingController;
@@ -404,10 +405,10 @@ describe('WorkingCopyStore: a reopened copy', () => {
     http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies')).flush(info(3, { validation }));
   };
 
-  it('requests a run of the same kind as the last when the last is stale and not running', () => {
+  it('requests a structural run when the last is stale and not running, even after a CV check', () => {
     reopen(run({ revision: 2, stale: true, semantic: true }));
     const [req] = posts();
-    expect(req.request.params.get('semantic')).toBe('true');
+    expect(req.request.params.get('semantic')).toBe('false');
     req.flush(info(3, { validation: run({ status: 'RUNNING', revision: 3 }) }));
   });
 
@@ -461,7 +462,7 @@ describe('WorkingCopyStore: a reopened copy', () => {
     for (let i = 0; i < BUSY_RETRIES; i++) {
       vi.advanceTimersByTime(2000);
       [pending] = posts();
-      expect(pending.request.params.get('semantic')).toBe('true');
+      expect(pending.request.params.get('semantic')).toBe('false');
       refuse();
     }
     vi.advanceTimersByTime(120_000);

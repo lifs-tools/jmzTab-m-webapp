@@ -60,6 +60,14 @@ public class ValidationMessage {
      */
     public static final String JSON_NOT_READ = "json_not_read";
 
+    /**
+     * The code of the engine's message that the CV rules (semantic validation) were not checked although a mapping
+     * was given: skipped because the file could not be read into a model, or failed because the mapping or the
+     * check broke. Its category is {@link Category#CROSS_CHECK}. Clients tell this case by the code, never by the
+     * text.
+     */
+    public static final String CV_NOT_CHECKED = "cv_not_checked";
+
     /** The text before the reader's own message in a {@link #JSON_NOT_READ} error. */
     public static final String JSON_NOT_READ_TEXT = "The JSON file could not be read: ";
 

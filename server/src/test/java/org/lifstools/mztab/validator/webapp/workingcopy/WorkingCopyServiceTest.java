@@ -51,7 +51,9 @@ import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceCatalog;
+import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
+import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfileCatalog;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
@@ -110,6 +112,12 @@ class WorkingCopyServiceTest {
 
     @Autowired
     StorageProperties storageProperties;
+
+    @Autowired
+    ValidationProfileCatalog catalog;
+
+    @Autowired
+    StorageService storage;
 
     @AfterEach
     void forward() {
@@ -573,8 +581,20 @@ class WorkingCopyServiceTest {
 
     /** Submits the example of {@code line} with that line's default profile (CV rules) and waits for its end. */
     private UUID submitWithProfile(String name, String line) throws Exception {
-        UUID id = sessions.submit(name, new ByteArrayInputStream(exampleOf(line).getBytes(StandardCharsets.UTF_8)),
-            new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-" + line + "-default", null), null).id();
+        return submitWithProfile(name, exampleOf(line), line, false);
+    }
+
+    /**
+     * Submits {@code text} with the CV rules of {@code line}'s default profile, as that profile or ({@code custom})
+     * as an uploaded mapping file, and waits for its end.
+     */
+    private UUID submitWithProfile(String name, String text, String line, boolean custom) throws Exception {
+        InputStream content = new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
+        UUID id = custom
+            ? sessions.submit(name, content, new ValidationOptions(ValidationLevel.INFO, 100, null, null),
+                catalog.mappingUrl(catalog.defaultFor(line).orElseThrow()).openStream()).id()
+            : sessions.submit(name, content,
+                new ValidationOptions(ValidationLevel.INFO, 100, "mztab-m-" + line + "-default", null), null).id();
         Instant end = Instant.now().plus(TIMEOUT);
         while (Instant.now().isBefore(end)) {
             ValidationRecord r = sessions.find(id).orElseThrow();
@@ -708,6 +728,8 @@ class WorkingCopyServiceTest {
         UUID id = submitWithProfile("pending-" + line + ".mzTab", line);
         copies.create(id, SourceEncoding.UTF_8);
 
+        int jobsBefore = engine.jobs().size();
+
         EngineProxy.Gate gate = engine.holdNextValidation();
         copies.requestValidation(id, false);
         assertTrue(gate.awaitArrival(TIMEOUT), "the structural run reached the engine");
@@ -717,6 +739,130 @@ class WorkingCopyServiceTest {
 
         WorkingCopyValidation v = awaitRun(id, 0, true);
         assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
-        assertEquals(0L, copies.info(id).cvCheckedRevision());
+        assertEquals(Status.DONE, copies.info(id).validation().status(), "no other run follows");
+        List<EngineProxy.Recorded> validations = engine.jobs().subList(jobsBefore, engine.jobs().size()).stream()
+            .filter(j -> j.path().startsWith("/engine/v1/validations")).toList();
+        assertEquals(List.of(false, true), validations.stream().map(j -> j.part("mapping").isPresent()).toList(),
+            "the structural run, then exactly one CV check");
     }
+
+    private static boolean notChecked(ValidationMessage m) {
+        return ValidationMessage.CV_NOT_CHECKED.equals(m.getCode());
+    }
+
+    /** Polls until the copy's last run has ended on {@code revision} and says the CV rules were not checked. */
+    private WorkingCopyValidation awaitCvNotChecked(UUID id, long revision) throws InterruptedException {
+        Instant end = Instant.now().plus(TIMEOUT);
+        while (Instant.now().isBefore(end)) {
+            WorkingCopyValidation v = copies.info(id).validation();
+            if (v != null && v.status() != Status.RUNNING && v.revision() == revision && v.cvNotChecked() != null) {
+                return v;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("no run on revision " + revision + " that did not check the CV rules: "
+            + copies.info(id).validation());
+    }
+
+    /** What a run that did not check the CV rules must leave as it was. */
+    private void assertCvKept(UUID id, WorkingCopyValidation v, List<String> before, long cvRevision) {
+        assertFalse(v.semantic(), "it is not a CV check");
+        assertEquals(before, cvMessagesOf(v), "the CV messages of the last CV check stay");
+        assertEquals(List.of(), cvMessages(v.fixed()), "none of them is fixed");
+        assertTrue(v.messages().stream().map(TrackedMessage::message).noneMatch(WorkingCopyServiceTest::notChecked),
+            "the engine's note is not a message of the list: " + v.messages());
+        assertEquals(cvRevision, copies.info(id).cvCheckedRevision());
+    }
+
+    /**
+     * A CV check whose rules could not be loaded (the engine's check breaks) keeps the CV messages and their
+     * revision, says why, and leaves nothing that a later structural run would count as fixed.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aCvCheckThatBrokeKeepsTheCvMessages(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("broke-" + line + ".mzTab", exampleOf(line), line, true);
+        List<String> sessionCv = cvMessages(sessions.find(id).orElseThrow().messages());
+        assertEquals(0L, copies.create(id, SourceEncoding.UTF_8).cvCheckedRevision());
+        // the stored mapping goes bad: the engine's own loader refuses it, so its check of the rules breaks
+        Files.writeString(storage.localFile(id, StorageService.SLOT.MAPPINGFILE,
+            ValidationSessionService.CUSTOM_MAPPING), MAPPING_WITH_DOCTYPE, StandardCharsets.UTF_8);
+
+        copies.edit(id, batch(0, new SetMetadataValue(3, "edited")));
+        copies.requestValidation(id, true);
+        WorkingCopyValidation v = awaitCvNotChecked(id, 1);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertTrue(v.cvNotChecked().contains("Mapping file rejected"), v.cvNotChecked());
+        assertCvKept(id, v, sessionCv, 0);
+
+        copies.edit(id, batch(1, new SetMetadataValue(3, "edited-again")));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation after = awaitRun(id, 2, false);
+        assertEquals(List.of(), after.fixed(), "nothing the broken check said is fixed now");
+        assertCvKept(id, after, sessionCv, 0);
+        assertNull(after.cvNotChecked(), "a structural run asked for no CV check");
+    }
+
+    /** A CV check of a text that cannot be read into a model is not a CV check: the engine skips the rules. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aCvCheckOfATextWithoutModelKeepsTheCvMessages(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("no-model-" + line + ".mzTab", line);
+        List<String> sessionCv = cvMessages(sessions.find(id).orElseThrow().messages());
+        copies.create(id, SourceEncoding.UTF_8);
+        assertEquals("instrument[1]-detector", reader.lines(id, 24, 1).get(0).cells().get(1));
+
+        // an empty parameter is an error, and jmzTab-m builds no model of a file with errors
+        copies.edit(id, batch(0, new SetMetadataValue(24, "[, , , ]")));
+        copies.requestValidation(id, true);
+        WorkingCopyValidation v = awaitCvNotChecked(id, 1);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertTrue(v.messages().stream().map(TrackedMessage::message).anyMatch(code("Error-1012")));
+        assertCvKept(id, v, sessionCv, 0);
+    }
+
+    /** A text the routing refuses (a version no engine serves) is not checked at all: the CV messages stay. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aRefusedTextKeepsTheCvMessages(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("refused-" + line + ".mzTab", line);
+        List<String> sessionCv = cvMessages(sessions.find(id).orElseThrow().messages());
+        copies.create(id, SourceEncoding.UTF_8);
+
+        copies.edit(id, batch(0, new SetMetadataValue(2, "9.9.0-M")));
+        copies.requestValidation(id, true);
+        WorkingCopyValidation v = awaitRun(id, 1, false);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertCvKept(id, v, sessionCv, 0);
+    }
+
+    /**
+     * A session whose CV rules were skipped (its file has an error, so no model) did not check them: the copy has
+     * no CV check, and the engine's note is neither shown nor counted as fixed by the first run.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aSessionWhoseCvRulesWereSkippedHasNoCvCheck(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("skipped-" + line + ".mzTab", exampleOf(line).replace(DETECTOR, "[, , , ]"),
+            line, false);
+        assertTrue(sessions.find(id).orElseThrow().messages().stream().anyMatch(WorkingCopyServiceTest::notChecked),
+            "the engine says it did not check the CV rules");
+
+        assertNull(copies.create(id, SourceEncoding.UTF_8).cvCheckedRevision());
+        copies.requestValidation(id, false);
+        WorkingCopyValidation v = awaitRun(id, 0, false);
+        assertEquals(Status.DONE, v.status(), "failure: " + v.failureReason());
+        assertEquals(List.of(), v.messages().stream().filter(t -> t.state() == TrackedMessage.State.NEW)
+            .map(t -> t.message().getMessage()).toList());
+        assertEquals(List.of(), v.fixed());
+        assertEquals(List.of(), cvMessagesOf(v), "no CV messages: the rules were not checked");
+        assertNull(copies.info(id).cvCheckedRevision());
+    }
+
+    private static final String MAPPING_WITH_DOCTYPE =
+        org.lifstools.mztab.validator.webapp.service.validation.MappingFixtures.MAPPING_WITH_DOCTYPE;
 }

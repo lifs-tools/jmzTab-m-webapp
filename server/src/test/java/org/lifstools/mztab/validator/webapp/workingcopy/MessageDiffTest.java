@@ -153,6 +153,19 @@ class MessageDiffTest {
     }
 
     @Test
+    void theEnginesNoteThatTheCvRulesWereNotCheckedIsKnownByItsCode() {
+        ValidationMessage skipped = msg("", "Semantic validation was skipped.", -1);
+        skipped.setCode(ValidationMessage.CV_NOT_CHECKED);
+        skipped.setCategory(ValidationMessage.Category.CROSS_CHECK);
+        ValidationMessage omitted = msg("", "20 further semantic validation messages were omitted.", -1);
+        omitted.setCategory(ValidationMessage.Category.CROSS_CHECK);
+
+        assertTrue(MessageDiff.isCvNotChecked(skipped));
+        assertFalse(MessageDiff.isCvNotChecked(omitted), "the rules were checked; some messages were left out");
+        assertFalse(MessageDiff.isCvNotChecked(cv("Info-3010", "instrument[1]-source", 9)));
+    }
+
+    @Test
     void aStructuralRunKeepsTheCvMessagesOpenAndFixesNoneOfThem() {
         ValidationMessage a = atKey("Error-1012", "x", 3);
         ValidationMessage b = msg("Error-2000", "broken", 7);

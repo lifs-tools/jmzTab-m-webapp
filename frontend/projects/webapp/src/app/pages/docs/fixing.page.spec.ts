@@ -90,6 +90,8 @@ describe('FixingPage', () => {
     expect(text).toContain('CV rules checked at revision n');
     expect(text).toContain('CV rules not checked since your last change');
     expect(text).toContain('without the messages of the CV rules');
+    expect(text).toContain('only its structure is checked again');
+    expect(text).toContain('in an earlier session');
   });
 
   it('names the quick-fix button as the result page shows it', async () => {

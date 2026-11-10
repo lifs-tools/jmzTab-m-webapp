@@ -166,18 +166,24 @@ export class WorkingCopyStore {
     const kind = this.record()?.validationProfile?.kind;
     return kind === 'CATALOG' || kind === 'CUSTOM';
   });
+  /** A CV check of this copy has ended (DONE) while the page was open, not only in an earlier session. */
+  private readonly cvCheckedHere = signal(false);
   /**
    * What the status line says about the CV messages shown: whether they are of the text as it is now. A structural
    * run keeps the CV messages of the last CV check (the session's at revision 0), so after a change they are shown
-   * until the next CV check. Null for a copy without a profile whose CV rules were never checked.
+   * until the next CV check; a reopened copy shows those of a check of an earlier session. Nothing is said until a
+   * check of the copy has ended (no messages are listed before), nor for a copy without a profile whose CV rules
+   * were never checked.
    */
   readonly cvStatus = computed(() => {
+    if (!this.reportReady()) return null;
     const copy = this.info();
     const checked = copy?.cvCheckedRevision;
     if (checked == null) return this.hasProfile() ? 'CV rules not checked yet.' : null;
-    return checked === copy?.revision
-      ? `CV rules checked at revision ${checked}.`
-      : 'CV rules not checked since your last change.';
+    if (checked !== copy?.revision) return 'CV rules not checked since your last change.';
+    return checked > 0 && !this.cvCheckedHere()
+      ? `CV rules checked at revision ${checked}, in an earlier session: press Check CV rules to check them again.`
+      : `CV rules checked at revision ${checked}.`;
   });
 
   /** The document changed under the views (undo, redo, a quick fix, a reload): they request again what they show. */
@@ -267,6 +273,7 @@ export class WorkingCopyStore {
     // a new copy counts its revisions anew, and nothing has been asked of it yet
     this.lastLineMoveRevision = -1;
     this.cvCheckPending = false;
+    this.cvCheckedHere.set(false);
     this.api
       .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -295,13 +302,14 @@ export class WorkingCopyStore {
    * A copy that is opened is checked unless its last check is current or running. A new copy has no run: it is
    * checked, so that its messages and quick fixes refer to its lines. A reopened copy may have a check of an older
    * revision with none running (the page was left during the idle wait, the check failed, or the server
-   * restarted: runs live in memory): it is checked again, of the same kind as the last. A failed check of the
-   * current text is not asked again (that would loop): its failure is shown, with Retry.
+   * restarted: runs live in memory): its structure is checked again, whatever the kind of the last check. The CV
+   * rules are checked on request only; the CV messages of an earlier CV check stay shown, and the status line
+   * says which check they are of. A failed check of the current text is not asked again (that would loop): its
+   * failure is shown, with Retry.
    */
   private checkOnOpen(info: WorkingCopyInfo): void {
     const v = info.validation;
-    if (!v) this.validate(false);
-    else if (v.status !== 'RUNNING' && (v.stale || v.revision !== info.revision)) this.validate(!!v.semantic);
+    if (!v || (v.status !== 'RUNNING' && (v.stale || v.revision !== info.revision))) this.validate(false);
   }
 
   // ---- edits ----
@@ -532,6 +540,8 @@ export class WorkingCopyStore {
     this.info.set(info);
     const v = info.validation;
     if (v?.status === 'DONE') this.reportReady.set(true);
+    // the answer of create() is what an earlier session left; later answers are of checks made while open
+    if (v?.status === 'DONE' && v.semantic && this.view() === 'ready') this.cvCheckedHere.set(true);
     if (v?.status === 'RUNNING') {
       if (restartPoll || !this.polling) this.polls.next();
     } else if (v) {
