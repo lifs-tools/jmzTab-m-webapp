@@ -67,7 +67,9 @@ const info = (over: Partial<WorkingCopyInfo> = {}): WorkingCopyInfo => ({
   canUndo: false,
   canRedo: false,
   expiresAt: '2026-11-07T10:00:00Z',
-  validation: done(),
+  // the check is of the revision the copy is at, unless a test says otherwise: a copy opened with an older
+  // check is checked again
+  validation: done({ revision: over.revision ?? 0 }),
   ...over,
 });
 
@@ -542,8 +544,8 @@ describe('EditPage', () => {
   it('disables JSON for an error, a stale run or a run of another revision', async () => {
     const cases: WorkingCopyInfo[] = [
       info({ validation: done({ messages: [{ message: msg(), state: 'OPEN' }] }) }),
-      info({ validation: done({ stale: true }) }),
-      info({ revision: 2, validation: done({ revision: 1 }) }),
+      info({ validation: done({ status: 'RUNNING', stale: true }) }),
+      info({ revision: 2, validation: done({ status: 'RUNNING', revision: 1 }) }),
       info({ validation: done({ status: 'RUNNING' }) }),
     ];
     for (const copy of cases) {
@@ -902,7 +904,7 @@ describe('EditPage', () => {
 
     it('disables the quick fix while the latest changes are checked', async () => {
       const { el } = await open(
-        info({ validation: done({ stale: true, messages: [{ message: msg(), state: 'OPEN' }], guidance: [fixGuidance('remove-empty-parameter')] }) }),
+        info({ validation: done({ status: 'RUNNING', stale: true, messages: [{ message: msg(), state: 'OPEN' }], guidance: [fixGuidance('remove-empty-parameter')] }) }),
       );
       const fix = el.querySelector<HTMLButtonElement>('button.quick-fix')!;
       expect(fix.disabled).toBe(true);

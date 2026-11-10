@@ -256,8 +256,7 @@ export class WorkingCopyStore {
           this.lastVersion = info.mzTabVersion ?? null;
           this.setInfo(info);
           this.view.set('ready');
-          // a new copy has no run yet: check it, so that its messages and quick fixes refer to its lines
-          if (!info.validation) this.validate(false);
+          this.checkOnOpen(info);
         },
         error: (err: unknown) => {
           const body = err instanceof HttpErrorResponse ? err.error : null;
@@ -271,6 +270,19 @@ export class WorkingCopyStore {
           }
         },
       });
+  }
+
+  /**
+   * A copy that is opened is checked unless its last check is current or running. A new copy has no run: it is
+   * checked, so that its messages and quick fixes refer to its lines. A reopened copy may have a check of an older
+   * revision with none running (the page was left during the idle wait, the check failed, or the server
+   * restarted: runs live in memory): it is checked again, of the same kind as the last. A failed check of the
+   * current text is not asked again (that would loop): its failure is shown, with Retry.
+   */
+  private checkOnOpen(info: WorkingCopyInfo): void {
+    const v = info.validation;
+    if (!v) this.validate(false);
+    else if (v.status !== 'RUNNING' && (v.stale || v.revision !== info.revision)) this.validate(!!v.semantic);
   }
 
   // ---- edits ----

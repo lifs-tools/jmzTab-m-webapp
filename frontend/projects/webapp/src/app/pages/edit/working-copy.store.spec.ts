@@ -363,3 +363,81 @@ describe('WorkingCopyStore: a busy check (503)', () => {
     again[0].flush(info(0));
   });
 });
+
+/**
+ * A copy is opened with the check it had: one that is not of the current text, and not running (the page was
+ * left during the idle wait, the check failed, the server restarted: runs live in memory), is requested again,
+ * of the same kind as the last one. One that is running is polled; one that is current is left alone.
+ */
+describe('WorkingCopyStore: a reopened copy', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  type V = NonNullable<WorkingCopyInfo['validation']>;
+  const run = (over: Partial<V>) => ({ status: 'DONE', revision: 3, stale: false, semantic: false, ...over }) as V;
+  const posts = () => http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'));
+  const reopen = (validation: V) => {
+    store.open('abc');
+    http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies')).flush(info(3, { validation }));
+  };
+
+  it('requests a run of the same kind as the last when the last is stale and not running', () => {
+    reopen(run({ revision: 2, stale: true, semantic: true }));
+    const [req] = posts();
+    expect(req.request.params.get('semantic')).toBe('true');
+    req.flush(info(3, { validation: run({ status: 'RUNNING', revision: 3 }) }));
+  });
+
+  it('requests a structural run after a structural one', () => {
+    reopen(run({ revision: 2, stale: true, semantic: false }));
+    expect(posts()[0].request.params.get('semantic')).toBe('false');
+  });
+
+  it('checks again a failed check of an older revision (the server restarted or the check failed)', () => {
+    reopen(run({ status: 'FAILED', revision: 2, stale: true, semantic: true }));
+    expect(posts().length).toBe(1);
+  });
+
+  it('requests nothing for a failed check of the current text: the failure is shown, with Retry', () => {
+    reopen(run({ status: 'FAILED', revision: 3, stale: false, failureReason: 'boom' }));
+    expect(posts().length).toBe(0);
+    expect(store.validating()).toBe(false);
+  });
+
+  it('polls a run that is RUNNING, and requests nothing', () => {
+    reopen(run({ status: 'RUNNING', revision: 3, stale: false }));
+    expect(posts().length).toBe(0);
+    vi.advanceTimersByTime(1000);
+    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc')).flush(info(3, { validation: run({}) }));
+  });
+
+  it('requests nothing when the last check is current', () => {
+    reopen(run({}));
+    expect(posts().length).toBe(0);
+    expect(store.current()).toBe(true);
+  });
+
+  it('does not loop: a request that fails after a reopen is not repeated by itself', () => {
+    reopen(run({ revision: 2, stale: true }));
+    posts()[0].flush({ message: 'x' }, { status: 500, statusText: 'Server Error' });
+    vi.advanceTimersByTime(120_000);
+    expect(posts().length).toBe(0);
+    expect(store.checkFailed()).toBe(true);
+  });
+});

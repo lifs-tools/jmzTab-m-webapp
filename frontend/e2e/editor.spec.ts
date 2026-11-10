@@ -238,3 +238,20 @@ test('selectingAMessageSelectsItsElementAndRemoveThisLineFixesIt', async ({ page
   expect(readFileSync(await restored.path()).equals(readFileSync(PROFILE_FIELD_MISMATCH))).toBe(true);
   await request.delete(`rest/v2/validations/${id}`);
 });
+
+test('reloadingRightAfterAnEditStillEndsInACheck', async ({ page, request }) => {
+  const id = await validate(request, FIX_ME, 'fix-me.mzTab');
+  await openEditor(page, id);
+  const button = page.locator('button.quick-fix[data-fix="remove-empty-parameter"]');
+  const card = page.locator('.grp').filter({ has: button });
+  await card.locator('summary', { hasText: 'How to fix this' }).click();
+  await button.click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+  await expect(dialog).toBeHidden();
+  // reload within the pause before the check starts: the edit is saved, its check was never requested
+  await page.reload();
+  await awaitCheck(page);
+  await expect(page.getByTestId('run-status')).not.toContainText('Checking your latest changes…');
+  await request.delete(`rest/v2/validations/${id}`);
+});
