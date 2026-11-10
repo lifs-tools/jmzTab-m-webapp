@@ -5258,6 +5258,43 @@
         "tags" : [ "working-copies" ]
       }
     },
+    "/rest/v2/working-copies/{id}/report" : {
+      "get" : {
+        "operationId" : "getWorkingCopyReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "md",
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "default" : "md",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/markdown" : {
+                "schema" : {
+                  "format" : "binary",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Downloads the problems of the copy's last finished check and how to fix them, as Markdown, with the line numbers of the copy as it was checked. A check of an older revision still gives a report whose header says so; 409 if the copy has not been checked or its last check gave no result",
+        "tags" : [ "working-copies" ]
+      }
+    },
     "/rest/v2/working-copies/{id}/tables/{section}" : {
       "get" : {
         "operationId" : "getWorkingCopyTablePage",

@@ -114,7 +114,7 @@
             Download JSON
           </button>
           <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
-          <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()">Download report of the upload</a>
+          <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()">Download report</a>
           @if (!store.jsonReady()) {
             <span class="lifs-note">JSON is offered once the file is checked without errors.</span>
           }
@@ -133,8 +133,10 @@
             <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
             <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
             <li>
-              <b>Download report of the upload</b> lists the problems of your upload, with its line numbers, for the
-              tool that wrote it. It does not describe your changes.
+              <b>Download report</b> lists the problems of the last check of your corrected copy, with the line
+              numbers of the copy, for the tool that wrote the file. If you have changed the file since that check, its
+              header says so; check again first for a report of the current text. The result page's report is the one of
+              your upload.
             </li>
             <li>If the validator is busy, the editor shows its message and asks again by itself a few times. <b>Retry</b> asks at once. Your changes are kept.</li>
           </ul>

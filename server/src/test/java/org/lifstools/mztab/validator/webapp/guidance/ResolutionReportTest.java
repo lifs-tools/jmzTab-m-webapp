@@ -107,4 +107,55 @@ class ResolutionReportTest {
         String md = ResolutionReport.markdown(r, List.of());
         assertTrue(md.startsWith("# Validation problems in a ## injected.mzTab\n"), md);
     }
+
+    private static final Guidance WITH_LINES = new Guidance("empty-parameter", "Error-1012", "A parameter is empty", "Why.",
+        "Do this here.", "Do this in the tool.", null, null, null, false, null, null, List.of(0),
+        List.of(new QuotedLine(23, "MTD\ta\t[, , , ]", false)));
+
+    private static ResolutionReport.CopyCheck check(long checked, long current, boolean running, boolean semantic,
+        ProfileRef profile) {
+        return new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", checked, current,
+            Instant.parse("2026-11-09T10:15:30Z"), semantic, profile, running);
+    }
+
+    @Test
+    void reportOfACopyNamesTheCopyItsRevisionAndTheCheck() {
+        String md = ResolutionReport.markdown(check(3, 3, false, false, null), List.of(WITH_LINES));
+        assertTrue(md.startsWith("# Validation problems in my.mzTab (corrected copy)\n"), md);
+        assertTrue(md.contains("Revision 3 of the corrected copy"), md);
+        assertTrue(md.contains("mzTab-M version 2.0.0-M"), md);
+        assertTrue(md.contains("2026-11-09T10:15:30Z"), md);
+        assertTrue(md.contains("structure only"), md);
+        assertFalse(md.contains("the copy is at revision"), md);
+        assertTrue(md.contains("## A parameter is empty (1)"), md);
+        assertTrue(md.contains("Lines: 23"), md);
+    }
+
+    @Test
+    void reportOfACopySaysWhenTheCheckIsNotCurrentAndWhenOneIsRunning() {
+        String md = ResolutionReport.markdown(check(2, 5, true, false, null), List.of());
+        assertTrue(md.contains("check of revision 2; the copy is at revision 5"), md);
+        assertTrue(md.contains("A new check is running."), md);
+        assertTrue(md.contains("No problems were found."), md);
+        assertFalse(ResolutionReport.markdown(check(2, 5, false, false, null), List.of()).contains("is running"));
+    }
+
+    @Test
+    void reportOfACopyNamesTheCvRulesProfile() {
+        assertTrue(ResolutionReport.markdown(check(1, 1, false, true, ProfileRef.catalog("lipidomics", "1.0")),
+            List.of()).contains("CV rules of the profile lipidomics 1.0"));
+        assertTrue(ResolutionReport.markdown(check(1, 1, false, true, ProfileRef.custom()), List.of())
+            .contains("CV rules of the uploaded mapping file"));
+        assertTrue(ResolutionReport.markdown(check(1, 1, false, true, ProfileRef.none()), List.of())
+            .contains("CV rules of the default profile of the file's version"));
+    }
+
+    @Test
+    void reportOfACopyKeepsFileNameAndVersionOnOneLine() {
+        ResolutionReport.CopyCheck c = new ResolutionReport.CopyCheck("a\n## injected.mzTab", "2.0\n# x", 1, 1, null,
+            false, null, false);
+        String md = ResolutionReport.markdown(c, List.of());
+        assertTrue(md.startsWith("# Validation problems in a ## injected.mzTab (corrected copy)\n"), md);
+        assertFalse(md.contains("\n# x"), md);
+    }
 }

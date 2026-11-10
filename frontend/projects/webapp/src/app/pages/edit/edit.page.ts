@@ -114,7 +114,7 @@ export class EditPage {
   protected readonly validation = this.store.validation;
   /** Relative to `<base href>`, so the links work under any servlet context path. */
   protected readonly base = computed(() => `rest/v2/working-copies/${this.store.id()}`);
-  protected readonly reportUrl = computed(() => `rest/v2/validations/${this.store.id()}/report?format=md`);
+  protected readonly reportUrl = computed(() => `rest/v2/working-copies/${this.store.id()}/report?format=md`);
 
   /** "Kept for N days after your last change": N is the server's retention, else what is left of it. */
   protected readonly retentionDays = computed(() => {

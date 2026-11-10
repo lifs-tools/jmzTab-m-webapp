@@ -73,7 +73,7 @@ describe('FixingPage', () => {
       'Fix this file',
       'Open a file to fix',
       'Download resolution report',
-      'Download report of the upload',
+      'Download report',
       'Resolve duplicate column',
       'Remove this line',
       'Check CV rules',
@@ -126,9 +126,10 @@ describe('FixingPage', () => {
     expect(text).not.toContain('Anyone who has the address of the editor can');
   });
 
-  it('says that the report in the editor is of the upload', async () => {
+  it('says that the report in the editor is of the corrected copy and the one of the result page of the upload', async () => {
     const text = (await render()).textContent!.replace(/\s+/g, ' ');
-    expect(text).toContain('describes your upload as it was validated, with its line numbers, not the corrected file');
+    expect(text).toContain('describes the last check of your copy, with the line numbers of the copy');
+    expect(text).toContain('The report of the result page describes your upload, with the upload');
   });
 
   it('names the retention of this instance', async () => {

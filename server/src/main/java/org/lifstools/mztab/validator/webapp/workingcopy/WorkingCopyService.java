@@ -58,6 +58,7 @@ import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.engine.EngineUnavailableException;
 import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
 import org.lifstools.mztab.validator.webapp.guidance.Guidance;
+import org.lifstools.mztab.validator.webapp.guidance.ResolutionReport;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceResolver;
 import org.lifstools.mztab.validator.webapp.guidance.UploadLines;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
@@ -151,6 +152,7 @@ public class WorkingCopyService {
     private static final String META_CHANGED = "copy.changedAt";
     private static final String META_VERSION = "copy.mzTabVersion";
     private static final String META_LAST = "validation.last";
+    private static final String META_LAST_AT = "validation.lastAt";
     private static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
     private static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
     private static final TypeReference<List<ValidationMessage>> MESSAGES = new TypeReference<>() {
@@ -384,6 +386,38 @@ public class WorkingCopyService {
      */
     public String fileName(UUID id) {
         return guard(id, () -> db(id).meta(META_FILE_NAME));
+    }
+
+    /**
+     * The problems of the copy's last finished check as Markdown, with the line numbers of the revision that run
+     * validated (taken from the stored run, not from {@link #info}, which labels the messages of a run still
+     * running with that run's revision). A check that is not current still gives a report that says so.
+     *
+     * @throws NoSuchWorkingCopyException if there is no copy
+     * @throws WorkingCopyConflictException if the copy has not been checked, or its last check gave no result
+     */
+    public String resolutionReport(UUID id) {
+        return guard(id, () -> {
+            WorkingCopyDb db = db(id);
+            long current = db.revision();
+            WorkingCopyValidation last = lastValidation(db);
+            if (last == null) {
+                throw new WorkingCopyConflictException("The copy has not been checked yet. Check it first.");
+            }
+            if (last.status() != Status.DONE) {
+                throw new WorkingCopyConflictException("The last check of the copy gave no result. Check it again.");
+            }
+            boolean running;
+            synchronized (runs) {
+                running = runs.containsKey(id);
+            }
+            String at = db.meta(META_LAST_AT);
+            String version = db.meta(META_VERSION);
+            ProfileRef profile = sessions.find(id).map(ValidationRecord::validationProfile).orElse(null);
+            return ResolutionReport.markdown(new ResolutionReport.CopyCheck(db.meta(META_FILE_NAME),
+                version == null || version.isEmpty() ? null : version, last.revision(), current,
+                at == null ? null : Instant.parse(at), last.semantic(), profile, running), last.guidance());
+        });
     }
 
     /**
@@ -926,6 +960,7 @@ public class WorkingCopyService {
                 return null;
             }
             db.setMeta(META_LAST, last);
+            db.setMeta(META_LAST_AT, Instant.now().toString());
             if (v.status() == Status.DONE) {
                 db.setMeta(baselineKey(v.semantic()), messages);
             }

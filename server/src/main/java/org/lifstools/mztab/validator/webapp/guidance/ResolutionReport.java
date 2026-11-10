@@ -15,9 +15,12 @@
  */
 package org.lifstools.mztab.validator.webapp.guidance;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.lifstools.mztab.validator.webapp.session.ProfileRef;
 import org.lifstools.mztab.validator.webapp.session.ValidationRecord;
+import org.springframework.lang.Nullable;
 
 /** The problems of a validation and how to resolve them, as Markdown to hand to whoever fixes the file. */
 public final class ResolutionReport {
@@ -25,8 +28,60 @@ public final class ResolutionReport {
     private ResolutionReport() {
     }
 
+    /**
+     * The check of a working copy that a report describes.
+     *
+     * @param checkedRevision the revision of the run that produced the messages
+     * @param currentRevision the copy's revision now
+     * @param checkedAt when that run ended; null if not known
+     * @param semantic whether the run checked CV rules too
+     * @param profile the session's profile, which a semantic run applies; null counts as none
+     * @param running whether a new check is running now
+     */
+    public record CopyCheck(String fileName, @Nullable String version, long checkedRevision, long currentRevision,
+        @Nullable Instant checkedAt, boolean semantic, @Nullable ProfileRef profile, boolean running) {
+    }
+
+    /** The problems of a working copy's last check, with the lines of the copy as it was checked. */
+    public static String markdown(CopyCheck check, List<Guidance> guidance) {
+        StringBuilder md = new StringBuilder("# Validation problems in ").append(oneLine(check.fileName()))
+            .append(" (corrected copy)\n\n");
+        md.append("Revision ").append(check.checkedRevision()).append(" of the corrected copy");
+        if (check.version() != null && !check.version().isBlank()) {
+            md.append(", mzTab-M version ").append(oneLine(check.version()));
+        }
+        md.append(". Checked ");
+        if (check.checkedAt() != null) {
+            md.append(check.checkedAt()).append(", ");
+        }
+        md.append(check.semantic() ? "with " + rules(check.profile()) : "structure only").append(".\n\n");
+        if (check.checkedRevision() != check.currentRevision()) {
+            md.append("This is the check of revision ").append(check.checkedRevision()).append("; the copy is at revision ")
+                .append(check.currentRevision()).append(". The line numbers are those of revision ")
+                .append(check.checkedRevision()).append(".\n\n");
+        }
+        if (check.running()) {
+            md.append("A new check is running.\n\n");
+        }
+        return problems(md, guidance);
+    }
+
+    private static String rules(@Nullable ProfileRef profile) {
+        if (profile != null && profile.kind() == ProfileRef.Kind.CATALOG) {
+            return "CV rules of the profile " + oneLine(profile.id()) + " " + oneLine(profile.version());
+        }
+        if (profile != null && profile.kind() == ProfileRef.Kind.CUSTOM) {
+            return "CV rules of the uploaded mapping file";
+        }
+        return "CV rules of the default profile of the file's version";
+    }
+
     public static String markdown(ValidationRecord record, List<Guidance> guidance) {
-        StringBuilder md = new StringBuilder("# Validation problems in ").append(oneLine(record.fileName())).append("\n\n");
+        return problems(new StringBuilder("# Validation problems in ").append(oneLine(record.fileName())).append("\n\n"),
+            guidance);
+    }
+
+    private static String problems(StringBuilder md, List<Guidance> guidance) {
         if (guidance.isEmpty()) {
             return md.append("No problems were found.\n").toString();
         }

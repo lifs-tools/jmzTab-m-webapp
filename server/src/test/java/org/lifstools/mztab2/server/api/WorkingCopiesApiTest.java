@@ -17,7 +17,9 @@ package org.lifstools.mztab2.server.api;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -36,6 +38,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.lifstools.mztab.validator.webapp.Application;
 import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import org.lifstools.mztab.validator.webapp.EngineTestSupport;
@@ -64,7 +68,7 @@ class WorkingCopiesApiTest {
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
-        EngineTestSupport.register(registry);
+        EngineTestSupport.registerBoth(registry);
     }
 
     @Autowired
@@ -511,5 +515,102 @@ class WorkingCopiesApiTest {
         mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON).content(batch))
             .andExpect(status().isConflict());
         mvc.perform(get(url).param("message", Integer.toString(message))).andExpect(status().isConflict());
+    }
+
+    /** The fixture with the empty-parameter problem (Error-1012 at line 24) as a file of {@code line}. */
+    private static byte[] emptyParameterFile(String line) throws Exception {
+        try (InputStream in = WorkingCopiesApiTest.class
+            .getResourceAsStream("/workingcopy/engine-remove-empty-parameter.mzTab")) {
+            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return text.replace("MTD\tmzTab-version\t2.0.0-M", "MTD\tmzTab-version\t" + line + ".0-M")
+                .getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    /** Requests a check of the copy and waits until its result is of {@code revision}. */
+    private void check(String id, long revision) throws Exception {
+        mvc.perform(post(BASE + "/" + id + "/validations")).andExpect(status().isAccepted());
+        long end = System.currentTimeMillis() + 60_000;
+        while (System.currentTimeMillis() < end) {
+            JsonNode v = json.readTree(mvc.perform(get(BASE + "/" + id)).andReturn().getResponse()
+                .getContentAsString()).get("validation");
+            if (v != null && "DONE".equals(v.get("status").asText()) && v.get("revision").asLong() == revision) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("the check did not end");
+    }
+
+    private String report(String id) throws Exception {
+        return mvc.perform(get(BASE + "/" + id + "/report").param("format", "md")).andExpect(status().isOk())
+            .andExpect(header().string("Content-Type", "text/markdown;charset=UTF-8"))
+            .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+    }
+
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void reportOfTheCopyUsesItsLines(String line) throws Exception {
+        assumeTrue(line.equals("2.0") || EngineTestSupport.has21(), "the 2.1 engine is not built");
+        String id = validation("lines.mzTab", emptyParameterFile(line));
+        create(id);
+        // the upload's report has the line of the upload
+        String upload = mvc.perform(get("/rest/v2/validations/" + id + "/report").param("format", "md"))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(upload.contains("Lines: 24"), upload);
+
+        // delete the comment line above it: the problem moves to line 23
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(edits(0, "{\"op\":\"DeleteLine\",\"line\":1}"))).andExpect(status().isOk());
+        check(id, 1);
+        String md = report(id);
+        assertTrue(md.startsWith("# Validation problems in lines.mzTab (corrected copy)"), md);
+        assertTrue(md.contains("Revision 1 of the corrected copy"), md);
+        assertTrue(md.contains("structure only"), md);
+        assertTrue(md.contains("Lines: 23"), md);
+        assertFalse(md.contains("Lines: 24"), md);
+        assertFalse(md.contains("the copy is at revision"), md);
+    }
+
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void reportSaysWhenTheCheckIsNotCurrent(String line) throws Exception {
+        assumeTrue(line.equals("2.0") || EngineTestSupport.has21(), "the 2.1 engine is not built");
+        String id = validation("stale.mzTab", emptyParameterFile(line));
+        create(id);
+        check(id, 0);
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(edits(0, "{\"op\":\"DeleteLine\",\"line\":1}"))).andExpect(status().isOk());
+        String md = report(id);
+        assertTrue(md.contains("check of revision 0; the copy is at revision 1"), md);
+        assertTrue(md.contains("Lines: 24"), md);
+    }
+
+    @Test
+    void reportOfAnUncheckedCopyIs409() throws Exception {
+        String id = validation("unchecked.mzTab", example());
+        create(id);
+        mvc.perform(get(BASE + "/" + id + "/report").param("format", "md")).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("The copy has not been checked yet. Check it first."));
+    }
+
+    @Test
+    void reportParametersAreValidated() throws Exception {
+        String id = validation("params.mzTab", example());
+        create(id);
+        check(id, 0);
+        mvc.perform(get(BASE + "/" + id + "/report").param("format", "csv")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/" + id + "/report").param("format", "MD")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/not-a-uuid/report")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/00000000-0000-0000-0000-000000000000/report")).andExpect(status().isNotFound());
+        // md is the default
+        mvc.perform(get(BASE + "/" + id + "/report")).andExpect(status().isOk());
+    }
+
+    @Test
+    void unknownFormatIs400() throws Exception {
+        String id = validation("format.mzTab", example());
+        create(id);
+        mvc.perform(get(BASE + "/" + id + "/report").param("format", "pdf")).andExpect(status().isBadRequest());
     }
 }

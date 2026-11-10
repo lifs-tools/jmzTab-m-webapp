@@ -87,6 +87,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class WorkingCopiesApiController {
 
     static final String TSV = "text/tab-separated-values";
+    static final String MARKDOWN = "text/markdown";
 
     private final WorkingCopyService copies;
     private final WorkingCopyReader reader;
@@ -356,6 +357,28 @@ public class WorkingCopiesApiController {
         Download out = new Download(response, MediaType.APPLICATION_OCTET_STREAM_VALUE, copies.fileName(uuid));
         copies.writeOriginal(uuid, out);
         out.finish();
+    }
+
+    @Operation(operationId = "getWorkingCopyReport", summary = "Downloads the problems of the copy's last finished "
+        + "check and how to fix them, as Markdown, with the line numbers of the copy as it was checked. A check of "
+        + "an older revision still gives a report whose header says so; 409 if the copy has not been checked or its "
+        + "last check gave no result")
+    @ApiResponse(responseCode = "200", content = @Content(mediaType = MARKDOWN,
+        schema = @Schema(type = "string", format = "binary")))
+    @GetMapping("/{id}/report")
+    public ResponseEntity<String> getWorkingCopyReport(@PathVariable("id") String id,
+        @Parameter(description = "md") @RequestParam(value = "format", defaultValue = "md") String format) {
+        UUID uuid = parse(id);
+        if (!format.equals("md")) {
+            throw new IllegalArgumentException("format must be md.");
+        }
+        String report = copies.resolutionReport(uuid);
+        String name = copies.fileName(uuid) + "-copy-problems.md";
+        boolean ascii = StandardCharsets.US_ASCII.newEncoder().canEncode(name);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(name, ascii ? null : StandardCharsets.UTF_8).build().toString())
+            .contentType(new MediaType("text", "markdown", StandardCharsets.UTF_8)).body(report);
     }
 
     private static UUID parse(String id) {

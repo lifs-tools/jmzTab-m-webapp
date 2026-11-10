@@ -93,6 +93,14 @@ test('fixThisFileWithQuickFixes', async ({ page, request }) => {
   expect(fixed).not.toContain('doi:https://');
   expect(fixed).toContain('doi:10.1021/acs.analchem.7b03576');
 
+  // the report of the corrected copy no longer holds the fixed messages, and says whose problems it lists
+  const [report] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-report').click()]);
+  expect(report.suggestedFilename()).toBe('fix-me.mzTab-copy-problems.md');
+  const problems = await text(report);
+  expect(problems).toContain('# Validation problems in fix-me.mzTab (corrected copy)');
+  expect(problems).not.toContain('[, , , ]');
+  expect(problems).not.toContain('doi:https://');
+
   // undo brings the DOI back
   await page.getByTestId('undo').click();
   await awaitCheck(page);
