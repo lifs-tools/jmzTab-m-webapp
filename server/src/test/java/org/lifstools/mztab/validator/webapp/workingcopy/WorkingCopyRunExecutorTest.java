@@ -21,10 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -35,9 +37,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.webapp.AwaitAsyncValidations;
 import org.lifstools.mztab.validator.webapp.EngineProxy;
+import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.WebConfig;
 import org.lifstools.mztab.validator.webapp.session.ValidationOptions;
 import org.lifstools.mztab.validator.webapp.session.ValidationSessionService;
@@ -60,6 +65,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class WorkingCopyRunExecutorTest {
 
     static final EngineProxy ENGINE = EngineProxy.start();
+    /** In front of the 2.1 engine, which a build with -DskipSnapshotEngines leaves out. */
+    static final EngineProxy ENGINE_21 = EngineTestSupport.has21() ? EngineProxy.start("2.1") : null;
     private static final ValidationOptions STRUCTURAL = new ValidationOptions(ValidationLevel.INFO, 100, null, null);
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
 
@@ -70,6 +77,9 @@ class WorkingCopyRunExecutorTest {
     static void storage(DynamicPropertyRegistry registry) {
         registry.add("storage.location", () -> storageRoot.toString());
         ENGINE.register(registry);
+        if (ENGINE_21 != null) {
+            ENGINE_21.registerAt(registry, 1);
+        }
     }
 
     @Autowired
@@ -89,12 +99,27 @@ class WorkingCopyRunExecutorTest {
     @AfterEach
     void forward() {
         ENGINE.reset();
+        if (ENGINE_21 != null) {
+            ENGINE_21.reset();
+        }
     }
 
-    private UUID submit(String name) throws IOException, InterruptedException {
+    /** The proxy of the engine of a version line; a test of 2.1 is skipped when its engine was not built. */
+    private static EngineProxy proxy(String line) {
+        if ("2.1".equals(line)) {
+            assumeTrue(ENGINE_21 != null, "the 2.1 engine was not built");
+            return ENGINE_21;
+        }
+        return ENGINE;
+    }
+
+    /** The lipidomics example, declaring the version of {@code line}. */
+    private UUID submit(String name, String line) throws IOException, InterruptedException {
         byte[] content;
         try (InputStream in = getClass().getResourceAsStream("/metabolomics/lipidomics-example.mzTab")) {
-            content = in.readAllBytes();
+            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            content = ("2.1".equals(line) ? text.replace("mzTab-version\t2.0.0-M", "mzTab-version\t2.1.0-M") : text)
+                .getBytes(StandardCharsets.UTF_8);
         }
         UUID id = sessions.submit(name, new ByteArrayInputStream(content), STRUCTURAL, null).id();
         awaitEnd(id);
@@ -122,16 +147,18 @@ class WorkingCopyRunExecutorTest {
         assertSame(runExecutor, used);
     }
 
-    @Test
-    void aFullRunQueueAnswers503AndLeavesTheCopyAsItWas() throws Exception {
-        UUID a = submit("a.mzTab");
-        UUID b = submit("b.mzTab");
-        UUID c = submit("c.mzTab");
+    @ParameterizedTest
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aFullRunQueueAnswers503AndLeavesTheCopyAsItWas(String line) throws Exception {
+        EngineProxy engine = proxy(line);
+        UUID a = submit("a.mzTab", line);
+        UUID b = submit("b.mzTab", line);
+        UUID c = submit("c.mzTab", line);
         copies.create(a, SourceEncoding.UTF_8);
         copies.create(b, SourceEncoding.UTF_8);
         copies.create(c, SourceEncoding.UTF_8);
 
-        EngineProxy.Gate held = ENGINE.holdNextValidation();
+        EngineProxy.Gate held = engine.holdNextValidation();
         copies.requestValidation(a, false);
         assertTrue(held.awaitArrival(TIMEOUT), "the first run holds the only thread");
         copies.requestValidation(b, false);
@@ -150,23 +177,64 @@ class WorkingCopyRunExecutorTest {
         awaitRunsEnded(c);
     }
 
-    @Test
-    void uploadValidationsStartWhileCopiesRun() throws Exception {
-        UUID a = submit("a.mzTab");
-        UUID b = submit("b.mzTab");
+    @ParameterizedTest
+    @ValueSource(strings = {"2.0", "2.1"})
+    void uploadValidationsStartWhileCopiesRun(String line) throws Exception {
+        EngineProxy engine = proxy(line);
+        UUID a = submit("a.mzTab", line);
+        UUID b = submit("b.mzTab", line);
         copies.create(a, SourceEncoding.UTF_8);
         copies.create(b, SourceEncoding.UTF_8);
 
-        EngineProxy.Gate held = ENGINE.holdNextValidation();
+        EngineProxy.Gate held = engine.holdNextValidation();
         copies.requestValidation(a, false);
         assertTrue(held.awaitArrival(TIMEOUT));
         copies.requestValidation(b, false);
         // the copy pool is full: one run active, one queued
 
-        UUID upload = submit("upload.mzTab");
+        UUID upload = submit("upload.mzTab", line);
         assertEquals(ValidationStatus.FINISHED, sessions.find(upload).orElseThrow().status());
         held.release();
         awaitRunsEnded(a, b);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aBusyEnginesRetryThatFindsTheCopyPoolFullIsAskedAgainNotFailed(String line) throws Exception {
+        EngineProxy engine = proxy(line);
+        UUID a = submit("a.mzTab", line);
+        UUID b = submit("b.mzTab", line);
+        UUID c = submit("c.mzTab", line);
+        copies.create(a, SourceEncoding.UTF_8);
+        copies.create(b, SourceEncoding.UTF_8);
+        copies.create(c, SourceEncoding.UTF_8);
+
+        // c's run meets a busy engine and is asked again in 2 seconds
+        engine.retryAfterSeconds(2);
+        engine.mode(EngineProxy.Mode.BUSY);
+        int before = engine.jobs().size();
+        copies.requestValidation(c, false);
+        Instant end = Instant.now().plus(TIMEOUT);
+        while (engine.jobs().size() == before && Instant.now().isBefore(end)) {
+            Thread.sleep(20);
+        }
+        engine.mode(EngineProxy.Mode.FORWARD);
+
+        // the only thread and the only queue place are taken when c's retry is due
+        EngineProxy.Gate held = engine.holdNextValidation();
+        copies.requestValidation(a, false);
+        assertTrue(held.awaitArrival(TIMEOUT));
+        copies.requestValidation(b, false);
+        Thread.sleep(3500);
+        WorkingCopyValidation waiting = copies.info(c).validation();
+        assertNotNull(waiting);
+        assertEquals(WorkingCopyValidation.Status.RUNNING, waiting.status(), "c waits, it has not failed");
+
+        held.release();
+        awaitRunsEnded(a, b, c);
+        WorkingCopyValidation ended = copies.info(c).validation();
+        assertNotNull(ended);
+        assertEquals(WorkingCopyValidation.Status.DONE, ended.status(), "ended normally: " + ended);
     }
 
     @Test

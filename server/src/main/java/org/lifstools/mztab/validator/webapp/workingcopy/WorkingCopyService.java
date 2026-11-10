@@ -694,7 +694,19 @@ public class WorkingCopyService {
                 try {
                     executor.execute(() -> runLoop(id, run));
                 } catch (RejectedExecutionException e) {
-                    abandon(id, run, e);
+                    // the copies' pool and queue are full right now: not a failure of the run, ask again shortly
+                    // for as long as the run may last
+                    boolean again;
+                    synchronized (runs) {
+                        again = runs.get(id) == run && Instant.now().plus(MIN_RETRY).isBefore(run.deadline);
+                    }
+                    if (again) {
+                        log.info("Working copy {}: no room for another attempt yet; trying again in {} s", id,
+                            MIN_RETRY.toSeconds());
+                        schedule(id, run, MIN_RETRY);
+                    } else {
+                        abandon(id, run, e);
+                    }
                 }
             }, Instant.now().plus(delay));
         } catch (RuntimeException e) {

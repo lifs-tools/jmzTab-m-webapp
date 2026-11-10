@@ -124,12 +124,20 @@ public final class EngineProxy {
     private volatile int retryAfterSeconds = 7;
     private final AtomicReference<Gate> gate = new AtomicReference<>();
 
-    private EngineProxy() {
+    private final String line;
+
+    private EngineProxy(String line) {
+        this.line = line;
     }
 
     /** Starts a proxy on a free port of the loopback interface. */
     public static EngineProxy start() {
-        EngineProxy proxy = new EngineProxy();
+        return start("2.0");
+    }
+
+    /** Starts a proxy in front of the engine of {@code line} ({@code 2.0} or {@code 2.1}). */
+    public static EngineProxy start(String line) {
+        EngineProxy proxy = new EngineProxy(line);
         proxy.server.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
@@ -149,6 +157,12 @@ public final class EngineProxy {
         registry.add("engines.default-line", () -> "2.0");
         registry.add("engines.mztabm[0].line", () -> "2.0");
         registry.add("engines.mztabm[0].url", this::url);
+    }
+
+    /** Registers this proxy as {@code engines.mztabm[index]}, for a proxy of the second engine next to the first. */
+    public void registerAt(DynamicPropertyRegistry registry, int index) {
+        registry.add("engines.mztabm[" + index + "].line", () -> line);
+        registry.add("engines.mztabm[" + index + "].url", this::url);
     }
 
     public String url() {
@@ -220,7 +234,7 @@ public final class EngineProxy {
     }
 
     private MockResponse forward(String method, String path, String contentType, byte[] body) {
-        URI target = EngineTestSupport.engine20().resolve(path);
+        URI target = ("2.1".equals(line) ? EngineTestSupport.engine21() : EngineTestSupport.engine20()).resolve(path);
         HttpRequest.Builder builder = HttpRequest.newBuilder(target).timeout(Duration.ofMinutes(2));
         if (contentType != null) {
             builder.header("Content-Type", contentType);
