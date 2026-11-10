@@ -37,9 +37,13 @@ public final class ResolutionReport {
      * @param semantic whether the run checked CV rules too
      * @param profile the session's profile, which a semantic run applies; null counts as none
      * @param running whether a new check is running now
+     * @param readUpTo if the engine did not read the whole text: the line at which it stopped
+     * @param failedRevision if the latest check gave no result: its revision
+     * @param failureReason why the latest check gave no result
      */
     public record CopyCheck(String fileName, @Nullable String version, long checkedRevision, long currentRevision,
-        @Nullable Instant checkedAt, boolean semantic, @Nullable ProfileRef profile, boolean running) {
+        @Nullable Instant checkedAt, boolean semantic, @Nullable ProfileRef profile, boolean running,
+        @Nullable Long readUpTo, @Nullable Long failedRevision, @Nullable String failureReason) {
     }
 
     /** The problems of a working copy's last check, with the lines of the copy as it was checked. */
@@ -60,8 +64,16 @@ public final class ResolutionReport {
                 .append(check.currentRevision()).append(". The line numbers are those of revision ")
                 .append(check.checkedRevision()).append(".\n\n");
         }
+        if (check.failedRevision() != null) {
+            md.append("The latest check, of revision ").append(check.failedRevision()).append(", gave no result")
+                .append(check.failureReason() == null ? "" : ": " + oneLine(check.failureReason())).append("\n\n");
+        }
         if (check.running()) {
             md.append("A new check is running.\n\n");
+        }
+        if (check.readUpTo() != null) {
+            md.append("jmzTab-m stopped reading at line ").append(check.readUpTo())
+                .append("; problems further down are not reported yet.\n\n");
         }
         return problems(md, guidance);
     }

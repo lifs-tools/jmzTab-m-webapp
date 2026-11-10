@@ -127,6 +127,9 @@ export class WorkingCopyStore {
   private busyRetries = 0;
   private busyTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /** A check of this copy has finished (DONE) since it was opened: only then has it a report (else 409). */
+  readonly reportReady = signal(false);
+
   readonly validation = computed(() => this.info()?.validation ?? null);
   /** The messages of the last ended run, each NEW or OPEN against the run before. */
   readonly messages = computed(() => this.validation()?.messages ?? []);
@@ -222,6 +225,7 @@ export class WorkingCopyStore {
     this.id.set(id);
     this.view.set('loading');
     this.info.set(undefined);
+    this.reportReady.set(false);
     this.notUtf8.set(null);
     this.openFailure.set(null);
     this.lastVersion = undefined;
@@ -487,6 +491,7 @@ export class WorkingCopyStore {
     if (!force && shown && this.isOlder(info, shown)) return;
     this.info.set(info);
     const v = info.validation;
+    if (v?.status === 'DONE') this.reportReady.set(true);
     if (v?.status === 'RUNNING') {
       if (restartPoll || !this.polling) this.polls.next();
     } else if (v) {

@@ -114,7 +114,12 @@
             Download JSON
           </button>
           <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
-          <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()">Download report</a>
+          @if (store.reportReady()) {
+            <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()" download>Download report</a>
+          } @else {
+            <button mat-stroked-button type="button" data-testid="download-report" disabled>Download report</button>
+            <span class="lifs-note" data-testid="report-note">The report is available after the first check.</span>
+          }
           @if (!store.jsonReady()) {
             <span class="lifs-note">JSON is offered once the file is checked without errors.</span>
           }

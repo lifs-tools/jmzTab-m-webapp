@@ -586,6 +586,55 @@ class WorkingCopiesApiTest {
         assertTrue(md.contains("Lines: 24"), md);
     }
 
+    /** A file of {@code line} validated with that line's default profile. */
+    private String validationWithProfile(String name, byte[] content, String line) throws Exception {
+        MvcResult r = mvc.perform(multipart("/rest/v2/validations")
+            .file(new MockMultipartFile("file", name, "text/plain", content))
+            .param("validationProfile", "mztab-m-" + line + "-default").param("validationProfileVersion", "1.0.0"))
+            .andExpect(status().isAccepted()).andReturn();
+        String id = json.readTree(r.getResponse().getContentAsString()).get("id").asText();
+        long end = System.currentTimeMillis() + 60_000;
+        while (System.currentTimeMillis() < end) {
+            String s = json.readTree(mvc.perform(get("/rest/v2/validations/" + id)).andReturn().getResponse()
+                .getContentAsString()).get("status").asText();
+            if (s.equals("FINISHED") || s.equals("FAILED")) {
+                return id;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("validation did not end");
+    }
+
+    /** A check that failed after one that finished still gives the finished check's report, and says so. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void reportAfterAFailedRunIsOfTheLastFinishedCheck(String line) throws Exception {
+        assumeTrue(EngineTestSupport.has21(), "the 2.1 engine is not built");
+        String other = line.equals("2.0") ? "2.1" : "2.0";
+        String id = validationWithProfile("failed.mzTab", emptyParameterFile(line), line);
+        create(id);
+        check(id, 0);
+        // the text now declares the other line, so a semantic run with this line's profile cannot be made
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(edits(0, "{\"op\":\"SetMetadataValue\",\"line\":2,\"value\":\"" + other + ".0-M\"}")))
+            .andExpect(status().isOk());
+        mvc.perform(post(BASE + "/" + id + "/validations").param("semantic", "true")).andExpect(status().isAccepted());
+        long end = System.currentTimeMillis() + 60_000;
+        String status;
+        do {
+            Thread.sleep(50);
+            status = json.readTree(mvc.perform(get(BASE + "/" + id)).andReturn().getResponse().getContentAsString())
+                .at("/validation/status").asText();
+        } while (!"FAILED".equals(status) && System.currentTimeMillis() < end);
+        assertEquals("FAILED", status);
+
+        String md = report(id);
+        assertTrue(md.contains("Revision 0 of the corrected copy"), md);
+        assertTrue(md.contains("Lines: 24"), md);
+        assertTrue(md.contains("check of revision 0; the copy is at revision 1"), md);
+        assertTrue(md.contains("The latest check, of revision 1, gave no result:"), md);
+    }
+
     @Test
     void reportOfAnUncheckedCopyIs409() throws Exception {
         String id = validation("unchecked.mzTab", example());

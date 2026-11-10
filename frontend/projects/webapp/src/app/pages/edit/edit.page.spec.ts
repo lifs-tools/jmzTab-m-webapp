@@ -497,6 +497,23 @@ describe('EditPage', () => {
     expect(button(el, 'download-json').disabled).toBe(true);
   });
 
+  it('offers the report only once a check of the copy has finished', async () => {
+    const running: WorkingCopyValidation = { ...done(), status: 'RUNNING', messages: [] };
+    const { el } = await open(info({ validation: running }));
+    const report = el.querySelector('[data-testid=download-report]') as HTMLElement;
+    expect(report.getAttribute('href')).toBeNull();
+    expect((report as HTMLButtonElement).disabled).toBe(true);
+    expect(el.querySelector('[data-testid=report-note]')?.textContent).toContain('available after the first check');
+    http.match(() => true);
+  });
+
+  it('downloads the report instead of navigating to it', async () => {
+    const { el } = await open(info());
+    const report = el.querySelector('[data-testid=download-report]') as HTMLAnchorElement;
+    expect(report.hasAttribute('download')).toBe(true);
+    expect(el.querySelector('[data-testid=report-note]')).toBeNull();
+  });
+
   it('offers JSON download only for a current valid state', async () => {
     const valid = info();
     const { fixture, el } = await open(valid);

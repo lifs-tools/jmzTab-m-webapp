@@ -115,7 +115,7 @@ class ResolutionReportTest {
     private static ResolutionReport.CopyCheck check(long checked, long current, boolean running, boolean semantic,
         ProfileRef profile) {
         return new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", checked, current,
-            Instant.parse("2026-11-09T10:15:30Z"), semantic, profile, running);
+            Instant.parse("2026-11-09T10:15:30Z"), semantic, profile, running, null, null, null);
     }
 
     @Test
@@ -153,9 +153,29 @@ class ResolutionReportTest {
     @Test
     void reportOfACopyKeepsFileNameAndVersionOnOneLine() {
         ResolutionReport.CopyCheck c = new ResolutionReport.CopyCheck("a\n## injected.mzTab", "2.0\n# x", 1, 1, null,
-            false, null, false);
+            false, null, false, null, null, null);
         String md = ResolutionReport.markdown(c, List.of());
         assertTrue(md.startsWith("# Validation problems in a ## injected.mzTab (corrected copy)\n"), md);
         assertFalse(md.contains("\n# x"), md);
+    }
+
+    @Test
+    void reportSaysWhereTheEngineStoppedReading() {
+        ResolutionReport.CopyCheck c = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 1, 1, null, false, null,
+            false, 12L, null, null);
+        String md = ResolutionReport.markdown(c, List.of(WITH_LINES));
+        assertTrue(md.contains("jmzTab-m stopped reading at line 12; problems further down are not reported yet."), md);
+        assertFalse(ResolutionReport.markdown(check(1, 1, false, false, null), List.of(WITH_LINES))
+            .contains("stopped reading"));
+    }
+
+    @Test
+    void reportSaysWhenTheLatestCheckGaveNoResult() {
+        ResolutionReport.CopyCheck c = new ResolutionReport.CopyCheck("my.mzTab", "2.0.0-M", 1, 3, null, false, null,
+            false, null, 3L, "The validator is down.\nTry later.");
+        String md = ResolutionReport.markdown(c, List.of());
+        assertTrue(md.contains("The latest check, of revision 3, gave no result: The validator is down. Try later."), md);
+        assertFalse(ResolutionReport.markdown(check(1, 1, false, false, null), List.of())
+            .contains("gave no result"));
     }
 }

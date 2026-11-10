@@ -152,7 +152,8 @@ public class WorkingCopyService {
     private static final String META_CHANGED = "copy.changedAt";
     private static final String META_VERSION = "copy.mzTabVersion";
     private static final String META_LAST = "validation.last";
-    private static final String META_LAST_AT = "validation.lastAt";
+    private static final String META_LAST_DONE = "validation.lastDone";
+    private static final String META_LAST_DONE_AT = "validation.lastDoneAt";
     private static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
     private static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
     private static final TypeReference<List<ValidationMessage>> MESSAGES = new TypeReference<>() {
@@ -394,29 +395,39 @@ public class WorkingCopyService {
      * running with that run's revision). A check that is not current still gives a report that says so.
      *
      * @throws NoSuchWorkingCopyException if there is no copy
-     * @throws WorkingCopyConflictException if the copy has not been checked, or its last check gave no result
+     * @throws WorkingCopyConflictException if no check of the copy has ever finished with a result. If the latest
+     * check gave none but an earlier one did, the report is the earlier one's and says so.
      */
     public String resolutionReport(UUID id) {
         return guard(id, () -> {
             WorkingCopyDb db = db(id);
+            // the runs first, then the revision: the revision can only have grown since the run it labels
+            String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_LAST_DONE),
+                db.meta(META_LAST_DONE_AT)});
             long current = db.revision();
-            WorkingCopyValidation last = lastValidation(db);
-            if (last == null) {
-                throw new WorkingCopyConflictException("The copy has not been checked yet. Check it first.");
+            WorkingCopyValidation latest = parseValidation(stored[0]);
+            WorkingCopyValidation finished = parseValidation(stored[1]);
+            if (finished == null && latest != null && latest.status() == Status.DONE) {
+                // a copy whose run was stored before the finished run had a key of its own
+                finished = latest;
             }
-            if (last.status() != Status.DONE) {
-                throw new WorkingCopyConflictException("The last check of the copy gave no result. Check it again.");
+            if (finished == null) {
+                throw new WorkingCopyConflictException(latest == null
+                    ? "The copy has not been checked yet. Check it first."
+                    : "No check of the copy has given a result yet. Check it again.");
             }
+            boolean failed = latest != null && latest.status() == Status.FAILED;
             boolean running;
             synchronized (runs) {
                 running = runs.containsKey(id);
             }
-            String at = db.meta(META_LAST_AT);
             String version = db.meta(META_VERSION);
             ProfileRef profile = sessions.find(id).map(ValidationRecord::validationProfile).orElse(null);
             return ResolutionReport.markdown(new ResolutionReport.CopyCheck(db.meta(META_FILE_NAME),
-                version == null || version.isEmpty() ? null : version, last.revision(), current,
-                at == null ? null : Instant.parse(at), last.semantic(), profile, running), last.guidance());
+                version == null || version.isEmpty() ? null : version, finished.revision(), current,
+                stored[2] == null ? null : Instant.parse(stored[2]), finished.semantic(), profile, running,
+                finished.parsed() ? null : finished.readUpTo(), failed ? latest.revision() : null,
+                failed ? latest.failureReason() : null), finished.guidance());
         });
     }
 
@@ -960,8 +971,9 @@ public class WorkingCopyService {
                 return null;
             }
             db.setMeta(META_LAST, last);
-            db.setMeta(META_LAST_AT, Instant.now().toString());
             if (v.status() == Status.DONE) {
+                db.setMeta(META_LAST_DONE, last);
+                db.setMeta(META_LAST_DONE_AT, Instant.now().toString());
                 db.setMeta(baselineKey(v.semantic()), messages);
             }
             if (version != null) {
@@ -999,7 +1011,11 @@ public class WorkingCopyService {
 
     @Nullable
     private WorkingCopyValidation lastValidation(WorkingCopyDb db) {
-        String stored = db.meta(META_LAST);
+        return parseValidation(db.meta(META_LAST));
+    }
+
+    @Nullable
+    private WorkingCopyValidation parseValidation(@Nullable String stored) {
         if (stored == null) {
             return null;
         }
