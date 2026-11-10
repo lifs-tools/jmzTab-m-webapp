@@ -155,6 +155,8 @@ public class WorkingCopyService {
     private static final String META_FILE_NAME = "copy.fileName";
     private static final String META_ENCODING = "copy.encoding";
     private static final String META_CHANGED = "copy.changedAt";
+    /** The caller's id of the last change ("" if it gave none). */
+    private static final String META_LAST_CHANGE = "copy.lastChangeId";
     private static final String META_VERSION = "copy.mzTabVersion";
     private static final String META_LAST = "validation.last";
     private static final String META_LAST_DONE = "validation.lastDone";
@@ -484,14 +486,23 @@ public class WorkingCopyService {
     }
 
     private WorkingCopyInfo info(UUID id, WorkingCopyDb db) {
+        return info(id, db, null);
+    }
+
+    /**
+     * @param committed the revision a change of this call produced, which the answer to that change carries (not
+     * re-read), or null to read it
+     */
+    private WorkingCopyInfo info(UUID id, WorkingCopyDb db, Long committed) {
         // the revision first: facts read after it may be newer, never older (see facts)
-        long revision = db.revision();
+        long revision = committed != null ? committed : db.revision();
         Facts f = facts(id, db, revision);
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
         // one read: a CV check stores both together
-        String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_CV_REVISION),
-            db.meta(WorkingCopyEditor.LAYOUT_REVISION_KEY)});
+        // a snapshot read that takes no write lock: the answer to a committed change must not wait for another writer
+        String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
+            META_LAST_CHANGE);
         WorkingCopyValidation last = parseValidation(stored[0]);
         WorkingCopyValidation shown = last;
         synchronized (runs) {
@@ -515,7 +526,8 @@ public class WorkingCopyService {
         return new WorkingCopyInfo(id, db.meta(META_FILE_NAME), revision,
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
             expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]),
-            stored[2] == null ? 0L : Long.parseLong(stored[2]));
+            stored[2] == null ? 0L : Long.parseLong(stored[2]),
+            stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]));
     }
 
     /**
@@ -572,11 +584,11 @@ public class WorkingCopyService {
             // the retention stamp is written in the edit's own transaction: it commits with the edit or not at all
             long revision = db.inTransaction(() -> {
                 long next = editor.apply(db, batch);
-                stamp(db);
+                stamp(db, batch.changeId());
                 return next;
             });
             changed(id, db, revision);
-            return info(id, db);
+            return info(id, db, revision);
         });
     }
 
@@ -588,20 +600,30 @@ public class WorkingCopyService {
      * @throws WorkingCopyConflictException if there is nothing to undo
      */
     public WorkingCopyInfo undo(UUID id, long revision) {
-        return undoOrRedo(id, revision, true);
+        return undo(id, revision, null);
+    }
+
+    /** As {@link #undo(UUID, long)}; {@code changeId} is kept as {@link WorkingCopyInfo#lastChangeId}. */
+    public WorkingCopyInfo undo(UUID id, long revision, UUID changeId) {
+        return undoOrRedo(id, revision, true, changeId);
     }
 
     /** Re-applies the change undone last; as {@link #undo}. */
     public WorkingCopyInfo redo(UUID id, long revision) {
-        return undoOrRedo(id, revision, false);
+        return redo(id, revision, null);
     }
 
-    private WorkingCopyInfo undoOrRedo(UUID id, long revision, boolean undo) {
+    /** As {@link #redo(UUID, long)}; {@code changeId} is kept as {@link WorkingCopyInfo#lastChangeId}. */
+    public WorkingCopyInfo redo(UUID id, long revision, UUID changeId) {
+        return undoOrRedo(id, revision, false, changeId);
+    }
+
+    private WorkingCopyInfo undoOrRedo(UUID id, long revision, boolean undo, UUID changeId) {
         requireRevision(revision);
-        return guard(id, () -> undoOrRedo(id, db(id), revision, undo));
+        return guard(id, () -> undoOrRedo(id, db(id), revision, undo, changeId));
     }
 
-    private WorkingCopyInfo undoOrRedo(UUID id, WorkingCopyDb db, long revision, boolean undo) {
+    private WorkingCopyInfo undoOrRedo(UUID id, WorkingCopyDb db, long revision, boolean undo, UUID changeId) {
         requireCapacity();
         // one transaction, so "nothing to do" and the change see the same state
         long next = db.inTransaction(() -> {
@@ -613,16 +635,17 @@ public class WorkingCopyService {
                 throw new WorkingCopyConflictException(undo ? "There is nothing to undo." : "There is nothing to redo.");
             }
             long applied = undo ? editor.undo(db, revision) : editor.redo(db, revision);
-            stamp(db);
+            stamp(db, changeId);
             return applied;
         });
         changed(id, db, next);
-        return info(id, db);
+        return info(id, db, next);
     }
 
     /** Restarts retention; inside the transaction of the change. */
-    private void stamp(WorkingCopyDb db) {
+    private void stamp(WorkingCopyDb db, UUID changeId) {
         db.setMeta(META_CHANGED, Instant.now().toString());
+        db.setMeta(META_LAST_CHANGE, changeId == null ? "" : changeId.toString());
     }
 
     /**

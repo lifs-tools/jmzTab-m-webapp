@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { QuickFixDialogComponent } from './quick-fix-dialog.component';
-import { WorkingCopyStore } from './working-copy.store';
+import { MaybeSavedError, WorkingCopyStore } from './working-copy.store';
 
 const PREVIEW: QuickFixPreview = {
   fixId: 'normalise-doi',
@@ -104,6 +104,14 @@ describe('QuickFixDialogComponent', () => {
     result.error(new HttpErrorResponse({ status: 400, error: { message: 'There is no line 6' } }));
     fixture.detectChanges();
     expect(el.querySelector('[role=alert]')?.textContent).toContain('There is no line 6');
+  });
+
+  it('closes, without "could not be applied", when the store could not tell whether the fix was saved', () => {
+    const { el, ref, result, apply } = render();
+    apply().click();
+    result.error(new MaybeSavedError());
+    expect(ref.close).toHaveBeenCalledWith(null);
+    expect(el.textContent).not.toContain('could not be applied');
   });
 
   it('shows an error and stays open when the fix is refused, closes on a conflict', () => {

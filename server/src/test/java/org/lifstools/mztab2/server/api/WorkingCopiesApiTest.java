@@ -307,6 +307,32 @@ class WorkingCopiesApiTest {
             .andExpect(status().isOk());
     }
 
+    /** A change may carry the caller's id (a UUID), which the copy keeps as lastChangeId; anything else is a 400. */
+    @Test
+    void changeIdIsKeptAndValidated() throws Exception {
+        String id = validation("change-id.mzTab", example());
+        create(id);
+        String url = BASE + "/" + id + "/edits";
+        String op = "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"x\"}";
+        String mine = "3f2b8f0e-5d0c-4c0e-9a55-0d6a3f6f3a11";
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"revision\":0,\"changeId\":\"nope\",\"operations\":[" + op + "]}"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "0").param("changeId", "nope"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.revision").value(0))
+            .andExpect(jsonPath("$.lastChangeId").doesNotExist());
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"revision\":0,\"changeId\":\"" + mine + "\",\"operations\":[" + op + "]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.lastChangeId").value(mine));
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.lastChangeId").value(mine));
+        String other = "9c4e1d52-7a0b-4d38-8f21-6b1c2d3e4f50";
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "1").param("changeId", other))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.lastChangeId").value(other));
+        mvc.perform(post(BASE + "/" + id + "/redo").param("revision", "2"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.lastChangeId").doesNotExist());
+    }
+
     @Test
     void staleEditIs409() throws Exception {
         String id = validation("stale.mzTab", example());

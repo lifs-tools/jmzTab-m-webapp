@@ -172,7 +172,11 @@ describe('EditPage', () => {
     expect(el.textContent).not.toContain('Checking your latest changes…');
 
     const edit = await editThroughSource(fixture);
-    expect(edit.request.body).toEqual({ revision: 0, operations: [{ op: 'SetMetadataValue', line: 3, value: 'x' }] });
+    expect(edit.request.body).toEqual({
+      revision: 0,
+      operations: [{ op: 'SetMetadataValue', line: 3, value: 'x' }],
+      changeId: expect.any(String),
+    });
     expect(button(el, 'save-state').textContent?.trim()).toBe('Saving…');
     edit.flush(info({ revision: 1, canUndo: true, validation: done({ stale: true, messages: [{ message: msg(), state: 'OPEN' }] }) }));
     await settle(fixture);
@@ -354,6 +358,7 @@ describe('EditPage', () => {
       expect(save.request.body).toEqual({
         revision: 0,
         operations: [{ op: 'SetRawLine', line: 12, text: 'identification of lipids, fixed' }],
+        changeId: expect.any(String),
       });
       save.flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
       await settle(fixture);
@@ -1175,7 +1180,7 @@ describe('EditPage', () => {
       Array.from(document.querySelectorAll<HTMLButtonElement>('.cdk-overlay-container button')).find((b) => b.textContent?.trim() === 'Apply')!.click();
       await settle(fixture);
       const edit = postEdit();
-      expect(edit.request.body).toEqual(batch);
+      expect(edit.request.body).toEqual({ ...batch, changeId: expect.any(String) });
       vi.useFakeTimers();
       edit.flush(info({ revision: 1, canUndo: true, validation: done({ stale: true }) }));
       await settle(fixture);

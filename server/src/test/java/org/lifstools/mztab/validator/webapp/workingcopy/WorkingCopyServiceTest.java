@@ -301,10 +301,62 @@ class WorkingCopyServiceTest {
         assertTrue(info.lineCount() >= 50);
     }
 
-    /**
-     * While a run is RUNNING, the messages shown are those of the run before: their line numbers are of that run's
-     * revision, which is what an action started from a message must name (never the running run's).
-     */
+    @Test
+    void aWriterHoldingTheCopyDoesNotStopTheAnswerOfACommittedEditNorAnInfoRead() throws Exception {
+        UUID id = submit("held.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        WorkingCopyDb other = copies.db(id);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        try {
+            // an IMMEDIATE transaction of another writer, started right after the edit's commit (in its post-commit step)
+            org.mockito.Mockito.doAnswer(call -> {
+                pool.submit(() -> other.inTransaction(() -> {
+                    other.setMeta("held", "yes");
+                    holding.countDown();
+                    try {
+                        release.await(30, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return null;
+                }));
+                assertTrue(holding.await(10, java.util.concurrent.TimeUnit.SECONDS));
+                return null;
+            }).when(storage).touch(any());
+            long start = System.nanoTime();
+            WorkingCopyInfo edited = copies.edit(id, batch(0, new SetMetadataValue(3, "committed")));
+            assertEquals(1, edited.revision());
+            assertTrue(Duration.ofNanos(System.nanoTime() - start).toSeconds() < 4, "no wait for the other writer");
+            assertEquals(1, copies.info(id).revision(), "an info read answers while the other writer holds the copy");
+        } finally {
+            reset(storage);
+            release.countDown();
+            pool.shutdown();
+            assertTrue(pool.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void theCallersChangeIdIsKeptWithTheChange() throws Exception {
+        UUID id = submit("change-id.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        assertNull(copies.info(id).lastChangeId());
+        UUID mine = UUID.randomUUID();
+        WorkingCopyInfo edited = copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "a")), mine));
+        assertEquals(mine, edited.lastChangeId());
+        UUID undo = UUID.randomUUID();
+        assertEquals(undo, copies.undo(id, 1, undo).lastChangeId());
+        assertEquals(undo, copies.info(id).lastChangeId());
+        assertNull(copies.redo(id, 2).lastChangeId(), "a change without an id has none");
+        // a refused batch leaves the id of the last change
+        UUID refused = UUID.randomUUID();
+        assertThrows(StaleRevisionException.class,
+            () -> copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "b")), refused)));
+        assertNull(copies.info(id).lastChangeId());
+    }
+
     @Test
     void aStepAfterTheCommitCannotTurnACommittedEditIntoAnError() throws Exception {
         UUID id = submit("post-commit.mzTab", example());
@@ -321,6 +373,10 @@ class WorkingCopyServiceTest {
         assertEquals(2, copies.info(id).revision());
     }
 
+    /**
+     * While a run is RUNNING, the messages shown are those of the run before: their line numbers are of that run's
+     * revision, which is what an action started from a message must name (never the running run's).
+     */
     @ParameterizedTest(name = "mzTab-M {0}")
     @ValueSource(strings = {"2.0", "2.1"})
     void runningInfoKeepsTheMessagesRevision(String line) throws Exception {

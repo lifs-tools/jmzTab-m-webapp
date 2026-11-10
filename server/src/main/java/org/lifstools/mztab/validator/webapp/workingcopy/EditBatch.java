@@ -16,12 +16,20 @@
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import java.util.List;
+import java.util.UUID;
+import org.springframework.lang.Nullable;
 
 /**
  * Operations applied in order, as one change, to the given revision of a copy.
  *
  * @param revision the revision the caller saw; must be the current one
  * @param operations at most 5,000
+ * @param changeId the caller's id of this change, kept with the copy ({@link WorkingCopyInfo#lastChangeId}) when the
+ * batch is applied, so a caller that lost the answer can tell whether this very batch was applied; optional
  */
-public record EditBatch(long revision, List<EditOperation> operations) {
+public record EditBatch(long revision, List<EditOperation> operations, @Nullable UUID changeId) {
+
+    public EditBatch(long revision, List<EditOperation> operations) {
+        this(revision, operations, null);
+    }
 }

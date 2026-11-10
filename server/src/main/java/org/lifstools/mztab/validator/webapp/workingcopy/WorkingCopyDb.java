@@ -417,6 +417,20 @@ public final class WorkingCopyDb implements AutoCloseable {
         }
     }
 
+    /**
+     * Several meta values of one snapshot (null for a missing key), read in a DEFERRED transaction: it takes no write
+     * lock, so it answers while another writer holds the copy.
+     */
+    public String[] snapshotMeta(String... keys) {
+        return readTx.execute(status -> {
+            String[] values = new String[keys.length];
+            for (int i = 0; i < keys.length; i++) {
+                values[i] = readMeta(keys[i]);
+            }
+            return values;
+        });
+    }
+
     private String readMeta(String key) {
         return readJdbc.query(GET_META, Map.of("key", key), (rs, i) -> rs.getString(1)).stream().findFirst()
             .orElse(null);

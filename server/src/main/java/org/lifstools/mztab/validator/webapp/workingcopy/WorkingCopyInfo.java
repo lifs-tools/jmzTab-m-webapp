@@ -41,9 +41,11 @@ import org.springframework.lang.Nullable;
  * @param layoutRevision the revision produced by the last change after which lines or columns may have moved (a
  * line or column edit, a raw line, an undo or a redo); 0 if there was none. Line numbers and cell positions read at
  * an earlier revision may name other places now.
+ * @param lastChangeId the {@code changeId} the caller gave the last edit, undo or redo; null if it gave none (or no
+ * change was made yet)
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
     @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision,
-    long layoutRevision) {
+    long layoutRevision, @Nullable UUID lastChangeId) {
 }

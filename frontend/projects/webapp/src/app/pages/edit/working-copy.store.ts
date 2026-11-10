@@ -40,6 +40,17 @@ export const CONFLICT_NOTICE = 'This file was changed in another tab. It was rel
 export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const LINES_MOVED_NOTICE =
   'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
+/**
+ * The failure the store hands on when it cannot tell whether a change was saved (the copy moved on under it, so the
+ * views were reloaded and the notice {@link MAYBE_SAVED_NOTICE} was shown). It has the status 409: the views, the
+ * quick fix dialog and undo/redo already treat that as "the host reloaded and said so", and add no message.
+ */
+export class MaybeSavedError extends HttpErrorResponse {
+  constructor() {
+    super({ status: 409, statusText: 'Maybe saved', error: { message: MAYBE_SAVED_NOTICE } });
+  }
+}
+
 export const SAVE_FAILED = 'This change could not be saved. Please try again.';
 export const MAYBE_SAVED_NOTICE =
   'The copy changed while this change was being saved, so it may or may not have been saved. The file was reloaded: please check it.';
@@ -81,6 +92,11 @@ export class NotCheckedYet extends Error {
     super('Validate the current revision first.');
   }
 }
+
+const newChangeId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
 
 const statusOf = (err: unknown) => (err instanceof HttpErrorResponse ? err.status : undefined);
 
@@ -347,7 +363,7 @@ export class WorkingCopyStore {
    */
   edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
-      (revision) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops } }),
+      (revision, changeId) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId } }),
       { reload, layout: changesLayout(ops), readAt },
     );
   }
@@ -355,7 +371,7 @@ export class WorkingCopyStore {
   undo(): void {
     if (!this.info()?.canUndo) return;
     // undo names no line, so it may follow a layout change; what it brings back or takes away may change it
-    this.enqueue((revision) => this.api.undoWorkingCopy({ id: this.id(), revision }), {
+    this.enqueue((revision, changeId) => this.api.undoWorkingCopy({ id: this.id(), revision, changeId }), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -364,7 +380,7 @@ export class WorkingCopyStore {
 
   redo(): void {
     if (!this.info()?.canRedo) return;
-    this.enqueue((revision) => this.api.redoWorkingCopy({ id: this.id(), revision }), {
+    this.enqueue((revision, changeId) => this.api.redoWorkingCopy({ id: this.id(), revision, changeId }), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -373,7 +389,7 @@ export class WorkingCopyStore {
 
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
-    return this.enqueue(() => this.api.editWorkingCopy({ id: this.id(), body: preview.batch ?? {} }), {
+    return this.enqueue((_, changeId) => this.api.editWorkingCopy({ id: this.id(), body: { ...(preview.batch ?? {}), changeId } }), {
       sentAt: preview.batch?.revision ?? null,
       reload: true,
       layout: changesLayout(preview.batch?.operations),
@@ -418,7 +434,7 @@ export class WorkingCopyStore {
    * make the change).
    */
   private enqueue(
-    request: (revision: number) => Observable<WorkingCopyInfo>,
+    request: (revision: number, changeId: string) => Observable<WorkingCopyInfo>,
     {
       reload = false,
       layout = false,
@@ -446,9 +462,10 @@ export class WorkingCopyStore {
       const revision = stale ? readAt : readAt == null && pinned ? issued : now;
       // refused because the layout changed under it, not because of another tab
       const moved = revision !== now;
-      return defer(() => request(revision)).pipe(
+      const changeId = newChangeId();
+      return defer(() => request(revision, changeId)).pipe(
         // before the next queued request is sent: it must name the revision this one produced, if it did
-        catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision)),
+        catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
         tap({
           next: (info) => {
             if (layout) this.layoutChanged(info);
@@ -460,7 +477,7 @@ export class WorkingCopyStore {
             result.complete();
           },
           error: (err: unknown) => {
-            if (statusOf(err) === 409) this.conflict(moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE);
+            if (statusOf(err) === 409 && !(err instanceof MaybeSavedError)) this.conflict(moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE);
             if (statusOf(err) === 404) this.view.set('notFound');
             result.error(err);
           },
@@ -476,28 +493,31 @@ export class WorkingCopyStore {
 
   /**
    * A request failed in a way that does not say whether the server applied it (a 503 after the commit, a lost
-   * answer, a 500): the copy is read again. Applied requests produce `sent + 1`; a copy at exactly that revision
-   * counts as the answer of this request (the request was the only one this tab had in flight: the queue sends one at
-   * a time). The one case this cannot tell apart is another tab's edit landing in the same moment as a request
-   * that failed without committing. A copy further ahead is certainly changed by others: its views reload and the
-   * notice says the change may have been saved; the failure is passed on. A 4xx was refused before changing
-   * anything, and a copy that cannot be read leaves the failure as it was.
+   * answer, a 500): the copy is read again before anything is said, and before the next queued request is sent. Each
+   * change carries a `changeId` the server keeps with the change (`lastChangeId`), so the answer is certain:
+   * - `lastChangeId` is this change's: it was applied; the info is its answer (revision, canUndo ...).
+   * - else a copy still at `sent` was not changed: the failure is reported as it is.
+   * - else the copy moved on, and the change may or may not be in it (another tab wrote meanwhile): the info is taken
+   *   (the next edit must name it), the views reload, the notice says "may", and the error is a
+   *   {@link MaybeSavedError}, which nobody answers with "could not be saved".
+   * A 4xx was refused before changing anything, and a copy that cannot be read leaves the failure as it was. A lost
+   * answer whose re-read comes before the server's delayed commit reports a failure (the safe direction): the
+   * next edit is then refused (409) and the copy reloaded.
    */
-  private committedOrFailed(err: unknown, sent: number): Observable<WorkingCopyInfo> {
+  private committedOrFailed(err: unknown, sent: number, changeId: string): Observable<WorkingCopyInfo> {
     const status = statusOf(err);
-    if (status !== undefined && status !== 0 && status < 500) return throwError(() => err);
+    if (status === undefined || (status !== 0 && status < 500)) return throwError(() => err);
     return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
       catchError(() => throwError(() => err)),
       switchMap((info) => {
+        if (info.lastChangeId === changeId) return of(info);
         const now = info.revision ?? 0;
-        if (now === sent + 1) return of(info);
-        if (now > sent + 1) {
-          this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
-          this.setInfo(info, true);
-          this.changed.next();
-          this.notices.next(MAYBE_SAVED_NOTICE);
-        }
-        return throwError(() => err);
+        if (now <= sent) return throwError(() => err);
+        this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
+        this.setInfo(info, true);
+        this.changed.next();
+        this.notices.next(MAYBE_SAVED_NOTICE);
+        return throwError(() => new MaybeSavedError());
       }),
     );
   }

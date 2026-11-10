@@ -471,6 +471,10 @@
       },
       "EditBatch" : {
         "properties" : {
+          "changeId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
           "operations" : {
             "items" : {
               "oneOf" : [ {
@@ -3683,6 +3687,10 @@
             "format" : "uuid",
             "type" : "string"
           },
+          "lastChangeId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
           "layoutRevision" : {
             "format" : "int64",
             "type" : "integer"
@@ -5259,6 +5267,14 @@
             "format" : "int64",
             "type" : "integer"
           }
+        }, {
+          "description" : "Your id (a UUID) of this change, kept as lastChangeId of the copy when the change is applied, so that a caller that lost the answer can tell whether it was",
+          "in" : "query",
+          "name" : "changeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -5450,6 +5466,14 @@
           "schema" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        }, {
+          "description" : "Your id (a UUID) of this change, kept as lastChangeId of the copy when the change is applied, so that a caller that lost the answer can tell whether it was",
+          "in" : "query",
+          "name" : "changeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {

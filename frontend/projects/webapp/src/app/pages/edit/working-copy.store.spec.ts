@@ -760,17 +760,28 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
   const post = () => http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits'));
   const reread = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc'));
   const fail = (r: TestRequest, status: number) => r.flush({ message: 'busy' }, { status, statusText: 'x' });
+  const changeIdOf = (r: TestRequest) => (r.request.body as { changeId: string }).changeId;
   const edit = (results: unknown[], errors: unknown[]) =>
     source
       .applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }])
       .subscribe({ next: (i) => results.push(i), error: (e) => errors.push(e) });
 
-  it('a 503 after the commit: the copy is read again, the edit counts as saved and the revision advances', () => {
+  it('every change carries a changeId of its own', () => {
+    edit([], []);
+    const first = post();
+    expect(changeIdOf(first)).toMatch(/^[0-9a-f-]{36}$/);
+    first.flush(info(1));
+    edit([], []);
+    expect(changeIdOf(post())).not.toBe(changeIdOf(first));
+  });
+
+  it('a 503 after the commit: the copy names this change as its last, so the edit counts as saved', () => {
     const results: unknown[] = [];
     const errors: unknown[] = [];
     edit(results, errors);
-    fail(post(), 503);
-    reread().flush(info(1));
+    const sent = post();
+    fail(sent, 503);
+    reread().flush(info(1, { lastChangeId: changeIdOf(sent) }));
     expect(errors).toEqual([]);
     expect(results.length).toBe(1);
     expect(store.info()?.revision).toBe(1);
@@ -782,31 +793,84 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     const results: unknown[] = [];
     const errors: unknown[] = [];
     edit(results, errors);
-    post().error(new ProgressEvent('error'));
-    reread().flush(info(1));
+    const sent = post();
+    sent.error(new ProgressEvent('error'));
+    reread().flush(info(1, { lastChangeId: changeIdOf(sent) }));
     expect(errors).toEqual([]);
     expect(results.length).toBe(1);
     http.verify();
   });
 
   it('the next edit, queued behind it, names the committed revision and is not refused', () => {
-    const results: unknown[] = [];
-    edit(results, []);
+    edit([], []);
     source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }]).subscribe();
-    fail(post(), 503);
-    reread().flush(info(1));
-    const second = post();
-    expect((second.request.body as { revision: number }).revision).toBe(1);
+    const sent = post();
+    fail(sent, 503);
+    reread().flush(info(1, { lastChangeId: changeIdOf(sent) }));
+    expect((post().request.body as { revision: number }).revision).toBe(1);
     http.verify();
   });
 
-  it('a 503 that did not commit: the revision is unchanged and the failure is passed on', () => {
+  it('a 503 that did not commit: the copy is where it was, and the failure is passed on', () => {
     const errors: unknown[] = [];
     edit([], errors);
     fail(post(), 503);
     reread().flush(info(0));
     expect(errors.length).toBe(1);
+    expect((errors[0] as { status: number }).status).toBe(503);
     expect(store.info()?.revision).toBe(0);
+    expect(notices).toEqual([]);
+    http.verify();
+  });
+
+  it('this tab\'s edit fails (busy) while another tab commits the next revision: never claimed as saved', () => {
+    const errors: unknown[] = [];
+    const results: unknown[] = [];
+    edit(results, errors);
+    fail(post(), 503);
+    reread().flush(info(1, { lastChangeId: 'another-tabs-change' }));
+    expect(results).toEqual([]);
+    expect(errors).toEqual([{ status: 409, detail: null }]);
+    expect(store.info()?.revision).toBe(1);
+    expect(changed).toBe(1);
+    expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
+    // the next edit names the revision that was read, so it is not refused
+    edit([], []);
+    expect((post().request.body as { revision: number }).revision).toBe(1);
+    http.verify();
+  });
+
+  it('a copy further ahead, with no id of this change: "may have been saved", reload, no other message', () => {
+    const errors: unknown[] = [];
+    edit([], errors);
+    fail(post(), 500);
+    reread().flush(info(3, { lastChangeId: null }));
+    expect(errors).toEqual([{ status: 409, detail: null }]);
+    expect(store.info()?.revision).toBe(3);
+    expect(changed).toBe(1);
+    expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
+    http.verify();
+  });
+
+  it('an undo that may have been saved says so once, not "could not be saved" as well', () => {
+    store.info.set(info(1, { canUndo: true }));
+    store.undo();
+    const sent = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/undo'));
+    expect(sent.request.params.get('changeId')).toMatch(/^[0-9a-f-]{36}$/);
+    fail(sent, 503);
+    reread().flush(info(2, { lastChangeId: 'another-tabs-change' }));
+    expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
+    http.verify();
+  });
+
+  it('an undo whose answer was lost but which was applied counts as done', () => {
+    store.info.set(info(1, { canUndo: true }));
+    store.undo();
+    const sent = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/undo'));
+    fail(sent, 503);
+    reread().flush(info(2, { lastChangeId: sent.request.params.get('changeId') }));
+    expect(notices).toEqual([]);
+    expect(store.info()?.revision).toBe(2);
     http.verify();
   });
 
@@ -816,18 +880,6 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     fail(post(), 400);
     expect(errors.length).toBe(1);
     http.expectNone((r) => r.method === 'GET');
-    http.verify();
-  });
-
-  it('a revision further ahead may be another tab: the failure is passed on, the views reload and the notice says "may"', () => {
-    const errors: unknown[] = [];
-    edit([], errors);
-    fail(post(), 500);
-    reread().flush(info(3));
-    expect(errors.length).toBe(1);
-    expect(store.info()?.revision).toBe(3);
-    expect(changed).toBe(1);
-    expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
     http.verify();
   });
 

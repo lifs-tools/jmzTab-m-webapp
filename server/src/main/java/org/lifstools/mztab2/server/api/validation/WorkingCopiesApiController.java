@@ -93,6 +93,9 @@ public class WorkingCopiesApiController {
     private final WorkingCopyReader reader;
     private final QuickFixService quickFixes;
     private final RequestBodies bodies;
+    private static final String CHANGE_ID = "Your id (a UUID) of this change, kept as lastChangeId of the copy when the "
+        + "change is applied, so that a caller that lost the answer can tell whether it was";
+
     private final ObjectReader editBatches;
 
     public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, QuickFixService quickFixes,
@@ -215,16 +218,18 @@ public class WorkingCopiesApiController {
         + "or there is nothing to undo")
     @PostMapping(value = "/{id}/undo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo undoWorkingCopy(@PathVariable("id") String id,
-        @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision) {
-        return copies.undo(parse(id), revision);
+        @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
+        @Parameter(description = CHANGE_ID) @RequestParam(value = "changeId", required = false) String changeId) {
+        return copies.undo(parse(id), revision, changeId == null ? null : parse(changeId, "changeId"));
     }
 
     @Operation(operationId = "redoWorkingCopy", summary = "Re-applies the change undone last; 409 if the revision "
         + "is stale or there is nothing to redo")
     @PostMapping(value = "/{id}/redo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo redoWorkingCopy(@PathVariable("id") String id,
-        @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision) {
-        return copies.redo(parse(id), revision);
+        @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
+        @Parameter(description = CHANGE_ID) @RequestParam(value = "changeId", required = false) String changeId) {
+        return copies.redo(parse(id), revision, changeId == null ? null : parse(changeId, "changeId"));
     }
 
     @Operation(operationId = "validateWorkingCopy", summary = "Validates the current text in the background; "
