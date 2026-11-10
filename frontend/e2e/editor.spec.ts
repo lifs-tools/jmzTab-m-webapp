@@ -247,11 +247,16 @@ test('reloadingRightAfterAnEditStillEndsInACheck', async ({ page, request }) => 
   await card.locator('summary', { hasText: 'How to fix this' }).click();
   await button.click();
   const dialog = page.getByRole('dialog');
+  // the edit is saved (answered) before the page is left, so the reload opens the edited copy
+  const saved = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith(`working-copies/${id}/edits`));
   await dialog.getByRole('button', { name: 'Apply' }).click();
-  await expect(dialog).toBeHidden();
-  // reload within the pause before the check starts: the edit is saved, its check was never requested
+  expect((await saved).ok()).toBe(true);
+  // reload within the pause before the check starts: the check of the edit was never requested
   await page.reload();
+  // only the edited copy can be undone; it is checked again
+  await expect(page.getByTestId('undo')).toBeEnabled();
   await awaitCheck(page);
-  await expect(page.getByTestId('run-status')).not.toContainText('Checking your latest changes…');
+  // the finished check of the edited text names what the edit fixed (a check of the old text cannot)
+  await expect(page.getByTestId('fixed').locator('summary')).toHaveText(/Fixed since the last check \(\d+\)/);
   await request.delete(`rest/v2/validations/${id}`);
 });

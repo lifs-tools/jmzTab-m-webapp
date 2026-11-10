@@ -546,7 +546,6 @@ describe('EditPage', () => {
       info({ validation: done({ messages: [{ message: msg(), state: 'OPEN' }] }) }),
       info({ validation: done({ status: 'RUNNING', stale: true }) }),
       info({ revision: 2, validation: done({ status: 'RUNNING', revision: 1 }) }),
-      info({ validation: done({ status: 'RUNNING' }) }),
     ];
     for (const copy of cases) {
       TestBed.resetTestingModule();
@@ -555,6 +554,13 @@ describe('EditPage', () => {
       answerDocs();
       http.match(() => true).forEach((r) => r.flush(copy));
     }
+  });
+
+  it('disables JSON for a DONE run of an older revision, until the check that is requested for it ends', async () => {
+    const { el } = await open(info({ revision: 2, validation: done({ revision: 1 }) }));
+    // the run is requested again on opening and not answered yet: the page shows the old run as it is
+    expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).length).toBe(1);
+    expect(button(el, 'download-json').disabled).toBe(true);
   });
 
   it("says why the file could not be opened, with the server's reason", async () => {

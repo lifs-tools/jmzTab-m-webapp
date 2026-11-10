@@ -440,4 +440,25 @@ describe('WorkingCopyStore: a reopened copy', () => {
     expect(posts().length).toBe(0);
     expect(store.checkFailed()).toBe(true);
   });
+
+  it('a reopen whose request meets a busy server shows its message and asks again after Retry-After, a few times', () => {
+    reopen(run({ revision: 2, stale: true, semantic: true }));
+    let pending = posts()[0];
+    const refuse = () =>
+      pending.flush(
+        { message: 'Too many files are being checked.' },
+        { status: 503, statusText: 'Service Unavailable', headers: { 'Retry-After': '2' } },
+      );
+    refuse();
+    expect(store.checkFailure()).toBe('Too many files are being checked.');
+    for (let i = 0; i < BUSY_RETRIES; i++) {
+      vi.advanceTimersByTime(2000);
+      [pending] = posts();
+      expect(pending.request.params.get('semantic')).toBe('true');
+      refuse();
+    }
+    vi.advanceTimersByTime(120_000);
+    expect(posts().length).toBe(0);
+    expect(store.checkFailed()).toBe(true);
+  });
 });
