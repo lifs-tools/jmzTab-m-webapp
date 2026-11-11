@@ -38,6 +38,12 @@ export class Pending<A, T> {
     this.sub.error(detail === undefined ? { status } : { status, detail });
   }
 
+  /** The host could not tell whether the edit was saved (409 with `maybeSaved`). */
+  failMaybeSaved(): void {
+    this.settled = true;
+    this.sub.error({ status: 409, detail: null, maybeSaved: true });
+  }
+
   /** Called when the subscriber goes away. */
   release(): void {
     if (!this.settled) this.cancelled = true;

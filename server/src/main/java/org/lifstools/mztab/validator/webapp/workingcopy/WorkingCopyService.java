@@ -494,15 +494,16 @@ public class WorkingCopyService {
      * re-read), or null to read it
      */
     private WorkingCopyInfo info(UUID id, WorkingCopyDb db, Long committed) {
-        // the revision first: facts read after it may be newer, never older (see facts)
-        long revision = committed != null ? committed : db.revision();
+        // one snapshot read that takes no write lock (the answer to a committed change must not wait for another
+        // writer): the revision, the last change's id and the rest belong together, so a reader never pairs the
+        // id of a change with the revision before it. A CV check stores its two values together as well.
+        String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
+            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY);
+        // the revision before the facts: facts read after it may be newer, never older (see facts)
+        long revision = committed != null ? committed : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
         Facts f = facts(id, db, revision);
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
-        // one read: a CV check stores both together
-        // a snapshot read that takes no write lock: the answer to a committed change must not wait for another writer
-        String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
-            META_LAST_CHANGE);
         WorkingCopyValidation last = parseValidation(stored[0]);
         WorkingCopyValidation shown = last;
         synchronized (runs) {

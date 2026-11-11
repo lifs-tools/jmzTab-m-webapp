@@ -47,6 +47,8 @@ interface RawLine {
   text: string;
   /** The revision the line was read at; its save names it, so it is refused if lines moved since. */
   readAt?: number | null;
+  /** The save may or may not have happened (the store said so): the text is only for comparing. */
+  maybe?: boolean;
 }
 
 /**
@@ -422,6 +424,12 @@ export class EditPage {
   /** The source has told the views to reload (`changed`), which also closed the editor. */
   protected onRawSaved(): void {
     this.rawLine.set(null);
+  }
+
+  /** The save may or may not have happened (the store reloaded and said so): its text goes to a notice that claims neither. */
+  protected onRawMaybeSaved(lineNumber: number, text: string): void {
+    this.rawLine.set(null);
+    this.rawMoved.set({ lineNumber, text, maybe: true });
   }
 
   /** The editor's save was refused as a conflict (the lines moved, or another tab): its text goes to the notice. */

@@ -93,7 +93,7 @@ public final class WorkingCopyDb implements AutoCloseable {
         DELETE FROM history WHERE seq IN
         (SELECT seq FROM history WHERE stack = 'U' ORDER BY seq ASC LIMIT :n)""";
     private static final String TEXT_CHARS = "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM lines";
-    private static final String REVISION_KEY = "revision";
+    static final String REVISION_KEY = "revision";
 
     private static final String COUNT = "SELECT COUNT(*) FROM lines";
     private static final String SELECT_RANGE

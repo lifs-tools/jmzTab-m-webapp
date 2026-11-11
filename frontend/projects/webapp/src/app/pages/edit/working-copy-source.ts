@@ -16,7 +16,7 @@ import {
 
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { quietRequest } from '../../core/http-error.interceptor';
-import { EditOps, LAYOUT_OPS, WorkingCopyStore, serverMessage } from './working-copy.store';
+import { EditOps, LAYOUT_OPS, MaybeSavedError, WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
 const COLUMN_OPS = new Set(['InsertColumn', 'DeleteColumn', 'RenameColumn', 'MergeColumns']);
@@ -96,7 +96,9 @@ export class WorkingCopySource extends DocumentSource {
       map(() => undefined),
       catchError((err: unknown) => {
         const status = err instanceof HttpErrorResponse ? err.status : undefined;
-        return throwError(() => ({ status, detail: status === 400 ? serverMessage(err) : null }));
+        const detail = status === 400 ? serverMessage(err) : null;
+        // the store reloaded and said that the change may or may not have been saved: not a plain conflict
+        return throwError(() => (err instanceof MaybeSavedError ? { status, detail, maybeSaved: true } : { status, detail }));
       }),
     );
   }

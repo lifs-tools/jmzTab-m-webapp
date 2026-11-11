@@ -5273,6 +5273,7 @@
           "name" : "changeId",
           "required" : false,
           "schema" : {
+            "format" : "uuid",
             "type" : "string"
           }
         } ],
@@ -5473,6 +5474,7 @@
           "name" : "changeId",
           "required" : false,
           "schema" : {
+            "format" : "uuid",
             "type" : "string"
           }
         } ],

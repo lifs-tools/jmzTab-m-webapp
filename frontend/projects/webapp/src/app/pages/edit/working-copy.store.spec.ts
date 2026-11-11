@@ -830,7 +830,7 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     fail(post(), 503);
     reread().flush(info(1, { lastChangeId: 'another-tabs-change' }));
     expect(results).toEqual([]);
-    expect(errors).toEqual([{ status: 409, detail: null }]);
+    expect(errors).toEqual([{ status: 409, detail: null, maybeSaved: true }]);
     expect(store.info()?.revision).toBe(1);
     expect(changed).toBe(1);
     expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
@@ -845,7 +845,7 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     edit([], errors);
     fail(post(), 500);
     reread().flush(info(3, { lastChangeId: null }));
-    expect(errors).toEqual([{ status: 409, detail: null }]);
+    expect(errors).toEqual([{ status: 409, detail: null, maybeSaved: true }]);
     expect(store.info()?.revision).toBe(3);
     expect(changed).toBe(1);
     expect(notices).toEqual([MAYBE_SAVED_NOTICE]);

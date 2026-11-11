@@ -34,6 +34,11 @@ export class RawLineEditorComponent {
    * that was to be saved, as shown (tabs as →), for the host to keep for the user.
    */
   readonly refused = output<string>();
+  /**
+   * As {@link refused}, but the host could not tell whether the save happened (`maybeSaved` on the error): the
+   * host has said so; the text is for the user to compare, and is not "not saved".
+   */
+  readonly maybeSaved = output<string>();
 
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
   /** Whether tabs are shown as →; not for a line that already contains the arrow itself. */
@@ -137,7 +142,8 @@ export class RawLineEditorComponent {
       error: (err: unknown) => {
         this.busy.set(false);
         // a conflict: the host reloads the document and says so; the text is the host's to keep
-        if ((err as { status?: unknown } | null)?.status === 409) this.refused.emit(typed);
+        const e = err as { status?: unknown; maybeSaved?: unknown } | null;
+        if (e?.status === 409) (e.maybeSaved === true ? this.maybeSaved : this.refused).emit(typed);
         else this.error.set(saveErrorOf(err, 'This change could not be saved.'));
       },
     });

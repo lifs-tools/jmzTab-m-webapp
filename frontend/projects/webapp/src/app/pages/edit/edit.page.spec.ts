@@ -369,6 +369,26 @@ describe('EditPage', () => {
       expect(el.querySelector('[data-testid=raw-moved] code')?.textContent).toBe('identification of lipids, fixed');
     });
 
+    it('a save that may have been committed keeps the text without saying it was not saved', async () => {
+      const { fixture, el } = await openRawOn12();
+      typeInto(el, 'identification of lipids, fixed');
+      Array.from(el.querySelectorAll<HTMLButtonElement>('mztabm-raw-line-editor button'))
+        .find((b) => b.textContent?.trim() === 'Save line')!
+        .click();
+      await settle(fixture);
+      postEdit().flush({ message: 'busy' }, { status: 503, statusText: 'Unavailable' });
+      await settle(fixture);
+      // another tab's change followed: this one may or may not be in the copy
+      getInfo().flush(info({ revision: 1, canUndo: true, lastChangeId: 'another-tabs-change' }));
+      await settle(fixture);
+
+      expect(el.querySelector('mztabm-raw-line-editor')).toBeNull();
+      const notice = el.querySelector('[data-testid=raw-moved]')!;
+      expect(notice.querySelector('code')?.textContent).toBe('identification of lipids, fixed');
+      expect(notice.textContent).toContain('may or may not');
+      expect(notice.textContent).not.toContain('not saved');
+    });
+
     it('closes an unchanged raw line editor without a notice', async () => {
       const { fixture, el } = await openRawOn12();
       await removeLine(fixture, 3);

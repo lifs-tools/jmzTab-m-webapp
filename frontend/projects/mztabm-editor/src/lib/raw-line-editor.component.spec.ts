@@ -7,12 +7,13 @@ import { EditableFakeDocumentSource } from './testing/fake-document-source';
 
 @Component({
   imports: [RawLineEditorComponent],
-  template: `<mztabm-raw-line-editor [lineNumber]="line()" [text]="text()" [readAt]="readAt()" (saved)="saved = saved + 1" (cancelled)="cancelled = cancelled + 1" (refused)="refused.push($event)" />`,
+  template: `<mztabm-raw-line-editor [lineNumber]="line()" [text]="text()" [readAt]="readAt()" (saved)="saved = saved + 1" (cancelled)="cancelled = cancelled + 1" (refused)="refused.push($event)" (maybeSaved)="maybe.push($event)" />`,
 })
 class HostComponent {
   readonly line = signal(12);
   readonly readAt = signal<number | null>(null);
   readonly refused: string[] = [];
+  readonly maybe: string[] = [];
   readonly text = signal('MTD\tdescription\tfirst part');
   saved = 0;
   cancelled = 0;
@@ -86,6 +87,16 @@ describe('RawLineEditorComponent', () => {
     key(input(), 'Enter');
     src.oneEdit().fail(409);
     expect(fixture.componentInstance.refused).toEqual(['MTD→description→typed']);
+    expect(fixture.componentInstance.saved).toBe(0);
+  });
+
+  it('a save the host could not tell was saved is not "refused": the text goes to maybeSaved', () => {
+    const { fixture, input } = render();
+    type(input(), 'MTD→description→typed');
+    key(input(), 'Enter');
+    src.oneEdit().failMaybeSaved();
+    expect(fixture.componentInstance.maybe).toEqual(['MTD→description→typed']);
+    expect(fixture.componentInstance.refused).toEqual([]);
     expect(fixture.componentInstance.saved).toBe(0);
   });
 

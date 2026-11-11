@@ -320,6 +320,11 @@ class WorkingCopiesApiTest {
             .andExpect(status().isBadRequest());
         mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "0").param("changeId", "nope"))
             .andExpect(status().isBadRequest());
+        // not the canonical form of 36 characters, though UUID.fromString would take it
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "0").param("changeId", "1-2-3-4-5"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post(BASE + "/" + id + "/redo").param("revision", "0").param("changeId", "1-2-3-4-5"))
+            .andExpect(status().isBadRequest());
         mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.revision").value(0))
             .andExpect(jsonPath("$.lastChangeId").doesNotExist());
         mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)

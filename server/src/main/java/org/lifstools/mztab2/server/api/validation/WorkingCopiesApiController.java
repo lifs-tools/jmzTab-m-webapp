@@ -219,8 +219,9 @@ public class WorkingCopiesApiController {
     @PostMapping(value = "/{id}/undo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo undoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
-        @Parameter(description = CHANGE_ID) @RequestParam(value = "changeId", required = false) String changeId) {
-        return copies.undo(parse(id), revision, changeId == null ? null : parse(changeId, "changeId"));
+        @Parameter(description = CHANGE_ID, schema = @Schema(type = "string", format = "uuid"))
+        @RequestParam(value = "changeId", required = false) String changeId) {
+        return copies.undo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"));
     }
 
     @Operation(operationId = "redoWorkingCopy", summary = "Re-applies the change undone last; 409 if the revision "
@@ -228,8 +229,9 @@ public class WorkingCopiesApiController {
     @PostMapping(value = "/{id}/redo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo redoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
-        @Parameter(description = CHANGE_ID) @RequestParam(value = "changeId", required = false) String changeId) {
-        return copies.redo(parse(id), revision, changeId == null ? null : parse(changeId, "changeId"));
+        @Parameter(description = CHANGE_ID, schema = @Schema(type = "string", format = "uuid"))
+        @RequestParam(value = "changeId", required = false) String changeId) {
+        return copies.redo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"));
     }
 
     @Operation(operationId = "validateWorkingCopy", summary = "Validates the current text in the background; "
@@ -388,6 +390,15 @@ public class WorkingCopiesApiController {
 
     private static UUID parse(String id) {
         return parse(id, "id");
+    }
+
+    /** As {@link #parse(String, String)}, but only the canonical form of 36 characters (as the JSON body reads it). */
+    private static UUID parseCanonical(String value, String name) {
+        UUID parsed = parse(value, name);
+        if (!parsed.toString().equalsIgnoreCase(value)) {
+            throw new IllegalArgumentException(name + " must be a UUID.");
+        }
+        return parsed;
     }
 
     private static UUID parse(String id, String name) {

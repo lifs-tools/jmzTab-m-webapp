@@ -254,7 +254,8 @@ export abstract class DocumentSource {
   /**
    * Applies edits as one batch; completes when they are applied. Only on editable sources. An error carries
    * the HTTP-like `status`; on 409 (the document changed elsewhere) the host reloads and emits `changed`. A
-   * refused edit (400) may carry `detail`, the reason in words for the user. Edits that address lines of a page
+   * refused edit (400) may carry `detail`, the reason in words for the user. A 409 may carry `maybeSaved: true`: the
+   * host could not tell whether the edit was saved and has said so, so a view must not say that it was not saved. Edits that address lines of a page
    * pass the page's `readAt` in `options`.
    */
   applyEdits?(ops: DocEdit[], options?: DocEditOptions): Observable<void>;
