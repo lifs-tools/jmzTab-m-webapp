@@ -31,6 +31,7 @@ import org.lifstools.mztab2.server.api.ValidatePlainApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
+import org.lifstools.mztab.validator.webapp.workingcopy.CopyReplacedException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
 import org.lifstools.mztab.validator.webapp.workingcopy.StaleRevisionException;
 import org.lifstools.mztab.validator.webapp.workingcopy.TooLargeException;
@@ -85,6 +86,9 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     /** The {@code error} of a 422 for a file that is not UTF-8. */
     public static final String NOT_UTF8 = "not_utf8";
 
+    /** The {@code error} of the 409 for a generation that is not the copy's: the copy was created again. */
+    public static final String COPY_REPLACED = "copy_replaced";
+
     /** The {@code error} of a 422 for a file over a cap of the editor (lines, or cells in a line). */
     public static final String TOO_LARGE_FOR_EDITOR = "too_large";
 
@@ -114,6 +118,14 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkingCopyConflictException.class)
     public ResponseEntity<ErrorResponse> copyConflict(WorkingCopyConflictException e, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
+
+    /** An edit, undo or redo that names the generation of a copy that was deleted and created again. */
+    @ExceptionHandler(CopyReplacedException.class)
+    public ResponseEntity<ErrorResponse> copyReplaced(CopyReplacedException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
+            .body(new ErrorResponse(status, COPY_REPLACED, e.getMessage(), request.getRequestURI()));
     }
 
     /** A copy of a file that is not UTF-8; {@code error} is {@value #NOT_UTF8}, the message names the line. */

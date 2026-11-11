@@ -11,6 +11,7 @@ import { WorkingCopySource } from './working-copy-source';
 import {
   BUSY_RETRIES,
   CONFLICT_NOTICE,
+  COPY_REPLACED_NOTICE,
   EditOps,
   IDLE_MS,
   LAYOUT_CHANGED_NOTICE,
@@ -224,6 +225,34 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
     conflict(onePost());
     reread().flush(info(4));
     expect(notices).toEqual([CONFLICT_NOTICE]);
+  });
+
+  describe('the copy\'s generation', () => {
+    const generation = '3f2b8f0e-5d0c-4c0e-9a55-0d6a3f6f3a11';
+    beforeEach(() => store.info.set(info(0, { generation })));
+    const request = (suffix: string) =>
+      http.expectOne((r) => r.method === 'POST' && r.url.endsWith(`working-copies/abc/${suffix}`));
+
+    it('is sent with an edit', () => {
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe();
+      expect((onePost().request.body as { generation: string }).generation).toBe(generation);
+    });
+
+    it('is sent with an undo and a redo', () => {
+      store.undo();
+      const undo = request('undo');
+      expect(undo.request.params.get('generation')).toBe(generation);
+      undo.flush(info(1, { generation }));
+      store.redo();
+      expect(request('redo').request.params.get('generation')).toBe(generation);
+    });
+
+    it('a copy created again is told from a change in another tab', () => {
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: () => undefined });
+      onePost().flush({ error: 'copy_replaced', message: 'again' }, { status: 409, statusText: 'Conflict' });
+      reread().flush(info(0, { generation: '9c4e1d52-7a0b-4d38-8f21-6b1c2d3e4f50' }));
+      expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+    });
   });
 
   describe('pages are stamped with the revision they were read at', () => {

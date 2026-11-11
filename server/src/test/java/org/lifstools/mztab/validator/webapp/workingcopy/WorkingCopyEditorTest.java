@@ -104,6 +104,26 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void theKeptTextCharsEqualsAFullRecountAfterAnyEdit() throws Exception {
+        assertEquals(db.countTextChars(), db.textChars());
+        apply(new SetRawLine(1, "COM\tab\u0000cd"), new InsertLine(2, "COM\tx\uD83D\uDE00y"));
+        assertEquals(db.countTextChars(), db.textChars());
+        apply(new SetCell(5, 2, "longer cell", "name"), new DeleteLine(2), new MoveRow(4, 6));
+        assertEquals(db.countTextChars(), db.textChars());
+        for (int i = 0; i < 2; i++) {
+            editor.undo(db, db.revision());
+            assertEquals(db.countTextChars(), db.textChars());
+        }
+        editor.redo(db, db.revision());
+        assertEquals(db.countTextChars(), db.textChars());
+        apply(new InsertColumn("SMH", 2, "extra", "fill"));
+        assertEquals(db.countTextChars(), db.textChars());
+        load("COM\ta\u0000b\n");
+        assertEquals(db.countTextChars(), db.textChars());
+        assertEquals(7, db.textChars());
+    }
+
+    @Test
     void setCellRefusesAChangedHeader() throws Exception {
         // the page showed "name" for cell 2 of the SML rows; a column was inserted before it since, so cell 2 is another column
         apply(new InsertColumn("SMH", 2, "inserted", "x"));

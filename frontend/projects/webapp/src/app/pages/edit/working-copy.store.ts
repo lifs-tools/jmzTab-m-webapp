@@ -37,6 +37,9 @@ export const IDLE_MS = 1500;
 export const POLL_MS = 1000;
 
 export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
+export const COPY_REPLACED_NOTICE = 'This copy was replaced (deleted and created again). The editor reloaded it.';
+/** The `error` of the server's 409 for a generation that is not the copy's. */
+const COPY_REPLACED_CODE = 'copy_replaced';
 export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const LINES_MOVED_NOTICE =
   'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
@@ -483,7 +486,10 @@ export class WorkingCopyStore {
             result.complete();
           },
           error: (err: unknown) => {
-            if (statusOf(err) === 409 && !(err instanceof MaybeSavedError)) this.conflict(moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE);
+            if (statusOf(err) === 409 && !(err instanceof MaybeSavedError)) {
+              const replaced = err instanceof HttpErrorResponse && err.error?.error === COPY_REPLACED_CODE;
+              this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE);
+            }
             if (statusOf(err) === 404) this.view.set('notFound');
             result.error(err);
           },

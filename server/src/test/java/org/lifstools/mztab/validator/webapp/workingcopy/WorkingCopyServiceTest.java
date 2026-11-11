@@ -381,6 +381,17 @@ class WorkingCopyServiceTest {
     }
 
     @Test
+    void aBadBatchIs400EvenWhereTheCopyWouldAnswerOtherwise() throws Exception {
+        UUID id = submit("bad-batch.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        UUID other = UUID.randomUUID();
+        // a lone surrogate on a copy of another generation: 400 (the batch is wrong), not 409
+        assertThrows(IllegalArgumentException.class, () -> copies.edit(id,
+            new EditBatch(0, List.of(new SetMetadataValue(3, "a\uD83Db")), null, other)));
+        assertThrows(IllegalArgumentException.class, () -> copies.edit(id, null));
+    }
+
+    @Test
     void aStepAfterTheCommitCannotTurnACommittedEditIntoAnError() throws Exception {
         UUID id = submit("post-commit.mzTab", example());
         copies.create(id, SourceEncoding.UTF_8);

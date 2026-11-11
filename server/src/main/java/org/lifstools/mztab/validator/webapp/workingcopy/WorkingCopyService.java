@@ -577,9 +577,12 @@ public class WorkingCopyService {
      * @throws StorageFullException if the storage cap is reached
      */
     public WorkingCopyInfo edit(UUID id, EditBatch batch) {
-        if (batch != null) {
-            requireRevision(batch.revision());
+        if (batch == null) {
+            throw new IllegalArgumentException("A batch needs at least one operation");
         }
+        requireRevision(batch.revision());
+        // 400 before anything that could answer 503 or 409: the batch is wrong whatever the copy's state
+        WorkingCopyEditor.requireWellFormedText(batch);
         return guard(id, () -> {
             WorkingCopyDb db = db(id);
             requireCapacity();
@@ -663,7 +666,7 @@ public class WorkingCopyService {
      */
     private static void requireGeneration(WorkingCopyDb db, @Nullable UUID generation) {
         if (generation != null && !generation.toString().equals(db.meta(META_GENERATION))) {
-            throw new WorkingCopyConflictException("The working copy was created again since you read it; reload it.");
+            throw new CopyReplacedException();
         }
     }
 

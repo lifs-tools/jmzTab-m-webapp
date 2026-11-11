@@ -339,6 +339,38 @@ class WorkingCopiesApiTest {
     }
 
     @Test
+    void aLoneSurrogateIs400AndAGenerationIsValidated() throws Exception {
+        String id = validation("surrogate.mzTab", example());
+        create(id);
+        String url = BASE + "/" + id + "/edits";
+        // JSON can carry a lone surrogate as an escape
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(0,
+                "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"a\\ud83db\"}")))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(edits(0,
+                "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"a\\ud83d\\ude00b\"}")))
+            .andExpect(status().isOk());
+        String op = "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"x\"}";
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"revision\":1,\"generation\":\"nope\",\"operations\":[" + op + "]}"))
+            .andExpect(status().isBadRequest());
+        for (String bad : new String[]{"nope", "1-2-3-4-5"}) {
+            mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "1").param("generation", bad))
+                .andExpect(status().isBadRequest());
+            mvc.perform(post(BASE + "/" + id + "/redo").param("revision", "1").param("generation", bad))
+                .andExpect(status().isBadRequest());
+        }
+        // another generation: 409 with its own code
+        String other = "9c4e1d52-7a0b-4d38-8f21-6b1c2d3e4f50";
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"revision\":1,\"generation\":\"" + other + "\",\"operations\":[" + op + "]}"))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("copy_replaced"));
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "1").param("generation", other))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("copy_replaced"));
+        mvc.perform(get(BASE + "/" + id)).andExpect(jsonPath("$.generation").exists());
+    }
+
+    @Test
     void staleEditIs409() throws Exception {
         String id = validation("stale.mzTab", example());
         create(id);

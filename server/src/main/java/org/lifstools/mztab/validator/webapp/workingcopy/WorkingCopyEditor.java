@@ -120,8 +120,8 @@ public final class WorkingCopyEditor {
         if (batch.operations().stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("An operation must not be null");
         }
-        // refused before the transaction: sqlite-jdbc would store a lone surrogate as '?'
-        batch.operations().forEach(WorkingCopyEditor::requireWellFormedText);
+        // the service has checked this before anything else; a direct caller is checked here (before the transaction)
+        requireWellFormedText(batch);
         return db.inTransaction(() -> {
             long current = requireRevision(db, batch.revision());
             long textChars = db.textChars();
@@ -362,7 +362,14 @@ public final class WorkingCopyEditor {
      * Every text of an operation must be well-formed UTF-16: a lone surrogate cannot be stored (it would become a
      * '?'). The one check of all text-carrying operations.
      */
-    static void requireWellFormedText(EditOperation op) {
+    static void requireWellFormedText(EditBatch batch) {
+        if (batch != null && batch.operations() != null) {
+            batch.operations().stream().filter(java.util.Objects::nonNull)
+                .forEach(WorkingCopyEditor::requireWellFormedText);
+        }
+    }
+
+    private static void requireWellFormedText(EditOperation op) {
         for (java.lang.reflect.RecordComponent c : op.getClass().getRecordComponents()) {
             if (c.getType() == String.class) {
                 try {

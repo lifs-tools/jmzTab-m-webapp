@@ -95,6 +95,10 @@ public final class WorkingCopyDb implements AutoCloseable {
     // LENGTH() of a TEXT value stops at the first NUL, so the lines that hold one are counted in Java
     private static final String TEXT_CHARS =
         "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM lines WHERE INSTR(CAST(text AS BLOB), X'00') = 0";
+    private static final String TEXT_OF_LINE = "SELECT text FROM lines WHERE number = :number";
+    private static final String TEXT_OF_RANGE = "SELECT text FROM lines WHERE number >= :from AND number < :to";
+    private static final String ADD_META_NUMBER = "UPDATE meta SET v = CAST(v AS INTEGER) + :delta WHERE k = :key";
+    private static final String TEXT_CHARS_KEY = "text.chars";
     private static final String TEXT_WITH_NUL = "SELECT text FROM lines WHERE INSTR(CAST(text AS BLOB), X'00') > 0";
     static final String REVISION_KEY = "revision";
 
@@ -171,6 +175,11 @@ public final class WorkingCopyDb implements AutoCloseable {
             jdbc.update(HISTORY_CLEAR_ALL, Map.of());
             setRevision(0);
             List<Line> lines = parsed.lines();
+            long chars = 0;
+            for (Line l : lines) {
+                chars += chars(l.text());
+            }
+            setMeta(TEXT_CHARS_KEY, Long.toString(chars));
             for (int i = 0; i < lines.size(); i += PAGE) {
                 SqlParameterSource[] batch = new SqlParameterSource[Math.min(PAGE, lines.size() - i)];
                 for (int j = 0; j < batch.length; j++) {
@@ -197,11 +206,13 @@ public final class WorkingCopyDb implements AutoCloseable {
                 setRevision(0);
                 List<SqlParameterSource> chunk = new ArrayList<>(PAGE);
                 long[] number = {0};
+                long[] chars = {0};
                 boolean bom;
                 try {
                     bom = CopyText.read(in, encoding, l -> {
                         // numbered by position, as importLines does
                         chunk.add(insertParams(++number[0], l));
+                        chars[0] += chars(l.text());
                         if (chunk.size() == PAGE) {
                             jdbc.batchUpdate(INSERT_LINE, chunk.toArray(SqlParameterSource[]::new));
                             chunk.clear();
@@ -213,6 +224,7 @@ public final class WorkingCopyDb implements AutoCloseable {
                 if (!chunk.isEmpty()) {
                     jdbc.batchUpdate(INSERT_LINE, chunk.toArray(SqlParameterSource[]::new));
                 }
+                setMeta(TEXT_CHARS_KEY, Long.toString(chars[0]));
                 setMeta(BOM_KEY, Boolean.toString(bom));
                 return null;
             });
@@ -325,11 +337,13 @@ public final class WorkingCopyDb implements AutoCloseable {
     /** Replaces the content of line {@code number}; the number of {@code line} is ignored. */
     public void replaceLine(long number, Line line) {
         check(line);
+        List<String> old = jdbc.query(TEXT_OF_LINE, Map.of("number", number), (rs, i) -> rs.getString(1));
         int changed = jdbc.update(REPLACE_LINE, new MapSqlParameterSource().addValue("number", number)
             .addValue("section", line.section()).addValue("text", line.text()).addValue("eol", line.eol()));
         if (changed != 1) {
             throw new IllegalArgumentException("There is no line " + number);
         }
+        addChars(chars(line.text()) - chars(old.get(0)));
     }
 
     /** Inserts the lines so the first becomes line {@code before}; {@code before} may be lineCount + 1. */
@@ -351,6 +365,7 @@ public final class WorkingCopyDb implements AutoCloseable {
             for (int i = 0; i < lines.size(); i++) {
                 jdbc.update(INSERT_LINE, insertParams(before + i, lines.get(i)));
             }
+            addChars(lines.stream().mapToLong(l -> chars(l.text())).sum());
             return null;
         });
     }
@@ -362,7 +377,11 @@ public final class WorkingCopyDb implements AutoCloseable {
             if (from < 1 || count < 1 || from > total || count > total - from + 1) {
                 throw new IllegalArgumentException("Cannot delete " + count + " lines from line " + from);
             }
+            long[] removed = {0};
+            jdbc.query(TEXT_OF_RANGE, Map.of("from", from, "to", from + count),
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> removed[0] += chars(rs.getString(1)));
             jdbc.update(DELETE_RANGE, Map.of("from", from, "to", from + count));
+            addChars(-removed[0]);
             jdbc.update(PARK_AFTER, Map.of("shift", count, "from", from + count));
             jdbc.update(UNPARK, Map.of());
             return null;
@@ -497,8 +516,33 @@ public final class WorkingCopyDb implements AutoCloseable {
         jdbc.update(HISTORY_MOVE, Map.of("stack", redoable ? "R" : "U", "seq", seq));
     }
 
-    /** Total characters (code points) of all line texts (without endings), a NUL counting as one. */
+    private static long chars(String text) {
+        return text.codePointCount(0, text.length());
+    }
+
+    /** Adds to the kept total of characters; no total is kept for a copy of an older layout (see textChars). */
+    private void addChars(long delta) {
+        if (delta != 0) {
+            jdbc.update(ADD_META_NUMBER, Map.of("key", TEXT_CHARS_KEY, "delta", delta));
+        }
+    }
+
+    /**
+     * Total characters (code points) of all line texts (without endings), a NUL counting as one. Kept in the copy's
+     * meta by every write to the lines, in the transaction of the write; a copy without it is counted once.
+     */
     public long textChars() {
+        String kept = meta(TEXT_CHARS_KEY);
+        if (kept != null) {
+            return Long.parseLong(kept);
+        }
+        long counted = countTextChars();
+        setMeta(TEXT_CHARS_KEY, Long.toString(counted));
+        return counted;
+    }
+
+    /** The total by a full scan: what {@link #textChars} keeps. */
+    long countTextChars() {
         Long n = jdbc.queryForObject(TEXT_CHARS, Map.of(), Long.class);
         long total = n == null ? 0 : n;
         for (String t : jdbc.query(TEXT_WITH_NUL, Map.of(), (rs, i) -> rs.getString(1))) {
