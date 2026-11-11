@@ -63,7 +63,10 @@
       line above it is removed, its number may now belong to another line: the editor closes the line and keeps the
       text you typed in a notice, so you can open the line again and use it. A message keeps the line number of the
       check it comes from. If lines moved since that check, <b>{{ editLineAsTextLabel }}</b> does not open the line,
-      and showing the message marks no row or cell: the editor says so, and you use the messages of the next check.
+      and showing the message marks no row or cell: the editor says so, and you use the messages of the next check,
+      which follows each change. A CV message is different: the structure check keeps it with the line number of
+      its CV check, and its guidance and the report quote no line for it once lines moved. Press
+      <b>Check CV rules</b> to check it again.
     </p>
     <p>
       The editor cannot insert or move lines. If sections are in the wrong order or a header line is missing,
@@ -100,8 +103,10 @@
     <p>
       A cell is saved into the column it was shown in. If the columns changed meanwhile (for example a column was
       deleted, merged or inserted, here or in another tab), the change is not saved: the file is reloaded and the
-      editor says so, and you can make the change again. While a table is read again, or if reading it failed
-      (press <b>Retry</b>), its cells cannot be edited.
+      editor says so, and you can make the change again. Changes you made right after it, before the file was
+      reloaded, are not saved either; the editor says so once. If the copy was deleted and opened again elsewhere,
+      the editor says that the copy was replaced and starts again from the new copy. While a table is read again,
+      or if reading it failed (press <b>Retry</b>), its cells cannot be edited.
     </p>
     <h3 id="guide-undo">Undo and redo</h3>
     <p>

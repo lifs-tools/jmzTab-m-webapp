@@ -140,7 +140,9 @@
             <li>
               A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
               message with a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text. → stands for a tab. If lines
-              moved since that message was checked, nothing is marked or opened for it: wait for the next check.
+              moved since that message was checked, nothing is marked or opened for it: wait for the next check. A CV
+              message keeps the line number of its CV check, also after the next check: press <b>Check CV rules</b>
+              to check it again.
             </li>
             <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
             <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
@@ -234,7 +236,7 @@
               @if (rawLine()?.lineNumber !== n) {
                 <p class="line-actions" data-testid="line-actions">
                   <span class="lifs-mono">Line {{ n }}</span>
-                  <button mat-stroked-button type="button" data-testid="edit-as-text" (click)="editAsText(n, shownReadAt)">
+                  <button mat-stroked-button type="button" data-testid="edit-as-text" (click)="editAsText(n, shownReadAt, shownMovedNotice)">
                     {{ editLineAsTextLabel }}
                   </button>
                 </p>

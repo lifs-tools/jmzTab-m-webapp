@@ -15,7 +15,15 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
 import { EditPage, isUnreadable } from './edit.page';
-import { CHECK_FAILED, CONFLICT_NOTICE, IDLE_MS, LINES_MOVED_NOTICE, POLL_MS, WorkingCopyStore } from './working-copy.store';
+import {
+  CHECK_FAILED,
+  CONFLICT_NOTICE,
+  IDLE_MS,
+  LINES_MOVED_NOTICE,
+  POLL_MS,
+  WorkingCopyStore,
+  cvLinesMovedNotice,
+} from './working-copy.store';
 
 @Component({ template: '<p>a dialog</p>' })
 class SomeDialogComponent {}
@@ -519,7 +527,18 @@ describe('EditPage', () => {
       chipOf(el, 'line 14').click();
       await settle(fixture);
       expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
-      expect(overlayText()).toContain(LINES_MOVED_NOTICE);
+      // not "wait for the next check": the next check is structural and keeps the message as it is
+      expect(overlayText()).toContain(cvLinesMovedNotice(0));
+      expect(cvLinesMovedNotice(0)).toBe(
+        'This message is from the CV check of revision 0; the lines have changed since. Press Check CV rules to check them again.',
+      );
+      expect(overlayText()).not.toContain('Wait for the next check');
+      // "Edit this line as text" of that message says the same
+      button(el, 'edit-as-text').click();
+      await settle(fixture);
+      expect(http.match((r) => r.url.endsWith('working-copies/abc/lines')).length).toBe(0);
+      expect(overlayText()).toContain(cvLinesMovedNotice(0));
+      expect(overlayText()).not.toContain('Wait for the next check');
 
       chipOf(el, 'line 12').click();
       await settle(fixture);

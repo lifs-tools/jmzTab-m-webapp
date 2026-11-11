@@ -206,6 +206,8 @@ export class EditPage {
   protected readonly shownLine = signal<number | null>(null);
   /** The revision the line of the message shown last is a number of: what an action on that line names as `readAt`. */
   protected shownReadAt = 0;
+  /** What "Edit this line as text" of the message shown last says when its lines moved: the kind of message decides. */
+  protected shownMovedNotice = LINES_MOVED_NOTICE;
 
   /** Table headers by prefix, for the cells of quoted data lines; read for the sections the guidance quotes. */
   protected readonly headers = signal<ReadonlyMap<string, readonly string[]>>(new Map());
@@ -313,14 +315,16 @@ export class EditPage {
       this.rawLine.set(null);
       this.inspection++;
       this.shownReadAt = readAt;
+      this.shownMovedNotice = this.store.linesMovedNotice(m);
       this.shownLine.set(line != null && line > 0 ? line : null);
-      this.store.notices.next(LINES_MOVED_NOTICE);
+      this.store.notices.next(this.shownMovedNotice);
       return;
     }
     if (target) this.jump(target, req);
     if (line != null && line > 0) {
       this.shownLine.set(line);
       this.shownReadAt = readAt;
+      this.shownMovedNotice = this.store.linesMovedNotice(m);
       this.inspect(line, !target, readAt);
     } else {
       this.shownLine.set(null);
@@ -397,13 +401,14 @@ export class EditPage {
   /**
    * "Edit this line as text", or a cell past the end of a short row: the line opens in the raw line editor.
    * `readAt` is the revision the number is of: the message's for the line of a message, else (a table row the view
-   * shows) the copy's current one. A number of a revision before a line move is refused with a notice.
+   * shows) the copy's current one. A number of a revision before a line move is refused with `movedNotice`: for
+   * the line of a message, the one its kind of message calls for.
    */
-  protected editAsText(n: number, readAt: number = this.store.currentRevision()): void {
+  protected editAsText(n: number, readAt: number = this.store.currentRevision(), movedNotice = LINES_MOVED_NOTICE): void {
     const run = ++this.inspection;
     if (this.store.linesMovedSince(readAt)) {
       this.rawLine.set(null);
-      this.store.notices.next(LINES_MOVED_NOTICE);
+      this.store.notices.next(movedNotice);
       return;
     }
     this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({

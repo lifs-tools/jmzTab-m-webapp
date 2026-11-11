@@ -16,6 +16,7 @@ import {
   IDLE_MS,
   LAYOUT_CHANGED_NOTICE,
   MAYBE_SAVED_NOTICE,
+  POLL_MS,
   WorkingCopyStore,
 } from './working-copy.store';
 
@@ -252,6 +253,131 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
       onePost().flush({ error: 'copy_replaced', message: 'again' }, { status: 409, statusText: 'Conflict' });
       reread().flush(info(0, { generation: '9c4e1d52-7a0b-4d38-8f21-6b1c2d3e4f50' }));
       expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      expect(changed).toBe(1);
+    });
+
+    describe('a copy created again starts anew', () => {
+      const again = '9c4e1d52-7a0b-4d38-8f21-6b1c2d3e4f50';
+      /** The old copy's lines moved at revision 5; its CV rules were checked here and its report is ready. */
+      const oldCopyMovedAt5 = () => {
+        store.info.set(info(4, { generation }));
+        source.applyEdits([{ op: 'DeleteLine', line: 3 }]).subscribe();
+        onePost().flush(info(5, { generation, layoutRevision: 5 }));
+        store.validate(true);
+        http
+          .expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'))
+          .flush(info(5, { generation, layoutRevision: 5, cvCheckedRevision: 5, validation: { status: 'DONE', revision: 5, semantic: true } as WorkingCopyValidation }));
+        expect(store.reportReady()).toBe(true);
+        expect(store.linesMovedSince(4)).toBe(true);
+        notices.length = 0;
+        changed = 0;
+      };
+
+      it('after copy_replaced, edits of a page read at the new revision are sent and accepted', () => {
+        oldCopyMovedAt5();
+        source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: () => undefined });
+        onePost().flush({ error: 'copy_replaced', message: 'again' }, { status: 409, statusText: 'Conflict' });
+        reread().flush(info(0, { generation: again, layoutRevision: 0 }));
+        expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+        expect(changed).toBe(1);
+        // what the old copy knew is gone: its report, its CV check, its layout changes
+        expect(store.reportReady()).toBe(false);
+        expect(store.linesMovedSince(0)).toBe(false);
+
+        // two cell edits of a page read at revision 0 of the new copy: neither is refused as stale
+        source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'b' }], { readAt: 0 }).subscribe();
+        const first = onePost();
+        expect(revisionOf(first)).toBe(0);
+        expect((first.request.body as { generation: string }).generation).toBe(again);
+        first.flush(info(1, { generation: again }));
+        source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'c' }], { readAt: 0 }).subscribe();
+        const second = onePost();
+        expect(revisionOf(second)).toBe(1);
+        second.flush(info(2, { generation: again }));
+        expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      });
+
+      it('a poll that finds a new generation, at a higher revision, resets the state and says so once', () => {
+        vi.useFakeTimers();
+        try {
+          oldCopyMovedAt5();
+          store.validate(false);
+          http
+            .expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'))
+            .flush(info(5, { generation, layoutRevision: 5, validation: { status: 'RUNNING', revision: 5 } as WorkingCopyValidation }));
+          vi.advanceTimersByTime(POLL_MS);
+          reread().flush(info(7, { generation: again, layoutRevision: 0, validation: { status: 'RUNNING', revision: 7 } as WorkingCopyValidation }));
+          expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+          expect(changed).toBe(1);
+          expect(store.info()?.generation).toBe(again);
+          expect(store.reportReady()).toBe(false);
+          expect(store.linesMovedSince(0)).toBe(false);
+          expect(store.cvStatus()).toBeNull();
+          // a late answer of the old copy is not taken back
+          store.reload();
+          reread().flush(info(6, { generation, layoutRevision: 5 }));
+          expect(store.info()?.generation).toBe(again);
+          // the poll goes on, and its next answer is not announced again
+          vi.advanceTimersByTime(POLL_MS);
+          reread().flush(info(7, { generation: again, layoutRevision: 0, validation: { status: 'DONE', revision: 7 } as WorkingCopyValidation }));
+          expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+          expect(changed).toBe(1);
+          expect(store.reportReady()).toBe(true);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it('a reload that finds a new generation at a lower revision takes it', () => {
+        oldCopyMovedAt5();
+        store.reload();
+        reread().flush(info(0, { generation: again }));
+        expect(store.info()?.revision).toBe(0);
+        expect(store.info()?.generation).toBe(again);
+        expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+        expect(changed).toBe(1);
+      });
+    });
+  });
+
+  describe('edits queued behind a conflict', () => {
+    it('are not sent: one notice and one reload per conflict', () => {
+      const errors: unknown[] = [];
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: (e) => errors.push(e) });
+      source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }]).subscribe({ error: (e) => errors.push(e) });
+      store.edit([{ op: 'SetMetadataValue', line: 5, value: 'c' }] as EditOps).subscribe({ error: (e) => errors.push(e) });
+      conflict(onePost());
+      // the copy is read again before anything else is sent
+      expect(posts().length).toBe(0);
+      reread().flush(info(4));
+      // made on the text before the other tab's change: not sent, refused as the views reload
+      expect(posts().length).toBe(0);
+      expect(errors.length).toBe(3);
+      expect(errors.every((e) => (e as { status?: number }).status === 409)).toBe(true);
+      expect(notices).toEqual([CONFLICT_NOTICE]);
+      expect(changed).toBe(1);
+      expect(store.saving()).toBe(false);
+      http.verify();
+    });
+
+    it('an edit made after the reload is sent at the new revision', () => {
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: () => undefined });
+      conflict(onePost());
+      reread().flush(info(4));
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'b' }], { readAt: 4 }).subscribe();
+      const next = onePost();
+      expect(revisionOf(next)).toBe(4);
+      next.flush(info(5));
+      expect(notices).toEqual([CONFLICT_NOTICE]);
+    });
+
+    it('an undo queued behind it is not sent either, and adds no message', () => {
+      source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: () => undefined });
+      store.undo();
+      conflict(onePost());
+      reread().flush(info(4));
+      expect(http.match((r) => r.url.includes('working-copies/abc/undo')).length).toBe(0);
+      expect(notices).toEqual([CONFLICT_NOTICE]);
     });
   });
 
