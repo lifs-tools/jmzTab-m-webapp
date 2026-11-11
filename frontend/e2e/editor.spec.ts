@@ -267,6 +267,8 @@ test('reloadingRightAfterAnEditStillEndsInACheck', async ({ page, request }) => 
  * without the CV ones, and the session's CV messages stay shown, as those of revision 0. Nothing is new.
  */
 test('aProfiledSessionOpensWithoutNewMessages', async ({ page, request }) => {
+  // The upload's CV check asks EBI OLS for every term; at 4-7 s per lookup it alone can take most of a minute.
+  test.setTimeout(150_000);
   const response = await request.post('rest/v2/validations', {
     multipart: {
       file: { name: 'profiled.mzTab', mimeType: 'text/plain', buffer: readFileSync(MZTAB_20) },

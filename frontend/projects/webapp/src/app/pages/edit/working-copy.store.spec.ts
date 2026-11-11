@@ -328,6 +328,43 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
         }
       });
 
+      it('a copy_replaced refusal after a poll already took the new copy says so only once', () => {
+        oldCopyMovedAt5();
+        source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }]).subscribe({ error: () => undefined });
+        const edit = onePost();
+        // the poll answers first, with the new copy
+        store.reload();
+        reread().flush(info(0, { generation: again }));
+        expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+        expect(changed).toBe(1);
+        // the edit, sent with the old generation, is refused afterwards
+        edit.flush({ error: 'copy_replaced', message: 'again' }, { status: 409, statusText: 'Conflict' });
+        reread().flush(info(0, { generation: again }));
+        expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+        expect(changed).toBe(1);
+      });
+
+      it('a late answer about the replaced copy, read after a refusal, changes nothing', () => {
+        oldCopyMovedAt5();
+        store.reload();
+        reread().flush(info(0, { generation: again }));
+        notices.length = 0;
+        changed = 0;
+        source.applyEdits([{ op: 'SetMetadataValue', line: 3, value: 'a' }], { readAt: 0 }).subscribe({ error: () => undefined });
+        conflict(onePost());
+        // the re-read is answered from the old copy, at its higher revision
+        reread().flush(info(6, { generation, layoutRevision: 6 }));
+        expect(notices).toEqual([]);
+        expect(changed).toBe(0);
+        expect(store.info()?.generation).toBe(again);
+        expect(store.linesMovedSince(0)).toBe(false);
+        // the next edit of a page read at revision 0 is sent, named at revision 0
+        source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }], { readAt: 0 }).subscribe();
+        const next = onePost();
+        expect(revisionOf(next)).toBe(0);
+        next.flush(info(1, { generation: again }));
+      });
+
       it('a reload that finds a new generation at a lower revision takes it', () => {
         oldCopyMovedAt5();
         store.reload();

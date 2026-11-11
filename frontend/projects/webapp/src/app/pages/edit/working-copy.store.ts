@@ -36,7 +36,8 @@ export const IDLE_MS = 1500;
 /** While a run is RUNNING, the copy is read again at this interval. */
 export const POLL_MS = 1000;
 
-export const CONFLICT_NOTICE = 'This file was changed in another tab. It was reloaded.';
+export const CONFLICT_NOTICE =
+  'This file was changed in another tab, so this change and any made after it were not saved. It was reloaded: please make them again.';
 export const COPY_REPLACED_NOTICE = 'This copy was replaced (deleted and created again). The editor reloaded it.';
 /** The `error` of the server's 409 for a generation that is not the copy's. */
 const COPY_REPLACED_CODE = 'copy_replaced';
@@ -591,7 +592,8 @@ export class WorkingCopyStore {
       switchMap((info) => {
         if (info.lastChangeId === changeId) return of(info);
         const now = info.revision ?? 0;
-        if (now <= sent) return throwError(() => err);
+        // a late answer about a copy that was replaced since tells nothing about this change
+        if (now <= sent || this.isRetired(info)) return throwError(() => err);
         const replaced = this.setInfo(info, true, false, true);
         this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
         this.reloads++;
@@ -623,7 +625,11 @@ export class WorkingCopyStore {
   private conflict(notice: string): Observable<void> {
     return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
       map((info) => {
+        // a late answer about a copy that was replaced since: the replacement was taken and announced
+        if (this.isRetired(info)) return;
         const replaced = this.setInfo(info, true, false, true);
+        // the copy shown was already the new one (a poll found it first, and said so)
+        if (!replaced && notice === COPY_REPLACED_NOTICE) return;
         // what changed elsewhere is not known: any line may have moved
         this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.revision ?? 0);
         this.reloads++;
@@ -736,7 +742,7 @@ export class WorkingCopyStore {
    */
   private setInfo(info: WorkingCopyInfo, force = false, restartPoll = false, reloading = false): boolean {
     const shown = this.info();
-    if (info.generation && this.retired.has(info.generation)) return false;
+    if (this.isRetired(info)) return false;
     const replaced = !!shown?.generation && !!info.generation && info.generation !== shown.generation;
     if (!force && !replaced && shown && this.isOlder(info, shown)) return false;
     if (replaced) {
@@ -766,6 +772,11 @@ export class WorkingCopyStore {
       this.notices.next(COPY_REPLACED_NOTICE);
     }
     return replaced;
+  }
+
+  /** Whether this answer is about a copy that was deleted and created again since. */
+  private isRetired(info: WorkingCopyInfo): boolean {
+    return !!info.generation && this.retired.has(info.generation);
   }
 
   private isOlder(info: WorkingCopyInfo, shown: WorkingCopyInfo): boolean {
