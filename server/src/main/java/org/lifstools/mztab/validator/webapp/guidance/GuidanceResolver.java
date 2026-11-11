@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.function.IntPredicate;
 import java.util.regex.Pattern;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.springframework.lang.Nullable;
@@ -69,6 +70,16 @@ public class GuidanceResolver {
      */
     public List<Guidance> resolve(List<ValidationMessage> messages, @Nullable String line,
         List<String> softwareNames, Function<Set<Long>, Map<Long, String>> lineTexts) {
+        return resolve(messages, line, softwareNames, lineTexts, i -> true);
+    }
+
+    /**
+     * As {@link #resolve(List, String, List, Function)}; only the lines of the messages whose index {@code quoted}
+     * accepts are quoted, e.g. not those of messages whose line numbers are of another text than {@code lineTexts}
+     * reads.
+     */
+    public List<Guidance> resolve(List<ValidationMessage> messages, @Nullable String line,
+        List<String> softwareNames, Function<Set<Long>, Map<Long, String>> lineTexts, IntPredicate quoted) {
         Map<List<Object>, Group> groups = new LinkedHashMap<>();
         for (int i = 0; i < messages.size(); i++) {
             ValidationMessage m = messages.get(i);
@@ -81,7 +92,7 @@ public class GuidanceResolver {
             Group g = groups.computeIfAbsent(key, k -> new Group(entry, typeCode, m));
             g.indexes.add(i);
             Long n = m.getLineNumber();
-            if (n != null && n > 0) {
+            if (n != null && n > 0 && quoted.test(i)) {
                 g.lineNumbers.add(n);
             }
         }

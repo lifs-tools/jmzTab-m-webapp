@@ -161,6 +161,25 @@ class LargeFilePerformanceTest {
             revision[0] = after.revision();
             return after;
         });
+        // an SEH header and an SME row after all SML rows: the header check of a SetCell on the SME row finds the
+        // first SEH line by its section, past every SML row (the lines table has no index on the section)
+        long end1 = copies.info(id).lineCount() + 1;
+        WorkingCopyInfo withSme = copies.edit(id, batch(revision[0],
+            new EditOperation.InsertLine(end1, "SEH\tSME_ID\tevidence_input_id\tdatabase_identifier"),
+            new EditOperation.InsertLine(end1 + 1, "SME\t1\tinput-1\tdb-1")));
+        revision[0] = withSme.revision();
+        measure("one SetCell batch (1 SME cell, SEH found last)", -1, () -> {
+            WorkingCopyInfo after = copies.edit(id, batch(revision[0], new SetCell(end1 + 1, 3, "db-2",
+                "database_identifier")));
+            revision[0] = after.revision();
+            return after;
+        });
+        measure("one SetCell batch (1 SML cell, again)", -1, () -> {
+            WorkingCopyInfo after = copies.edit(id, batch(revision[0], new SetCell(headerLine + 2, 20, "1234.6",
+                columns.get(19))));
+            revision[0] = after.revision();
+            return after;
+        });
         measure("InsertColumn across all rows", 2_000, () -> {
             WorkingCopyInfo after = copies.edit(id, batch(revision[0],
                 new InsertColumn("SMH", 14, "opt_global_inserted", "1")));

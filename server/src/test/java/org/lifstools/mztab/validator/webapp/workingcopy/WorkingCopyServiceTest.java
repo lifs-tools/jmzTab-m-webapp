@@ -54,7 +54,9 @@ import org.lifstools.mztab.validator.webapp.EngineProxy;
 import org.lifstools.mztab.validator.webapp.EngineTestSupport;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
+import org.lifstools.mztab.validator.webapp.guidance.Guidance;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceCatalog;
+import org.lifstools.mztab.validator.webapp.guidance.QuotedLine;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
 import org.lifstools.mztab.validator.webapp.validationprofile.ValidationProfileCatalog;
@@ -339,6 +341,75 @@ class WorkingCopyServiceTest {
         }
     }
 
+    /** The report reads the stored runs in one snapshot that takes no write lock, as an info read does. */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aWriterHoldingTheCopyDoesNotStopTheReport(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submit("held-report-" + line + ".mzTab", exampleOf(line));
+        copies.create(id, SourceEncoding.UTF_8);
+        copies.requestValidation(id, false);
+        assertEquals(Status.DONE, awaitRun(id, 0).status());
+        WorkingCopyDb other = copies.db(id);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        try {
+            pool.submit(() -> other.inTransaction(() -> {
+                other.setMeta("held", "yes");
+                holding.countDown();
+                try {
+                    release.await(30, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }));
+            assertTrue(holding.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            long start = System.nanoTime();
+            String report = copies.resolutionReport(id);
+            assertTrue(Duration.ofNanos(System.nanoTime() - start).toSeconds() < 4, "no wait for the other writer");
+            assertTrue(report.startsWith("# Validation problems in held-report-"), report);
+            assertTrue(report.contains("Revision 0 of the corrected copy"), report);
+        } finally {
+            release.countDown();
+            pool.shutdown();
+            assertTrue(pool.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
+    /**
+     * The answer to a change describes that change's commit: its revision, change id and layout revision, even when
+     * another change commits before the answer is read.
+     */
+    @Test
+    void theAnswerToAChangeCarriesItsOwnChangeIdAndLayoutRevision() throws Exception {
+        UUID id = submit("answer-ids.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        UUID mine = UUID.randomUUID();
+        UUID next = UUID.randomUUID();
+        AtomicBoolean once = new AtomicBoolean();
+        try {
+            // another tab's line removal commits right after this edit's commit, before its answer is read
+            org.mockito.Mockito.doAnswer(call -> {
+                if (once.compareAndSet(false, true)) {
+                    copies.edit(id, new EditBatch(1, List.of(new DeleteLine(1)), next));
+                }
+                return null;
+            }).when(storage).touch(any());
+            WorkingCopyInfo edited = copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "mine")), mine));
+            assertEquals(1, edited.revision());
+            assertEquals(mine, edited.lastChangeId(), "never the id of the change after it");
+            assertEquals(0, edited.layoutRevision(), "the lines had not moved at revision 1");
+        } finally {
+            reset(storage);
+        }
+        WorkingCopyInfo now = copies.info(id);
+        assertEquals(2, now.revision());
+        assertEquals(next, now.lastChangeId());
+        assertEquals(2, now.layoutRevision());
+    }
+
     @Test
     void theCallersChangeIdIsKeptWithTheChange() throws Exception {
         UUID id = submit("change-id.mzTab", example());
@@ -521,6 +592,43 @@ class WorkingCopyServiceTest {
         } finally {
             copies.beforeRunEnds(null);
         }
+    }
+
+    /**
+     * A run that ends while an info read is under way (it has read one of the running run and the stored run, not
+     * yet the other) is never shown as no validation at all: the read shows the run as running, or its result.
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void aRunThatEndsDuringAnInfoReadIsNeverShownAsNone(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submit("ends-during-info-" + line + ".mzTab", exampleOf(line));
+        copies.create(id, SourceEncoding.UTF_8);
+        EngineProxy.Gate gate = proxyOf(line).holdNextValidation();
+        try {
+            assertEquals(Status.RUNNING, copies.requestValidation(id, false).validation().status());
+            assertTrue(gate.awaitArrival(TIMEOUT), "the run reached the engine");
+            AtomicBoolean once = new AtomicBoolean();
+            copies.betweenInfoReads(copy -> {
+                if (!copy.equals(id) || !once.compareAndSet(false, true)) {
+                    return;
+                }
+                // the first run of the copy ends, and is no longer running, between the two reads
+                gate.release();
+                try {
+                    awaitRun(id, 0);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            WorkingCopyValidation read = copies.info(id).validation();
+            assertTrue(once.get());
+            assertNotNull(read, "a run that ended during the read is shown as running or ended, never as none");
+        } finally {
+            copies.betweenInfoReads(null);
+            gate.release();
+        }
+        assertEquals(Status.DONE, copies.info(id).validation().status());
     }
 
     @Test
@@ -857,6 +965,75 @@ class WorkingCopyServiceTest {
         WorkingCopyValidation after = awaitRun(id, 2, false);
         assertEquals(sessionCv, cvMessagesOf(after));
         assertEquals(1L, copies.info(id).cvCheckedRevision());
+    }
+
+    /**
+     * The CV messages a structural run keeps have the line numbers of their CV check. Once lines moved since that
+     * check, the run's text has other lines under those numbers: their guidance quotes none (nor does the copy's
+     * report), while the structural messages' lines are still quoted. Without a line move they are quoted. (The
+     * engines' CV messages of the example name no line, so the CV check of revision 0 is given one that does: an
+     * unused CV on line 10, "MTD cv[2]-label MSIO".)
+     */
+    @ParameterizedTest(name = "mzTab-M {0}")
+    @ValueSource(strings = {"2.0", "2.1"})
+    void keptCvMessagesQuoteNoLinesOnceLinesMovedSinceTheirCheck(String line) throws Exception {
+        assumeLine(line);
+        UUID id = submitWithProfile("cv-quotes-" + line + ".mzTab", line);
+        copies.create(id, SourceEncoding.UTF_8);
+        assertEquals("MTD\tcv[2]-label\tMSIO", reader.lines(id, 10, 1).get(0).text());
+        WorkingCopyDb db = copies.db(id);
+        List<ValidationMessage> cvCheck = new java.util.ArrayList<>(json.readValue(
+            db.meta(WorkingCopyService.META_BASELINE_SEMANTIC),
+            new com.fasterxml.jackson.core.type.TypeReference<List<ValidationMessage>>() { }));
+        ValidationMessage unused = ValidationMessage.info("The CV with prefix \"MSIO\" was defined but never used. ");
+        unused.setCode("[Warn-3014] line 10: unused cv");
+        unused.setCategory(ValidationMessage.Category.CROSS_CHECK);
+        unused.setLineNumber(10L);
+        cvCheck.add(unused);
+        db.setMeta(WorkingCopyService.META_BASELINE_SEMANTIC, json.writeValueAsString(cvCheck));
+
+        // a cell edit moves no line: the kept CV message's line is quoted from the run's text, as is the structural
+        // message of the emptied detector on line 24
+        copies.edit(id, batch(0, new SetMetadataValue(24, "[, , , ]")));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation unmoved = awaitRun(id, 1, false);
+        assertEquals(Status.DONE, unmoved.status(), "failure: " + unmoved.failureReason());
+        assertEquals(List.of(10L), cvLinesOf(unmoved));
+        assertEquals(List.of(10L), quotedLinesOf(unmoved, true), "quoted: " + unmoved.guidance());
+        assertTrue(quotedLinesOf(unmoved, false).contains(24L), "quoted: " + unmoved.guidance());
+
+        // the COM line above them is removed: every line moves up by one after the CV check of revision 0
+        copies.edit(id, batch(1, new DeleteLine(1)));
+        copies.requestValidation(id, false);
+        WorkingCopyValidation moved = awaitRun(id, 2, false);
+        assertEquals(Status.DONE, moved.status(), "failure: " + moved.failureReason());
+        assertEquals(0L, copies.info(id).cvCheckedRevision());
+        assertEquals(List.of(10L), cvLinesOf(moved), "the kept CV message keeps the number of its check");
+        assertEquals(List.of(), quotedLinesOf(moved, true), "no line of revision 2 is quoted for it: "
+            + moved.guidance());
+        assertTrue(quotedLinesOf(moved, false).contains(23L), "structural lines are still quoted: "
+            + moved.guidance());
+        String report = copies.resolutionReport(id);
+        assertTrue(report.contains("their line numbers are those of revision 0"), report);
+        assertFalse(report.contains("cv[2]-uri"), "line 10 of revision 2 is not quoted: " + report);
+    }
+
+    private static List<Long> cvLinesOf(WorkingCopyValidation v) {
+        return v.messages().stream().map(TrackedMessage::message)
+            .filter(m -> MessageDiff.isCvRule(m) && m.getLineNumber() != null && m.getLineNumber() > 0)
+            .map(ValidationMessage::getLineNumber).distinct().sorted().toList();
+    }
+
+    private static boolean cvOnly(WorkingCopyValidation v, Guidance g) {
+        return g.messages().stream().allMatch(i -> MessageDiff.isCvRule(v.messages().get(i).message()));
+    }
+
+    /** The quoted line numbers of the guidance whose messages are all CV messages ({@code cv}) or none is. */
+    private static List<Long> quotedLinesOf(WorkingCopyValidation v, boolean cv) {
+        return v.guidance().stream()
+            .filter(g -> cv ? cvOnly(v, g) : g.messages().stream()
+                .noneMatch(i -> MessageDiff.isCvRule(v.messages().get(i).message())))
+            .flatMap(g -> g.lines().stream()).map(QuotedLine::lineNumber).distinct().sorted().toList();
     }
 
     /** A structural request (the editor's idle check) during a CV check neither replaces it nor runs again. */

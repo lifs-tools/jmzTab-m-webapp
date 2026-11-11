@@ -21,7 +21,9 @@ import org.lifstools.mztab.validator.webapp.session.SectionsSummary;
 import org.springframework.lang.Nullable;
 
 /**
- * A working copy as the editor sees it.
+ * A working copy as the editor sees it. In the answer to an edit, undo or redo, {@code revision},
+ * {@code layoutRevision} and {@code lastChangeId} are those of that change's commit; the other values are read after
+ * it, so they may already show a later change (of another tab).
  *
  * @param id the copy's id, which is the id of the validation it was made from
  * @param fileName the name of the uploaded file

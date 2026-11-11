@@ -59,8 +59,8 @@ import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.engine.EngineUnavailableException;
 import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
 import org.lifstools.mztab.validator.webapp.guidance.Guidance;
-import org.lifstools.mztab.validator.webapp.guidance.ResolutionReport;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceResolver;
+import org.lifstools.mztab.validator.webapp.guidance.ResolutionReport;
 import org.lifstools.mztab.validator.webapp.guidance.UploadLines;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
@@ -163,7 +163,7 @@ public class WorkingCopyService {
     private static final String META_LAST_DONE = "validation.lastDone";
     private static final String META_LAST_DONE_AT = "validation.lastDoneAt";
     private static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
-    private static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
+    static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
     /** The revision of the last CV check; 0 for the session's own, absent if the CV rules were never checked. */
     private static final String META_CV_REVISION = "validation.cvRevision";
     private static final TypeReference<List<ValidationMessage>> MESSAGES = new TypeReference<>() {
@@ -231,6 +231,9 @@ public class WorkingCopyService {
     /** Test hook: called in a run after its result is stored and before it decides whether to run again. */
     @Nullable
     private volatile Consumer<UUID> beforeRunEnds;
+    /** Test hook: called in {@link #info} between its read of the running run and its read of the stored run. */
+    @Nullable
+    private volatile Consumer<UUID> betweenInfoReads;
     private volatile long usageBytes;
     private volatile long usageMeasuredAt;
     private volatile boolean usageKnown;
@@ -417,10 +420,11 @@ public class WorkingCopyService {
     public String resolutionReport(UUID id) {
         return guard(id, () -> {
             WorkingCopyDb db = db(id);
-            // the runs first, then the revision: the revision can only have grown since the run it labels
-            String[] stored = db.inTransaction(() -> new String[] {db.meta(META_LAST), db.meta(META_LAST_DONE),
-                db.meta(META_LAST_DONE_AT), db.meta(META_CV_REVISION)});
-            long current = db.revision();
+            // one snapshot that takes no write lock (as info's): the runs, the check time, the CV check and the
+            // revision belong together, and a writer holding the copy does not hold up the report
+            String[] stored = db.snapshotMeta(META_LAST, META_LAST_DONE, META_LAST_DONE_AT, META_CV_REVISION,
+                WorkingCopyDb.REVISION_KEY, META_VERSION, META_FILE_NAME);
+            long current = stored[4] == null ? 0L : Long.parseLong(stored[4]);
             WorkingCopyValidation latest = parseValidation(stored[0]);
             WorkingCopyValidation finished = parseValidation(stored[1]);
             if (finished == null && latest != null && latest.status() == Status.DONE) {
@@ -437,9 +441,9 @@ public class WorkingCopyService {
             synchronized (runs) {
                 running = runs.containsKey(id);
             }
-            String version = db.meta(META_VERSION);
+            String version = stored[5];
             ProfileRef profile = sessions.find(id).map(ValidationRecord::validationProfile).orElse(null);
-            return ResolutionReport.markdown(new ResolutionReport.CopyCheck(db.meta(META_FILE_NAME),
+            return ResolutionReport.markdown(new ResolutionReport.CopyCheck(stored[6],
                 version == null || version.isEmpty() ? null : version, finished.revision(), current,
                 stored[2] == null ? null : Instant.parse(stored[2]), finished.semantic(), profile, running,
                 finished.parsed() ? null : finished.readUpTo(), failed ? latest.revision() : null,
@@ -491,29 +495,57 @@ public class WorkingCopyService {
     }
 
     /**
-     * @param committed the revision a change of this call produced, which the answer to that change carries (not
-     * re-read), or null to read it
+     * What a change committed: its revision, the layout revision and its change id as of that commit. The answer to
+     * the change carries them (not re-read: another change may have committed since).
      */
-    private WorkingCopyInfo info(UUID id, WorkingCopyDb db, Long committed) {
+    private record Committed(long revision, long layoutRevision, @Nullable UUID changeId) {
+
+        /** Read inside the transaction of the change, after it. */
+        static Committed of(WorkingCopyDb db, long revision, @Nullable UUID changeId) {
+            String layout = db.meta(WorkingCopyEditor.LAYOUT_REVISION_KEY);
+            return new Committed(revision, layout == null ? 0L : Long.parseLong(layout), changeId);
+        }
+    }
+
+    /**
+     * @param committed what a change of this call committed, which the answer to that change carries, or null to
+     * read the copy as it is. The other values (the validation, undo and redo, the sizes) are read after the commit,
+     * so they may be of a later change.
+     */
+    private WorkingCopyInfo info(UUID id, WorkingCopyDb db, @Nullable Committed committed) {
+        // the running run before the stored one: a run that ends between the two reads is then shown as running
+        // (with the result it stored), never as no validation at all (stored run read before it was stored, running
+        // run read after it was removed)
+        boolean running;
+        long runRevision;
+        boolean runSemantic;
+        synchronized (runs) {
+            Run run = runs.get(id);
+            running = run != null;
+            runRevision = run == null ? -1 : run.revision;
+            runSemantic = run != null && run.semantic;
+        }
+        Consumer<UUID> hook = betweenInfoReads;
+        if (hook != null) {
+            hook.accept(id);
+        }
         // one snapshot read that takes no write lock (the answer to a committed change must not wait for another
         // writer): the revision, the last change's id and the rest belong together, so a reader never pairs the
         // id of a change with the revision before it. A CV check stores its two values together as well.
         String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
             META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION);
         // the revision before the facts: facts read after it may be newer, never older (see facts)
-        long revision = committed != null ? committed : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
+        long revision = committed != null ? committed.revision()
+            : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
         Facts f = facts(id, db, revision);
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
         WorkingCopyValidation last = parseValidation(stored[0]);
         WorkingCopyValidation shown = last;
-        synchronized (runs) {
-            Run run = runs.get(id);
-            if (run != null) {
-                long validated = run.revision >= 0 ? run.revision : revision;
-                shown = last == null ? WorkingCopyValidation.firstRunning(validated, run.semantic)
-                    : last.running(validated, run.semantic);
-            }
+        if (running) {
+            long validated = runRevision >= 0 ? runRevision : revision;
+            shown = last == null ? WorkingCopyValidation.firstRunning(validated, runSemantic)
+                : last.running(validated, runSemantic);
         }
         if (shown != null) {
             // the messages are those of the stored run (last), whatever run is running now; a stored run has ended,
@@ -528,8 +560,9 @@ public class WorkingCopyService {
         return new WorkingCopyInfo(id, db.meta(META_FILE_NAME), revision,
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
             expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]),
-            stored[2] == null ? 0L : Long.parseLong(stored[2]),
-            stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]),
+            committed != null ? committed.layoutRevision() : stored[2] == null ? 0L : Long.parseLong(stored[2]),
+            committed != null ? committed.changeId()
+                : stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]),
             stored[5] == null || stored[5].isEmpty() ? null : UUID.fromString(stored[5]));
     }
 
@@ -588,14 +621,14 @@ public class WorkingCopyService {
             WorkingCopyDb db = db(id);
             requireCapacity();
             // the retention stamp is written in the edit's own transaction: it commits with the edit or not at all
-            long revision = db.inTransaction(() -> {
+            Committed committed = db.inTransaction(() -> {
                 requireGeneration(db, batch.generation());
                 long next = editor.apply(db, batch);
                 stamp(db, batch.changeId());
-                return next;
+                return Committed.of(db, next, batch.changeId());
             });
-            changed(id, db, revision);
-            return info(id, db, revision);
+            changed(id, db, committed.revision());
+            return info(id, db, committed);
         });
     }
 
@@ -644,7 +677,7 @@ public class WorkingCopyService {
         UUID generation) {
         requireCapacity();
         // one transaction, so "nothing to do" and the change see the same state
-        long next = db.inTransaction(() -> {
+        Committed committed = db.inTransaction(() -> {
             requireGeneration(db, generation);
             long current = db.revision();
             if (current != revision) {
@@ -655,10 +688,10 @@ public class WorkingCopyService {
             }
             long applied = undo ? editor.undo(db, revision) : editor.redo(db, revision);
             stamp(db, changeId);
-            return applied;
+            return Committed.of(db, applied, changeId);
         });
-        changed(id, db, next);
-        return info(id, db, next);
+        changed(id, db, committed.revision());
+        return info(id, db, committed);
     }
 
     /**
@@ -887,8 +920,12 @@ public class WorkingCopyService {
         Path mapping = null;
         try {
             long revision;
+            // the last layout change up to the validated text, from the same snapshot as the text
+            long layout;
             try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(text))) {
-                revision = db.writeRevisionTo(out);
+                WorkingCopyDb.Snapshot written = db.writeRevisionTo(out, WorkingCopyEditor.LAYOUT_REVISION_KEY);
+                revision = written.revision();
+                layout = written.meta()[0] == null ? 0L : Long.parseLong(written.meta()[0]);
             }
             synchronized (runs) {
                 run.revision = revision;
@@ -899,7 +936,8 @@ public class WorkingCopyService {
             if (rejection.isPresent()) {
                 List<ValidationMessage> messages = List.of(ValidationMessage.error(rejection.get()));
                 // nothing was checked, the CV rules neither
-                persist(id, db, run, done(db, revision, false, false, declared.orElse(null), messages, text, null),
+                persist(id, db, run, done(db, revision, layout, false, false, declared.orElse(null), messages, text,
+                    null),
                     declared.orElse(""));
                 return null;
             }
@@ -929,7 +967,8 @@ public class WorkingCopyService {
                 String why = !semantic || cvChecked ? null : notChecked.isEmpty() ? CV_NOT_CHECKED
                     : String.join("\n", notChecked.stream().map(ValidationMessage::getMessage).toList());
                 messages.removeAll(notChecked);
-                persist(id, db, run, done(db, revision, cvChecked, outcome.parsed(), version, messages, text, why),
+                persist(id, db, run, done(db, revision, layout, cvChecked, outcome.parsed(), version, messages, text,
+                    why),
                     version == null ? "" : version);
                 return null;
             } catch (EngineBusyException busy) {
@@ -1021,16 +1060,22 @@ public class WorkingCopyService {
 
     /**
      * An ended run with a result, compared with the messages shown before it ({@link MessageDiff#compareRun}: a
-     * structural run keeps the CV messages of the last CV check), with guidance from the validated text.
+     * structural run keeps the CV messages of the last CV check), with guidance from the validated text. The
+     * lines of kept CV messages are quoted only if no line moved since their check: their numbers are of the text
+     * of that check, and the validated text may have other lines under them.
      *
+     * @param layout the revision of the last layout change up to the validated text
      * @param semantic whether the run checked the CV rules
      * @param cvNotChecked why a run asked to check them did not
      */
-    private WorkingCopyValidation done(WorkingCopyDb db, long revision, boolean semantic, boolean parsed,
-        @Nullable String version, List<ValidationMessage> found, Path text, @Nullable String cvNotChecked)
-        throws IOException {
+    private WorkingCopyValidation done(WorkingCopyDb db, long revision, long layout, boolean semantic,
+        boolean parsed, @Nullable String version, List<ValidationMessage> found, Path text,
+        @Nullable String cvNotChecked) throws IOException {
         MessageDiff.Result diff = MessageDiff.compareRun(baseline(db, false), baseline(db, true), found, semantic);
         List<ValidationMessage> messages = diff.current().stream().map(TrackedMessage::message).toList();
+        // one run per copy at a time, and only a run writes it: the CV check whose messages a structural run keeps
+        String cvRevision = db.meta(META_CV_REVISION);
+        boolean cvLinesMoved = !semantic && cvRevision != null && layout > Long.parseLong(cvRevision);
         String line = MzTabVersions.lineOf(version).orElse(null);
         List<String> software;
         try (InputStream in = Files.newInputStream(text)) {
@@ -1042,7 +1087,7 @@ public class WorkingCopyService {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-        });
+        }, i -> !(cvLinesMoved && MessageDiff.isCvRule(messages.get(i))));
         return new WorkingCopyValidation(Status.DONE, revision, false, parsed, parsed ? null : readUpTo(messages,
             resolved), semantic, diff.current(), diff.fixed(), resolved, null, cvNotChecked);
     }
@@ -1244,6 +1289,11 @@ public class WorkingCopyService {
     }
 
     // ---- helpers ----
+
+    /** For tests only: see {@link #betweenInfoReads}. */
+    void betweenInfoReads(@Nullable Consumer<UUID> hook) {
+        this.betweenInfoReads = hook;
+    }
 
     /** For tests only: see {@link #beforeRunEnds}. */
     void beforeRunEnds(@Nullable Consumer<UUID> hook) {

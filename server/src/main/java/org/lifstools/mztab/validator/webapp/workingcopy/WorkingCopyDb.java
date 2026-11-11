@@ -409,7 +409,7 @@ public final class WorkingCopyDb implements AutoCloseable {
      * undo or validation: they commit meanwhile and the export still writes the text it started on.
      */
     public void writeTo(OutputStream out) throws IOException {
-        writeSnapshot(out, null);
+        writeSnapshot(out, null, new String[0]);
     }
 
     /**
@@ -417,7 +417,7 @@ public final class WorkingCopyDb implements AutoCloseable {
      * before the first byte is written, so a caller can put it in a response header.
      */
     public void writeTo(OutputStream out, LongConsumer revision) throws IOException {
-        writeSnapshot(out, revision);
+        writeSnapshot(out, revision, new String[0]);
     }
 
     /**
@@ -426,26 +426,43 @@ public final class WorkingCopyDb implements AutoCloseable {
      * snapshot.
      */
     public long writeRevisionTo(OutputStream out) throws IOException {
-        return writeSnapshot(out, null);
+        return writeSnapshot(out, null, new String[0]).revision();
     }
 
-    private long writeSnapshot(OutputStream out, LongConsumer revisionKnown) throws IOException {
+    /** The revision of a text written by {@link #writeRevisionTo(OutputStream, String...)}, with meta values of it. */
+    public record Snapshot(long revision, String[] meta) {
+    }
+
+    /**
+     * As {@link #writeRevisionTo(OutputStream)}, and reads the meta values of {@code keys} (null for a missing key)
+     * from the same snapshot, e.g. the layout revision of exactly that text.
+     */
+    public Snapshot writeRevisionTo(OutputStream out, String... keys) throws IOException {
+        return writeSnapshot(out, null, keys);
+    }
+
+    private Snapshot writeSnapshot(OutputStream out, LongConsumer revisionKnown, String[] keys) throws IOException {
         try {
-            Long revision = readTx.execute(status -> {
+            Snapshot snapshot = readTx.execute(status -> {
                 // the first statement fixes the snapshot that every later one reads
                 String r = readMeta(REVISION_KEY);
                 boolean bom = Boolean.parseBoolean(readMeta(BOM_KEY));
+                String[] meta = new String[keys.length];
+                for (int i = 0; i < keys.length; i++) {
+                    meta[i] = readMeta(keys[i]);
+                }
+                long revision = r == null ? 0L : Long.parseLong(r);
                 if (revisionKnown != null) {
-                    revisionKnown.accept(r == null ? 0L : Long.parseLong(r));
+                    revisionKnown.accept(revision);
                 }
                 try {
                     CopyText.write(bom, pages(readJdbc), out);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-                return r == null ? 0L : Long.parseLong(r);
+                return new Snapshot(revision, meta);
             });
-            return revision == null ? 0 : revision;
+            return snapshot == null ? new Snapshot(0, new String[keys.length]) : snapshot;
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
