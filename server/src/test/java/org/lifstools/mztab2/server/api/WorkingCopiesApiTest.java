@@ -198,6 +198,17 @@ class WorkingCopiesApiTest {
             .andExpect(header().doesNotExist("X-Working-Copy-Revision"));
     }
 
+    /** The JSON download of a checked, error-free copy names the revision of the text it was converted from. */
+    @Test
+    void jsonDownloadNamesTheRevisionOfItsText() throws Exception {
+        String id = validation("revision-json.mzTab", example());
+        create(id);
+        check(id, 0);
+        mvc.perform(get(BASE + "/" + id + "/file").param("format", "json"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Working-Copy-Revision", "0"));
+    }
+
     @Test
     void duplicateColumnsArePagedByPositionAndMerged() throws Exception {
         byte[] content;

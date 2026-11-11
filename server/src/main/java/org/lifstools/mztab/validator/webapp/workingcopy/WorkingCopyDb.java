@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -415,7 +416,7 @@ public final class WorkingCopyDb implements AutoCloseable {
      * Writes the whole copy as {@link #writeTo} does; {@code revision} is told the revision of exactly that text
      * before the first byte is written, so a caller can put it in a response header.
      */
-    public void writeTo(OutputStream out, java.util.function.LongConsumer revision) throws IOException {
+    public void writeTo(OutputStream out, LongConsumer revision) throws IOException {
         writeSnapshot(out, revision);
     }
 
@@ -428,7 +429,7 @@ public final class WorkingCopyDb implements AutoCloseable {
         return writeSnapshot(out, null);
     }
 
-    private long writeSnapshot(OutputStream out, java.util.function.LongConsumer revisionKnown) throws IOException {
+    private long writeSnapshot(OutputStream out, LongConsumer revisionKnown) throws IOException {
         try {
             Long revision = readTx.execute(status -> {
                 // the first statement fixes the snapshot that every later one reads

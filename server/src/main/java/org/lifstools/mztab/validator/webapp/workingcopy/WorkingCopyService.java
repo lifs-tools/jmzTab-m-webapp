@@ -1172,10 +1172,12 @@ public class WorkingCopyService {
 
     // ---- downloads ----
 
+    private static final LongConsumer NO_REVISION = revision -> {
+    };
+
     /** Writes the current text, byte for byte as it is stored. */
     public void writeTsv(UUID id, OutputStream out) throws IOException {
-        writeTsv(id, out, revision -> {
-        });
+        writeTsv(id, out, NO_REVISION);
     }
 
     /** As {@link #writeTsv(UUID, OutputStream)}; {@code revision} is told the revision of the text before its first byte. */
@@ -1192,8 +1194,7 @@ public class WorkingCopyService {
      * or if the engine cannot convert the text
      */
     public void writeJson(UUID id, OutputStream out) throws IOException {
-        writeJson(id, out, revision -> {
-        });
+        writeJson(id, out, NO_REVISION);
     }
 
     /** As {@link #writeJson(UUID, OutputStream)}; {@code revision} is told the revision of the converted text before the first byte. */
