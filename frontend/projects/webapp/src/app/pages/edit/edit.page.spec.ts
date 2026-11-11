@@ -679,6 +679,24 @@ describe('EditPage', () => {
     expect(createObjectURL).not.toHaveBeenCalled();
   });
 
+  it('offers neither .mzTab nor JSON while an edit is queued or in flight, and both once it is saved', async () => {
+    vi.useFakeTimers();
+    const { fixture, el } = await open(info());
+    const tsv = () => el.querySelector<HTMLAnchorElement>('[data-testid=download-tsv]')!;
+    expect(tsv().getAttribute('href')).toBe('rest/v2/working-copies/abc/file?format=tsv');
+    expect(tsv().getAttribute('aria-disabled')).not.toBe('true');
+
+    const edit = await editThroughSource(fixture); // in flight: the request is out, no answer yet
+    expect(tsv().getAttribute('href')).toBeNull();
+    expect(tsv().getAttribute('aria-disabled')).toBe('true');
+    expect(button(el, 'download-json').disabled).toBe(true);
+
+    edit.flush(info({ revision: 1, canUndo: true, validation: done({ stale: true }) }));
+    await settle(fixture);
+    expect(tsv().getAttribute('href')).toBe('rest/v2/working-copies/abc/file?format=tsv');
+    expect(tsv().getAttribute('aria-disabled')).not.toBe('true');
+  });
+
   it('disables JSON for an error, a stale run or a run of another revision', async () => {
     const cases: WorkingCopyInfo[] = [
       info({ validation: done({ messages: [{ message: msg(), state: 'OPEN' }] }) }),

@@ -45,7 +45,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
  * the jars exist only after {@code package} of engine-mztabm-2.0 and
  * engine-mztabm-2.1, so run the server tests with {@value #COMMAND}. The 2.1
  * engine is left out of a build with {@code -DskipSnapshotEngines}; then
- * {@link #has21()} is false and its property is not set.
+ * {@link #has21()} is false and its property is not set. If the property is set and the jar is missing,
+ * {@link #has21()} throws, so that a build that should test 2.1 never skips it silently.
  *
  * <p>The engines ask the {@link OlsStub} in this JVM instead of the EBI
  * Ontology Lookup Service ({@code engine.ols.*}), so semantic validation gives
@@ -86,10 +87,28 @@ public final class EngineTestSupport {
         }
     }
 
-    /** Whether the 2.1 engine's jar was built, i.e. the build did not skip the snapshot engines. */
+    /**
+     * Whether the 2.1 engine is part of this build. False only when the build left it out
+     * ({@code -DskipSnapshotEngines}: the surefire property {@value #JAR_21_PROPERTY} is not set); then the 2.1 cases
+     * skip.
+     *
+     * @throws IllegalStateException if the property is set but names no jar (the engine is expected but was not
+     * built, e.g. {@code -pl server} without {@code -am}): that must fail the tests, not skip them
+     */
     public static boolean has21() {
-        String property = System.getProperty(JAR_21_PROPERTY);
-        return property != null && !property.isBlank() && Files.isRegularFile(Paths.get(property));
+        return has21(System.getProperty(JAR_21_PROPERTY));
+    }
+
+    static boolean has21(String property) {
+        if (property == null || property.isBlank()) {
+            return false;
+        }
+        if (!Files.isRegularFile(Paths.get(property))) {
+            throw new IllegalStateException("The mzTab-M 2.1 engine jar " + property + " does not exist, but this build "
+                + "expects it (" + JAR_21_PROPERTY + " is set). Build it with the server tests: " + COMMAND
+                + ", or leave the 2.1 engine out explicitly with -DskipSnapshotEngines.");
+        }
+        return true;
     }
 
     /** The OLS stub the running engine asks; starts the engine if needed. */

@@ -41,6 +41,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
@@ -1173,7 +1174,13 @@ public class WorkingCopyService {
 
     /** Writes the current text, byte for byte as it is stored. */
     public void writeTsv(UUID id, OutputStream out) throws IOException {
-        guardIo(id, () -> db(id).writeTo(out));
+        writeTsv(id, out, revision -> {
+        });
+    }
+
+    /** As {@link #writeTsv(UUID, OutputStream)}; {@code revision} is told the revision of the text before its first byte. */
+    public void writeTsv(UUID id, OutputStream out, LongConsumer revision) throws IOException {
+        guardIo(id, () -> db(id).writeTo(out, revision));
     }
 
     /**
@@ -1185,10 +1192,16 @@ public class WorkingCopyService {
      * or if the engine cannot convert the text
      */
     public void writeJson(UUID id, OutputStream out) throws IOException {
-        guardIo(id, () -> writeJson(id, db(id), out));
+        writeJson(id, out, revision -> {
+        });
     }
 
-    private void writeJson(UUID id, WorkingCopyDb db, OutputStream out) throws IOException {
+    /** As {@link #writeJson(UUID, OutputStream)}; {@code revision} is told the revision of the converted text before the first byte. */
+    public void writeJson(UUID id, OutputStream out, LongConsumer revision) throws IOException {
+        guardIo(id, () -> writeJson(id, db(id), out, revision));
+    }
+
+    private void writeJson(UUID id, WorkingCopyDb db, OutputStream out, LongConsumer revisionKnown) throws IOException {
         Path text = Files.createTempFile("mztab-workingcopy-", ".mztab");
         Path converted = null;
         try {
@@ -1210,6 +1223,7 @@ public class WorkingCopyService {
                     + (r.messages().isEmpty() ? "no reason given." : r.messages().get(0).getMessage()));
             }
             converted = ((Conversion.Converted) conversion).file();
+            revisionKnown.accept(revision);
             Files.copy(converted, out);
             out.flush();
         } finally {

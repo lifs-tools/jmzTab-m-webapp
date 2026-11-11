@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -339,7 +340,9 @@ public class WorkingCopiesApiController {
 
     @Operation(operationId = "downloadWorkingCopy", summary = "Downloads the current text: tsv always, byte for "
         + "byte; json only when the last validation is of the current revision and found no error (else 409)")
-    @ApiResponse(responseCode = "200", content = {
+    @ApiResponse(responseCode = "200", headers = @Header(name = "X-Working-Copy-Revision",
+        description = "The revision of the copy's text that this download carries",
+        schema = @Schema(type = "integer", format = "int64")), content = {
         @Content(mediaType = TSV, schema = @Schema(type = "string", format = "binary")),
         @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(type = "string", format = "binary"))})
     @GetMapping("/{id}/file")
@@ -354,11 +357,11 @@ public class WorkingCopiesApiController {
         String fileName = copies.fileName(uuid);
         if (f.equals("tsv")) {
             Download out = new Download(response, TSV + ";charset=UTF-8", tsvName(fileName));
-            copies.writeTsv(uuid, out);
+            copies.writeTsv(uuid, out, out::revision);
             out.finish();
         } else {
             Download out = new Download(response, MediaType.APPLICATION_JSON_VALUE, stem(fileName) + ".json");
-            copies.writeJson(uuid, out);
+            copies.writeJson(uuid, out, out::revision);
             out.finish();
         }
     }
@@ -435,10 +438,13 @@ public class WorkingCopiesApiController {
      */
     private static final class Download extends OutputStream {
 
+        static final String REVISION_HEADER = "X-Working-Copy-Revision";
+
         private final HttpServletResponse response;
         private final String contentType;
         private final String fileName;
         private OutputStream out;
+        private Long revision;
 
         Download(HttpServletResponse response, String contentType, String fileName) {
             this.response = response;
@@ -446,9 +452,17 @@ public class WorkingCopiesApiController {
             this.fileName = fileName;
         }
 
+        /** The revision of the text, sent as {@link #REVISION_HEADER} with the first byte. */
+        void revision(long revision) {
+            this.revision = revision;
+        }
+
         private OutputStream out() throws IOException {
             if (out == null) {
                 response.setContentType(contentType);
+                if (revision != null) {
+                    response.setHeader(REVISION_HEADER, Long.toString(revision));
+                }
                 boolean ascii = StandardCharsets.US_ASCII.newEncoder().canEncode(fileName);
                 response.setHeader(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                     .filename(fileName, ascii ? null : StandardCharsets.UTF_8).build().toString());

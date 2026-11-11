@@ -176,6 +176,28 @@ class WorkingCopiesApiTest {
         mvc.perform(get("/rest/v2/validations/" + id)).andExpect(status().isOk());
     }
 
+    /**
+     * The download names the revision of the text it carries (X-Working-Copy-Revision), so a client can tell which
+     * state a saved file is of; it moves with an edit.
+     */
+    @Test
+    void downloadNamesTheRevisionOfItsText() throws Exception {
+        String id = validation("revision.mzTab", example());
+        create(id);
+        mvc.perform(get(BASE + "/" + id + "/file"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Working-Copy-Revision", "0"));
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(edits(0, "{\"op\":\"SetMetadataValue\",\"line\":3,\"value\":\"edited\"}")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1));
+        mvc.perform(get(BASE + "/" + id + "/file").param("format", "tsv"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Working-Copy-Revision", "1"));
+        // an error answer carries no revision
+        mvc.perform(get(BASE + "/" + id + "/file").param("format", "xml")).andExpect(status().isBadRequest())
+            .andExpect(header().doesNotExist("X-Working-Copy-Revision"));
+    }
+
     @Test
     void duplicateColumnsArePagedByPositionAndMerged() throws Exception {
         byte[] content;

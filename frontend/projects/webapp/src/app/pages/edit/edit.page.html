@@ -103,7 +103,13 @@
         </header>
 
         <div class="downloads" role="group" aria-label="Downloads">
-          <a mat-flat-button data-testid="download-tsv" [attr.href]="base() + '/file?format=tsv'">Download .mzTab</a>
+          <a
+            mat-flat-button
+            data-testid="download-tsv"
+            [disabled]="store.saving()"
+            [attr.href]="store.saving() ? null : base() + '/file?format=tsv'"
+            >Download .mzTab</a
+          >
           <button
             mat-stroked-button
             type="button"

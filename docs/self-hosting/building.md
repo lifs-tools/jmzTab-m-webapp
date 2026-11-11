@@ -24,7 +24,7 @@ The build is a Maven reactor:
 | `engine-core-src` | The engine sources, shared by all engines. Not a module of its own: each engine compiles them. |
 | `engine-parent` | The build every engine shares (dependencies, executable JAR, image). |
 | `engine-mztabm-2.0` | The mzTab-M 2.0 engine: `engine-core-src` with jmzTab-m 1.0.x. Port 8084. |
-| `engine-mztabm-2.1` | The mzTab-M 2.1 engine: `engine-core-src` with jmzTab-m 2.1.x. Port 8085. Built by default, left out with `-DskipSnapshotEngines` (see [Releases](#releases)). The server tests start the JARs of both engines (the quick fixes are checked against each), so the reactor packages them before `server`; with `-DskipSnapshotEngines` the 2.1 cases are skipped. |
+| `engine-mztabm-2.1` | The mzTab-M 2.1 engine: `engine-core-src` with jmzTab-m 2.1.x. Port 8085. Built by default, left out with `-DskipSnapshotEngines` (see [Releases](#releases)). The server tests start the JARs of both engines (the quick fixes are checked against each), so the reactor packages them before `server`; with `-DskipSnapshotEngines` the 2.1 cases are skipped. Without it, a missing 2.1 JAR (e.g. `-pl server` without `-am`) fails the tests with the command to build it; it never skips them. |
 
 The jmzTab-m versions of the engines are the properties `jmztabm20.version` and `jmztabm21.version` in `pom.xml`.
 

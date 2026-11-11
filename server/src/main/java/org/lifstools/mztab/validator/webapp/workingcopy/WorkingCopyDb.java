@@ -408,7 +408,15 @@ public final class WorkingCopyDb implements AutoCloseable {
      * undo or validation: they commit meanwhile and the export still writes the text it started on.
      */
     public void writeTo(OutputStream out) throws IOException {
-        writeSnapshot(out);
+        writeSnapshot(out, null);
+    }
+
+    /**
+     * Writes the whole copy as {@link #writeTo} does; {@code revision} is told the revision of exactly that text
+     * before the first byte is written, so a caller can put it in a response header.
+     */
+    public void writeTo(OutputStream out, java.util.function.LongConsumer revision) throws IOException {
+        writeSnapshot(out, revision);
     }
 
     /**
@@ -417,15 +425,18 @@ public final class WorkingCopyDb implements AutoCloseable {
      * snapshot.
      */
     public long writeRevisionTo(OutputStream out) throws IOException {
-        return writeSnapshot(out);
+        return writeSnapshot(out, null);
     }
 
-    private long writeSnapshot(OutputStream out) throws IOException {
+    private long writeSnapshot(OutputStream out, java.util.function.LongConsumer revisionKnown) throws IOException {
         try {
             Long revision = readTx.execute(status -> {
                 // the first statement fixes the snapshot that every later one reads
                 String r = readMeta(REVISION_KEY);
                 boolean bom = Boolean.parseBoolean(readMeta(BOM_KEY));
+                if (revisionKnown != null) {
+                    revisionKnown.accept(r == null ? 0L : Long.parseLong(r));
+                }
                 try {
                     CopyText.write(bom, pages(readJdbc), out);
                 } catch (IOException e) {

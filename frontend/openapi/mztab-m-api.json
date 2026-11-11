@@ -5033,7 +5033,17 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "OK",
+            "headers" : {
+              "X-Working-Copy-Revision" : {
+                "description" : "The revision of the copy's text that this download carries",
+                "schema" : {
+                  "format" : "int64",
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
           }
         },
         "summary" : "Downloads the current text: tsv always, byte for byte; json only when the last validation is of the current revision and found no error (else 409)",
