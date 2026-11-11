@@ -363,7 +363,8 @@ export class WorkingCopyStore {
    */
   edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
-      (revision, changeId) => this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId } }),
+      (revision, changeId, generation) =>
+        this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId, generation } }),
       { reload, layout: changesLayout(ops), readAt },
     );
   }
@@ -371,7 +372,8 @@ export class WorkingCopyStore {
   undo(): void {
     if (!this.info()?.canUndo) return;
     // undo names no line, so it may follow a layout change; what it brings back or takes away may change it
-    this.enqueue((revision, changeId) => this.api.undoWorkingCopy({ id: this.id(), revision, changeId }), {
+    this.enqueue((revision, changeId, generation) =>
+      this.api.undoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -380,7 +382,8 @@ export class WorkingCopyStore {
 
   redo(): void {
     if (!this.info()?.canRedo) return;
-    this.enqueue((revision, changeId) => this.api.redoWorkingCopy({ id: this.id(), revision, changeId }), {
+    this.enqueue((revision, changeId, generation) =>
+      this.api.redoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -389,7 +392,8 @@ export class WorkingCopyStore {
 
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
-    return this.enqueue((_, changeId) => this.api.editWorkingCopy({ id: this.id(), body: { ...(preview.batch ?? {}), changeId } }), {
+    return this.enqueue((_, changeId, generation) =>
+      this.api.editWorkingCopy({ id: this.id(), body: { ...(preview.batch ?? {}), changeId, generation } }), {
       sentAt: preview.batch?.revision ?? null,
       reload: true,
       layout: changesLayout(preview.batch?.operations),
@@ -434,7 +438,7 @@ export class WorkingCopyStore {
    * make the change).
    */
   private enqueue(
-    request: (revision: number, changeId: string) => Observable<WorkingCopyInfo>,
+    request: (revision: number, changeId: string, generation: string | undefined) => Observable<WorkingCopyInfo>,
     {
       reload = false,
       layout = false,
@@ -463,7 +467,9 @@ export class WorkingCopyStore {
       // refused because the layout changed under it, not because of another tab
       const moved = revision !== now;
       const changeId = newChangeId();
-      return defer(() => request(revision, changeId)).pipe(
+      // the copy this view read: a copy deleted and created again refuses it (409)
+      const generation = this.info()?.generation ?? undefined;
+      return defer(() => request(revision, changeId, generation)).pipe(
         // before the next queued request is sent: it must name the revision this one produced, if it did
         catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
         tap({

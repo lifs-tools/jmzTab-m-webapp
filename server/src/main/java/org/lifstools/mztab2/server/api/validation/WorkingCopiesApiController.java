@@ -96,6 +96,9 @@ public class WorkingCopiesApiController {
     private static final String CHANGE_ID = "Your id (a UUID) of this change, kept as lastChangeId of the copy when the "
         + "change is applied, so that a caller that lost the answer can tell whether it was";
 
+    private static final String GENERATION = "The copy's generation as read from it (a UUID); a copy deleted and "
+        + "created again has another one, and the call is refused with 409 if it is not the copy's";
+
     private final ObjectReader editBatches;
 
     public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, QuickFixService quickFixes,
@@ -220,8 +223,11 @@ public class WorkingCopiesApiController {
     public WorkingCopyInfo undoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
         @Parameter(description = CHANGE_ID, schema = @Schema(type = "string", format = "uuid"))
-        @RequestParam(value = "changeId", required = false) String changeId) {
-        return copies.undo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"));
+        @RequestParam(value = "changeId", required = false) String changeId,
+        @Parameter(description = GENERATION, schema = @Schema(type = "string", format = "uuid"))
+        @RequestParam(value = "generation", required = false) String generation) {
+        return copies.undo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"),
+            generation == null ? null : parseCanonical(generation, "generation"));
     }
 
     @Operation(operationId = "redoWorkingCopy", summary = "Re-applies the change undone last; 409 if the revision "
@@ -230,8 +236,11 @@ public class WorkingCopiesApiController {
     public WorkingCopyInfo redoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
         @Parameter(description = CHANGE_ID, schema = @Schema(type = "string", format = "uuid"))
-        @RequestParam(value = "changeId", required = false) String changeId) {
-        return copies.redo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"));
+        @RequestParam(value = "changeId", required = false) String changeId,
+        @Parameter(description = GENERATION, schema = @Schema(type = "string", format = "uuid"))
+        @RequestParam(value = "generation", required = false) String generation) {
+        return copies.redo(parse(id), revision, changeId == null ? null : parseCanonical(changeId, "changeId"),
+            generation == null ? null : parseCanonical(generation, "generation"));
     }
 
     @Operation(operationId = "validateWorkingCopy", summary = "Validates the current text in the background; "

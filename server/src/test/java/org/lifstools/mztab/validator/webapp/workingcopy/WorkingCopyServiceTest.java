@@ -17,6 +17,7 @@ package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -355,6 +356,28 @@ class WorkingCopyServiceTest {
         assertThrows(StaleRevisionException.class,
             () -> copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "b")), refused)));
         assertNull(copies.info(id).lastChangeId());
+    }
+
+    @Test
+    void aReCreatedCopyRefusesAnEditOfTheOldGeneration() throws Exception {
+        UUID id = submit("generation.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        UUID old = copies.info(id).generation();
+        assertNotNull(old);
+        copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "a")), null, old));
+        copies.delete(id);
+        copies.create(id, SourceEncoding.UTF_8);
+        WorkingCopyInfo fresh = copies.info(id);
+        assertEquals(0, fresh.revision());
+        assertNotEquals(old, fresh.generation());
+        assertThrows(WorkingCopyConflictException.class,
+            () -> copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "b")), null, old)));
+        assertThrows(WorkingCopyConflictException.class, () -> copies.undo(id, 0, null, old));
+        assertThrows(WorkingCopyConflictException.class, () -> copies.redo(id, 0, null, old));
+        assertEquals(0, copies.info(id).revision(), "nothing was applied");
+        assertEquals(1, copies.edit(id, new EditBatch(0, List.of(new SetMetadataValue(3, "c")), null,
+            fresh.generation())).revision());
+        assertEquals(2, copies.edit(id, batch(1, new SetMetadataValue(3, "d"))).revision(), "the generation is optional");
     }
 
     @Test

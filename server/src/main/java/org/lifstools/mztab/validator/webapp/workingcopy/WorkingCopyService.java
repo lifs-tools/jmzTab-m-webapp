@@ -498,7 +498,7 @@ public class WorkingCopyService {
         // writer): the revision, the last change's id and the rest belong together, so a reader never pairs the
         // id of a change with the revision before it. A CV check stores its two values together as well.
         String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
-            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY);
+            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION);
         // the revision before the facts: facts read after it may be newer, never older (see facts)
         long revision = committed != null ? committed : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
         Facts f = facts(id, db, revision);
@@ -528,7 +528,8 @@ public class WorkingCopyService {
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
             expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]),
             stored[2] == null ? 0L : Long.parseLong(stored[2]),
-            stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]));
+            stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]),
+            stored[5] == null || stored[5].isEmpty() ? null : UUID.fromString(stored[5]));
     }
 
     /**
@@ -584,6 +585,7 @@ public class WorkingCopyService {
             requireCapacity();
             // the retention stamp is written in the edit's own transaction: it commits with the edit or not at all
             long revision = db.inTransaction(() -> {
+                requireGeneration(db, batch.generation());
                 long next = editor.apply(db, batch);
                 stamp(db, batch.changeId());
                 return next;
@@ -606,7 +608,12 @@ public class WorkingCopyService {
 
     /** As {@link #undo(UUID, long)}; {@code changeId} is kept as {@link WorkingCopyInfo#lastChangeId}. */
     public WorkingCopyInfo undo(UUID id, long revision, UUID changeId) {
-        return undoOrRedo(id, revision, true, changeId);
+        return undo(id, revision, changeId, null);
+    }
+
+    /** As {@link #undo(UUID, long, UUID)}; a {@code generation} other than the copy's is refused (409). */
+    public WorkingCopyInfo undo(UUID id, long revision, UUID changeId, UUID generation) {
+        return undoOrRedo(id, revision, true, changeId, generation);
     }
 
     /** Re-applies the change undone last; as {@link #undo}. */
@@ -616,18 +623,25 @@ public class WorkingCopyService {
 
     /** As {@link #redo(UUID, long)}; {@code changeId} is kept as {@link WorkingCopyInfo#lastChangeId}. */
     public WorkingCopyInfo redo(UUID id, long revision, UUID changeId) {
-        return undoOrRedo(id, revision, false, changeId);
+        return redo(id, revision, changeId, null);
     }
 
-    private WorkingCopyInfo undoOrRedo(UUID id, long revision, boolean undo, UUID changeId) {
+    /** As {@link #redo(UUID, long, UUID)}; a {@code generation} other than the copy's is refused (409). */
+    public WorkingCopyInfo redo(UUID id, long revision, UUID changeId, UUID generation) {
+        return undoOrRedo(id, revision, false, changeId, generation);
+    }
+
+    private WorkingCopyInfo undoOrRedo(UUID id, long revision, boolean undo, UUID changeId, UUID generation) {
         requireRevision(revision);
-        return guard(id, () -> undoOrRedo(id, db(id), revision, undo, changeId));
+        return guard(id, () -> undoOrRedo(id, db(id), revision, undo, changeId, generation));
     }
 
-    private WorkingCopyInfo undoOrRedo(UUID id, WorkingCopyDb db, long revision, boolean undo, UUID changeId) {
+    private WorkingCopyInfo undoOrRedo(UUID id, WorkingCopyDb db, long revision, boolean undo, UUID changeId,
+        UUID generation) {
         requireCapacity();
         // one transaction, so "nothing to do" and the change see the same state
         long next = db.inTransaction(() -> {
+            requireGeneration(db, generation);
             long current = db.revision();
             if (current != revision) {
                 throw new StaleRevisionException(current, revision);
@@ -641,6 +655,16 @@ public class WorkingCopyService {
         });
         changed(id, db, next);
         return info(id, db, next);
+    }
+
+    /**
+     * A copy deleted and created again restarts at revision 0, so a client's revision of the old copy may equal the
+     * new one's: a generation the client names must be the copy's. Inside the transaction of the change.
+     */
+    private static void requireGeneration(WorkingCopyDb db, @Nullable UUID generation) {
+        if (generation != null && !generation.toString().equals(db.meta(META_GENERATION))) {
+            throw new WorkingCopyConflictException("The working copy was created again since you read it; reload it.");
+        }
     }
 
     /** Restarts retention; inside the transaction of the change. */

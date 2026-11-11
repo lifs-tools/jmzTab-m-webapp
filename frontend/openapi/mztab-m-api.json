@@ -475,6 +475,10 @@
             "format" : "uuid",
             "type" : [ "string", "null" ]
           },
+          "generation" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
           "operations" : {
             "items" : {
               "oneOf" : [ {
@@ -3683,6 +3687,10 @@
           "fileName" : {
             "type" : "string"
           },
+          "generation" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
           "id" : {
             "format" : "uuid",
             "type" : "string"
@@ -5276,6 +5284,15 @@
             "format" : "uuid",
             "type" : "string"
           }
+        }, {
+          "description" : "The copy's generation as read from it (a UUID); a copy deleted and created again has another one, and the call is refused with 409 if it is not the copy's",
+          "in" : "query",
+          "name" : "generation",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -5472,6 +5489,15 @@
           "description" : "Your id (a UUID) of this change, kept as lastChangeId of the copy when the change is applied, so that a caller that lost the answer can tell whether it was",
           "in" : "query",
           "name" : "changeId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "description" : "The copy's generation as read from it (a UUID); a copy deleted and created again has another one, and the call is refused with 409 if it is not the copy's",
+          "in" : "query",
+          "name" : "generation",
           "required" : false,
           "schema" : {
             "format" : "uuid",

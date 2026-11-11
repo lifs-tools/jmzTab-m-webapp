@@ -26,10 +26,17 @@ import org.springframework.lang.Nullable;
  * @param operations at most 5,000
  * @param changeId the caller's id of this change, kept with the copy ({@link WorkingCopyInfo#lastChangeId}) when the
  * batch is applied, so a caller that lost the answer can tell whether this very batch was applied; optional
+ * @param generation the {@link WorkingCopyInfo#generation} of the copy the caller read; if given, it must be the
+ * copy's (409 otherwise: the copy was deleted and created again, and its revisions restarted); optional
  */
-public record EditBatch(long revision, List<EditOperation> operations, @Nullable UUID changeId) {
+public record EditBatch(long revision, List<EditOperation> operations, @Nullable UUID changeId,
+    @Nullable UUID generation) {
 
     public EditBatch(long revision, List<EditOperation> operations) {
-        this(revision, operations, null);
+        this(revision, operations, null, null);
+    }
+
+    public EditBatch(long revision, List<EditOperation> operations, @Nullable UUID changeId) {
+        this(revision, operations, changeId, null);
     }
 }

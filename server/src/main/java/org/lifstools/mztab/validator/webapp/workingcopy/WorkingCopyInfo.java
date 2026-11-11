@@ -43,9 +43,11 @@ import org.springframework.lang.Nullable;
  * an earlier revision may name other places now.
  * @param lastChangeId the {@code changeId} the caller gave the last edit, undo or redo; null if it gave none (or no
  * change was made yet)
+ * @param generation names this incarnation of the copy: a copy deleted and created again has another one, and restarts
+ * at revision 0. Give it back with an edit, undo or redo to have it refused (409) if the copy was re-created.
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
     @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision,
-    long layoutRevision, @Nullable UUID lastChangeId) {
+    long layoutRevision, @Nullable UUID lastChangeId, @Nullable UUID generation) {
 }

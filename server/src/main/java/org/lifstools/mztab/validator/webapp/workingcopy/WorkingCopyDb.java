@@ -92,7 +92,10 @@ public final class WorkingCopyDb implements AutoCloseable {
     private static final String HISTORY_PRUNE_OLDEST = """
         DELETE FROM history WHERE seq IN
         (SELECT seq FROM history WHERE stack = 'U' ORDER BY seq ASC LIMIT :n)""";
-    private static final String TEXT_CHARS = "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM lines";
+    // LENGTH() of a TEXT value stops at the first NUL, so the lines that hold one are counted in Java
+    private static final String TEXT_CHARS =
+        "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM lines WHERE INSTR(CAST(text AS BLOB), X'00') = 0";
+    private static final String TEXT_WITH_NUL = "SELECT text FROM lines WHERE INSTR(CAST(text AS BLOB), X'00') > 0";
     static final String REVISION_KEY = "revision";
 
     private static final String COUNT = "SELECT COUNT(*) FROM lines";
@@ -494,10 +497,14 @@ public final class WorkingCopyDb implements AutoCloseable {
         jdbc.update(HISTORY_MOVE, Map.of("stack", redoable ? "R" : "U", "seq", seq));
     }
 
-    /** Total characters of all line texts (without endings). */
+    /** Total characters (code points) of all line texts (without endings), a NUL counting as one. */
     public long textChars() {
         Long n = jdbc.queryForObject(TEXT_CHARS, Map.of(), Long.class);
-        return n == null ? 0 : n;
+        long total = n == null ? 0 : n;
+        for (String t : jdbc.query(TEXT_WITH_NUL, Map.of(), (rs, i) -> rs.getString(1))) {
+            total += t.codePointCount(0, t.length());
+        }
+        return total;
     }
 
     /**

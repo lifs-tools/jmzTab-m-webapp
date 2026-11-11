@@ -72,6 +72,38 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void aLoneSurrogateIsRefusedInAnyText() throws Exception {
+        long revision = db.revision();
+        String before = text();
+        for (String lone : new String[]{"a\uD83Db", "a\uDE00b", "\uD83D"}) {
+            assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(4, 2, lone, "name")));
+            assertThrows(IllegalArgumentException.class, () -> apply(new SetMetadataValue(2, lone)));
+            assertThrows(IllegalArgumentException.class, () -> apply(new SetRawLine(2, "MTD\t" + lone)));
+            assertThrows(IllegalArgumentException.class, () -> apply(new InsertLine(2, "COM\t" + lone)));
+            assertThrows(IllegalArgumentException.class, () -> apply(new SetCell(4, 2, "x", lone)));
+            assertThrows(IllegalArgumentException.class, () -> apply(new InsertColumn("SMH", 2, lone, "")));
+        }
+        assertEquals(revision, db.revision());
+        assertEquals(before, text(), "nothing was stored");
+    }
+
+    @Test
+    void aValidSurrogatePairIsStoredExactly() throws Exception {
+        String emoji = "x\uD83D\uDE00y";
+        apply(new SetCell(4, 2, emoji, "name"), new SetMetadataValue(2, emoji));
+        assertTrue(text().contains("SML\t1\t" + emoji + "\n"));
+        assertTrue(text().contains("MTD\tkey\t" + emoji + "\n"));
+    }
+
+    @Test
+    void textCharsCountsPastANul() throws Exception {
+        long before = db.textChars();
+        apply(new SetRawLine(1, "COM\tab\u0000cdef"));
+        long after = db.textChars();
+        assertEquals(before - "COM\tc".length() + "COM\tab\u0000cdef".length(), after);
+    }
+
+    @Test
     void setCellRefusesAChangedHeader() throws Exception {
         // the page showed "name" for cell 2 of the SML rows; a column was inserted before it since, so cell 2 is another column
         apply(new InsertColumn("SMH", 2, "inserted", "x"));

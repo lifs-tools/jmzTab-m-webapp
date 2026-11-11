@@ -120,6 +120,8 @@ public final class WorkingCopyEditor {
         if (batch.operations().stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("An operation must not be null");
         }
+        // refused before the transaction: sqlite-jdbc would store a lone surrogate as '?'
+        batch.operations().forEach(WorkingCopyEditor::requireWellFormedText);
         return db.inTransaction(() -> {
             long current = requireRevision(db, batch.revision());
             long textChars = db.textChars();
@@ -354,6 +356,37 @@ public final class WorkingCopyEditor {
 
     private static Line rebuild(long n, List<String> cells, String eol) {
         return CopyText.line(n, String.join("\t", cells), eol);
+    }
+
+    /**
+     * Every text of an operation must be well-formed UTF-16: a lone surrogate cannot be stored (it would become a
+     * '?'). The one check of all text-carrying operations.
+     */
+    static void requireWellFormedText(EditOperation op) {
+        for (java.lang.reflect.RecordComponent c : op.getClass().getRecordComponents()) {
+            if (c.getType() == String.class) {
+                try {
+                    String s = (String) c.getAccessor().invoke(op);
+                    if (s != null && hasLoneSurrogate(s)) {
+                        throw new IllegalArgumentException("Text must not contain an unpaired surrogate character.");
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+    }
+
+    private static boolean hasLoneSurrogate(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (Character.isHighSurrogate(ch) && i + 1 < s.length() && Character.isLowSurrogate(s.charAt(i + 1))) {
+                i++;
+            } else if (Character.isSurrogate(ch)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String cell(String s) {
