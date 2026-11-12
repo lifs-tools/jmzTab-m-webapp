@@ -1,4 +1,4 @@
-# The submission vocabulary 1.0.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
+# The submission vocabulary 1.1.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
 # lipidcompass-submissions bb8dcbf tools/convert_submission_template.py writes it (Converter.dataset, conv:182-289, and
 # Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
 # ../../schema/mapping-language.md.
@@ -16,7 +16,7 @@
 id: mztab-2.0.0-M
 version: 1.0.0
 kind: output
-vocabulary: 1.0.0
+vocabulary: 1.1.0
 target: 2.0.0-M
 # dataset_index selects the dataset; dataset_id is informational (not read, not checked)
 parameters: [study_id, dataset_id, dataset_index]

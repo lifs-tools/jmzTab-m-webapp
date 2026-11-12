@@ -28,6 +28,8 @@ The vocabulary uses semantic versioning (`vocabulary.version`):
 
 Version 1.0.0 is the field dictionary of lipidcompass-submission-template 3.0.0 (lipidcompass-submissions commit bb8dcbf), moved without changing any field key, plus the `runs` group. Only the template's own identity (id, version, title, contact) is not part of the vocabulary. The `mztab` hint of `lipids.internal_standard` lost an internal note.
 
+Version 1.1.0 adds seven entries to `quantification_unit`, the CV units that published LipidCompass datasets use: Nanomole per Gram of Dry Weight (`NCIT:C208461`), Millimole per Kilogram (`NCIT:C68892`), Milligram per Kilogram (`NCIT:C67401`, µg/g), Microgram per Kilogram (`NCIT:C67396`, ng/g), Micromole (`NCIT:C48509`), mole fraction (`UO:0000076`, values 0..1) and Micromole per Mole (`NCIT:C122231`). No field or entry changes.
+
 The `mztab` hint of a field says where the field usually ends up in mzTab-M. It is informative: what is written is defined by the output mapping, which is normative.
 
 ## Getting it

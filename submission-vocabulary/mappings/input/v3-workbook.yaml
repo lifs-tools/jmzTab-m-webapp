@@ -1,11 +1,11 @@
-# The v3 submission workbook (LipidCompass submission template 3.0.0) read into the submission vocabulary 1.0.0.
+# The v3 submission workbook (LipidCompass submission template 3.0.0) read into the submission vocabulary 1.1.0.
 # One to one: every column id in the workbook is the vocabulary field id it fills. The layouts are the vocabulary's
 # conventions. tools/read_submission_template.py of lipidcompass-submissions (bb8dcbf) reads workbooks this way, and
 # examples/v3-example/instance.json is what it reads from the example workbook.
 id: v3-workbook
 version: 1.0.0
 kind: input
-vocabulary: 1.0.0
+vocabulary: 1.1.0
 sheets:
   - sheet: Study
     group: study
