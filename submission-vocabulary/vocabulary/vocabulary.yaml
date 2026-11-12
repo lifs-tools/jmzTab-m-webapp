@@ -1,9 +1,9 @@
-# The submission vocabulary 1.0.0: field dictionary of the LipidCompass submission template v3.
+# The submission vocabulary 1.1.0: field dictionary of the LipidCompass submission template v3.
 # Field keys are kept as in the v3 schema. See ../README.md.
 
 vocabulary:
   id: submission-vocabulary
-  version: 1.0.0
+  version: 1.1.0
   licence: CC-BY-4.0
   origin: "lipidcompass-submission-template 3.0.0 (lipidcompass-submissions bb8dcbf)"
 
