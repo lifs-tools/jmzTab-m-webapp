@@ -474,4 +474,32 @@
   "code" : 3016,
   "level" : "Error",
   "keyword" : "CvAccessionMalformed"
+}, {
+  "code" : 3017,
+  "level" : "Error",
+  "keyword" : "CvVersionUnavailable"
+}, {
+  "code" : 3018,
+  "level" : "Warn",
+  "keyword" : "CvVersionSubstituted"
+}, {
+  "code" : 3019,
+  "level" : "Warn",
+  "keyword" : "CvVersionOlderThanMapping"
+}, {
+  "code" : 3020,
+  "level" : "Warn",
+  "keyword" : "CvVersionsNotComparable"
+}, {
+  "code" : 3021,
+  "level" : "Warn",
+  "keyword" : "CvVersionNotRecognised"
+}, {
+  "code" : 3022,
+  "level" : "Info",
+  "keyword" : "CvVersionNotDeclared"
+}, {
+  "code" : 3023,
+  "level" : "Warn",
+  "keyword" : "CvDeclaredTwice"
 } ]
