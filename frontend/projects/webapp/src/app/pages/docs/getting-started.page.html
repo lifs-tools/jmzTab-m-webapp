@@ -1,0 +1,61 @@
+<div class="page lifs-prose">
+  <p>Which route is yours depends on what you have in hand.</p>
+
+  <section class="lifs-card" aria-labelledby="route-software">
+    <h2 id="route-software" class="lifs-card__title">My software exported an mzTab-M file</h2>
+    <p>
+      <a routerLink="/">Validate it</a>. Read the summary of what is wrong, then use
+      <a routerLink="/docs/format">Understanding mzTab-M</a> to see where in the file it is, and
+      <a routerLink="/docs/fixing">Fixing a file</a> to fix it here or in the tool.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="route-spreadsheet">
+    <h2 id="route-spreadsheet" class="lifs-card__title">I have a spreadsheet of results</h2>
+    <p>
+      Use the
+      @if (info()?.submissionTemplateUrl; as url) {
+        <a [href]="url" target="_blank" rel="noopener">LipidCompass submission template</a>
+      } @else {
+        LipidCompass submission template
+      }
+      (Excel, version 3)@if (info()?.submissionTemplateExampleUrl; as example) {
+        with its <a [href]="example" target="_blank" rel="noopener">filled-in example</a>}.
+      One workbook describes a study with one or more datasets. Its sheets (Study, Contacts, Datasets, Samples,
+      Factors, one quantities sheet per dataset, Lipids, Checks) ask for the study, the samples and the lipids in
+      a table. LipidCompass's curation pipeline converts the workbook to validated mzTab-M.
+    </p>
+    @if (templateUnlinked()) {
+      <p>
+        This service does not link the template. Ask for it at
+        <a href="https://lifs-tools.org/support.html" target="_blank" rel="noopener">LIFS Tools support</a>.
+      </p>
+    }
+    <p>Have ready:</p>
+    <ul>
+      <li>the lipid names, in shorthand nomenclature,</li>
+      <li>the quantities and their unit,</li>
+      <li>the samples and their groups,</li>
+      <li>the instrument and the method.</li>
+    </ul>
+    <p>
+      How to hand the workbook in is described in LipidCompass's
+      <a href="https://lipidcompass.org/guide/data-submission" target="_blank" rel="noopener"
+        >data submission help</a
+      >. More routes, such as tool integrations, will be listed here as they become available.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="route-format">
+    <h2 id="route-format" class="lifs-card__title">I want to understand the format first</h2>
+    <p>
+      @if (tourOffered()) {
+        <app-tour-button [exampleId]="tour" />: the validator opens a small example file and shows its sections one
+        step at a time, in the result viewer. Or read
+      } @else {
+        Read
+      }
+      <a routerLink="/docs/format">Understanding mzTab-M</a>: it walks through the same file, section by section.
+    </p>
+  </section>
+</div>

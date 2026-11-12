@@ -1,0 +1,13 @@
+{
+  "exampleId": "another-example.mztab",
+  "title": "A fixture tour that names its example",
+  "steps": [
+    {
+      "id": "sections",
+      "chapter": "overview",
+      "title": "One file, four sections",
+      "text": "The line prefixes name the sections.",
+      "lines": [1, 23]
+    }
+  ]
+}

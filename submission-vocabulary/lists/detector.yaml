@@ -1,0 +1,8 @@
+# Value list detector, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: detector
+entries:
+  - {cv: "MS", accession: "MS:1000253", label: "electron multiplier"}
+  - {cv: "MS", accession: "MS:1000624", label: "inductive detector"}
+  - {cv: "MS", accession: "MS:1000116", label: "photomultiplier"}
+  - {cv: "MS", accession: "MS:1000114", label: "microchannel plate detector"}
+  - {cv: "MS", accession: "MS:1000112", label: "faraday cup"}

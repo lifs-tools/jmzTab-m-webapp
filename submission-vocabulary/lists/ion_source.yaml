@@ -1,0 +1,9 @@
+# Value list ion_source, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: ion_source
+entries:
+  - {cv: "MS", accession: "MS:1000073", label: "electrospray ionization"}
+  - {cv: "MS", accession: "MS:1000398", label: "nanoelectrospray"}
+  - {cv: "MS", accession: "MS:1000070", label: "atmospheric pressure chemical ionization"}
+  - {cv: "MS", accession: "MS:1000382", label: "atmospheric pressure photoionization"}
+  - {cv: "MS", accession: "MS:1000075", label: "matrix-assisted laser desorption ionization"}
+  - {cv: "MS", accession: "MS:1002011", label: "desorption electrospray ionization"}

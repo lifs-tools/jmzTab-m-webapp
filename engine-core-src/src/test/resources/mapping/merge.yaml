@@ -1,0 +1,66 @@
+# Samples, runs, assays and study variables with references between them, and an SML table: for merging into a copy.
+id: merge
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+cvs:
+  MS: {full-name: PSI-MS controlled vocabulary, version: 4.2.2, uri: "http://purl.obolibrary.org/obo/ms.owl"}
+  NCBITaxon: {full-name: NCBI organismal classification, version: "2026-07-12", uri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"}
+metadata:
+  - key: mzTab-version
+    value: {literal: 2.0.0-M}
+  - key: title
+    value: {field: study.title}
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "sample[{s#}]"
+        value: {field: s.sample_name}
+      - key: "sample[{s#}]-species[1]"
+        value: {term: {value: {field: s.species}}}
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "ms_run[{s#}]-location"
+        value: {field: s.raw}
+      - key: "ms_run[{s#}]-scan_polarity[1]"
+        value: {cvparam: {cv: {literal: MS}, accession: {literal: "MS:1000130"}, name: {literal: positive scan}}}
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "assay[{s#}]"
+        value: {field: s.sample_name}
+      - key: "assay[{s#}]-sample_ref"
+        value: {ref-to: {element: sample, name: {field: s.sample_name}}}
+      - key: "assay[{s#}]-ms_run_ref"
+        value: {ref-to: {element: ms_run, name: {field: s.sample_name}}}
+  - each: {field: groups}
+    as: g
+    lines:
+      - key: "study_variable[{g#}]"
+        value: {field: g.name}
+      - key: "study_variable[{g#}]-assay_refs"
+        value: {map: {over: {field: g.members}, as: m, value: {ref-to: {element: assay, name: {field: m}}}}}
+  - each: {field: contacts}
+    as: c
+    lines:
+      - key: "contact[{c#}]-name"
+        value: {field: c.name}
+      - key: "contact[{c#}]-email"
+        value: {field: c.email}
+tables:
+  - section: SML
+    header: SMH
+    rows: {field: lipids}
+    as: l
+    columns:
+      - header: SML_ID
+        value: {pos: l}
+      - header: chemical_name
+        value: {field: l.name}
+      - each: {field: samples}
+        as: a
+        columns:
+          - header: "abundance_assay[{a#}]"
+            value: {number: {at: {list: {field: l.values}, index: {pos: a}}}}

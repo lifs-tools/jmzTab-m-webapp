@@ -1,0 +1,61 @@
+{
+  "title": "Describing a study design (mzTab-M 2.1)",
+  "steps": [
+    {
+      "id": "study-variable-groups",
+      "chapter": "study-design",
+      "title": "Factors: study variable groups",
+      "text": "In mzTab-M 2.1, study_variable_group[n] describes one experimental factor. This file has two: sex, a categorical variable with text values, and timepoint, an ordinal variable with integer values in days. study_variable_refs lists the study variables that are the levels of the factor. type and datatype take a STATO term and an XML Schema type, so that tools know how to compare the levels.",
+      "lookFor": "study_variable_group[1]-study_variable_refs: study_variable[1]| study_variable[2]",
+      "target": {
+        "tab": "metadata",
+        "group": "study_variable_group"
+      },
+      "lines": [63, 74]
+    },
+    {
+      "id": "study-variables",
+      "chapter": "study-design",
+      "title": "Levels: study variables",
+      "text": "Each study_variable[n] is one level of one factor: Female and Male for sex, 0, 1 and 2 for timepoint. assay_refs lists the assays that carry the level, so every assay appears once under each factor. In the summary, abundance_study_variable[n] gives the abundance of a molecule for each level.",
+      "lookFor": "study_variable[1]-assay_refs: assay[1]| assay[2]| assay[3]",
+      "target": {
+        "tab": "metadata",
+        "group": "study_variable"
+      },
+      "lines": [78, 93]
+    },
+    {
+      "id": "assays",
+      "chapter": "study-design",
+      "title": "Design cells: assays",
+      "text": "An assay is one cell of the design, a combination of one level of each factor, such as Female_0day. ms_run_ref names the run that measured it. Read backwards through assay_refs, assay[2] belongs to Female (study_variable[1]) and to 1 day (study_variable[4]).",
+      "lookFor": "assay[2]: Female_1day",
+      "target": {
+        "tab": "metadata",
+        "group": "assay"
+      },
+      "lines": [48, 59]
+    },
+    {
+      "id": "design",
+      "chapter": "study-design",
+      "title": "The 2 x 3 design",
+      "text": "The comments at the top of the file draw the design: two sexes times three timepoints give six assays, one per cell. The summary row reports D-gluconic acid in each of the six assays and in each of the five study variables, two for sex and three for timepoint. abundance_study_variable[1] (Female, 1.52) is the mean of the three female assays (1.51, 1.62 and 1.44).",
+      "lookFor": "abundance_study_variable[1] to abundance_study_variable[5]",
+      "target": {
+        "tab": "summary",
+        "rowIndex": 0,
+        "column": "abundance_study_variable[1]"
+      },
+      "lines": [117, 118]
+    },
+    {
+      "id": "validate-yours",
+      "chapter": "study-design",
+      "title": "Describe your own design",
+      "text": "To describe your own design, give each factor a study_variable_group, each level a study_variable with its assays, and validate the file on the 2.1 engine. study_variable_group is new in mzTab-M 2.1: a 2.0 file describes factors with study_variable[n]-factors, which the 2.1 engine reports (Warn-2067). This file has only a summary section and declares the profile M+S.",
+      "lines": [13, 14]
+    }
+  ]
+}

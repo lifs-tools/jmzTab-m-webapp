@@ -1,0 +1,31 @@
+<section class="raw" [attr.aria-labelledby]="'raw-title-' + lineNumber()">
+  <h3 class="title" [id]="'raw-title-' + lineNumber()">Line {{ lineNumber() }}</h3>
+  <p class="note">
+    This line cannot be shown as metadata or as a table row. Edit its text here.
+    @if (arrows()) {
+      → stands for a tab.
+    }
+  </p>
+  <input
+    #field
+    class="raw"
+    type="text"
+    spellcheck="false"
+    autocomplete="off"
+    [value]="draft()"
+    [attr.aria-label]="'Text of line ' + lineNumber()"
+    [attr.aria-invalid]="error() ? 'true' : null"
+    [disabled]="busy()"
+    (input)="onInput($event)"
+    (keydown)="onKey($event)"
+  />
+  @if (error(); as msg) {
+    <p class="callout" role="alert">{{ msg }}</p>
+  }
+  <div class="actions">
+    <button type="button" class="primary" [disabled]="busy()" (click)="save()">Save line</button>
+    <button type="button" [disabled]="busy()" (click)="insertTab()">Insert tab</button>
+    <button type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
+    <button type="button" class="danger" [disabled]="busy()" (click)="deleteLine()">Delete this line</button>
+  </div>
+</section>

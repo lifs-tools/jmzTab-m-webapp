@@ -1,0 +1,57 @@
+:host {
+  display: block;
+}
+
+.toc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toc--collapsed {
+  border: 1px solid var(--lifs-line);
+  padding: 10px 14px;
+  gap: 0;
+
+  summary {
+    cursor: pointer;
+    font-family: var(--lifs-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--lifs-grey);
+  }
+
+  .toc__list {
+    margin-top: 10px;
+  }
+}
+
+.toc__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.toc__sub {
+  padding-left: 12px;
+}
+
+a {
+  display: block;
+  padding-left: 10px;
+  border-left: 2px solid transparent;
+  color: var(--lifs-slate);
+}
+
+// The section in view: a bar and weight, not colour alone.
+.toc__link--current {
+  border-left-color: var(--lifs-primary);
+  color: var(--lifs-ink);
+  font-weight: 600;
+}

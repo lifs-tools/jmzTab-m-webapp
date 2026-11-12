@@ -1,0 +1,60 @@
+<div class="page lifs-prose">
+  <section id="about-retention" class="lifs-card" aria-labelledby="retention">
+    <h2 id="retention" class="lifs-card__title">Retention and privacy</h2>
+    <p>
+      Uploaded files and validation results are
+      @if (info()?.retentionDays; as days) {
+        kept for {{ days }} days
+      } @else {
+        kept for a limited time
+      }
+      and then deleted. A file you fix in the editor is kept for the same time after your last change. You can delete a result earlier on its result page. Anyone who has the address of a
+      result can open it, so share it with care.
+    </p>
+    <p>
+      With your consent, this site uses Matomo to count page views. Page views are counted only after you
+      agree, and addresses of results are never sent. You can change your choice any time using
+      <em>Analytics</em> in the page footer.
+    </p>
+    <p>
+      Separately, when analytics is configured, the server counts validations anonymously: no file names,
+      no file contents and no identifiers are sent.
+    </p>
+  </section>
+
+  <section id="about-cite" class="lifs-card" aria-labelledby="cite">
+    <h2 id="cite" class="lifs-card__title">How to cite</h2>
+    <p>If you use this service or jmzTab-m in your work, please cite:</p>
+    <blockquote>
+      Hoffmann N, Rein J, Sachsenberg T, Hartler J, Haug K, Mayer G, Alka O, Dayalan S, Pearce JTM,
+      Rocca-Serra P, Qi D, Eisenacher M, Perez-Riverol Y, Vizcaino JA, Salek RM, Neumann S, Jones AR.
+      mzTab-M: A Data Standard for Sharing Quantitative Results in Mass Spectrometry Metabolomics.
+      <em>Anal Chem</em> 2019, 91(5), 3302-3310.
+      <a href="https://doi.org/10.1021/acs.analchem.8b04310" target="_blank" rel="noopener"
+        >doi:10.1021/acs.analchem.8b04310</a
+      >
+    </blockquote>
+    <p id="about-icon">
+      The site icon is the
+      <a href="https://github.com/HUPO-PSI/mzTab-M/blob/main/mzTab-M-logo.svg" target="_blank" rel="noopener"
+        >mzTab-M logo</a
+      >
+      by HUPO-PSI, used under
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+    </p>
+  </section>
+
+  <section id="about-version" class="lifs-card" aria-labelledby="version">
+    <h2 id="version" class="lifs-card__title">Version</h2>
+    @if (info(); as i) {
+      <dl class="kv">
+        <dt>Validator</dt>
+        <dd>{{ i.version }}</dd>
+        <dt>Build date</dt>
+        <dd>{{ i.buildDate }}</dd>
+      </dl>
+    } @else {
+      <p class="lifs-note">Version information is not available right now.</p>
+    }
+  </section>
+</div>

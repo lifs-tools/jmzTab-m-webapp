@@ -1,0 +1,61 @@
+{"lineNumber":1,"key":"mzTab-version","value":"2.0.0-M"}
+{"lineNumber":2,"key":"mzTab-ID","value":"ISAS-2018-1234"}
+{"lineNumber":3,"key":"description","value":"Minimal proposed sample file for identification and quantification of lipids"}
+{"lineNumber":4,"key":"publication[1]","value":"pubmed:29039908|doi:10.1021/acs.analchem.7b03576"}
+{"lineNumber":5,"key":"external_study_uri[1]","value":"file:///C:/data/prm.sky.zip"}
+{"lineNumber":6,"key":"instrument[1]-name","value":"[MS, MS:1001911, Q Exactive, ]"}
+{"lineNumber":7,"key":"instrument[1]-source","value":"[MS, MS:1000073, electrospray ionization, ]"}
+{"lineNumber":8,"key":"instrument[1]-analyzer[1]","value":"[MS, MS:1000081, quadrupole, ]"}
+{"lineNumber":9,"key":"instrument[1]-analyzer[2]","value":"[MS, MS:1000484, orbitrap, ]"}
+{"lineNumber":10,"key":"instrument[1]-detector","value":"[MS, MS:1000624, inductive detector, ]"}
+{"lineNumber":11,"key":"quantification_method","value":"[MS, MS:1001838, SRM quantitation analysis, ]"}
+{"lineNumber":12,"key":"sample[1]","value":"QEx-1273-prm-sp1"}
+{"lineNumber":13,"key":"sample[1]-description","value":"Sphingolipids with concentration reported as picomolar per mg of protein, abundances are reported after calibration correction."}
+{"lineNumber":14,"key":"sample_processing[1]","value":"[MSIO, MSIO:0000148, high performance liquid chromatography, ]"}
+{"lineNumber":15,"key":"software[1]","value":"[MS, MS:1000532, Xcalibur, 2.8-280502/2.8.1.2806]"}
+{"lineNumber":16,"key":"software[1]-setting[1]","value":"ScheduledSRMWindow: 2 min"}
+{"lineNumber":17,"key":"software[1]-setting[2]","value":"CycleTime: 2 s"}
+{"lineNumber":18,"key":"software[2]","value":"[MS, MS:1000922, Skyline, 3.5.0.9319]"}
+{"lineNumber":19,"key":"software[2]-setting[1]","value":"MSMSmassrange: (50.0, 1800.0)"}
+{"lineNumber":20,"key":"ms_run[1]-location","value":"file:///C:/data/QEx-1273-prm-sp1.mzML"}
+{"lineNumber":21,"key":"ms_run[1]-instrument_ref","value":"instrument[1]"}
+{"lineNumber":22,"key":"ms_run[1]-format","value":"[MS, MS:1000584, mzML file, ]"}
+{"lineNumber":23,"key":"ms_run[1]-scan_polarity[1]","value":"[MS, MS:1000130, positive scan, ]"}
+{"lineNumber":24,"key":"ms_run[1]-id_format","value":"[MS, MS:1000768, Thermo nativeID format, ]"}
+{"lineNumber":25,"key":"assay[1]","value":"Description of assay 1"}
+{"lineNumber":26,"key":"assay[1]-ms_run_ref","value":"ms_run[1]"}
+{"lineNumber":27,"key":"assay[1]-sample_ref","value":"sample[1]"}
+{"lineNumber":28,"key":"study_variable[1]","value":"Sphingolipid SRM Quantitation"}
+{"lineNumber":29,"key":"study_variable[1]-description","value":"sphingolipid srm quantitation"}
+{"lineNumber":30,"key":"study_variable[1]-average_function","value":"[MS, MS:1002883, median, ]"}
+{"lineNumber":31,"key":"study_variable[1]-variation_function","value":"[MS, MS:1002885, standard error, ]"}
+{"lineNumber":32,"key":"study_variable[1]-assay_refs","value":"assay[1]"}
+{"lineNumber":33,"key":"cv[1]-label","value":"MS"}
+{"lineNumber":34,"key":"cv[1]-uri","value":"https://github.com/HUPO-PSI/psi-ms-CV/blob/master/psi-ms.obo"}
+{"lineNumber":35,"key":"cv[1]-version","value":"4.0.18"}
+{"lineNumber":36,"key":"cv[1]-full_name","value":"PSI-MS controlled vocabulary"}
+{"lineNumber":37,"key":"cv[2]-label","value":"MSIO"}
+{"lineNumber":38,"key":"cv[2]-uri","value":"https://www.ebi.ac.uk/ols/ontologies/msio"}
+{"lineNumber":39,"key":"cv[2]-version","value":"1.0.1"}
+{"lineNumber":40,"key":"cv[2]-full_name","value":"Metabolomics Standards Initiative Ontology (MSIO)"}
+{"lineNumber":41,"key":"cv[3]-label","value":"UO"}
+{"lineNumber":42,"key":"cv[3]-uri","value":"http://purl.obolibrary.org/obo/uo.owl"}
+{"lineNumber":43,"key":"cv[3]-version","value":"2017-09-25"}
+{"lineNumber":44,"key":"cv[3]-full_name","value":"Units of Measurement Ontology"}
+{"lineNumber":45,"key":"small_molecule-quantification_unit","value":"[UO, UO:0000072, picomolal, ]"}
+{"lineNumber":46,"key":"small_molecule_feature-quantification_unit","value":"[UO, UO:0000072, picomolal, ]"}
+{"lineNumber":47,"key":"small_molecule-identification_reliability","value":"[MS, MS:1002896, compound identification confidence level, ]"}
+{"lineNumber":48,"key":"database[1]","value":"[, , Pubchem, ]"}
+{"lineNumber":49,"key":"database[1]-prefix","value":"PUBCHEM-CPD"}
+{"lineNumber":50,"key":"database[1]-uri","value":"https://www.ncbi.nlm.nih.gov/pccompound"}
+{"lineNumber":51,"key":"database[1]-version","value":"02.12.2017"}
+{"lineNumber":52,"key":"database[2]","value":"[, , LipidMaps, ]"}
+{"lineNumber":53,"key":"database[2]-prefix","value":"LM"}
+{"lineNumber":54,"key":"database[2]-uri","value":"http://www.lipidmaps.org/"}
+{"lineNumber":55,"key":"database[2]-version","value":"2017-12"}
+{"lineNumber":56,"key":"database[3]","value":"[, , LipidCreator Transitions, ]"}
+{"lineNumber":57,"key":"database[3]-prefix","value":"LCTR"}
+{"lineNumber":58,"key":"database[3]-uri","value":"https://lifs.isas.de/lipidcreator"}
+{"lineNumber":59,"key":"database[3]-version","value":"2018-07"}
+{"lineNumber":60,"key":"id_confidence_measure[1]","value":"[MS, MS:1002890, fragmentation score, ]"}
+{"lineNumber":61,"key":"colunit-small_molecule_evidence","value":"opt_global_mass_error=[UO, UO:0000169, parts per million, ]"}

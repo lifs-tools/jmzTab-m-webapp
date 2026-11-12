@@ -1,0 +1,22 @@
+# One sample with its species: the smallest output mapping that declares a CV.
+id: tiny
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+cvs:
+  NCBITaxon: {full-name: NCBI organismal classification, version: "2026-07-12", uri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"}
+metadata:
+  - key: mzTab-version
+    value: {literal: 2.0.0-M}
+  - key: description
+    value: {field: study.description}
+  - key: "custom[1]"
+    value: {field: study.custom}
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "sample[{s#}]"
+        value: {field: s.sample_name}
+      - key: "sample[{s#}]-species[1]"
+        value: {term: {value: {field: s.species}}}

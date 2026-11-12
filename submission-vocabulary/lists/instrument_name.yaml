@@ -1,0 +1,25 @@
+# Value list instrument_name, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: instrument_name
+entries:
+  - {cv: "MS", accession: "MS:1001911", label: "Q Exactive"}
+  - {cv: "MS", accession: "MS:1002732", label: "Orbitrap Fusion Lumos"}
+  - {cv: "MS", accession: "MS:1000931", label: "QTRAP 5500"}
+  - {cv: "MS", accession: "MS:1000556", label: "LTQ Orbitrap XL"}
+  - {cv: "MS", accession: "MS:1002446", label: "6490 Triple Quadrupole LC/MS"}
+  - {cv: "MS", accession: "MS:1002800", label: "6495A Triple Quadrupole LC/MS"}
+  - {cv: "MS", accession: "MS:1001742", label: "LTQ Orbitrap Velos"}
+  - {cv: "MS", accession: "MS:1000449", label: "LTQ Orbitrap"}
+  - {cv: "MS", accession: "MS:1000937", label: "6495C Triple Quadrupole LC/MS"}
+  - {cv: "MS", accession: "MS:1002634", label: "Q Exactive Plus"}
+  - {cv: "MS", accession: "MS:1002581", label: "QTRAP 6500"}
+  - {cv: "MS", accession: "MS:1002523", label: "Q Exactive HF"}
+  - {cv: "MS", accession: "MS:1002877", label: "Q Exactive HF-X"}
+  - {cv: "MS", accession: "MS:1003028", label: "Orbitrap Exploris 480"}
+  - {cv: "MS", accession: "MS:1003378", label: "Orbitrap Astral"}
+  - {cv: "MS", accession: "MS:1002582", label: "QTRAP 6500+"}
+  - {cv: "MS", accession: "MS:1002595", label: "Triple Quad 6500+"}
+  - {cv: "MS", accession: "MS:1002533", label: "TripleTOF 6600"}
+  - {cv: "MS", accession: "MS:1003293", label: "ZenoTOF 7600"}
+  - {cv: "MS", accession: "MS:1003005", label: "timsTOF Pro"}
+  - {cv: "MS", accession: "MS:1002726", label: "SYNAPT G2-Si"}
+  - {cv: "MS", accession: "MS:1001792", label: "Xevo TQ-S"}

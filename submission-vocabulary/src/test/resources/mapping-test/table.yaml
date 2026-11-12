@@ -1,0 +1,23 @@
+id: table
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+tables:
+  - section: SML
+    header: SMH
+    rows: {field: lipids}
+    as: l
+    columns:
+      - header: SML_ID
+        value: {pos: l}
+      - header: chemical_name
+        value: {field: l.name}
+      - header: opt_global_internal_standard
+        value: {literal: "true"}
+        where: {not-empty: {field: nothing}}
+      - each: {field: assays}
+        as: a
+        columns:
+          - header: "abundance_assay[{a#}]"
+            value: {number: {at: {list: {field: l.v}, index: {pos: a}}}}

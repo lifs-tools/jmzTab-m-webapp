@@ -1,0 +1,16 @@
+<section class="error-page">
+  <p class="lifs-eyebrow">Error 404 · Page not found</p>
+  <h1>We couldn't find that page</h1>
+  <p class="lifs-lead">The page you are looking for does not exist or is no longer available.</p>
+  <ul class="tips">
+    <li>Check the address for typos.</li>
+    @if (retentionDays(); as days) {
+      <li>Validation results are kept for {{ days }} days and then deleted.</li>
+    }
+    <li>Start from the validator and upload your file again.</li>
+  </ul>
+  <div class="actions">
+    <a mat-flat-button routerLink="/">Validate a file</a>
+    <a mat-stroked-button href="https://lifs-tools.org/" target="_blank" rel="noopener">Browse LIFS tools</a>
+  </div>
+</section>

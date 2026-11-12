@@ -1,0 +1,38 @@
+:host {
+  display: block;
+}
+
+.excerpt {
+  margin: 0;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--lifs-line);
+  border-radius: 6px;
+  background: var(--lifs-tint);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-family: var(--lifs-mono);
+  tab-size: 8;
+}
+
+.no {
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 1.5ch;
+  text-align: right;
+  user-select: none;
+  // not faded with opacity: the numbers must keep 4.5:1 on the tint (axe, docs.spec.ts)
+  color: var(--lifs-grey);
+}
+
+.tab {
+  opacity: 0.55;
+  padding: 0 0.5ch;
+}
+
+mark {
+  background: var(--lifs-warn-bg);
+  color: inherit;
+  box-shadow: 0 0 0 2px var(--lifs-warn-bg);
+}

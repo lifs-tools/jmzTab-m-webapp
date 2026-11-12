@@ -1,0 +1,10 @@
+# Value list acquisition_mode, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: acquisition_mode
+entries:
+  - {cv: "MS", accession: "MS:1003221", label: "data-dependent acquisition"}
+  - {cv: "MS", accession: "MS:1003215", label: "data-independent acquisition"}
+  - {cv: "MS", accession: "MS:1000206", label: "selected reaction monitoring"}
+  - {cv: "MS", accession: "MS:1003907", label: "parallel reaction monitoring"}
+  - {cv: "MS", accession: "MS:1000341", label: "precursor ion spectrum"}
+  - {cv: "MS", accession: "MS:1000326", label: "constant neutral loss spectrum"}
+  - text: "MS1 only (no fragmentation)"

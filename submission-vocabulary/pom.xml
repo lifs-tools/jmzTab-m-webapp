@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.lifs-tools</groupId>
+        <artifactId>mztab-validator-webapp-parent</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>mztab-validator-submission-vocabulary</artifactId>
+    <packaging>jar</packaging>
+    <name>Submission vocabulary.</name>
+    <description>The public, versioned submission vocabulary (field dictionary and value lists) of the LipidCompass submission template, with JSON Schemas and a loader.</description>
+
+    <licenses>
+        <license>
+            <name>CC-BY-4.0</name>
+            <url>https://creativecommons.org/licenses/by/4.0/legalcode</url>
+            <distribution>repo</distribution>
+            <comments>The vocabulary, its lists, schemas, mappings and examples (submission-vocabulary/ in the jar).</comments>
+        </license>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+            <comments>The Java code.</comments>
+        </license>
+    </licenses>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.9</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lifs-tools</groupId>
+            <artifactId>jgoslin-parsers</artifactId>
+            <version>2.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>vocabulary</directory>
+                <targetPath>submission-vocabulary/vocabulary</targetPath>
+            </resource>
+            <resource>
+                <directory>lists</directory>
+                <targetPath>submission-vocabulary/lists</targetPath>
+            </resource>
+            <resource>
+                <directory>mappings</directory>
+                <targetPath>submission-vocabulary/mappings</targetPath>
+            </resource>
+            <resource>
+                <directory>schema</directory>
+                <targetPath>submission-vocabulary/schema</targetPath>
+            </resource>
+            <resource>
+                <directory>examples</directory>
+                <targetPath>submission-vocabulary/examples</targetPath>
+            </resource>
+            <resource>
+                <directory>.</directory>
+                <targetPath>submission-vocabulary</targetPath>
+                <includes>
+                    <include>README.md</include>
+                    <include>LICENSE</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+</project>

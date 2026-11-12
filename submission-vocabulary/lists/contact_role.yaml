@@ -1,0 +1,7 @@
+# Value list contact_role, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: contact_role
+entries:
+  - text: "submitter"
+  - text: "corresponding author"
+  - text: "principal investigator"
+  - text: "data curator"

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CvMapping modelName="linked-messages" modelURI="https://example.org/model" modelVersion="2.0.0">
+  <CvReferenceList>
+    <CvReference cvName="NCBITaxon" cvIdentifier="NCBITaxon"/>
+  </CvReferenceList>
+  <CvMappingRuleList>
+    <CvMappingRule id="sample_species_may" cvElementPath="/metadata/sample/@species" requirementLevel="MAY" scopePath="/metadata/sample" cvTermsCombinationLogic="OR">
+      <CvTerm termAccession="NCBITaxon:1" useTerm="false" termName="root" isRepeatable="true" allowChildren="true" cvIdentifierRef="NCBITaxon"></CvTerm>
+    </CvMappingRule>
+  </CvMappingRuleList>
+</CvMapping>

@@ -1,0 +1,120 @@
+/*
+ * Copyright 2026 LIFS Tools Consortium.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.lifstools.mztab.validator.webapp.workingcopy;
+
+import java.util.List;
+import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.webapp.guidance.Guidance;
+import org.springframework.lang.Nullable;
+
+/**
+ * The state of a working copy's validation. A run validates the text of
+ * exactly one revision, with the engine of the version that text declares.
+ * While a run is {@link Status#RUNNING}, the lists, {@code parsed} and
+ * {@code readUpTo} are those of the run before (empty if there was none), so
+ * a client can keep showing them.
+ *
+ * @param revision the revision whose text is (being) validated
+ * @param messagesRevision the revision whose text the shown {@code messages} (their line numbers) are of: the run's
+ * own revision once it has ended, the previous run's while this one is {@link Status#RUNNING}. (The CV messages
+ * a structural run keeps are of {@code WorkingCopyInfo.cvCheckedRevision}.)
+ * @param stale whether the copy has changed since that revision
+ * @param parsed whether the engine read the whole text
+ * @param readUpTo if not parsed: the first line at which the engine stopped
+ * reading (the smallest line of a message whose guidance says it stops the
+ * parse); otherwise null
+ * @param semantic whether the run checks the CV rules of a profile too; an
+ * ended run asked to that could not (no rules for the line, or a file that was
+ * not read into a model) counts as structural
+ * @param messages the messages shown after the run, each NEW or OPEN: its
+ * structural messages compared with those of the latest run before it (the
+ * first run's with the session's, without its CV messages), then the CV
+ * messages: a CV check's own, compared with the CV messages before it; for a
+ * structural run, those of the last CV check (or of the session's validation)
+ * as they were, OPEN
+ * @param fixed the messages shown before that this run no longer reports;
+ * never a CV message after a structural run
+ * @param guidance the guidance for {@code messages}; its message indexes refer
+ * to that list
+ * @param failureReason why the run ended {@link Status#FAILED}
+ * @param cvNotChecked if the run was asked to check the CV rules and did not
+ * (the engine skipped them for a file without a model, its check broke, or
+ * there are no rules for the line): why, in the engine's words; the CV
+ * messages are then those of the last CV check, as they were
+ */
+public record WorkingCopyValidation(Status status, long revision, long messagesRevision, boolean stale,
+    boolean parsed, @Nullable Long readUpTo, boolean semantic, List<TrackedMessage> messages,
+    List<ValidationMessage> fixed, List<Guidance> guidance, @Nullable String failureReason,
+    @Nullable String cvNotChecked) {
+
+    public enum Status {
+        /** Waiting for or being validated by the engine. */
+        RUNNING,
+        /** The engine (or the routing) gave a result. */
+        DONE,
+        /** No result: the engine could not be reached, gave up or the run broke. */
+        FAILED
+    }
+
+    public WorkingCopyValidation {
+        messages = messages == null ? List.of() : List.copyOf(messages);
+        fixed = fixed == null ? List.of() : List.copyOf(fixed);
+        guidance = guidance == null ? List.of() : List.copyOf(guidance);
+    }
+
+    /** A run of {@code revision} whose messages are of that revision. */
+    public WorkingCopyValidation(Status status, long revision, boolean stale, boolean parsed, @Nullable Long readUpTo,
+        boolean semantic, List<TrackedMessage> messages, List<ValidationMessage> fixed, List<Guidance> guidance,
+        @Nullable String failureReason, @Nullable String cvNotChecked) {
+        this(status, revision, revision, stale, parsed, readUpTo, semantic, messages, fixed, guidance, failureReason,
+            cvNotChecked);
+    }
+
+    /** A run without a result. */
+    static WorkingCopyValidation failed(long revision, boolean semantic, String reason) {
+        return new WorkingCopyValidation(Status.FAILED, revision, false, false, null, semantic, List.of(), List.of(),
+            List.of(), reason, null);
+    }
+
+    /** A run of {@code revision} that has started; the lists of this (ended) one stay visible. */
+    WorkingCopyValidation running(long revision, boolean semantic) {
+        return new WorkingCopyValidation(Status.RUNNING, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, null, cvNotChecked);
+    }
+
+    /** The first run of a copy, before any result. */
+    static WorkingCopyValidation firstRunning(long revision, boolean semantic) {
+        return new WorkingCopyValidation(Status.RUNNING, revision, false, false, null, semantic, List.of(), List.of(),
+            List.of(), null, null);
+    }
+
+    WorkingCopyValidation withStale(boolean stale) {
+        return new WorkingCopyValidation(status, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, failureReason, cvNotChecked);
+    }
+
+    /** The same, with the messages said to be of {@code messagesRevision}. */
+    WorkingCopyValidation withMessagesRevision(long messagesRevision) {
+        return new WorkingCopyValidation(status, revision, messagesRevision, stale, parsed, readUpTo, semantic,
+            messages, fixed, guidance, failureReason, cvNotChecked);
+    }
+
+    /** Whether the run ended with a parsed file and without an error. */
+    boolean valid() {
+        return status == Status.DONE && parsed && messages.stream()
+            .noneMatch(t -> t.message().getMessageType() == ValidationMessage.MessageType.ERROR);
+    }
+}

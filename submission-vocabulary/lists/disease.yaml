@@ -1,0 +1,34 @@
+# Value list disease, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: disease
+entries:
+  - {cv: "NCIT", accession: "NCIT:C28143", label: "Control Group"}
+  - {cv: "NCIT", accession: "NCIT:C26747", label: "Type 2 Diabetes Mellitus"}
+  - {cv: "NCIT", accession: "NCIT:C2986", label: "Type 1 Diabetes Mellitus"}
+  - {cv: "NCIT", accession: "NCIT:C3283", label: "Obesity"}
+  - {cv: "NCIT", accession: "NCIT:C26732", label: "Coronary Artery Disease"}
+  - {cv: "NCIT", accession: "NCIT:C2866", label: "Alzheimer's Disease"}
+  - {cv: "NCIT", accession: "NCIT:C26845", label: "Parkinson Disease"}
+  - {cv: "NCIT", accession: "NCIT:C84444", label: "Metabolic Dysfunction-Associated Steatotic Liver Disease"}
+  - {cv: "NCIT", accession: "NCIT:C37967", label: "Hypercholesterolemia"}
+  - {cv: "NCIT", accession: "NCIT:C3117", label: "Hypertension"}
+  - {cv: "NCIT", accession: "NCIT:C2975", label: "Cystic Fibrosis"}
+  - {cv: "NCIT", accession: "NCIT:C171133", label: "COVID-19 Infection"}
+  - {cv: "NCIT", accession: "NCIT:C84701", label: "Fabry Disease"}
+  - {cv: "NCIT", accession: "NCIT:C9120", label: "Pancreatic Ductal Adenocarcinoma"}
+  - {cv: "NCIT", accession: "NCIT:C84637", label: "Chronic Pancreatitis"}
+  - {cv: "NCIT", accession: "NCIT:C4872", label: "Breast Carcinoma"}
+  - {cv: "NCIT", accession: "NCIT:C3364", label: "Septicemia"}
+  - {cv: "DOID", accession: "DOID:9352", label: "type 2 diabetes mellitus"}
+  - {cv: "DOID", accession: "DOID:9744", label: "type 1 diabetes mellitus"}
+  - {cv: "DOID", accession: "DOID:9970", label: "obesity"}
+  - {cv: "DOID", accession: "DOID:3393", label: "coronary artery disease"}
+  - {cv: "DOID", accession: "DOID:10652", label: "Alzheimer's disease"}
+  - {cv: "DOID", accession: "DOID:14330", label: "Parkinson's disease"}
+  - {cv: "DOID", accession: "DOID:0080208", label: "metabolic dysfunction-associated steatotic liver disease"}
+  - {cv: "DOID", accession: "DOID:10763", label: "hypertension"}
+  - {cv: "DOID", accession: "DOID:1485", label: "cystic fibrosis"}
+  - {cv: "DOID", accession: "DOID:0080600", label: "COVID-19"}
+  - {cv: "DOID", accession: "DOID:14499", label: "Fabry disease"}
+  - {cv: "DOID", accession: "DOID:3498", label: "pancreatic ductal adenocarcinoma"}
+  - {cv: "DOID", accession: "DOID:0051065", label: "chronic pancreatitis"}
+  - {cv: "DOID", accession: "DOID:3459", label: "breast carcinoma"}

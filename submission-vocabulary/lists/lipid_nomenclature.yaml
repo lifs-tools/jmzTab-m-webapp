@@ -1,0 +1,6 @@
+# Value list lipid_nomenclature, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: lipid_nomenclature
+entries:
+  - text: "Shorthand 2020 (Liebisch et al., Goslin-compatible)"
+  - text: "LIPID MAPS shorthand (2013)"
+  - text: "vendor or software names (e.g. LipidSearch, Lipidyzer)"

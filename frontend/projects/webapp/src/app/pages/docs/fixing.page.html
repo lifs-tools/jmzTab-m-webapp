@@ -1,0 +1,205 @@
+<div class="page lifs-prose">
+  <p class="lifs-lead">
+    How to read what the validator reports, correct your mzTab-M file in the browser, and take the corrected file
+    with you.
+  </p>
+
+  <section class="lifs-card" aria-labelledby="guide-result">
+    <h2 id="guide-result" class="lifs-card__title">Read a result and its guidance</h2>
+    <p>
+      Validate your file on the <a routerLink="/">start page</a>. The result lists what jmzTab-m found. Messages of
+      the same kind are grouped, so a problem that repeats on many lines appears once, with a count.
+    </p>
+    <p>
+      Open a group to see its guidance. It says what the problem means, what to change in the tool that wrote the
+      file, and what you can do here. Choose <b>Show first →</b> to see where the problem is.
+    </p>
+    <p>
+      The most frequent problems are explained on the <a routerLink="/docs/problems">Common problems</a> page, with
+      the steps for some tools.
+    </p>
+    <p>
+      To correct the file here, press <b>Fix this file</b> on the result page. On the start page, choose a file and
+      press <b>Open a file to fix</b>; the editor opens when the result is ready.
+    </p>
+  </section>
+
+  <section id="about-editor" class="lifs-card" aria-labelledby="guide-fixing">
+    <h2 id="guide-fixing" class="lifs-card__title">Fix a file in place</h2>
+    <p>
+      The editor works on a copy of your upload. Your original is never changed. Everything you do is a change to
+      the text of the copy, and the validator checks the text again; it does not guess what you meant.
+    </p>
+    <p>
+      The editor opens files of up to 2,000,000 lines with up to 20,000 cells in a line. A larger file can still be
+      validated, but the editor says it is too large and does not open it. No change can make a file go beyond
+      these limits.
+    </p>
+    <h3 id="guide-select">Select a message to see its place</h3>
+    <p>
+      Choose a message, or one of its occurrences, in the list of messages, beside the document on a wide screen
+      and above it on a narrow one. The editor opens the place it names in the document, marks it and scrolls to it: a metadata entry, a table row, a cell or a column. A new choice
+      replaces the mark of the previous one. For a message that names only a line, press
+      <b>{{ editLineAsTextLabel }}</b>.
+    </p>
+    <h3 id="guide-edit-value">Edit a value</h3>
+    <p>
+      Click a cell of a table, or a value in the metadata, and type. Press Enter to save the change. Press Escape
+      to drop it. One edit can change one cell. A cell can hold up to 100,000 characters.
+    </p>
+    <h3 id="guide-remove-line">Remove a metadata line</h3>
+    <p>
+      Every entry in the metadata has a <b>Remove this line</b> button (the ×). It removes the whole line; use
+      <b>Undo</b> to bring it back. The validator checks the file again, and the message that named the line is
+      listed as fixed.
+    </p>
+    <h3 id="guide-raw-line">Fix a line the editor cannot show</h3>
+    <p>
+      A line that cannot be shown as metadata or as a table row opens in a text field with its raw text. So does
+      a table row with more or fewer cells than its header, when you show its problem or click a cell past the end
+      of a short row. For any problem that names a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text.
+      Tabs are shown as →. Change the text and press <b>Save line</b>, or press <b>Delete this line</b>. A line can
+      hold up to 1,000,000 characters. When the file changes while a line is open as text, for example because a
+      line above it is removed, its number may now belong to another line: the editor closes the line and keeps the
+      text you typed in a notice, so you can open the line again and use it. A message keeps the line number of the
+      check it comes from. If lines moved since that check, <b>{{ editLineAsTextLabel }}</b> does not open the line,
+      and showing the message marks no row or cell: the editor says so, and you use the messages of the next check,
+      which follows each change. A CV message is different: the structure check keeps it with the line number of
+      its CV check, and its guidance and the report quote no line for it once lines moved. Press
+      <b>Check CV rules</b> to check it again.
+    </p>
+    <p>
+      The editor cannot insert or move lines. If sections are in the wrong order or a header line is missing,
+      export the file again from your tool, or correct it in a text editor and validate it again.
+    </p>
+    <h3 id="guide-quick-fix">Use a quick fix</h3>
+    <p>
+      For some problems the guidance, in the editor, offers a quick fix. Press <b>{{ previewLabel }}</b> to see a
+      before and after of every changed line; it is for the problem you showed last in that group, or else its
+      first one. Nothing changes until you press <b>Apply</b>. Where the same fix applies to many lines,
+      <b>{{ allLabel }}</b> (with the number of lines in place of N) shows all of them at once, and the button that
+      applies them reads <b>Apply to all N</b>, with the number of problems the fix covers. A quick fix never
+      chooses a term, a unit or a value for you. These quick fixes exist:
+    </p>
+    <ul>
+      <li>remove an empty parameter</li>
+      <li>write a DOI as doi:10.xxxx/yyyy</li>
+      <li>join a line that was broken in two</li>
+      <li>split a metadata line whose key and value are separated by spaces instead of a tab</li>
+      <li>add a column that the file must have</li>
+      <li>add a missing metadata line, for you to fill in</li>
+      <li>remove a controlled vocabulary entry that nothing uses</li>
+      <li>remove a field or column that the declared profile has no section for</li>
+    </ul>
+    <h3 id="guide-duplicate-column">Resolve a duplicate column</h3>
+    <p>
+      When a table has two columns with the same name, the column is marked <b>dup</b>. Choose
+      <b>Resolve duplicate column</b>. You can keep one column and delete the others, or merge them into one
+      column. A merge keeps the value of the column you choose in each row; where it is empty or <code>null</code>,
+      the first other value that is neither is used. The dialog shows the rows whose values differ before you
+      apply it.
+    </p>
+    <p>You cannot rename a column to a name that another column already has, or insert one.</p>
+    <p>
+      A cell is saved into the column it was shown in. If the columns changed meanwhile (for example a column was
+      deleted, merged or inserted, here or in another tab), the change is not saved: the file is reloaded and the
+      editor says so, and you can make the change again. Changes you made right after it, before the file was
+      reloaded, are not saved either; the editor says so once. If the copy was deleted and opened again elsewhere,
+      the editor says that the copy was replaced and starts again from the new copy. While a table is read again,
+      or if reading it failed (press <b>Retry</b>), its cells cannot be edited.
+    </p>
+    <h3 id="guide-undo">Undo and redo</h3>
+    <p>
+      <b>Undo</b> and <b>Redo</b> (Ctrl+Z and Ctrl+Shift+Z) step through your changes. The last 100 steps are kept,
+      and a very large change may reduce that number. One batch of changes can hold up to 5,000 edits.
+    </p>
+    <h3 id="guide-checking">Checking your changes</h3>
+    <p>
+      After 1.5 seconds without a change, the editor checks the structure again and shows which problems are
+      <em>new</em> and which are <em>fixed</em>. The mzTab-M version is read again from the text, so a change to
+      the version line is picked up. The rules for controlled vocabulary terms (the CV rules of your validation
+      profile) are checked only when you press <b>Check CV rules</b>, because they need the EBI Ontology Lookup
+      Service and can take longer. Pressing it while the editor waits for your pause checks the CV rules and the
+      structure together.
+    </p>
+    <p>
+      When you open a file that was validated with a profile, the editor's first check is of the structure. It is
+      compared with the result of your upload without the messages of the CV rules, so an unchanged file shows
+      nothing as new. The CV messages of your upload stay in the list. The CV messages of the last CV check always
+      stay in the list until the next one: a check of the structure does not remove them or count them as fixed.
+      The status line above the messages says which check they are from: "CV rules checked at revision n" (revision
+      0 is your upload; each change adds one) or, once you have changed the file, "CV rules not checked since your
+      last change". Press <b>Check CV rules</b> to bring them up to date. When you open the file again later and its
+      last check is out of date, only its structure is checked again; if the CV messages are of the current text but of a check made earlier, the
+      status line says "in an earlier session". While CV messages from an earlier check are the only errors left,
+      <b>Download JSON</b> waits: the note next to it says which check they come from, and <b>Check CV rules</b>
+      checks them again. If a CV check cannot check the rules (for example because the file has errors that stop
+      jmzTab-m from reading it), the editor says why and keeps the CV messages of the last CV check. Such a check
+      does not hold back <b>Download JSON</b> by itself: JSON is offered when no errors are left, and the editor
+      says that the CV rules could not be checked.
+    </p>
+    <p>
+      When many files are being checked at the same moment, the validator can be busy. The editor then shows the
+      validator's message ("Too many files are being checked. Please try again in a moment."), asks again by itself
+      a few times, and keeps your changes. <b>Retry</b> asks at once.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-stopped">
+    <h2 id="guide-stopped" class="lifs-card__title">When jmzTab-m stops reading</h2>
+    <p>
+      If a line is broken badly enough, jmzTab-m cannot go on. The editor then says
+      <b>jmzTab-m stopped reading at line N</b>. Only the problems above that line are reported, so more can appear
+      once you fix it. This is why a short list of problems can grow after your first fix. Fix the line it names
+      first. You can still read and edit the lines below it.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-downloads">
+    <h2 id="guide-downloads" class="lifs-card__title">Downloads and the resolution report</h2>
+    <ul>
+      <li><b>Download .mzTab</b> is the corrected file, exactly as it is in the editor.</li>
+      <li>
+        <b>Download JSON</b> is offered once the file is checked without errors. It is made from the corrected text.
+      </li>
+      <li><b>Download original</b> is your upload, unchanged.</li>
+      <li>
+        <b>Download resolution report</b> on the result page is a Markdown file named after your file, ending in
+        <code>-problems.md</code>. It lists each problem with its explanation and how to fix it in your tool. You
+        can send it to the person who produced the file, or keep it with your records.
+      </li>
+      <li>
+        <b>Download report</b> in the editor is the same kind of report for the corrected file. It describes the last
+        check of your copy, with the line numbers of the copy, and says which revision was checked. If you changed the
+        file after that check, its header says the check is of an older revision; check again first to get the current
+        state. The report of the result page describes your upload, with the upload's line numbers.
+      </li>
+    </ul>
+    <p>Use the resolution report when the cause is in the tool that wrote the file. Fixing it only here would repeat the problem next time.</p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-retention">
+    <h2 id="guide-retention" class="lifs-card__title">How long your file is kept</h2>
+    <p>
+      The upload, its result and the corrected copy are
+      @if (info()?.retentionDays; as days) {
+        kept for {{ days }} days after your last change
+      } @else {
+        kept for a number of days after your last change
+      }
+      and then deleted. A change to the copy starts the time again. Anyone who has the address of the result page
+      or of the editor can open and change the file, so share either with care. You can delete a result earlier on its result page.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="guide-encoding">
+    <h2 id="guide-encoding" class="lifs-card__title">Files that are not UTF-8</h2>
+    <p>
+      mzTab-M files are UTF-8. If your file is not, the editor says so and names the first line with a character it
+      cannot read. If your tool wrote the file as Windows-1252 or Latin-1, press
+      <b>Re-encode from Windows-1252</b>. The corrected file is then UTF-8. Look at accented letters and symbols
+      such as µ afterwards; if they look wrong, the file used a different encoding and should be exported again
+      from your tool.
+    </p>
+  </section>
+</div>

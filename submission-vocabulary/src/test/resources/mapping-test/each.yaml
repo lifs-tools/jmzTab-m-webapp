@@ -1,0 +1,21 @@
+id: each
+version: 1.0.0
+kind: output
+vocabulary: 1.0.0
+target: 2.0.0-M
+parameters: [id]
+metadata:
+  - key: mzTab-ID
+    value: {field: params.id}
+  - each: {field: samples}
+    as: s
+    lines:
+      - key: "sample[{s#}]"
+        value: {field: s.name}
+      - key: "sample[{s#}]-species[1]"
+        value: {term: {value: {field: s.species}}}
+      - each: {field: s.extras}
+        as: x
+        lines:
+          - key: "sample[{s#}]-custom[{x#}]"
+            value: {field: x}

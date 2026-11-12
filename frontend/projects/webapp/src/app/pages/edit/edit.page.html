@@ -1,0 +1,316 @@
+<div class="page">
+  @switch (store.view()) {
+    @case ('loading') {
+      <p class="lifs-note" role="status">Opening the file…</p>
+    }
+    @case ('notFound') {
+      <div class="lifs-callout lifs-callout--info" role="status">
+        <div>
+          <b class="state-title">File not found</b>
+          <p class="lifs-note">
+            This file does not exist or has expired.{{ retentionDays() ? ' Files are kept for ' + retentionDays() + ' days after their last change.' : '' }}
+          </p>
+          <p class="lifs-note"><a routerLink="/">Validate a file</a></p>
+        </div>
+      </div>
+    }
+    @case ('error') {
+      <div class="lifs-callout lifs-callout--error" role="alert" data-testid="open-failed">
+        <div>
+          @if (store.openFailure(); as reason) {
+            <b class="state-title">The file could not be opened</b>
+            <p class="lifs-note">{{ reason }}</p>
+          } @else {
+            <b class="state-title">Something went wrong</b>
+            <p class="lifs-note">The file could not be opened. Please try again later.</p>
+          }
+          <p class="lifs-note"><a [routerLink]="['/result', store.id()]">Back to the result</a></p>
+        </div>
+      </div>
+    }
+    @case ('notUtf8') {
+      <div class="lifs-callout lifs-callout--warn" role="alert" data-testid="not-utf8">
+        <div>
+          <b class="state-title">This file is not UTF-8</b>
+          <p class="lifs-note">{{ store.notUtf8() }}</p>
+          <p class="lifs-note">
+            mzTab-M files are UTF-8. If your tool wrote the file as Windows-1252 or Latin-1, it can be read that way
+            and saved as UTF-8.
+          </p>
+          <p class="actions">
+            <button mat-flat-button type="button" (click)="store.reencode()">Re-encode from Windows-1252</button>
+            <a mat-stroked-button [routerLink]="['/result', store.id()]">Back to the result</a>
+          </p>
+        </div>
+      </div>
+    }
+    @case ('ready') {
+      @if (info(); as copy) {
+        <header class="head">
+          <div class="head__text">
+            <p class="lifs-eyebrow">
+              Fix a file
+              @if (retentionDays(); as days) {
+                · <span data-testid="retention">Kept for {{ days }} days after your last change</span>
+                @if (copy.expiresAt) {
+                  (until {{ copy.expiresAt | date: 'd MMM y' : undefined : 'en' }})
+                }
+              }
+            </p>
+            <h1>{{ copy.fileName }}</h1>
+            <div class="badges">
+              @if (copy.mzTabVersion) {
+                <span class="lifs-badge" data-testid="version-badge">mzTab-M {{ copy.mzTabVersion }}</span>
+              }
+              <span class="lifs-badge lifs-badge--plain save" role="status" aria-live="polite" data-testid="save-state">{{
+                store.saving() ? 'Saving…' : 'Saved'
+              }}</span>
+            </div>
+          </div>
+          <div class="head__actions">
+            <button
+              mat-stroked-button
+              type="button"
+              aria-keyshortcuts="Control+Z"
+              data-testid="undo"
+              [disabled]="!copy.canUndo || store.saving()"
+              (click)="store.undo()"
+            >
+              Undo
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              aria-keyshortcuts="Control+Shift+Z"
+              data-testid="redo"
+              [disabled]="!copy.canRedo || store.saving()"
+              (click)="store.redo()"
+            >
+              Redo
+            </button>
+            @if (store.hasProfile()) {
+              <button
+                mat-stroked-button
+                type="button"
+                data-testid="check-cv"
+                [disabled]="validation()?.status === 'RUNNING'"
+                (click)="store.validate(true)"
+              >
+                Check CV rules
+              </button>
+            }
+          </div>
+        </header>
+
+        <div class="downloads" role="group" aria-label="Downloads">
+          <a
+            mat-flat-button
+            data-testid="download-tsv"
+            [disabled]="store.saving()"
+            [attr.href]="store.saving() ? null : base() + '/file?format=tsv'"
+            >Download .mzTab</a
+          >
+          <button
+            mat-stroked-button
+            type="button"
+            data-testid="download-json"
+            [disabled]="!store.jsonReady()"
+            (click)="downloadJson()"
+          >
+            Download JSON
+          </button>
+          <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
+          @if (store.reportReady()) {
+            <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()" download>Download report</a>
+          } @else {
+            <button mat-stroked-button type="button" data-testid="download-report" disabled>Download report</button>
+            <span class="lifs-note" data-testid="report-note">The report is available after the first check.</span>
+          }
+          @if (!store.jsonReady()) {
+            <span class="lifs-note" data-testid="json-note">{{ jsonNote() }}</span>
+          }
+        </div>
+
+        <details class="help" data-testid="help">
+          <summary>How to fix this file</summary>
+          <ul>
+            <li>Choose a message, or one of its occurrences, to see its place in the document: the entry, row, cell or column is marked.</li>
+            <li>Click a cell or a metadata value to change it. Enter saves, Escape cancels. While a table reloads, or if reloading it failed (press <b>Retry</b>), its cells cannot be edited. The × at a metadata entry (<b>Remove this line</b>) removes the line; Undo brings it back.</li>
+            <li>Open a message and press <b>{{ previewLabel }}</b> to see a before and after. Where a fix applies to many lines, <b>{{ allLabel }}</b> does them all.</li>
+            <li>
+              A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
+              message with a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text. → stands for a tab. If lines
+              moved since that message was checked, nothing is marked or opened for it: wait for the next check. A CV
+              message keeps the line number of its CV check, also after the next check: press <b>Check CV rules</b>
+              to check it again.
+            </li>
+            <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
+            <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
+            <li>
+              <b>Download report</b> lists the problems of the last check of your corrected copy, with the line
+              numbers of the copy, for the tool that wrote the file. If you have changed the file since that check, its
+              header says so; check again first for a report of the current text. The result page's report is the one of
+              your upload.
+            </li>
+            <li>
+              The structure is checked after each change, once you pause, and when you open the file again while
+              its last check is out of date. The CV rules of your profile are checked only when you press <b>Check CV rules</b>. Their messages stay shown after a change, and the
+              status line above the messages says whether they are of the current text: "CV rules checked at
+              revision n" or "CV rules not checked since your last change".
+            </li>
+            <li>If the validator is busy, the editor shows its message and asks again by itself a few times. <b>Retry</b> asks at once. Your changes are kept.</li>
+          </ul>
+          <p><a routerLink="/docs/fixing">Read the guide: Fixing a file</a></p>
+        </details>
+
+        <div class="status" role="status" aria-live="polite" data-testid="run-status">
+          @if (store.validating()) {
+            <span>Checking your latest changes…</span>
+          } @else if (noProblems()) {
+            <span>No problems found.</span>
+          }
+          @if (store.cvStatus(); as cv) {
+            <span class="cv-status" data-testid="cv-status">{{ cv }}</span>
+          }
+        </div>
+        @if (store.validating()) {
+          <mat-progress-bar mode="indeterminate" aria-label="Checking the file" />
+        }
+        @if (store.checkFailed()) {
+          <div class="lifs-callout lifs-callout--error check-failed" role="alert" data-testid="check-failed">
+            <div>
+              {{ store.checkFailure() ?? 'The file could not be checked.' }}
+              <button mat-stroked-button type="button" (click)="store.validate(false)">Retry</button>
+            </div>
+          </div>
+        }
+        @if (validation()?.cvNotChecked; as reason) {
+          <div class="lifs-callout lifs-callout--warn" role="status" data-testid="cv-not-checked">
+            <div>
+              <b>The CV rules could not be checked.</b>
+              <p class="lifs-note cv-reason">{{ reason }}</p>
+            </div>
+          </div>
+        }
+        @if (failure(); as reason) {
+          <div class="lifs-callout lifs-callout--error" role="alert"><div>{{ reason }}</div></div>
+        }
+        @if (readUpTo(); as line) {
+          <p class="read-up-to" role="note" data-testid="read-up-to">
+            jmzTab-m stopped reading at line {{ line }}; problems further down are not reported yet.
+          </p>
+        }
+
+        <div class="split">
+          <section class="messages" aria-label="Messages">
+            <app-messages-tab
+              [messages]="messages()"
+              [states]="states()"
+              [guidance]="store.guidance()"
+              [selected]="selected()"
+              [quickFixState]="quickFixState()"
+              [headers]="headers()"
+              [lineChips]="true"
+              (show)="onShow($event)"
+              (fix)="onFix($event)"
+            />
+            @if (store.fixed().length; as n) {
+              <details class="fixed" data-testid="fixed">
+                <summary>Fixed since the last check ({{ n }})</summary>
+                <ul>
+                  @for (m of store.fixed(); track $index) {
+                    <li>
+                      @if (m.line_number) {
+                        <span class="lifs-mono">line {{ m.line_number }}</span> ·
+                      }
+                      {{ m.suggestion || m.message }}
+                    </li>
+                  }
+                </ul>
+              </details>
+            }
+          </section>
+
+          <div class="doc">
+            @if (shownLine(); as n) {
+              @if (rawLine()?.lineNumber !== n) {
+                <p class="line-actions" data-testid="line-actions">
+                  <span class="lifs-mono">Line {{ n }}</span>
+                  <button mat-stroked-button type="button" data-testid="edit-as-text" (click)="editAsText(n, shownReadAt, shownMovedNotice)">
+                    {{ editLineAsTextLabel }}
+                  </button>
+                </p>
+              }
+            }
+            @if (rawMoved(); as moved) {
+              <div class="lifs-callout lifs-callout--warn raw-moved" role="status" data-testid="raw-moved">
+                <div>
+                  @if (moved.maybe) {
+                    <p>
+                      The file changed while line {{ moved.lineNumber }} was being saved, so your text may or may not
+                      be in it. It is below, to compare with the line after the reload.
+                    </p>
+                  } @else {
+                    <p>
+                      The file changed, so line {{ moved.lineNumber }} may have moved. Your text was not saved; it is
+                      below: open the line again to use it.
+                    </p>
+                  }
+                  <code class="lifs-mono raw-moved__text">{{ moved.text }}</code>
+                  <p class="actions">
+                    <button mat-stroked-button type="button" (click)="rawMoved.set(null)">Dismiss</button>
+                  </p>
+                </div>
+              </div>
+            }
+            @if (rawLine(); as raw) {
+              <mztabm-raw-line-editor
+                class="raw"
+                [lineNumber]="raw.lineNumber"
+                [text]="raw.text"
+                [readAt]="raw.readAt ?? null"
+                (saved)="onRawSaved()"
+                (refused)="onRawRefused(raw.lineNumber, $event)"
+                (maybeSaved)="onRawMaybeSaved(raw.lineNumber, $event)"
+                (cancelled)="rawLine.set(null)"
+              />
+            }
+            <div class="tabs" role="tablist" aria-label="Document sections" (keydown)="onTabKey($event)">
+              @for (tab of tabs(); track tab.id) {
+                <button
+                  type="button"
+                  role="tab"
+                  class="tab"
+                  [id]="'edit-tab-' + tab.id"
+                  [attr.aria-controls]="'edit-panel'"
+                  [attr.aria-selected]="docTab() === tab.id"
+                  [attr.tabindex]="docTab() === tab.id ? 0 : -1"
+                  [class.tab--on]="docTab() === tab.id"
+                  [disabled]="tab.disabled"
+                  (click)="select(tab.id)"
+                >
+                  <span class="tab-label">{{ tab.label }}</span>
+                  <span class="count">{{ tab.count }}</span>
+                </button>
+              }
+            </div>
+            <div role="tabpanel" class="panel" id="edit-panel" [attr.aria-labelledby]="'edit-tab-' + docTab()">
+              @if (docTab() === 'metadata') {
+                <mztabm-metadata-view [readonly]="false" [highlight]="metadataHighlight()" />
+              } @else {
+                @for (sec of [docTab()]; track sec) {
+                  <mztabm-table-view
+                    [section]="sectionOf(sec)"
+                    [readonly]="false"
+                    [highlight]="tableHighlight()"
+                    (editLineAsText)="editAsText($event)"
+                  />
+                }
+              }
+            </div>
+          </div>
+        </div>
+      }
+    }
+  }
+</div>

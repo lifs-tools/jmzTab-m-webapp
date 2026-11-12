@@ -1,0 +1,7 @@
+# Value list quantities_layout, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: quantities_layout
+entries:
+  - text: "lipids in columns"
+    note: "column A: sample names; row 2: lipid names"
+  - text: "lipids in rows"
+    note: "column A: lipid names; row 2: sample names"

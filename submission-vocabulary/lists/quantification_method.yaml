@@ -1,0 +1,6 @@
+# Value list quantification_method, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: quantification_method
+entries:
+  - {cv: "PRIDE", accession: "PRIDE:0000651", label: "Absolute quantification"}
+  - {cv: "PRIDE", accession: "PRIDE:0000652", label: "Relative quantification"}
+  - text: "no quantification (identification only)"

@@ -1,0 +1,27 @@
+{
+  "title": "A fixture tour with two bad steps",
+  "steps": [
+    {
+      "id": "sections",
+      "chapter": "overview",
+      "title": "One file, four sections",
+      "text": "The line prefixes name the sections.",
+      "lines": [1, 23]
+    },
+    {
+      "id": "bad-key",
+      "chapter": "metadata",
+      "title": "A key the file does not have",
+      "text": "There is no such key.",
+      "target": { "tab": "metadata", "key": "mzTab-nonsense" },
+      "lines": [2, 4]
+    },
+    {
+      "id": "bad-lines",
+      "chapter": "summary",
+      "title": "Lines past the end",
+      "text": "The file is shorter.",
+      "lines": [20, 99]
+    }
+  ]
+}

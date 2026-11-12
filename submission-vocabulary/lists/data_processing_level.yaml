@@ -1,0 +1,8 @@
+# Value list data_processing_level, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: data_processing_level
+entries:
+  - text: "concentration (calibrated, absolute)"
+  - text: "amount per sample material (e.g. per mg protein or tissue)"
+  - text: "internal-standard normalised ratio (relative)"
+  - text: "mol percent of the lipidome (relative)"
+  - text: "raw peak area or intensity (not normalised)"

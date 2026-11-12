@@ -1,0 +1,63 @@
+<div class="page lifs-prose">
+  <section class="lifs-card" aria-labelledby="rest-api">
+    <h2 id="rest-api" class="lifs-card__title">REST API</h2>
+    <p>
+      What the pages of this validator do can also be done by a script, a pipeline or another service, through the
+      REST API under <code>rest/v2</code>. The
+      <a href="swagger-ui/index.html" target="_blank" rel="noopener">REST API documentation (Swagger UI)</a>
+      describes every endpoint with its parameters and lets you try them. The main ones:
+    </p>
+    <ul>
+      <li>
+        <code>POST rest/v2/validations</code> uploads a file and starts its validation;
+        <code>GET rest/v2/validations/{{ '{' }}id{{ '}' }}</code> returns the status and the messages.
+      </li>
+      <li>
+        <code>POST rest/v2/validatePlain</code> validates a tab-separated mzTab-M file and answers with the messages;
+        <code>POST rest/v2/validate</code> does the same for its JSON representation.
+      </li>
+      <li>
+        <code>POST rest/v2/convertPlain</code> converts a tab-separated file to JSON, and
+        <code>POST rest/v2/convert</code> converts JSON to a tab-separated file.
+      </li>
+    </ul>
+    <p>
+      Results are kept for a limited time, as described in <a routerLink="/docs/about">About this service</a>.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="libraries">
+    <h2 id="libraries" class="lifs-card__title">Libraries for Python and R</h2>
+    <p>
+      This validator reads files with jmzTab-m, the Java reference implementation of mzTab-M. Its project also has
+      libraries for Python and R, both early development versions:
+    </p>
+    <ul>
+      <li>
+        <a href="https://github.com/lifs-tools/pymzTab-m" target="_blank" rel="noopener">pymzTab-m</a>, for
+        Python 3: a parser for the tab-separated format, the mzTab-M data model and a client for the REST API of
+        this validator.
+      </li>
+      <li>
+        <a href="https://github.com/lifs-tools/rmzTabM" target="_blank" rel="noopener">rmzTab-m</a>, for R: the
+        mzTab-M data model and a client for the REST API of this validator.
+      </li>
+    </ul>
+    <p>Which mzTab-M versions each library reads and writes is described in its documentation.</p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="self-hosting">
+    <h2 id="self-hosting" class="lifs-card__title">Self-hosting</h2>
+    <p>
+      The validator can run on your own servers: the webapp and one engine for each mzTab-M version, as Docker
+      images or as Java applications. The
+      <a
+        href="https://github.com/lifs-tools/jmzTab-m-webapp/tree/master/docs/self-hosting"
+        target="_blank"
+        rel="noopener"
+        >self-hosting documentation</a
+      >
+      on GitHub describes how to build, configure and operate it.
+    </p>
+  </section>
+</div>

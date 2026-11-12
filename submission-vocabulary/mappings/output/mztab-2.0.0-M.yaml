@@ -1,0 +1,617 @@
+# The submission vocabulary 1.1.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
+# lipidcompass-submissions bb8dcbf tools/convert_submission_template.py writes it (Converter.dataset, conv:182-289, and
+# Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
+# ../../schema/mapping-language.md.
+#
+# Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
+# numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
+# informational only: it is not read, and nothing checks that it is the id of the selected dataset.
+#
+# A sample, a run and an assay are written for each sample of the dataset's quantities, in their order (conv:223-251).
+# Runs and assays are written over the same list, so the engine pairs ms_run[n] with the assay that names it.
+#
+# Not made, and not needed for conformance: the notes of conv:358-359 ('<name>' does not parse with Goslin) and
+# conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
+# engine's note on runs whose location is null.
+id: mztab-2.0.0-M
+version: 1.0.0
+kind: output
+vocabulary: 1.1.0
+target: 2.0.0-M
+# dataset_index selects the dataset; dataset_id is informational (not read, not checked)
+parameters: [study_id, dataset_id, dataset_index]
+
+# cv[] entries, in the converter's order; versions as published by OLS4 on 2026-10-13 (conv:65-78)
+cvs:
+  MS: {full-name: PSI-MS controlled vocabulary, version: "4.2.2", uri: "http://purl.obolibrary.org/obo/ms.owl"}
+  PRIDE: {full-name: PRIDE PRoteomics IDEntifications (PRIDE) database controlled vocabulary, version: "2026-09-22", uri: "https://www.ebi.ac.uk/ols4/ontologies/pride"}
+  NCIT: {full-name: National Cancer Institute Thesaurus, version: "26.02d", uri: "http://purl.obolibrary.org/obo/ncit.owl"}
+  NCBITaxon: {full-name: NCBI organismal classification, version: "2026-07-12", uri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"}
+  BTO: {full-name: BRENDA tissue / enzyme source, version: "2021-10-26", uri: "http://purl.obolibrary.org/obo/bto.owl"}
+  UBERON: {full-name: Uber-anatomy ontology, version: "2026-10-01", uri: "http://purl.obolibrary.org/obo/uberon.owl"}
+  CL: {full-name: Cell Ontology, version: "2026-06-08", uri: "http://purl.obolibrary.org/obo/cl.owl"}
+  DOID: {full-name: Human Disease Ontology, version: "2026-09-30", uri: "http://purl.obolibrary.org/obo/doid.owl"}
+  CHMO: {full-name: Chemical Methods Ontology, version: "2026-05-28", uri: "http://purl.obolibrary.org/obo/chmo.owl"}
+  UO: {full-name: Units of Measurement Ontology, version: "2026-07-31", uri: "http://purl.obolibrary.org/obo/uo.owl"}
+
+let:
+  dataset: {at: {list: {field: datasets}, index: {field: params.dataset_index}}}
+
+  # Converter.dois (conv:320-331): 'unpublished' (any case, stripped) is skipped, anything else must be a DOI
+  publication_doi:
+    when:
+      if: {match: {value: {field: study.publication_doi}, regex: "^\\s*(?<word>[Uu][Nn][Pp][Uu][Bb][Ll][Ii][Ss][Hh][Ee][Dd])\\s*$", group: word}}
+      then: {literal: null}
+      else: {normalise: {kind: doi, value: {field: study.publication_doi}}}
+  related_dois:
+    map:
+      over:
+        filter:
+          in:
+            map:
+              over: {split: {value: {field: study.related_dois}, sep: ";"}}
+              as: r
+              value:
+                when:
+                  if: {match: {value: {field: r}, regex: "^\\s*(?<word>[Uu][Nn][Pp][Uu][Bb][Ll][Ii][Ss][Hh][Ee][Dd])\\s*$", group: word}}
+                  then: {literal: null}
+                  else: {normalise: {kind: doi, value: {field: r}}}
+          as: doi
+          where: {field: doi}
+      as: doi
+      value: {format: {template: "doi:{0}", args: [{field: doi}]}}
+
+  # STUDY_CUSTOM and DATASET_CUSTOM (conv:92-98): fields without an mzTab-M element of their own, written as custom[]
+  # in this order; a field without a name is written as its own term (conv:311-318)
+  custom_fields:
+    literal:
+      - {group: study, key: study_type, name: study type}
+      - {group: study, key: licence, name: data licence}
+      - {group: study, key: access_conditions, name: data access conditions}
+      - {group: study, key: embargo_until, name: embargo until}
+      - {group: study, key: lipidomics_checklist_doi, name: lipidomics minimal reporting checklist}
+      - {group: study, key: lipid_nomenclature, name: lipid nomenclature}
+      - {group: datasets, key: dataset_content, name: dataset content}
+      - {group: datasets, key: laboratory, name: measuring laboratory}
+      - {group: datasets, key: acquisition_mode}
+      - {group: datasets, key: identification_database, name: identification database}
+      - {group: datasets, key: data_processing_level, name: what the numbers are}
+      - {group: datasets, key: internal_standards, name: internal standards}
+      - {group: datasets, key: missing_value_encoding, name: missing values}
+
+  # Converter.factors (conv:157): the factor records that have a name, the last record of a name (any case) counting.
+  # A record is kept when its position is the last position among the records of its name.
+  factor_records:
+    filter:
+      in: {field: factors}
+      as: f
+      where:
+        when:
+          if: {field: f.factor_name}
+          then:
+            eq:
+              - {pos: f}
+              - at:
+                  list: {filter: {in: {map: {over: {field: factors}, as: g, value: {when: {if: {eq: [{lower: {field: g.factor_name}}, {lower: {field: f.factor_name}}]}, then: {pos: g}}}}}, as: p, where: {field: p}}}
+                  index: {count: {filter: {in: {map: {over: {field: factors}, as: g, value: {when: {if: {eq: [{lower: {field: g.factor_name}}, {lower: {field: f.factor_name}}]}, then: {pos: g}}}}}, as: p, where: {field: p}}}}
+
+  # Converter.study_variables (conv:333-340): one study group per combination of the primary factors' values
+  groups: {fn: {name: factor-combinations, args: [{field: dataset.quantities.samples}, {field: samples}, {field: factors}]}}
+
+  # conv:240, never a file:// location: the dataset's raw data link, else the study's first repository link, else null
+  location:
+    first:
+      - {field: dataset.raw_data_location}
+      - {at: {list: {split: {value: {field: study.repository_links}, sep: ";"}}, index: {literal: 1}}}
+      - {literal: "null"}
+
+  # conv:272
+  confidence:
+    first:
+      - {term: {value: {field: dataset.id_confidence_measure}}}
+      - {user-param: {name: {literal: unknown confidence measure}}}
+
+  # The SML table, one item per lipid of the dataset's quantities, in their order (conv:342-392)
+  # conv:344, notes: the dataset's rows on the Lipids sheet, the last row of a name counting. A row is kept when its
+  # position is the last position among the dataset's rows of its name.
+  dataset_lipids:
+    filter:
+      in: {field: lipids}
+      as: x
+      where:
+        when:
+          if: {eq: [{field: x.dataset_id}, {field: dataset.dataset_id}]}
+          then:
+            eq:
+              - {pos: x}
+              - at:
+                  list: {filter: {in: {map: {over: {field: lipids}, as: y, value: {when: {if: {when: {if: {eq: [{field: y.dataset_id}, {field: dataset.dataset_id}]}, then: {eq: [{field: y.lipid_name}, {field: x.lipid_name}]}}}, then: {pos: y}}}}}, as: p, where: {field: p}}}
+                  index: {count: {filter: {in: {map: {over: {field: lipids}, as: y, value: {when: {if: {when: {if: {eq: [{field: y.dataset_id}, {field: dataset.dataset_id}]}, then: {eq: [{field: y.lipid_name}, {field: x.lipid_name}]}}}, then: {pos: y}}}}}, as: p, where: {field: p}}}}
+  # each lipid's row in dataset_lipids, or Null
+  lipid_notes:
+    map:
+      over: {field: dataset.quantities.lipids}
+      as: l
+      value: {find: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}
+  parsed:
+    map: {over: {field: dataset.quantities.lipids}, as: l, value: {fn: {name: goslin-parse, args: [{field: l}]}}}
+  normalised_names:
+    map: {over: {ref: parsed}, as: p, value: {field: p.normalised}}
+  # Converter.formula (conv:291-309)
+  formulas_and_masses:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value:
+        fn:
+          name: formula-check
+          args:
+            - {field: dataset.quantities.sheet}
+            - {at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}
+            - {at: {list: {ref: parsed}, index: {pos: note}}}
+            - {field: note.sum_formula}
+  formulas:
+    map: {over: {ref: formulas_and_masses}, as: f, value: {field: f.formula}}
+  masses:
+    map: {over: {ref: formulas_and_masses}, as: f, value: {field: f.mass}}
+  # conv:362-368: the identification level, else 1 for an internal standard, 3 for a name Goslin reads, else 4
+  reliabilities:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value:
+        first:
+          - {when: {if: {eq: [{field: note.identification_level.text}, {literal: "1"}]}, then: {literal: "1"}}}
+          - {when: {if: {eq: [{field: note.identification_level.text}, {literal: "2"}]}, then: {literal: "2"}}}
+          - {when: {if: {eq: [{field: note.identification_level.text}, {literal: "3"}]}, then: {literal: "3"}}}
+          - {when: {if: {eq: [{field: note.identification_level.text}, {literal: "4"}]}, then: {literal: "4"}}}
+          - when:
+              if: {eq: [{field: note.internal_standard.text}, {literal: "yes"}]}
+              then: {literal: "1"}
+              else:
+                when:
+                  if: {at: {list: {ref: parsed}, index: {pos: note}}}
+                  then: {literal: "3"}
+                  else: {literal: "4"}
+  # conv:380-381
+  internal_standard_flags:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value:
+        when:
+          if: {eq: [{field: note.internal_standard.text}, {literal: "yes"}]}
+          then: {literal: "true"}
+          else:
+            when:
+              if: {eq: [{field: note.internal_standard.text}, {literal: "no"}]}
+              then: {literal: "false"}
+              else: {literal: "null"}
+
+metadata:
+  - key: mzTab-version
+    value: {literal: 2.0.0-M}
+  - key: mzTab-ID
+    value: {format: {template: "{0}-{1:02}", args: [{field: params.study_id}, {field: params.dataset_index}]}}
+  - key: title
+    value: {format: {template: "{0}: {1}", args: [{field: study.study_title}, {field: dataset.dataset_title}]}}
+  - key: description
+    value: {format: {template: "{0} {1}", args: [{field: study.study_description}, {field: dataset.dataset_description}]}}
+
+  # conv:188-194: the study's DOI and PubMed id as one publication, then one per related DOI
+  - each:
+      concat:
+        - map:
+            over: {literal: [study]}
+            as: once
+            value:
+              join:
+                sep: "|"
+                items:
+                  - {when: {if: {ref: publication_doi}, then: {format: {template: "doi:{0}", args: [{ref: publication_doi}]}}}}
+                  - {when: {if: {field: study.pubmed_id}, then: {format: {template: "pubmed:{0}", args: [{field: study.pubmed_id}]}}}}
+        - {ref: related_dois}
+    as: publication
+    lines:
+      - key: "publication[{publication#}]"
+        value: {field: publication}
+
+  # conv:195-201
+  - each: {field: contacts}
+    as: c
+    lines:
+      - key: "contact[{c#}]-name"
+        value: {field: c.name}
+      - key: "contact[{c#}]-affiliation"
+        value: {field: c.affiliation}
+      - key: "contact[{c#}]-email"
+        value: {normalise: {kind: email, value: {field: c.email}}}
+
+  # conv:202
+  - each: {split: {value: {field: study.repository_links}, sep: ";"}}
+    as: uri
+    lines:
+      - key: "external_study_uri[{uri#}]"
+        value: {field: uri}
+
+  # conv:204-208
+  - key: "instrument[1]-name"
+    value: {term: {value: {field: dataset.instrument_name}}}
+  - key: "instrument[1]-source"
+    value: {term: {value: {field: dataset.ion_source}}}
+  - key: "instrument[1]-analyzer[1]"
+    value: {term: {value: {field: dataset.analyzer}}}
+  - key: "instrument[1]-detector"
+    value: {term: {value: {field: dataset.detector}}}
+
+  # conv:210-212: processing, then acquisition software, each with its version
+  - each:
+      concat:
+        - {map: {over: {literal: [processing]}, as: s, value: {term: {value: {field: dataset.processing_software}, param-value: {field: dataset.processing_software_version}}}}}
+        - {map: {over: {literal: [acquisition]}, as: s, value: {term: {value: {field: dataset.acquisition_software}, param-value: {field: dataset.acquisition_software_version}}}}}
+    as: software
+    lines:
+      - key: "software[{software#}]"
+        value: {field: software}
+
+  # conv:214-217: extraction, then separation; a step keeps its number when the other is empty
+  - key: "sample_processing[1]"
+    value:
+      join:
+        sep: "|"
+        items:
+          - {term: {value: {field: dataset.extraction_method}}}
+          - {when: {if: {field: dataset.sample_preparation}, then: {user-param: {name: {literal: sample preparation}, value: {field: dataset.sample_preparation}}}}}
+  - key: "sample_processing[2]"
+    value:
+      join:
+        sep: "|"
+        items:
+          - {term: {value: {field: dataset.separation_method}}}
+          - {when: {if: {field: dataset.column}, then: {user-param: {name: {literal: chromatography column}, value: {field: dataset.column}}}}}
+          - {when: {if: {field: dataset.separation_details}, then: {user-param: {name: {literal: separation details}, value: {field: dataset.separation_details}}}}}
+
+  # conv:219-221, Converter.custom (conv:311-318)
+  - each:
+      map:
+        over: {ref: custom_fields}
+        as: c
+        value:
+          at:
+            index: {literal: 1}
+            list:
+              map:
+                over:
+                  filter:
+                    in: {entries: {when: {if: {eq: [{field: c.group}, {literal: study}]}, then: {field: study}, else: {ref: dataset}}}}
+                    as: e
+                    where: {eq: [{field: e.key}, {field: c.key}]}
+                as: e
+                value:
+                  when:
+                    if: {not-empty: {field: e.value}}
+                    then:
+                      when:
+                        if: {field: e.value.accession}
+                        then:
+                          when:
+                            if: {field: c.name}
+                            then: {user-param: {name: {field: c.name}, value: {format: {template: "{0} [{1}]", args: [{field: e.value.name}, {field: e.value.accession}]}}}}
+                            else: {term: {value: {field: e.value}}}
+                        else:
+                          when:
+                            if: {field: c.name}
+                            then: {user-param: {name: {field: c.name}, value: {label: {field: e.value}}}}
+                            else: {user-param: {name: {label: {field: e.value}}}}
+    as: custom
+    lines:
+      - key: "custom[{custom#}]"
+        value: {field: custom}
+
+  # conv:224-237: the samples of the dataset's quantities
+  - each: {field: dataset.quantities.samples}
+    as: name
+    lines:
+      - key: "sample[{name#}]"
+        value: {field: name}
+      - each: {filter: {in: {field: samples}, as: s, where: {eq: [{field: s.sample_name}, {field: name}]}}}
+        as: smp
+        lines:
+          - key: "sample[{name#}]-species[1]"
+            value: {term: {value: {field: smp.species}}}
+          - key: "sample[{name#}]-tissue[1]"
+            value: {term: {value: {field: smp.tissue}}}
+          - key: "sample[{name#}]-cell_type[1]"
+            value: {term: {value: {field: smp.cell_type}}}
+          - key: "sample[{name#}]-disease[1]"
+            value: {term: {value: {field: smp.disease}}}
+          - key: "sample[{name#}]-description"
+            value:
+              join:
+                sep: "; "
+                items:
+                  - {when: {if: {field: smp.sample_type}, then: {label: {field: smp.sample_type}}}}
+                  - {field: smp.sample_description}
+          # sex, age, then the sample's factor columns, each as Converter.factor_param (conv:175-180) writes it: the
+          # factor's term (else the default, else the name) with the value, and the factor's unit when the value
+          # is not a term. `factor` is the record of that name (any case) in factor_records, or {} when there is
+          # none; a value is a term (an object of the instance) when it has an accession, a name or a text.
+          - each:
+              concat:
+                - map:
+                    over: {literal: [sex]}
+                    as: k
+                    value:
+                      when:
+                        if: {not-empty: {field: smp.sex}}
+                        then:
+                          at:
+                            index: {literal: 1}
+                            list:
+                              map:
+                                over:
+                                  concat:
+                                    - {filter: {in: {ref: factor_records}, as: f, where: {eq: [{lower: {field: f.factor_name}}, {lower: {field: k}}]}}}
+                                    - {literal: [{}]}
+                                as: factor
+                                value:
+                                  term:
+                                    value:
+                                      first:
+                                        - {field: factor.factor_term}
+                                        - {literal: {cv: NCIT, accession: "NCIT:C28421", name: Sex}}
+                                        - {field: k}
+                                    param-value:
+                                      join:
+                                        sep: " "
+                                        items:
+                                          - {label: {field: smp.sex}}
+                                          - when:
+                                              if: {first: [{field: smp.sex.accession}, {field: smp.sex.name}, {field: smp.sex.text}]}
+                                              then: {literal: null}
+                                              else: {field: factor.unit}
+                - map:
+                    over: {literal: [age]}
+                    as: k
+                    value:
+                      when:
+                        if: {not-empty: {field: smp.age}}
+                        then:
+                          at:
+                            index: {literal: 1}
+                            list:
+                              map:
+                                over:
+                                  concat:
+                                    - {filter: {in: {ref: factor_records}, as: f, where: {eq: [{lower: {field: f.factor_name}}, {lower: {field: k}}]}}}
+                                    - {literal: [{}]}
+                                as: factor
+                                value:
+                                  term:
+                                    value:
+                                      first:
+                                        - {field: factor.factor_term}
+                                        - {literal: {cv: NCIT, accession: "NCIT:C25150", name: Age}}
+                                        - {field: k}
+                                    param-value:
+                                      join:
+                                        sep: " "
+                                        items:
+                                          - {label: {field: smp.age}}
+                                          - when:
+                                              if: {first: [{field: smp.age.accession}, {field: smp.age.name}, {field: smp.age.text}]}
+                                              then: {literal: null}
+                                              else: {field: factor.unit}
+                - map:
+                    over: {filter: {in: {entries: {field: smp.factors}}, as: e, where: {not-empty: {field: e.value}}}}
+                    as: e
+                    value:
+                      at:
+                        index: {literal: 1}
+                        list:
+                          map:
+                            over:
+                              concat:
+                                - {filter: {in: {ref: factor_records}, as: f, where: {eq: [{lower: {field: f.factor_name}}, {lower: {field: e.key}}]}}}
+                                - {literal: [{}]}
+                            as: factor
+                            value:
+                              term:
+                                value: {first: [{field: factor.factor_term}, {field: e.key}]}
+                                param-value:
+                                  join:
+                                    sep: " "
+                                    items:
+                                      - {label: {field: e.value}}
+                                      - when:
+                                          if: {first: [{field: e.value.accession}, {field: e.value.name}, {field: e.value.text}]}
+                                          then: {literal: null}
+                                          else: {field: factor.unit}
+            as: custom
+            lines:
+              - key: "sample[{name#}]-custom[{custom#}]"
+                value: {field: custom}
+
+  # conv:238-249
+  - each: {field: dataset.quantities.samples}
+    as: run
+    lines:
+      - key: "ms_run[{run#}]-location"
+        value: {ref: location}
+      - key: "ms_run[{run#}]-instrument_ref"
+        value: {literal: "instrument[1]"}
+      - key: "ms_run[{run#}]-scan_polarity[1]"
+        value: {term: {value: {field: dataset.scan_polarity}}}
+      - key: "ms_run[{run#}]-fragmentation_method[1]"
+        value: {term: {value: {field: dataset.dissociation_method}}}
+
+  # conv:250-251
+  - each: {field: dataset.quantities.samples}
+    as: assay
+    lines:
+      - key: "assay[{assay#}]"
+        value: {field: assay}
+      - key: "assay[{assay#}]-sample_ref"
+        value: {ref-to: {element: sample, name: {field: assay}}}
+      - key: "assay[{assay#}]-ms_run_ref"
+        value: {ref-to: {element: ms_run, name: {field: assay}}}
+
+  # conv:253-266
+  - each: {ref: groups}
+    as: group
+    lines:
+      - key: "study_variable[{group#}]"
+        value:
+          when:
+            if: {field: group.key}
+            then: {join: {items: {map: {over: {field: group.key}, as: k, value: {label: {field: k.value}}}}, sep: " / "}}
+            else: {literal: undefined}
+      - key: "study_variable[{group#}]-assay_refs"
+        value:
+          map:
+            over: {field: group.members}
+            as: m
+            value: {ref-to: {element: assay, name: {at: {list: {field: dataset.quantities.samples}, index: {field: m}}}}}
+      - key: "study_variable[{group#}]-average_function"
+        value: {cvparam: {cv: {literal: MS}, accession: {literal: "MS:1002962"}, name: {literal: mean}}}
+      - key: "study_variable[{group#}]-variation_function"
+        value: {cvparam: {cv: {literal: MS}, accession: {literal: "MS:1002963"}, name: {literal: variation coefficient}}}
+      # one factor: its parameter as Converter.factor_param writes it; several: one user parameter naming them all
+      - key: "study_variable[{group#}]-factors"
+        value:
+          when:
+            if: {eq: [{count: {field: group.key}}, {literal: 1}]}
+            then:
+              at:
+                index: {literal: 1}
+                list:
+                  map:
+                    over: {field: group.key}
+                    as: k
+                    value:
+                      at:
+                        index: {literal: 1}
+                        list:
+                          map:
+                            over:
+                              concat:
+                                - {filter: {in: {ref: factor_records}, as: f, where: {eq: [{lower: {field: f.factor_name}}, {lower: {field: k.factor}}]}}}
+                                - {literal: [{}]}
+                            as: factor
+                            value:
+                              term:
+                                value: {first: [{field: factor.factor_term}, {field: k.factor}]}
+                                param-value:
+                                  join:
+                                    sep: " "
+                                    items:
+                                      - {label: {field: k.value}}
+                                      - when:
+                                          if: {first: [{field: k.value.accession}, {field: k.value.name}, {field: k.value.text}]}
+                                          then: {literal: null}
+                                          else: {field: factor.unit}
+            else:
+              when:
+                if: {field: group.key}
+                then:
+                  user-param:
+                    name: {join: {items: {map: {over: {field: group.key}, as: k, value: {field: k.factor}}}, sep: " / "}}
+                    value: {join: {items: {map: {over: {field: group.key}, as: k, value: {label: {field: k.value}}}}, sep: " / "}}
+      - key: "study_variable[{group#}]-description"
+        value:
+          when:
+            if: {field: group.key}
+            then:
+              join:
+                sep: "; "
+                items: {map: {over: {field: group.key}, as: k, value: {format: {template: "{0}: {1}", args: [{field: k.factor}, {label: {field: k.value}}]}}}}
+            else: {literal: no factor defines the study groups}
+
+  # conv:268-270: database[1] declares the 'goslin:' prefix of database_identifier
+  - key: "database[1]"
+    value: {user-param: {name: {literal: goslin normalized lipid shorthand name}}}
+  - key: "database[1]-prefix"
+    value: {literal: goslin}
+  - key: "database[1]-version"
+    value: {literal: "2.1"}
+  - key: "database[1]-uri"
+    value: {literal: "https://github.com/lifs-tools/goslin"}
+
+  # conv:272-278
+  - key: quantification_method
+    value: {term: {value: {field: dataset.quantification_method}}}
+  - key: small_molecule-quantification_unit
+    value: {term: {value: {field: dataset.quantification_unit}}}
+  - key: small_molecule_feature-quantification_unit
+    value: {term: {value: {field: dataset.quantification_unit}}}
+  - key: "id_confidence_measure[1]"
+    value: {ref: confidence}
+  - key: small_molecule-identification_reliability
+    value:
+      first:
+        - {term: {value: {field: dataset.identification_reliability}}}
+        - {cvparam: {cv: {literal: MS}, accession: {literal: "MS:1002896"}, name: {literal: compound identification confidence level}}}
+
+tables:
+  # Converter.sml (conv:342-392)
+  - section: SML
+    header: SMH
+    rows: {field: dataset.quantities.lipids}
+    as: lipid
+    columns:
+      - header: SML_ID
+        value: {pos: lipid}
+      - header: SMF_ID_REFS
+        value: {literal: "null"}
+      - header: database_identifier
+        value:
+          when:
+            if: {at: {list: {ref: normalised_names}, index: {pos: lipid}}}
+            then: {format: {template: "goslin:{0}", args: [{at: {list: {ref: normalised_names}, index: {pos: lipid}}}]}}
+            else: {literal: "null"}
+      - header: chemical_formula
+        value: {first: [{at: {list: {ref: formulas}, index: {pos: lipid}}}, {literal: "null"}]}
+      - header: smiles
+        value: {literal: "null"}
+      - header: inchi
+        value: {literal: "null"}
+      - header: chemical_name
+        value: {first: [{at: {list: {ref: normalised_names}, index: {pos: lipid}}}, {field: lipid}]}
+      - header: uri
+        value: {literal: "null"}
+      - header: theoretical_neutral_mass
+        value: {number: {at: {list: {ref: masses}, index: {pos: lipid}}}}
+      - header: adduct_ions
+        value: {literal: "null"}
+      - header: reliability
+        value: {at: {list: {ref: reliabilities}, index: {pos: lipid}}}
+      - header: best_id_confidence_measure
+        value: {ref: confidence}
+      - header: best_id_confidence_value
+        value: {literal: "null"}
+      - each: {field: dataset.quantities.samples}
+        as: assay
+        columns:
+          - header: "abundance_assay[{assay#}]"
+            value: {number: {at: {list: {at: {list: {field: dataset.quantities.values}, index: {pos: assay}}}, index: {pos: lipid}}}}
+      - each: {ref: groups}
+        as: group
+        columns:
+          - header: "abundance_study_variable[{group#}]"
+            value:
+              number:
+                aggregate:
+                  fn: mean
+                  values: {map: {over: {field: group.members}, as: m, value: {at: {list: {at: {list: {field: dataset.quantities.values}, index: {field: m}}}, index: {pos: lipid}}}}}
+          - header: "abundance_variation_study_variable[{group#}]"
+            value:
+              number:
+                aggregate:
+                  fn: cv
+                  values: {map: {over: {field: group.members}, as: m, value: {at: {list: {at: {list: {field: dataset.quantities.values}, index: {field: m}}}, index: {pos: lipid}}}}}
+      - header: opt_global_original_name
+        value: {field: lipid}
+      - header: opt_global_internal_standard
+        value: {at: {list: {ref: internal_standard_flags}, index: {pos: lipid}}}
+        # conv:345: any of the dataset's rows (the last of each name) has an internal_standard
+        where: {find: {in: {ref: dataset_lipids}, as: l, where: {not-empty: {field: l.internal_standard}}}}

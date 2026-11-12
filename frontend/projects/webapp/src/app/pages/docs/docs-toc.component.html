@@ -1,0 +1,29 @@
+@if (entries().length) {
+  @if (wide()) {
+    <nav class="toc" aria-label="On this page">
+      <p class="lifs-label">On this page</p>
+      <ng-container *ngTemplateOutlet="list" />
+    </nav>
+  } @else {
+    <details class="toc toc--collapsed">
+      <summary>On this page</summary>
+      <ng-container *ngTemplateOutlet="list" />
+    </details>
+  }
+}
+
+<ng-template #list>
+  <ul class="toc__list">
+    @for (e of entries(); track e.heading) {
+      <li [class.toc__sub]="e.level === 3">
+        <a
+          [routerLink]="path()"
+          [fragment]="e.id"
+          [class.toc__link--current]="e.id === active()"
+          [attr.aria-current]="e.id === active() ? 'location' : null"
+          >{{ e.text }}</a
+        >
+      </li>
+    }
+  </ul>
+</ng-template>

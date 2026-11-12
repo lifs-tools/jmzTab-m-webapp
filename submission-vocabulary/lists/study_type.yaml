@@ -1,0 +1,11 @@
+# Value list study_type, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: study_type
+entries:
+  - text: "Lipidome study"
+    note: "multi-class lipidomics"
+  - text: "Technical study"
+    note: "method development; single or few lipid classes"
+  - text: "Reference material study"
+    note: "e.g. NIST SRM 1950"
+  - text: "Ring trial study"
+    note: "interlaboratory comparison of the same samples; one dataset per laboratory"

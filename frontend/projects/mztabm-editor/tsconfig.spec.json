@@ -1,0 +1,9 @@
+/* The library has no build target yet (packaging is phase 2c); this config serves its unit tests. */
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/mztabm-editor-spec",
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.d.ts", "src/**/*.spec.ts"]
+}

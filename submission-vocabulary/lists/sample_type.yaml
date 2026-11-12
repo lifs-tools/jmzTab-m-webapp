@@ -1,0 +1,9 @@
+# Value list sample_type, from the v3 template (lipidcompass-submissions bb8dcbf).
+name: sample_type
+entries:
+  - text: "individual sample"
+  - text: "pooled sample"
+  - text: "quality control"
+  - text: "blank"
+  - text: "reference material"
+    note: "e.g. NIST SRM 1950"
