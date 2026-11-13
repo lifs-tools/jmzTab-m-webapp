@@ -29,12 +29,18 @@ final class StripNameNotes {
 
     /** Python's whitespace ({@code str.isspace()}), as a regex character class. */
     private static final String WS = "[\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
-    private static final Pattern COMMENT = Pattern.compile(WS + "*//.*\\z", Pattern.DOTALL);
-    private static final Pattern SQUARE_NOTE = Pattern.compile(WS + "*\\[[^\\[\\]]*\\]\\z");
-    private static final Pattern UNCLOSED = Pattern.compile(WS + "+\\([^()]*\\z");
+    /** Longer names are returned as they are: lipid names are far shorter, and this bounds the work for any input. */
+    static final int MAX_LENGTH = 1000;
+    /*
+     * The whitespace before a note is not part of a pattern: it is removed after each step anyway, and leaving it out
+     * keeps each search linear (no pattern rescans a run of whitespace or of note text from every start position).
+     */
+    private static final Pattern COMMENT = Pattern.compile("//.*\\z", Pattern.DOTALL);
+    private static final Pattern SQUARE_NOTE = Pattern.compile("\\[[^\\[\\]]*\\]\\z");
+    private static final Pattern UNCLOSED = Pattern.compile(WS + "\\([^()]*\\z");
     private static final Pattern ISOMER = Pattern.compile("_[A-Z]\\z");
     private static final Pattern ADDUCT = Pattern.compile("_M[+-][A-Za-z0-9+-]*\\]?[+-]?\\z");
-    private static final Pattern SQUARE_ADDUCT = Pattern.compile(WS + "*\\[M[+-][^\\]]*\\][+-]?\\z");
+    private static final Pattern SQUARE_ADDUCT = Pattern.compile("\\[M[+-][^\\[\\]]*\\][+-]?\\z");
     private static final List<Pattern> AFTER_ROUND = List.of(SQUARE_NOTE, UNCLOSED, ISOMER, ADDUCT, SQUARE_ADDUCT);
 
     private StripNameNotes() {
@@ -56,6 +62,9 @@ final class StripNameNotes {
     }
 
     static String strip(String name) {
+        if (name.length() > MAX_LENGTH) {
+            return name;
+        }
         String prev = null;
         String s = name;
         while (!s.equals(prev)) {

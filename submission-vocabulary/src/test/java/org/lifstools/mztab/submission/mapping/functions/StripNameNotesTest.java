@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.lifstools.mztab.submission.mapping.MappingRequestException;
@@ -56,6 +57,26 @@ class StripNameNotesTest {
     void pythonWhitespaceCountsBeforeAComment() {
         assertThat(call(new Value.Text("PC 34:1 (note) "))).isEqualTo(new Value.Text("PC 34:1"));
         assertThat(call(new Value.Text("PC 34:1​(note)"))).isEqualTo(new Value.Text("PC 34:1​(note)"));
+    }
+
+    @Test
+    void aNameLongerThanTheLimitIsReturnedAsItIs() {
+        String name = "PC 34:1" + " [a]".repeat(StripNameNotes.MAX_LENGTH / 4);
+        assertThat(name.length()).isGreaterThan(StripNameNotes.MAX_LENGTH);
+        assertThat(call(new Value.Text(name))).isEqualTo(new Value.Text(name));
+        String atLimit = "PC 34:1" + " [a]".repeat((StripNameNotes.MAX_LENGTH - 7) / 4);
+        assertThat(atLimit.length()).isBetween(StripNameNotes.MAX_LENGTH - 3, StripNameNotes.MAX_LENGTH);
+        assertThat(call(new Value.Text(atLimit))).isEqualTo(new Value.Text("PC 34:1"));
+    }
+
+    @Test
+    @Timeout(2)
+    void adversarialNamesAtTheLimitStayCheap() {
+        int n = StripNameNotes.MAX_LENGTH;
+        for (String name : List.of(" ".repeat(n - 1) + "x", "[M+".repeat(n / 3), "x" + " (".repeat(n / 2 - 1),
+                "x" + " [a]".repeat(n / 4 - 1), "x" + "\u00a0".repeat(n - 2) + "[", "_M+".repeat(n / 3))) {
+            call(new Value.Text(name));
+        }
     }
 
     @Test

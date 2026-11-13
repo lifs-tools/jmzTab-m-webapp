@@ -536,9 +536,9 @@ Whitespace is Python's: the characters for which `str.isspace()` is true (as in 
 4. An unclosed comment: whitespace, `(` and then no `(` or `)` up to the end.
 5. An isomer letter: `_` and one letter `A`-`Z` at the end.
 6. An adduct: `_M`, then `+` or `-`, then letters `A-Za-z`, digits and `+`/`-`, an optional `]` and an optional `+` or `-`, at the end.
-7. An adduct in square brackets: `[M`, then `+` or `-`, any characters but `]`, then `]` and an optional `+` or `-`, at the end, with the whitespace before it.
+7. An adduct in square brackets: `[M`, then `+` or `-`, any characters but `[` and `]`, then `]` and an optional `+` or `-`, at the end, with the whitespace before it.
 
-A name with nothing to remove is returned unchanged. Null gives Null. Any other value than a text is an error.
+A name with nothing to remove is returned unchanged, and so is a name longer than 1,000 characters: lipid names are far shorter, and the limit bounds the work for any input. Null gives Null. Any other value than a text is an error.
 
 | Name | Result |
 |---|---|
