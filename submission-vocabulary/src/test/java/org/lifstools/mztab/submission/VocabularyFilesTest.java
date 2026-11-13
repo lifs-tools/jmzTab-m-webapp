@@ -41,6 +41,8 @@ class VocabularyFilesTest {
      * The hints are informative; the output mapping defines what is written.
      */
     private static final Map<String, String> AMENDED_HINTS = Map.of("lipids.internal_standard", "opt_global_internal_standard");
+    /** The workbook fields added after v3 3.0.0, by group and field id, each with the vocabulary version that added it. */
+    private static final Map<String, String> ADDED_FIELDS = Map.of("lipids.alternative_name", "1.2.0");
 
     private static JsonNode yaml(String path) throws IOException {
         try (InputStream in = VocabularyFilesTest.class.getResourceAsStream(ROOT + path)) {
@@ -81,7 +83,8 @@ class VocabularyFilesTest {
                 g.getValue().get("fields").forEach(f -> actual.add(g.getKey() + "." + f.get("id").asText()));
             }
         });
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertThat(actual).containsAll(ADDED_FIELDS.keySet());
+        assertThat(actual.stream().filter(f -> !ADDED_FIELDS.containsKey(f)).toList()).containsExactlyElementsOf(expected);
         // each field has exactly the keys and values of the v3 schema, apart from the amended mzTab-M hints
         JsonNode v3;
         try (InputStream in = getClass().getResourceAsStream("/v3-sheets.json")) {
@@ -96,7 +99,12 @@ class VocabularyFilesTest {
             });
         });
         v3.fields().forEachRemaining(g -> {
-            JsonNode fields = vocab.get(g.getKey()).get("fields");
+            List<JsonNode> fields = new ArrayList<>();
+            vocab.get(g.getKey()).get("fields").forEach(f -> {
+                if (!ADDED_FIELDS.containsKey(g.getKey() + "." + f.get("id").asText())) {
+                    fields.add(f);
+                }
+            });
             assertThat(fields.size()).as(g.getKey()).isEqualTo(g.getValue().size());
             for (int i = 0; i < fields.size(); i++) {
                 assertThat(fields.get(i)).as(g.getKey() + "#" + i).isEqualTo(g.getValue().get(i));
@@ -136,7 +144,16 @@ class VocabularyFilesTest {
     }
 
     @Test
-    void versionIs100() {
-        assertThat(Vocabulary.load().version()).isEqualTo("1.1.0");
+    void alternativeNameIsAnOptionalTextFieldAfterTheComment() {
+        Vocabulary.Group lipids = Vocabulary.load().group("lipids");
+        assertThat(lipids.fields()).extracting(Vocabulary.Field::id).endsWith("lipid_comment", "alternative_name");
+        Vocabulary.Field f = lipids.fields().get(lipids.fields().size() - 1);
+        assertThat(f.label()).isEqualTo("Alternative name");
+        assertThat(f.list()).isNull();
+    }
+
+    @Test
+    void versionIs120() {
+        assertThat(Vocabulary.load().version()).isEqualTo("1.2.0");
     }
 }
