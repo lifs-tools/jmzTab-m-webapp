@@ -42,7 +42,7 @@ class VocabularyFilesTest {
      */
     private static final Map<String, String> AMENDED_HINTS = Map.of("lipids.internal_standard", "opt_global_internal_standard");
     /** The workbook fields added after v3 3.0.0, by group and field id, each with the vocabulary version that added it. */
-    private static final Map<String, String> ADDED_FIELDS = Map.of("lipids.alternative_name", "1.2.0");
+    private static final Map<String, String> ADDED_FIELDS = Map.of("lipids.alternative_name", "1.2.0", "lipids.normalise_name", "1.3.0");
 
     private static JsonNode yaml(String path) throws IOException {
         try (InputStream in = VocabularyFilesTest.class.getResourceAsStream(ROOT + path)) {
@@ -144,16 +144,21 @@ class VocabularyFilesTest {
     }
 
     @Test
-    void alternativeNameIsAnOptionalTextFieldAfterTheComment() {
+    void alternativeNameAndNormaliseNameFollowTheComment() {
         Vocabulary.Group lipids = Vocabulary.load().group("lipids");
-        assertThat(lipids.fields()).extracting(Vocabulary.Field::id).endsWith("lipid_comment", "alternative_name");
-        Vocabulary.Field f = lipids.fields().get(lipids.fields().size() - 1);
-        assertThat(f.label()).isEqualTo("Alternative name");
-        assertThat(f.list()).isNull();
+        assertThat(lipids.fields()).extracting(Vocabulary.Field::id)
+                .endsWith("lipid_comment", "alternative_name", "normalise_name");
+        int n = lipids.fields().size();
+        Vocabulary.Field alternative = lipids.fields().get(n - 2);
+        assertThat(alternative.label()).isEqualTo("Alternative name");
+        assertThat(alternative.list()).isNull();
+        Vocabulary.Field normalise = lipids.fields().get(n - 1);
+        assertThat(normalise.label()).isEqualTo("Normalise the name");
+        assertThat(normalise.list()).isEqualTo("yes_no");
     }
 
     @Test
-    void versionIs120() {
-        assertThat(Vocabulary.load().version()).isEqualTo("1.2.0");
+    void versionIs130() {
+        assertThat(Vocabulary.load().version()).isEqualTo("1.3.0");
     }
 }

@@ -72,7 +72,7 @@ public final class Render {
     }
 
     /** Python {@code str.isspace()} for one character. */
-    static boolean isSpace(char c) {
+    public static boolean isSpace(char c) {
         return (c >= '\t' && c <= '\r') || (c >= '\u001c' && c <= ' ') || c == '\u0085' || c == ' ' || c == ' '
                 || (c >= ' ' && c <= ' ') || c == ' ' || c == ' ' || c == ' ' || c == ' '
                 || c == '　';

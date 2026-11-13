@@ -1,9 +1,9 @@
-# The submission vocabulary 1.2.0: field dictionary of the LipidCompass submission template v3.
+# The submission vocabulary 1.3.0: field dictionary of the LipidCompass submission template v3.
 # Field keys are kept as in the v3 schema. See ../README.md.
 
 vocabulary:
   id: submission-vocabulary
-  version: 1.2.0
+  version: 1.3.0
   licence: CC-BY-4.0
   origin: "lipidcompass-submission-template 3.0.0 (lipidcompass-submissions bb8dcbf)"
 
@@ -496,6 +496,13 @@ groups:
         required: false
         mztab: "opt_global_alternative_name"
         help: "Optional second name for the same lipid, kept as written: for example a reading with more detail than the lipid name states, or a curator's interpretation. The lipid name stays the one that is normalised."
+        example: ""
+      - id: "normalise_name"
+        label: "Normalise the name"
+        required: false
+        list: "yes_no"
+        mztab: "database_identifier / chemical_name"
+        help: "'no' when Goslin reads the lipid name as a different lipid: the name is then kept as written, with the database identifier goslin:null. Empty or 'yes': Goslin normalises the name where it can, if need be without a custom suffix or comment at its end."
         example: ""
   quantities:
     workbook: true

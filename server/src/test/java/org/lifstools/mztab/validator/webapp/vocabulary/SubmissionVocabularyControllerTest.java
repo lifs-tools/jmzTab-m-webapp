@@ -62,11 +62,11 @@ class SubmissionVocabularyControllerTest {
 
     @Test
     void theVocabularyIsServedAsYaml() throws Exception {
-        mvc.perform(get(BASE + "1.2.0/vocabulary/vocabulary.yaml"))
+        mvc.perform(get(BASE + "1.3.0/vocabulary/vocabulary.yaml"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Type", "application/yaml;charset=UTF-8"))
             .andExpect(header().string("Cache-Control", "max-age=86400, public"))
-            .andExpect(content().string(containsString("version: 1.2.0")));
+            .andExpect(content().string(containsString("version: 1.3.0")));
     }
 
     @ParameterizedTest
@@ -77,7 +77,7 @@ class SubmissionVocabularyControllerTest {
         "examples/v3-example/expected/LCS-99999-01.mzTab, text/tab-separated-values;charset=UTF-8",
         "mappings/output/mztab-2.0.0-M.yaml, application/yaml;charset=UTF-8"})
     void filesAreServedWithTheirType(String path, String type) throws Exception {
-        mvc.perform(get(BASE + "1.2.0/" + path))
+        mvc.perform(get(BASE + "1.3.0/" + path))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Type", type))
             .andExpect(header().string("Cache-Control", "max-age=86400, public"));
@@ -85,20 +85,20 @@ class SubmissionVocabularyControllerTest {
 
     @Test
     void anotherVersionIsNotFound() throws Exception {
-        mvc.perform(get(BASE + "1.2.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
+        mvc.perform(get(BASE + "1.3.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
         mvc.perform(get(BASE + "0.9.0/vocabulary/vocabulary.yaml")).andExpect(status().isNotFound());
     }
 
     @Test
     void aPublishedPathWithoutAFileIsNotFound() throws Exception {
-        mvc.perform(get(BASE + "1.2.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
-        mvc.perform(get(BASE + "1.2.0/vocabulary/none.yaml")).andExpect(status().isNotFound());
+        mvc.perform(get(BASE + "1.3.0/vocabulary/vocabulary.yaml")).andExpect(status().isOk());
+        mvc.perform(get(BASE + "1.3.0/vocabulary/none.yaml")).andExpect(status().isNotFound());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"examples/v3-example", "examples/v3-example/expected"})
     void aDirectoryIsNotFound(String path) throws Exception {
-        mvc.perform(get(BASE + "1.2.0/" + path)).andExpect(status().isNotFound())
+        mvc.perform(get(BASE + "1.3.0/" + path)).andExpect(status().isNotFound())
             .andExpect(header().string("Cache-Control", not(containsString("public"))));
     }
 
@@ -107,6 +107,6 @@ class SubmissionVocabularyControllerTest {
     @ValueSource(strings = {"vocabulary/../../pom.xml", "src/x", "pom.xml", "vocabulary/../LICENSE", "mappings/x.yaml",
         "vocabulary/./vocabulary.yaml", "vocabulary/a b"})
     void otherPathsAreRefused(String path) throws Exception {
-        mvc.perform(get(BASE + "1.2.0/" + path)).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "1.3.0/" + path)).andExpect(status().isBadRequest());
     }
 }

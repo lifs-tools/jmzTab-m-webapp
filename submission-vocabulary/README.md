@@ -32,6 +32,8 @@ Version 1.1.0 adds seven entries to `quantification_unit`, the CV units that pub
 
 Version 1.2.0 adds the optional field `lipids.alternative_name` (column 'Alternative name' on the Lipids sheet): a second name for the same lipid, kept as written, for example a curator's reading with more detail than the lipid name states. It is written to mzTab-M as `opt_global_alternative_name`; the lipid name stays the one that is normalised. The v3-workbook and mztab-2.0.0-M mappings read and write it and are version 1.1.0.
 
+Version 1.3.0 adds the optional field `lipids.normalise_name` (column 'Normalise the name', `yes_no`): 'no' keeps a name that Goslin reads as a different lipid as written, with the database identifier `goslin:null`. The mapping language gains the function `strip-name-notes`: the mztab-2.0.0-M mapping (1.2.0) reads a name that does not parse again without the custom suffixes and comments at its end, so the name as written stays in `opt_global_original_name`. The v3-workbook mapping is 1.2.0.
+
 The `mztab` hint of a field says where the field usually ends up in mzTab-M. It is informative: what is written is defined by the output mapping, which is normative.
 
 ## Getting it

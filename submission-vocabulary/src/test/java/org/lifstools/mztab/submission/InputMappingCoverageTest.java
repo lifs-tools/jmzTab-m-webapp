@@ -34,7 +34,7 @@ class InputMappingCoverageTest {
         Vocabulary vocabulary = Vocabulary.load();
         Mapping v3 = MappingLoader.load("v3-workbook");
         assertThat(v3.kind()).isEqualTo(Mapping.Kind.INPUT);
-        assertThat(v3.version()).isEqualTo("1.1.0");
+        assertThat(v3.version()).isEqualTo("1.2.0");
         assertThat(v3.vocabulary()).isEqualTo(vocabulary.version());
 
         List<String> workbookGroups = vocabulary.groups().stream().filter(Vocabulary.Group::workbook)
