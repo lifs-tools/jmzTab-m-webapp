@@ -146,8 +146,46 @@ class V3EquivalenceTwoZeroTest {
         assertThat(stripped[chemical]).isEqualTo(before[chemical]);
         assertThat(stripped[id]).isEqualTo(before[id]).startsWith("goslin:");
         String[] kept = rows.stream().filter(r -> r[original].equals(other)).findFirst().orElseThrow();
-        assertThat(kept[id]).isEqualTo("null");
+        assertThat(kept[id]).isEqualTo("goslin:null");
         assertThat(kept[chemical]).isEqualTo(other);
+    }
+
+    @Test
+    void aNameGoslinDoesNotReadIsGoslinNullAndTheFileValidates() throws IOException {
+        ObjectNode instance = (ObjectNode) json("instance.json");
+        ObjectNode first = (ObjectNode) instance.get("lipids").get(0);
+        ObjectNode second = (ObjectNode) instance.get("lipids").get(1);
+        String name = first.get("lipid_name").asText();
+        String unread = "unknown feature 1";
+        String kept = second.get("lipid_name").asText();
+        first.put("lipid_name", unread);
+        second.set("normalise_name", JSON.createObjectNode().put("text", "no"));
+        com.fasterxml.jackson.databind.node.ArrayNode lipids = (com.fasterxml.jackson.databind.node.ArrayNode)
+            instance.get("datasets").get(0).get("quantities").get("lipids");
+        for (int i = 0; i < lipids.size(); i++) {
+            if (lipids.get(i).asText().equals(name)) {
+                lipids.set(i, JSON.getNodeFactory().textNode(unread));
+            }
+        }
+        String text = apply("01", instance).text();
+
+        List<String> header = List.of(text.lines().filter(l -> l.startsWith("SMH\t")).findFirst().orElseThrow().split("\t", -1));
+        int id = header.indexOf("database_identifier");
+        int chemical = header.indexOf("chemical_name");
+        int original = header.indexOf("opt_global_original_name");
+        List<String[]> rows = text.lines().filter(l -> l.startsWith("SML\t")).map(l -> l.split("\t", -1)).toList();
+        for (String n : List.of(unread, kept)) {
+            String[] r = rows.stream().filter(x -> x[original].equals(n)).findFirst().orElseThrow();
+            assertThat(r[id]).as(n).isEqualTo("goslin:null");     // mzTab-M: the prefix followed by null
+            assertThat(r[chemical]).as(n).isEqualTo(n);
+        }
+
+        // jmzTab-m 1.0.8: database_identifier and chemical_name must hold as many items (Error-2046)
+        Path file = dir.resolve("LCS-99999-01-unread.mzTab");
+        Files.writeString(file, text, StandardCharsets.UTF_8);
+        List<ValidationMessage> messages = validator.validate(file, ValidationLevel.INFO, 100, null).messages();
+        assertThat(messages).as("messages: %s", messages.stream().map(m -> m.getCode() + ": " + m.getMessage()).toList())
+            .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
     }
 
     /** The output mapping applied to the example, as a new file, with the provenance of the v3 route. */
@@ -159,7 +197,7 @@ class V3EquivalenceTwoZeroTest {
         JsonNode parameters = json("parameters.json").get(Integer.parseInt(n) - 1);
         Map<String, String> p = new LinkedHashMap<>();
         parameters.properties().forEach(e -> p.put(e.getKey(), e.getValue().asText()));
-        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.2.0", p, instance, "",
+        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.3.0", p, instance, "",
             true, "v3-workbook 1.2.0");
         return new MappingApplier().apply(request, engineVersions());
     }
