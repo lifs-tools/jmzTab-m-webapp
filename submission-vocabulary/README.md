@@ -32,7 +32,9 @@ Version 1.1.0 adds seven entries to `quantification_unit`, the CV units that pub
 
 Version 1.2.0 adds the optional field `lipids.alternative_name` (column 'Alternative name' on the Lipids sheet): a second name for the same lipid, kept as written, for example a curator's reading with more detail than the lipid name states. It is written to mzTab-M as `opt_global_alternative_name`; the lipid name stays the one that is normalised. The v3-workbook and mztab-2.0.0-M mappings read and write it and are version 1.1.0.
 
-Version 1.3.0 adds the optional field `lipids.normalise_name` (column 'Normalise the name', `yes_no`): 'no' keeps a name that Goslin reads as a different lipid as written and not identified, like a name Goslin cannot parse (database identifier `null`). The mapping language gains the function `strip-name-notes`: the mztab-2.0.0-M mapping (1.2.0) reads a name that does not parse again without the custom suffixes and comments at its end, so the name as written stays in `opt_global_original_name`. The v3-workbook mapping is 1.2.0.
+Version 1.3.0 adds the optional field `lipids.normalise_name` (column 'Normalise the name', `yes_no`): 'no' keeps a name that Goslin reads as a different lipid as written and not identified, like a name Goslin cannot parse. The mapping language gains the function `strip-name-notes`: the mztab-2.0.0-M mapping (1.2.0) reads a name that does not parse again without the custom suffixes and comments at its end, so the name as written stays in `opt_global_original_name`. The v3-workbook mapping is 1.2.0.
+
+The mztab-2.0.0-M mapping 1.3.0 writes `goslin:null` (the database prefix followed by null) as the database identifier of a name Goslin does not read or that is not normalised, instead of `null`. `chemical_name` holds the name, and jmzTab-m 1.0.8 requires as many identifiers as names (Error-2046). The vocabulary is unchanged.
 
 The `mztab` hint of a field says where the field usually ends up in mzTab-M. It is informative: what is written is defined by the output mapping, which is normative.
 

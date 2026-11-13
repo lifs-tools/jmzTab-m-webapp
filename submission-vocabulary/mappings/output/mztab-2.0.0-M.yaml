@@ -6,7 +6,11 @@
 # Version 1.1.0 adds the opt_global_alternative_name column (vocabulary 1.2.0, lipids.alternative_name), as the
 # converter of lipidcompass-submissions writes it from that vocabulary version on. Version 1.2.0 (vocabulary 1.3.0)
 # reads a name that does not parse again without its trailing notes (strip-name-notes), and does not normalise a name
-# whose Lipids row says normalise_name 'no'.
+# whose Lipids row says normalise_name 'no'. Version 1.3.0 writes goslin:null ("the database prefix followed by null",
+# mzTab-M 2.0.0-M) as the database_identifier of a name Goslin does not read, or that is not normalised, instead of
+# null: chemical_name holds the name, and jmzTab-m 1.0.8 requires as many identifiers as names (Error-2046). The
+# converter's other two readings of such a name (policy P7, lipidcompass-submissions#357) are not made: an identifier
+# from its curated table config/identifiers/analyte-identifiers.tsv, and goslin:<class> for a bare class name (PC).
 #
 # Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
 # numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
@@ -19,7 +23,7 @@
 # conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
 # engine's note on runs whose location is null.
 id: mztab-2.0.0-M
-version: 1.2.0
+version: 1.3.0
 kind: output
 vocabulary: 1.3.0
 target: 2.0.0-M
@@ -593,7 +597,8 @@ tables:
           when:
             if: {at: {list: {ref: normalised_names}, index: {pos: lipid}}}
             then: {format: {template: "goslin:{0}", args: [{at: {list: {ref: normalised_names}, index: {pos: lipid}}}]}}
-            else: {literal: "null"}
+            # P7: no identification by Goslin; as many identifiers as chemical names (jmzTab-m 1.0.8, Error-2046)
+            else: {literal: "goslin:null"}
       - header: chemical_formula
         value: {first: [{at: {list: {ref: formulas}, index: {pos: lipid}}}, {literal: "null"}]}
       - header: smiles
