@@ -128,8 +128,8 @@ class EngineMappingEndpointTest extends EngineContextTest {
     @Test
     void aMissingOrNullInstanceIsInvalid() throws Exception {
         for (String body : new String[] {
-            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.1.0\"}",
-            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.1.0\",\"instance\":null}"}) {
+            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.2.0\"}",
+            "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.2.0\",\"instance\":null}"}) {
             mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("invalid_request"));
@@ -138,7 +138,7 @@ class EngineMappingEndpointTest extends EngineContextTest {
 
     @Test
     void aNullParameterValueIsInvalid() throws Exception {
-        String body = "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.1.0\",\"instance\":{},"
+        String body = "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.2.0\",\"instance\":{},"
             + "\"parameters\":{\"study_id\":null}}";
         mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isBadRequest())
@@ -155,7 +155,7 @@ class EngineMappingEndpointTest extends EngineContextTest {
         objectMapper.readTree(text("parameters.json")).get(0).properties()
             .forEach(e -> parameters.put(e.getKey(), e.getValue().asText()));
         JsonNode instance = objectMapper.readTree(text("instance.json"));
-        return new MappingApplyRequest(mapping, "1.1.0", parameters, instance, "", true, "v3-workbook 1.1.0");
+        return new MappingApplyRequest(mapping, "1.2.0", parameters, instance, "", true, "v3-workbook 1.2.0");
     }
 
     private static String text(String name) {

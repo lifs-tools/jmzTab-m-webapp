@@ -112,7 +112,7 @@ class MappingApplierTest {
                 "{\"samples\":[{\"sample_name\":\"P001\",\"species\":" + HOMO_SAPIENS + "}]}", "", true), TWO_ZERO);
         List<String> lines = r.text().lines().toList();
         assertThat(lines.get(3)).isEqualTo("MTD\tsoftware[1]\t[, , jmzTab-m-webapp, " + Provenance.webappVersion() + "]");
-        assertThat(lines.subList(4, 7)).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.2.0",
+        assertThat(lines.subList(4, 7)).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.3.0",
                 "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tcv[1]-label\tNCBITaxon");
     }
 
@@ -181,7 +181,7 @@ class MappingApplierTest {
         MappingApplyRequest request = new MappingApplyRequest("tiny", "1.0.0", Map.of(), json("{\"samples\":[]}"), "", true,
                 "v3-workbook 1.0.0");
         MappingApplyResult r = applier().apply(request, TWO_ZERO);
-        assertThat(r.text().lines().skip(2).toList()).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.2.0",
+        assertThat(r.text().lines().skip(2).toList()).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.3.0",
                 "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tsoftware[1]-setting[3]\tv3-workbook 1.0.0");
     }
 
@@ -191,7 +191,7 @@ class MappingApplierTest {
         MappingApplyResult first = applier().apply(request("tiny", "{\"samples\":[]}",
                 "MTD\tmzTab-version\t2.0.0-M\nMTD\tsoftware[1]\t[, , other, 1]\n", true), TWO_ZERO);
         assertThat(first.text()).isEqualTo("MTD\tmzTab-version\t2.0.0-M\nMTD\tsoftware[1]\t[, , other, 1]\n"
-                + "MTD\tsoftware[2]\t" + webapp + "\nMTD\tsoftware[2]-setting[1]\tvocabulary 1.2.0\n"
+                + "MTD\tsoftware[2]\t" + webapp + "\nMTD\tsoftware[2]-setting[1]\tvocabulary 1.3.0\n"
                 + "MTD\tsoftware[2]-setting[2]\ttiny 1.0.0\n");
         MappingApplyResult again = applier().apply(request("tiny", "{\"samples\":[]}", first.text(), true), TWO_ZERO);
         assertThat(again.edits()).isEmpty();

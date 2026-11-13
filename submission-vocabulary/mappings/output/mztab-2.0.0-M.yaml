@@ -1,10 +1,12 @@
-# The submission vocabulary 1.2.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
+# The submission vocabulary 1.3.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
 # lipidcompass-submissions bb8dcbf tools/convert_submission_template.py writes it (Converter.dataset, conv:182-289, and
 # Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
 # ../../schema/mapping-language.md.
 #
 # Version 1.1.0 adds the opt_global_alternative_name column (vocabulary 1.2.0, lipids.alternative_name), as the
-# converter of lipidcompass-submissions writes it from that vocabulary version on.
+# converter of lipidcompass-submissions writes it from that vocabulary version on. Version 1.2.0 (vocabulary 1.3.0)
+# reads a name that does not parse again without its trailing notes (strip-name-notes), and does not normalise a name
+# whose Lipids row says normalise_name 'no'.
 #
 # Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
 # numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
@@ -17,9 +19,9 @@
 # conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
 # engine's note on runs whose location is null.
 id: mztab-2.0.0-M
-version: 1.1.0
+version: 1.2.0
 kind: output
-vocabulary: 1.2.0
+vocabulary: 1.3.0
 target: 2.0.0-M
 # dataset_index selects the dataset; dataset_id is informational (not read, not checked)
 parameters: [study_id, dataset_id, dataset_index]
@@ -136,8 +138,22 @@ let:
       over: {field: dataset.quantities.lipids}
       as: l
       value: {find: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}
+  # Converter.lipid: Null when the lipid's row says normalise_name 'no'; else the name as Goslin reads it, else the name
+  # without its trailing notes as Goslin reads it (opt_global_original_name keeps the name as written)
   parsed:
-    map: {over: {field: dataset.quantities.lipids}, as: l, value: {fn: {name: goslin-parse, args: [{field: l}]}}}
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value:
+        when:
+          if: {eq: [{field: note.normalise_name.text}, {literal: "no"}]}
+          then: {literal: null}
+          else:
+            first:
+              - {fn: {name: goslin-parse, args: [{at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}]}}
+              - fn:
+                  name: goslin-parse
+                  args: [{fn: {name: strip-name-notes, args: [{at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}]}}]
   normalised_names:
     map: {over: {ref: parsed}, as: p, value: {field: p.normalised}}
   # Converter.formula (conv:291-309)

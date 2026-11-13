@@ -71,7 +71,7 @@ class V3EquivalenceTwoZeroTest {
         MappingApplyResult result = apply(n);
 
         // the allowed software[3] lines record the v3 route (R11) before they are dropped
-        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.1.0\n");
+        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.2.0\n");
         assertThat(normalised(result.text())).isEqualTo(normalised(text("expected/LCS-99999-" + n + ".mzTab")));
     }
 
@@ -115,6 +115,41 @@ class V3EquivalenceTwoZeroTest {
             .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
     }
 
+    @Test
+    void aNameWithANoteIsReadWithoutItAndNormaliseNoKeepsTheNameAsWritten() throws IOException {
+        ObjectNode instance = (ObjectNode) json("instance.json");
+        ObjectNode first = (ObjectNode) instance.get("lipids").get(0);
+        ObjectNode second = (ObjectNode) instance.get("lipids").get(1);
+        String name = first.get("lipid_name").asText();
+        String other = second.get("lipid_name").asText();
+        String noted = name + " [NL-16:0]";
+        first.put("lipid_name", noted);
+        second.set("normalise_name", JSON.createObjectNode().put("text", "no"));
+        com.fasterxml.jackson.databind.node.ArrayNode lipids = (com.fasterxml.jackson.databind.node.ArrayNode)
+            instance.get("datasets").get(0).get("quantities").get("lipids");
+        for (int i = 0; i < lipids.size(); i++) {
+            if (lipids.get(i).asText().equals(name)) {
+                lipids.set(i, JSON.getNodeFactory().textNode(noted));
+            }
+        }
+        String expectedName = apply("01").text().lines().filter(l -> l.startsWith("SML\t") && l.contains("\t" + name + "\t"))
+            .findFirst().orElseThrow();
+        String text = apply("01", instance).text();
+
+        List<String> header = List.of(text.lines().filter(l -> l.startsWith("SMH\t")).findFirst().orElseThrow().split("\t", -1));
+        int id = header.indexOf("database_identifier");
+        int chemical = header.indexOf("chemical_name");
+        int original = header.indexOf("opt_global_original_name");
+        List<String[]> rows = text.lines().filter(l -> l.startsWith("SML\t")).map(l -> l.split("\t", -1)).toList();
+        String[] stripped = rows.stream().filter(r -> r[original].equals(noted)).findFirst().orElseThrow();
+        String[] before = expectedName.split("\t", -1);
+        assertThat(stripped[chemical]).isEqualTo(before[chemical]);
+        assertThat(stripped[id]).isEqualTo(before[id]).startsWith("goslin:");
+        String[] kept = rows.stream().filter(r -> r[original].equals(other)).findFirst().orElseThrow();
+        assertThat(kept[id]).isEqualTo("null");
+        assertThat(kept[chemical]).isEqualTo(other);
+    }
+
     /** The output mapping applied to the example, as a new file, with the provenance of the v3 route. */
     private static MappingApplyResult apply(String n) {
         return apply(n, json("instance.json"));
@@ -124,8 +159,8 @@ class V3EquivalenceTwoZeroTest {
         JsonNode parameters = json("parameters.json").get(Integer.parseInt(n) - 1);
         Map<String, String> p = new LinkedHashMap<>();
         parameters.properties().forEach(e -> p.put(e.getKey(), e.getValue().asText()));
-        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.1.0", p, instance, "",
-            true, "v3-workbook 1.1.0");
+        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.2.0", p, instance, "",
+            true, "v3-workbook 1.2.0");
         return new MappingApplier().apply(request, engineVersions());
     }
 

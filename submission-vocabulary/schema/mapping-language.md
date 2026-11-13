@@ -498,6 +498,7 @@ Abundance columns follow the same numbering. An engine writes the column `abunda
 A named function with `args`. The functions are exactly these:
 
 - [`goslin-parse`](#goslin-parse);
+- [`strip-name-notes`](#strip-name-notes);
 - [`factor-combinations`](#factor-combinations);
 - [`formula-check`](#formula-check).
 
@@ -521,6 +522,39 @@ When no Goslin grammar reads the name, the result is Null, without a note. Null 
 
 ```yaml
 {fn: {name: goslin-parse, args: [{literal: PC 34:1}]}}   # {normalised: PC 34:1, formula: C42H82NO8P, mass: 759.57780591}
+```
+
+#### strip-name-notes
+
+`args: [name]`. The lipid name without the custom suffixes and comments at its end that no Goslin grammar reads, such as an adduct (`_M+NH4`), an isomer letter (`_A`), a bracketed note (`[sn1]`, `[NL-16:0]`) or a comment in brackets (`(BIOCRATES kit notation)`). A mapping reads a name with [`goslin-parse`](#goslin-parse) first and gives this result to `goslin-parse` only when the whole name does not parse, so that the name as written can be kept (for example as `opt_global_original_name`).
+
+Whitespace is Python's: the characters for which `str.isspace()` is true (as in [cell rendering](#cell-rendering)). The steps below are applied in this order, and after each one, whitespace at the end is removed. The steps are repeated until the name no longer changes:
+
+1. `//` and everything after it, with the whitespace before it.
+2. A comment in round brackets at the end that follows whitespace. Brackets inside it nest: the comment starts at the `(` that matches the final `)`. Without whitespace before that `(`, nothing is removed.
+3. A note in square brackets at the end, `[...]` without square brackets inside, with the whitespace before it.
+4. An unclosed comment: whitespace, `(` and then no `(` or `)` up to the end.
+5. An isomer letter: `_` and one letter `A`-`Z` at the end.
+6. An adduct: `_M`, then `+` or `-`, then letters `A-Za-z`, digits and `+`/`-`, an optional `]` and an optional `+` or `-`, at the end.
+7. An adduct in square brackets: `[M`, then `+` or `-`, any characters but `[` and `]`, then `]` and an optional `+` or `-`, at the end, with the whitespace before it.
+
+A name with nothing to remove is returned unchanged, and so is a name longer than 1,000 characters: lipid names are far shorter, and the limit bounds the work for any input. Null gives Null. Any other value than a text is an error.
+
+| Name | Result |
+|---|---|
+| `TAG(10:0/14:1/18:0)_M+NH4` | `TAG(10:0/14:1/18:0)` |
+| `PC(16:0_18:1)_M+CH3COO //  M+CH3COO` | `PC(16:0_18:1)` |
+| `TG(48:0) [NL-16:0]` | `TG(48:0)` |
+| `SM C14:0 (BIOCRATES kit notation` | `SM C14:0` |
+| `Cer 18:0;3/16:0;0 (the migration wrote 'Cer 18:0;(OH)3/16:0')` | `Cer 18:0;3/16:0;0` |
+| `LPC(17:1) (a) [sn1] [104_sn1]` | `LPC(17:1)` |
+| `CerH2O(d18:1_16:0)_A` | `CerH2O(d18:1_16:0)` |
+| `PC 34:1 [M+H]+` | `PC 34:1` |
+| `PC(16:0/18:1)` | `PC(16:0/18:1)` |
+| `Cer(d18:1/18:0(OH))` | `Cer(d18:1/18:0(OH))` |
+
+```yaml
+{fn: {name: strip-name-notes, args: [{field: l}]}}   # "TG(48:0) [NL-16:0]" gives "TG(48:0)"
 ```
 
 #### factor-combinations
