@@ -502,7 +502,7 @@ groups:
         required: false
         list: "yes_no"
         mztab: "database_identifier / chemical_name"
-        help: "'no' when Goslin reads the lipid name as a different lipid: the name is then kept as written, with the database identifier goslin:null. Empty or 'yes': Goslin normalises the name where it can, if need be without a custom suffix or comment at its end."
+        help: "'no' when Goslin reads the lipid name as a different lipid: the name is then kept as written and not identified, like a name Goslin cannot parse. Empty or 'yes': Goslin normalises the name where it can, if need be without a custom suffix or comment at its end."
         example: ""
   quantities:
     workbook: true
