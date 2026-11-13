@@ -1,9 +1,9 @@
-# The submission vocabulary 1.1.0: field dictionary of the LipidCompass submission template v3.
+# The submission vocabulary 1.2.0: field dictionary of the LipidCompass submission template v3.
 # Field keys are kept as in the v3 schema. See ../README.md.
 
 vocabulary:
   id: submission-vocabulary
-  version: 1.1.0
+  version: 1.2.0
   licence: CC-BY-4.0
   origin: "lipidcompass-submission-template 3.0.0 (lipidcompass-submissions bb8dcbf)"
 
@@ -490,6 +490,12 @@ groups:
         label: "Comment"
         required: false
         help: "E.g. isomers summed, co-eluting species, sterol analyte (P7, P8)."
+        example: ""
+      - id: "alternative_name"
+        label: "Alternative name"
+        required: false
+        mztab: "opt_global_alternative_name"
+        help: "Optional second name for the same lipid, kept as written: for example a reading with more detail than the lipid name states, or a curator's interpretation. The lipid name stays the one that is normalised."
         example: ""
   quantities:
     workbook: true

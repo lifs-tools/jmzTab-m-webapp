@@ -1,7 +1,10 @@
-# The submission vocabulary 1.1.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
+# The submission vocabulary 1.2.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
 # lipidcompass-submissions bb8dcbf tools/convert_submission_template.py writes it (Converter.dataset, conv:182-289, and
 # Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
 # ../../schema/mapping-language.md.
+#
+# Version 1.1.0 adds the opt_global_alternative_name column (vocabulary 1.2.0, lipids.alternative_name), as the
+# converter of lipidcompass-submissions writes it from that vocabulary version on.
 #
 # Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
 # numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
@@ -14,9 +17,9 @@
 # conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
 # engine's note on runs whose location is null.
 id: mztab-2.0.0-M
-version: 1.0.0
+version: 1.1.0
 kind: output
-vocabulary: 1.1.0
+vocabulary: 1.2.0
 target: 2.0.0-M
 # dataset_index selects the dataset; dataset_id is informational (not read, not checked)
 parameters: [study_id, dataset_id, dataset_index]
@@ -173,6 +176,12 @@ let:
                   if: {at: {list: {ref: parsed}, index: {pos: note}}}
                   then: {literal: "3"}
                   else: {literal: "4"}
+  # Converter.sml: each lipid's alternative name from its Lipids row, as written, else null (vocabulary 1.2.0)
+  alternative_names:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value: {first: [{field: note.alternative_name}, {literal: "null"}]}
   # conv:380-381
   internal_standard_flags:
     map:
@@ -611,6 +620,10 @@ tables:
                   values: {map: {over: {field: group.members}, as: m, value: {at: {list: {at: {list: {field: dataset.quantities.values}, index: {field: m}}}, index: {pos: lipid}}}}}
       - header: opt_global_original_name
         value: {field: lipid}
+      - header: opt_global_alternative_name
+        value: {at: {list: {ref: alternative_names}, index: {pos: lipid}}}
+        # only when any of the dataset's rows (the last of each name) has an alternative_name
+        where: {find: {in: {ref: dataset_lipids}, as: l, where: {not-empty: {field: l.alternative_name}}}}
       - header: opt_global_internal_standard
         value: {at: {list: {ref: internal_standard_flags}, index: {pos: lipid}}}
         # conv:345: any of the dataset's rows (the last of each name) has an internal_standard

@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -69,7 +71,7 @@ class V3EquivalenceTwoZeroTest {
         MappingApplyResult result = apply(n);
 
         // the allowed software[3] lines record the v3 route (R11) before they are dropped
-        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.0.0\n");
+        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.1.0\n");
         assertThat(normalised(result.text())).isEqualTo(normalised(text("expected/LCS-99999-" + n + ".mzTab")));
     }
 
@@ -87,13 +89,43 @@ class V3EquivalenceTwoZeroTest {
             .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
     }
 
+    @Test
+    void alternativeNameIsWrittenNextToTheOriginalNameWhenALipidHasOne() throws IOException {
+        assertThat(apply("01").text()).doesNotContain("opt_global_alternative_name");
+
+        ObjectNode instance = (ObjectNode) json("instance.json");
+        ObjectNode lipid = (ObjectNode) instance.get("lipids").get(0);
+        String name = lipid.get("lipid_name").asText();
+        lipid.put("alternative_name", "PC 16:0_18:1");
+        String text = apply("01", instance).text();
+
+        List<String> header = List.of(text.lines().filter(l -> l.startsWith("SMH\t")).findFirst().orElseThrow().split("\t", -1));
+        int original = header.indexOf("opt_global_original_name");
+        int alternative = header.indexOf("opt_global_alternative_name");
+        assertThat(alternative).isEqualTo(original + 1);
+        List<String[]> rows = text.lines().filter(l -> l.startsWith("SML\t")).map(l -> l.split("\t", -1)).toList();
+        assertThat(rows).anyMatch(r -> r[original].equals(name));
+        for (String[] r : rows) {
+            assertThat(r[alternative]).as(r[original]).isEqualTo(r[original].equals(name) ? "PC 16:0_18:1" : "null");
+        }
+
+        Path file = dir.resolve("LCS-99999-01-alternative.mzTab");
+        Files.writeString(file, text, StandardCharsets.UTF_8);
+        assertThat(validator.validate(file, ValidationLevel.INFO, 100, null).messages())
+            .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
+    }
+
     /** The output mapping applied to the example, as a new file, with the provenance of the v3 route. */
     private static MappingApplyResult apply(String n) {
+        return apply(n, json("instance.json"));
+    }
+
+    private static MappingApplyResult apply(String n, JsonNode instance) {
         JsonNode parameters = json("parameters.json").get(Integer.parseInt(n) - 1);
         Map<String, String> p = new LinkedHashMap<>();
         parameters.properties().forEach(e -> p.put(e.getKey(), e.getValue().asText()));
-        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.0.0", p, json("instance.json"), "",
-            true, "v3-workbook 1.0.0");
+        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.1.0", p, instance, "",
+            true, "v3-workbook 1.1.0");
         return new MappingApplier().apply(request, engineVersions());
     }
 

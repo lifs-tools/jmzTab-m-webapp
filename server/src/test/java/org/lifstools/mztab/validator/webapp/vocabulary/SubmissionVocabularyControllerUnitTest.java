@@ -33,20 +33,20 @@ class SubmissionVocabularyControllerUnitTest {
         "/vocabulary//vocabulary.yaml", "/vocabulary/../LICENSE", "/src/x", "/vocabulary/a b", "/vocabulary/x\\y",
         "/vocabulary/vocabulary.yaml/"})
     void otherPathsAreBadRequests(String path) {
-        assertThatThrownBy(() -> controller.file("1.1.0", path)).isInstanceOf(ResponseStatusException.class)
+        assertThatThrownBy(() -> controller.file("1.2.0", path)).isInstanceOf(ResponseStatusException.class)
             .extracting(e -> ((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"/examples/v3-example", "/examples/v3-example/expected"})
     void directoriesAreNotFound(String path) {
-        assertThatThrownBy(() -> controller.file("1.1.0", path)).isInstanceOf(ResponseStatusException.class)
+        assertThatThrownBy(() -> controller.file("1.2.0", path)).isInstanceOf(ResponseStatusException.class)
             .extracting(e -> ((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"/vocabulary/vocabulary.yaml", "/LICENSE"})
     void aFileIsServed(String path) {
-        assertThat(controller.file("1.1.0", path).getBody()).isNotEmpty();
+        assertThat(controller.file("1.2.0", path).getBody()).isNotEmpty();
     }
 }

@@ -30,6 +30,8 @@ Version 1.0.0 is the field dictionary of lipidcompass-submission-template 3.0.0 
 
 Version 1.1.0 adds seven entries to `quantification_unit`, the CV units that published LipidCompass datasets use: Nanomole per Gram of Dry Weight (`NCIT:C208461`), Millimole per Kilogram (`NCIT:C68892`), Milligram per Kilogram (`NCIT:C67401`, µg/g), Microgram per Kilogram (`NCIT:C67396`, ng/g), Micromole (`NCIT:C48509`), mole fraction (`UO:0000076`, values 0..1) and Micromole per Mole (`NCIT:C122231`). No field or entry changes.
 
+Version 1.2.0 adds the optional field `lipids.alternative_name` (column 'Alternative name' on the Lipids sheet): a second name for the same lipid, kept as written, for example a curator's reading with more detail than the lipid name states. It is written to mzTab-M as `opt_global_alternative_name`; the lipid name stays the one that is normalised. The v3-workbook and mztab-2.0.0-M mappings read and write it and are version 1.1.0.
+
 The `mztab` hint of a field says where the field usually ends up in mzTab-M. It is informative: what is written is defined by the output mapping, which is normative.
 
 ## Getting it
