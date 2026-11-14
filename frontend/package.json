@@ -38,7 +38,7 @@
     "@angular/cli": "21.2.30",
     "@angular/compiler-cli": "21.2.25",
     "@axe-core/playwright": "4.14.0",
-    "@playwright/test": "1.64.1",
+    "@playwright/test": "1.65.1",
     "jsdom": "28.1.0",
     "ng-openapi-gen": "1.1.0",
     "prettier": "3.10.1",
