@@ -41,7 +41,7 @@
     "@playwright/test": "1.64.1",
     "jsdom": "28.1.0",
     "ng-openapi-gen": "1.1.0",
-    "prettier": "3.9.10",
+    "prettier": "3.10.1",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
   }
