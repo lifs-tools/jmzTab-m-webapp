@@ -74,7 +74,7 @@
         <!-- spring boot specific -->
         <java.version>24</java.version>
         <!-- the jmzTab-m line of each validation engine -->
-        <jmztabm20.version>1.0.8-SNAPSHOT</jmztabm20.version>
+        <jmztabm20.version>1.0.8</jmztabm20.version>
         <jmztabm21.version>2.1.0-SNAPSHOT</jmztabm21.version>
         <application.version.number>${project.version}</application.version.number>
         <guava.version>33.8.0-jre</guava.version>
