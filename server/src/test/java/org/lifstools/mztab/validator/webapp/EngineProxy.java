@@ -26,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +44,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
  * Stands between the webapp and the real mzTab-M 2.0 engine of
  * {@link EngineTestSupport}: it forwards every request, records the jobs
  * (every request but {@code GET /engine/v1/info}) and can play an engine that
- * is down or busy. Tests register it as the webapp's 2.0 engine:
+ * is down or busy, or answer one path with a canned response ({@link #stub}). Tests register it as the webapp's
+ * 2.0 engine:
  *
  * <pre>
  * static final EngineProxy ENGINE = EngineProxy.start();
@@ -56,7 +59,11 @@ public final class EngineProxy {
     public enum Mode {
         /** Like the engine behind it. */
         FORWARD,
-        /** Closes every connection at once, as an engine that is not running. */
+        /**
+         * Closes the connection without an answer, as an engine that is not running. (After the request is read: a
+         * {@code DISCONNECT_AT_START} returned by {@code dispatch} would be answered as an empty 200, since
+         * MockWebServer honours it only from {@code Dispatcher.peek()}.)
+         */
         DOWN,
         /** {@code 503 busy} with {@code Retry-After}, as an engine running as many jobs as it may. */
         BUSY
@@ -123,6 +130,11 @@ public final class EngineProxy {
     private volatile Mode mode = Mode.FORWARD;
     private volatile int retryAfterSeconds = 7;
     private final AtomicReference<Gate> gate = new AtomicReference<>();
+    /** Canned answers by path prefix, until {@link #reset()}. */
+    private final Map<String, Canned> stubs = new ConcurrentHashMap<>();
+
+    private record Canned(int status, String contentType, String body) {
+    }
 
     private final String line;
 
@@ -190,9 +202,18 @@ public final class EngineProxy {
         return List.copyOf(jobs);
     }
 
-    /** Forgets the recorded jobs and forwards again. */
+    /**
+     * Answers every request whose path starts with {@code pathPrefix} with this response instead of forwarding it
+     * (in {@link Mode#FORWARD}), until {@link #reset()}. The request is recorded as any job.
+     */
+    public void stub(String pathPrefix, int status, String contentType, String body) {
+        stubs.put(pathPrefix, new Canned(status, contentType, body));
+    }
+
+    /** Forgets the recorded jobs and the stubs, and forwards again. */
     public void reset() {
         jobs.clear();
+        stubs.clear();
         mode = Mode.FORWARD;
         Gate held = gate.getAndSet(null);
         if (held != null) {
@@ -213,22 +234,31 @@ public final class EngineProxy {
                 held.arrived.countDown();
                 try {
                     if (!held.released.await(2, TimeUnit.MINUTES)) {
-                        return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+                        return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST);
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+                    return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST);
                 }
             }
         }
         switch (mode) {
             case DOWN:
-                return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+                return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST);
             case BUSY:
                 return new MockResponse().setResponseCode(503).setHeader("Retry-After", retryAfterSeconds)
                     .setHeader("Content-Type", "application/json")
                     .setBody("{\"code\":\"busy\",\"message\":\"The engine is busy.\"}");
             default:
+                if (path != null) {
+                    for (Map.Entry<String, Canned> stub : stubs.entrySet()) {
+                        if (path.startsWith(stub.getKey())) {
+                            Canned c = stub.getValue();
+                            return new MockResponse().setResponseCode(c.status())
+                                .setHeader("Content-Type", c.contentType()).setBody(c.body());
+                        }
+                    }
+                }
                 return forward(request.getMethod(), path, contentType, body);
         }
     }
@@ -248,10 +278,10 @@ public final class EngineProxy {
             response.headers().firstValue("Retry-After").ifPresent(v -> answer.setHeader("Retry-After", v));
             return answer.setBody(new okio.Buffer().write(response.body()));
         } catch (IOException e) {
-            return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+            return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
+            return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST);
         }
     }
 }

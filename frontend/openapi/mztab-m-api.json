@@ -632,6 +632,52 @@
         },
         "type" : "object"
       },
+      "FieldRule" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "logic" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "present" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "requirement" : {
+            "type" : "string"
+          },
+          "terms" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRuleTerm"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FieldRuleTerm" : {
+        "properties" : {
+          "accession" : {
+            "type" : "string"
+          },
+          "allowChildren" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "useTerm" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "Guidance" : {
         "properties" : {
           "cause" : {
@@ -1673,6 +1719,26 @@
           }
         },
         "required" : [ "metadata", "smallMoleculeEvidence", "smallMoleculeFeature", "smallMoleculeSummary" ],
+        "type" : "object"
+      },
+      "NewFile" : {
+        "properties" : {
+          "contentProfile" : {
+            "type" : [ "string", "null" ]
+          },
+          "mzTabId" : {
+            "type" : "string"
+          },
+          "mzTabVersion" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string"
+          },
+          "profileVersion" : {
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "OptColumnMapping_2_0" : {
@@ -3121,6 +3187,24 @@
           "type" : "object"
         } ]
       },
+      "StillMissing" : {
+        "properties" : {
+          "checked" : {
+            "type" : "boolean"
+          },
+          "missing" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRule"
+            },
+            "type" : "array"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "StringList_2_0" : {
         "default" : [ ],
         "description" : "A typed list of strings.",
@@ -3731,6 +3815,9 @@
           "mzTabVersion" : {
             "type" : [ "string", "null" ]
           },
+          "origin" : {
+            "type" : "string"
+          },
           "revision" : {
             "format" : "int64",
             "type" : "integer"
@@ -3740,6 +3827,9 @@
           },
           "validation" : {
             "$ref" : "#/components/schemas/WorkingCopyValidation"
+          },
+          "validationProfile" : {
+            "$ref" : "#/components/schemas/ProfileRef"
           }
         },
         "type" : "object"
@@ -4898,6 +4988,35 @@
         "tags" : [ "working-copies" ]
       }
     },
+    "/rest/v2/working-copies/new" : {
+      "post" : {
+        "operationId" : "createNewWorkingCopy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewFile"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "The new copy"
+          }
+        },
+        "summary" : "Creates a new mzTab-M file from the engine's skeleton of the chosen version, mzTab-ID and content profile, checked against the chosen repository rules; it has no validation behind it. 422 with the reason for a version without a validator here, repository rules that do not list the version, or a content profile or mzTab-ID that does not fit; 503 if the storage is full or the engine is busy or unavailable",
+        "tags" : [ "working-copies" ]
+      }
+    },
     "/rest/v2/working-copies/{id}" : {
       "delete" : {
         "operationId" : "deleteWorkingCopy",
@@ -5375,6 +5494,33 @@
           }
         },
         "summary" : "Downloads the problems of the copy's last finished check and how to fix them, as Markdown, with the line numbers of the copy as it was checked. A check of an older revision still gives a report whose header says so; 409 if the copy has not been checked or its last check gave no result",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/still-missing" : {
+      "get" : {
+        "operationId" : "getWorkingCopyStillMissing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StillMissing"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the MUST and SHOULD rules of the copy's repository rules that its current text does not meet yet, as the engine decides them. If the engine could not read the text into a model, checked is false and every MUST and SHOULD rule is listed. 409 if no validator here serves the text's version or the rules are of another version",
         "tags" : [ "working-copies" ]
       }
     },

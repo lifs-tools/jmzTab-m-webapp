@@ -53,8 +53,10 @@ import org.lifstools.mztab.validator.webapp.sections.TableQuery;
 import org.lifstools.mztab.validator.webapp.workingcopy.DuplicateColumn;
 import org.lifstools.mztab.validator.webapp.workingcopy.EditBatch;
 import org.lifstools.mztab.validator.webapp.workingcopy.Line;
+import org.lifstools.mztab.validator.webapp.workingcopy.NewFile;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
 import org.lifstools.mztab.validator.webapp.workingcopy.SourceEncoding;
+import org.lifstools.mztab.validator.webapp.workingcopy.StillMissing;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyInfo;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyReader;
 import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyService;
@@ -76,9 +78,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * Working copies of validated files: the editor's REST API. A copy is found
- * only by its id, which is the id of the validation it was made from; there is
- * no listing. Every parameter is checked and out-of-range values are refused
+ * Working copies of validated files and new files: the editor's REST API. A
+ * copy is found only by its id: the id of the validation it was made from, or
+ * for a new file ({@code POST /new}) its own; there is no listing. Every parameter is checked and out-of-range values are refused
  * with 400, never clamped: ids must be UUIDs, line ranges 1 to 1,000 lines
  * from line 1 to the line count + 1, pages as in the validation endpoints.
  */
@@ -101,6 +103,7 @@ public class WorkingCopiesApiController {
         + "created again has another one, and the call is refused with 409 if it is not the copy's";
 
     private final ObjectReader editBatches;
+    private final ObjectReader newFiles;
 
     public WorkingCopiesApiController(WorkingCopyService copies, WorkingCopyReader reader, QuickFixService quickFixes,
         RequestBodies bodies, ObjectMapper json) {
@@ -108,7 +111,9 @@ public class WorkingCopiesApiController {
         this.reader = reader;
         this.quickFixes = quickFixes;
         this.bodies = bodies;
-        this.editBatches = strict(json).readerFor(EditBatch.class);
+        ObjectMapper strict = strict(json);
+        this.editBatches = strict.readerFor(EditBatch.class);
+        this.newFiles = strict.readerFor(NewFile.class);
     }
 
     /**
@@ -163,6 +168,38 @@ public class WorkingCopiesApiController {
         }
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri().path("/{id}").buildAndExpand(id).toUri();
         return ResponseEntity.created(location).body(creation.info());
+    }
+
+    @Operation(operationId = "createNewWorkingCopy", summary = "Creates a new mzTab-M file from the engine's skeleton "
+        + "of the chosen version, mzTab-ID and content profile, checked against the chosen repository rules; it has no "
+        + "validation behind it. 422 with the reason for a version without a validator here, repository rules that do "
+        + "not list the version, or a content profile or mzTab-ID that does not fit; 503 if the storage is full or "
+        + "the engine is busy or unavailable",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(
+            mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = NewFile.class))))
+    @ApiResponse(responseCode = "201", description = "The new copy", content = @Content(
+        mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = WorkingCopyInfo.class)))
+    @PostMapping(value = "/new", consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<WorkingCopyInfo> createNewWorkingCopy(@Parameter(hidden = true) HttpServletRequest request)
+        throws IOException {
+        NewFile file;
+        // the body is capped at the upload limit before it is read
+        try (InputStream in = bodies.open(request)) {
+            file = newFiles.readValue(in);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("The new file could not be read"
+                + (e.getLocation() == null ? "" : " at line " + e.getLocation().getLineNr() + ", column "
+                + e.getLocation().getColumnNr()) + ": it must be JSON with mzTabVersion, contentProfile, profileId, "
+                + "profileVersion and mzTabId.");
+        }
+        if (file == null) {
+            throw new IllegalArgumentException("The new file's choices are required.");
+        }
+        WorkingCopyInfo info = copies.createNew(file);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath().path("/rest/v2/working-copies/{id}")
+            .buildAndExpand(info.id()).toUri();
+        return ResponseEntity.created(location).body(info);
     }
 
     @Operation(operationId = "getWorkingCopy", summary = "Returns a working copy: revision, version, counts and "
@@ -376,6 +413,15 @@ public class WorkingCopiesApiController {
         Download out = new Download(response, MediaType.APPLICATION_OCTET_STREAM_VALUE, copies.fileName(uuid));
         copies.writeOriginal(uuid, out);
         out.finish();
+    }
+
+    @Operation(operationId = "getWorkingCopyStillMissing", summary = "Lists the MUST and SHOULD rules of the copy's "
+        + "repository rules that its current text does not meet yet, as the engine decides them. If the engine could "
+        + "not read the text into a model, checked is false and every MUST and SHOULD rule is listed. 409 if no "
+        + "validator here serves the text's version or the rules are of another version")
+    @GetMapping(value = "/{id}/still-missing", produces = MediaType.APPLICATION_JSON_VALUE)
+    public StillMissing getWorkingCopyStillMissing(@PathVariable("id") String id) {
+        return copies.stillMissing(parse(id));
     }
 
     @Operation(operationId = "getWorkingCopyReport", summary = "Downloads the problems of the copy's last finished "

@@ -30,6 +30,7 @@ import org.lifstools.mztab2.server.api.ValidateApiController;
 import org.lifstools.mztab2.server.api.ValidatePlainApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
+import org.lifstools.mztab.validator.webapp.workingcopy.NewFileRefusedException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
 import org.lifstools.mztab.validator.webapp.workingcopy.CopyReplacedException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
@@ -142,6 +143,12 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
         return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
             .body(new ErrorResponse(status, TOO_LARGE_FOR_EDITOR, e.getMessage(), request.getRequestURI()));
+    }
+
+    /** A new file whose choices do not fit together (version, repository rules, content profile, mzTab-ID). */
+    @ExceptionHandler(NewFileRefusedException.class)
+    public ResponseEntity<ErrorResponse> newFileRefused(NewFileRefusedException e, HttpServletRequest request) {
+        return respond(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
