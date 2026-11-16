@@ -50,10 +50,19 @@ public class RequestBodies {
      * body
      */
     public InputStream open(HttpServletRequest request) throws IOException {
-        if (request.getContentLengthLong() > maxBytes) {
-            throw new MaxUploadSizeExceededException(maxBytes);
+        return open(request, maxBytes);
+    }
+
+    /**
+     * As {@link #open(HttpServletRequest)}, with a smaller limit of {@code max} bytes, for bodies that are read into
+     * memory.
+     */
+    public InputStream open(HttpServletRequest request, long max) throws IOException {
+        long cap = Math.min(max, maxBytes);
+        if (request.getContentLengthLong() > cap) {
+            throw new MaxUploadSizeExceededException(cap);
         }
-        return limit(request.getInputStream(), maxBytes);
+        return limit(request.getInputStream(), cap);
     }
 
     /**

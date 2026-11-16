@@ -779,6 +779,64 @@
         },
         "type" : "object"
       },
+      "ImportPreview" : {
+        "properties" : {
+          "batch" : {
+            "$ref" : "#/components/schemas/EditBatch"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "mapping" : {
+            "type" : "string"
+          },
+          "mappingVersion" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "suggestions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Suggestion"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ImportRequest" : {
+        "properties" : {
+          "datasetIndex" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "instance" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "keepExisting" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "studyId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "InsertColumn" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/EditOperation"
@@ -909,6 +967,7 @@
           "type" : "object"
         } ]
       },
+      "JsonNode" : { },
       "Line" : {
         "properties" : {
           "cells" : {
@@ -3387,6 +3446,21 @@
         "x-mztab-example" : "MTD\tstudy_variable[1]\tcontrol\nMTD\tstudy_variable[1]-assay_refs\tassay[1]| assay[2]| assay[3]\nMTD\tstudy_variable-average_function\t[MS, MS:1002883, median, ]\nMTD\tstudy_variable-variation_function\t[MS, MS:1002885, standard error, ]\nMTD\tstudy_variable[1]-description\tGroup B (spike-in 0.74 fmol/uL)\nMTD\tstudy_variable[2]\t1 minute 0.5mg rapamycin\n",
         "x-mztab-serialize-by-id" : "true"
       },
+      "Suggestion" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "NEW", "REPLACES_EXISTING", "UNCHANGED", "CONFLICTS" ],
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "TablePage" : {
         "properties" : {
           "allColumns" : {
@@ -5187,6 +5261,73 @@
           }
         },
         "summary" : "Downloads the current text: tsv always, byte for byte; json only when the last validation is of the current revision and found no error (else 409)",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/imports" : {
+      "post" : {
+        "operationId" : "previewWorkingCopyImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Previews importing a vocabulary instance into the copy at the named revision, without changing the copy: the copy's output mapping runs in the engine and the result is an edit batch; post the batch to the edits endpoint to apply it. The request is at most 5 MiB (413). 400 for an unknown kind, no output mapping for the copy's version, a dataset index out of range or missing, or a mapping the engine refuses; 409 if the copy is not at the revision; 422 if the copy's text is over the engine's upload limit; 503 if the engine is busy or unavailable",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/imports/kinds" : {
+      "get" : {
+        "operationId" : "listWorkingCopyImportKinds",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the kinds of file that can be imported into the copy: empty if no output mapping writes the copy's mzTab-M version",
         "tags" : [ "working-copies" ]
       }
     },
