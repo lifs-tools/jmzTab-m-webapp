@@ -42,7 +42,7 @@
     "jsdom": "28.1.0",
     "ng-openapi-gen": "1.1.0",
     "prettier": "3.10.1",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.12"
   }
 }
