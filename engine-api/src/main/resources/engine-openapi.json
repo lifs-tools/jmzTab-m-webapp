@@ -271,6 +271,20 @@
           "type" : "object"
         } ]
       },
+      "SkeletonRequest" : {
+        "properties" : {
+          "contentProfile" : {
+            "type" : "string"
+          },
+          "mzTabId" : {
+            "type" : "string"
+          },
+          "mzTabVersion" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Suggestion" : {
         "properties" : {
           "key" : {
@@ -676,6 +690,67 @@
           }
         },
         "summary" : "applyMapping",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/skeletons" : {
+      "post" : {
+        "description" : "Writes the starting text of a new mzTab-M file: the version line, the mzTab-ID and, for 2.1, the content profile.",
+        "operationId" : "skeleton",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SkeletonRequest"
+              }
+            }
+          },
+          "description" : "The mzTab-M version, the content profile (2.1 only) and the mzTab-ID.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/tab-separated-values" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "The text of the new file"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The body is not a skeleton request, the version is not served by this engine, a content profile is given for 2.0 or is missing or unknown for 2.1, or the mzTab-ID does not match ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ (invalid_request)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The body is larger than the upload limit (file_too_large)"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "skeleton",
         "tags" : [ "engine" ]
       }
     },

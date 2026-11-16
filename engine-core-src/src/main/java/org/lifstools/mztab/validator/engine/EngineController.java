@@ -50,10 +50,12 @@ import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
+import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
+import org.lifstools.mztab.validator.engine.skeleton.SkeletonWriter;
 import org.lifstools.mztab2.model.MzTab;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -312,6 +314,50 @@ public class EngineController {
             MappingApplyRequest mappingRequest = readMappingRequest(body);
             try {
                 return ResponseEntity.ok(mappingApplier.apply(mappingRequest, Set.copyOf(mzTabVersions)));
+            } catch (MappingRequestException e) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    shorten(String.valueOf(e.getMessage())));
+            }
+        } finally {
+            deleteQuietly(body);
+        }
+    }
+
+    @Operation(summary = "skeleton", description = "Writes the starting text of a new mzTab-M file: the version line, "
+        + "the mzTab-ID and, for 2.1, the content profile.",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "The mzTab-M version, the content profile (2.1 only) and the mzTab-ID.",
+            required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = SkeletonRequest.class))))
+    @ApiResponse(responseCode = "200", description = "The text of the new file",
+        content = @Content(mediaType = "text/tab-separated-values", schema = @Schema(type = "string")))
+    @ApiResponse(responseCode = "400", description = "The body is not a skeleton request, the version is not served by "
+        + "this engine, a content profile is given for 2.0 or is missing or unknown for 2.1, or the mzTab-ID does "
+        + "not match ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ (invalid_request)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "413", description = "The body is larger than the upload limit (file_too_large)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "503", description = "The engine is busy (busy); retry after Retry-After seconds",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @PostMapping(value = "/skeletons", produces = "text/tab-separated-values;charset=UTF-8")
+    public ResponseEntity<String> skeleton(HttpServletRequest request) throws IOException {
+        Path body = null;
+        try (JobLimiter.Permit permit = acquire()) {
+            body = receive(request);
+            SkeletonRequest skeletonRequest;
+            try (InputStream in = Files.newInputStream(body)) {
+                skeletonRequest = objectMapper.readValue(in, SkeletonRequest.class);
+            } catch (JsonProcessingException e) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    "The body is not a skeleton request: " + jsonDetail(e));
+            }
+            if (skeletonRequest == null) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    "A skeleton request needs mzTabVersion and mzTabId.");
+            }
+            try {
+                return ResponseEntity.ok().contentType(new MediaType("text", "tab-separated-values",
+                    StandardCharsets.UTF_8)).body(SkeletonWriter.write(skeletonRequest, Set.copyOf(mzTabVersions)));
             } catch (MappingRequestException e) {
                 throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
                     shorten(String.valueOf(e.getMessage())));
