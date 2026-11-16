@@ -2,19 +2,6 @@
 
 Status: revised 2026-11-08 after a builder check and an evidence review; amended 2026-11-08 after the final N-1 review (§5.3 `index-allocate` reserved; §5.7 an entry criterion for N-2). It builds on:
 
-## Amendment 2026-11-16 (N-2a plan)
-
-N-2 is split into three plans, N-2a, N-2b and N-2c (table in §6). The N-2a plan (`../plans/2026-11-16-new-file-n2a.md`) decides:
-
-- **D1, §5.7 entry criterion: an `InsertLines(before, lines)` operation** in engine-api (`LineEdit`) and the server (`EditOperation`). It counts as one operation; the applier emits consecutive new lines as one. A cap on batch size is rejected: a 300-sample, 3,000-lipid study is the real case. [my call]
-- **D2, the skeleton holds only what the researcher chose:** `mzTab-version`, `mzTab-ID` and, for 2.1, `mzTab-profile`. It is not a valid file; placeholders for polarity, quantification method or runs would be invented data. Validation messages and the "still missing" checklist list the rest. Overrides editor design §5.8's "a minimal valid TSV". [my call]
-- **D3, a new copy has no validation session** (§5.10). Its settings live in its meta: `copy.origin` = `new`, the repository rules, the level and error limit, the content profile. Upload copies keep reading their session; one `CopySettings` lookup serves both. `createOrFind` returns an existing copy before it looks for a session, so `edit/:id` opens a new copy like any other. [my call]
-- **D4, an import answers with a preview that carries an `EditBatch`**, as `QuickFixPreview` does. The SPA applies it through `POST /edits` (revision, change id, generation), so conflicts, replaced copies and undo work as for every other change. Drops §5.10's `imports/{importId}/apply` endpoint and any stored import. [my call]
-- **D5, an import is applied whole.** One choice, **Keep existing values** (default on) or replace, decides existing values; with it on, a different existing value is reported as `CONFLICTS` and left alone. §5.10's per-suggestion ids are not built: dropping single lines of an element leaves index gaps and dangling references. Per-group acceptance comes with the methods text (N-4), where §5.7 asks for it. [my call]
-- **D6, the first input kind is `vocabulary-instance`:** a vocabulary instance as JSON (§5.2; `examples/v3-example/instance.json`). It needs no input mapping, so `inputMapping` in the provenance is null. [my call]
-- **D7, "still missing"** lists the MUST and SHOULD rules of the copy's repository rules that the copy does not meet, decided by the engine from the copy's text. The vocabulary's per-repository requirement levels (N14) are not used yet: the catalog has only default profiles, so N14's build check has nothing to compare. They come with the first repository profile. [my call]
-- **D8, imports are offered only where an output mapping targets the copy's version.** In N-2a that is 2.0 only; 2.1 follows in N-2c. The server lists the output mappings it carries. [my call]
-
 - the editor design (`2026-10-31-mztabm-editor-design.md`, phases 2a–2c);
 - the engines design (`2026-10-30-mztabm-version-engines-design.md`);
 - the pre-deploy plan (`../plans/2026-11-08-editor-pre-deploy.md`).
@@ -27,6 +14,19 @@ It replaces "New files" in editor design §5.7 and the landing page's "Start a n
 - **[my call]**: a choice I made that the lead has not ruled on.
 - **[evidence]**: a question raised by the builder check, settled by a critical review from the cited code, designs or spec text. The lead asked for such questions to be settled this way rather than asked (2026-11-08).
 - **[verify]**: a fact the builder must check before relying on it.
+
+## Amendment 2026-11-16 (N-2a plan)
+
+N-2 is split into three plans, N-2a, N-2b and N-2c (table in §6). The N-2a plan (`../plans/2026-11-16-new-file-n2a.md`) decides:
+
+- **D1, §5.7 entry criterion: an `InsertLines(before, lines)` operation** in engine-api (`LineEdit`) and the server (`EditOperation`). It counts as one operation; the applier emits consecutive new lines as one. A cap on batch size is rejected: a 300-sample, 3,000-lipid study is the real case. [my call]
+- **D2, the skeleton holds only what the researcher chose:** `mzTab-version`, `mzTab-ID` and, for 2.1, `mzTab-profile`. It is not a valid file; placeholders for polarity, quantification method or runs would be invented data. Validation messages and the "still missing" checklist list the rest. Overrides editor design §5.8's "a minimal valid TSV". [my call]
+- **D3, a new copy has no validation session** (§5.10). Its settings live in its meta: `copy.origin` = `new`, the repository rules, the level and error limit, the content profile. Upload copies keep reading their session; one `CopySettings` lookup serves both. `createOrFind` returns an existing copy before it looks for a session, so `edit/:id` opens a new copy like any other. [my call]
+- **D4, an import answers with a preview that carries an `EditBatch`**, as `QuickFixPreview` does. The SPA applies it through `POST /edits` (revision, change id, generation), so conflicts, replaced copies and undo work as for every other change. Drops §5.10's `imports/{importId}/apply` endpoint and any stored import. [my call]
+- **D5, an import is applied whole.** One choice, **Keep existing values** (default on) or replace, decides existing values; with it on, a different existing value is reported as `CONFLICTS` and left alone. §5.10's per-suggestion ids are not built: dropping single lines of an element leaves index gaps and dangling references. Per-group acceptance comes with the methods text (N-4), where §5.7 asks for it. [my call]
+- **D6, the first input kind is `vocabulary-instance`:** a vocabulary instance as JSON (§5.2; `examples/v3-example/instance.json`). It needs no input mapping, so `inputMapping` in the provenance is null. [my call]
+- **D7, "still missing"** lists the MUST and SHOULD rules of the copy's repository rules that the copy does not meet, decided by the engine from the copy's text. The vocabulary's per-repository requirement levels (N14) are not used yet: the catalog has only default profiles, so N14's build check has nothing to compare. They come with the first repository profile. [my call]
+- **D8, imports are offered only where an output mapping targets the copy's version.** In N-2a that is 2.0 only; 2.1 follows in N-2c. The server lists the output mappings it carries. [my call]
 
 ---
 
@@ -518,7 +518,7 @@ Both are drafted for the lead to file.
 - **N-2 entry criterion (amended 2026-11-08, final N-1 review).** The engine emits one `InsertLine` per new line, and the server refuses a batch of more than `WorkingCopyEditor.MAX_OPERATIONS` (5,000) operations. A large study, about 300 samples and 3,000 lipids, exceeds it. Before the webapp applies mapping results, N-2 therefore decides between an `InsertLines(before, List<String>)` operation shared by engine-api and the server, and a documented cap on the size of a mapping batch. Splitting the result into several batches is ruled out, because it breaks single-step undo. **Decided 2026-11-16 (D1): `InsertLines`, no cap.**
 - **Stale suggestions.** If the copy changed since the preview, the batch is refused (409, as for all edits), and the preview is recomputed.
 
-**Validation.** After applying, the copy is validated as after any edit (editor design §5.4). The "still missing" checklist (§5.1) is recomputed from the messages, the profile's rules and the vocabulary's requirement levels (N14).
+**Validation.** After applying, the copy is validated as after any edit (editor design §5.4). The "still missing" checklist (§5.1) is recomputed from the messages, the profile's rules and the vocabulary's requirement levels (N14). (amended 2026-11-16: D7)
 
 ### 5.8 Terms
 
@@ -549,7 +549,7 @@ These are capabilities; the builder designs the shapes, following editor design 
 | engine (optional in N-2) | **CV suggestions** (editor design §5.8). |
 | `GET /rest/v2/submission-vocabulary/…` | The vocabulary, lists, mappings and schema, by version. They are static files and can be cached. |
 | `POST /rest/v2/working-copies/{id}/imports` | Input kind, input mapping version, and the input: rows, JSON, mzML header values, or text. The webapp runs the input mapping, then asks the engine for the output side. The response holds suggestions and their states against the current revision. |
-| `POST /rest/v2/working-copies/{id}/imports/{importId}/apply` | The accepted suggestion ids and the revision. It applies one batch and returns the new revision. |
+| `POST /rest/v2/working-copies/{id}/imports/{importId}/apply` | The accepted suggestion ids and the revision. It applies one batch and returns the new revision. (amended 2026-11-16: D4/D5) |
 | settings | The model endpoint (base URL, model, token, timeouts, concurrency, input cap, rate limit), the reranker endpoint, and the OLS base URL. |
 
 **Model calls** run on their own bounded executor, as working-copy runs do in the pre-deploy plan, Task 1. When it is full, the server answers 503 with `Retry-After`.
