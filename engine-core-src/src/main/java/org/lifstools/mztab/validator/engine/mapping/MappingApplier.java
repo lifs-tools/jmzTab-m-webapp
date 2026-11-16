@@ -184,8 +184,15 @@ public final class MappingApplier {
             metadata(written, edits, inserts, suggestions);
             tables(tables, inserts, suggestions);
             inserts.sort((a, b) -> Integer.compare(a.anchor(), b.anchor()));
-            for (int i = 0; i < inserts.size(); i++) {
-                edits.add(new LineEdit.InsertLine(inserts.get(i).anchor() + i + 1L, inserts.get(i).text()));
+            // consecutive new lines (a run sharing an anchor) are one InsertLines
+            for (int i = 0; i < inserts.size();) {
+                int anchor = inserts.get(i).anchor();
+                List<String> run = new ArrayList<>();
+                int from = i;
+                while (i < inserts.size() && inserts.get(i).anchor() == anchor) {
+                    run.add(inserts.get(i++).text());
+                }
+                edits.add(new LineEdit.InsertLines(anchor + from + 1L, run));
             }
             return new MappingApplyResult(edits, suggestions, notes.all(), applied(edits));
         }
@@ -473,6 +480,17 @@ public final class MappingApplier {
                         }
                         lines.add(i, ins.text());
                         endings.add(i, terminator);
+                    }
+                    case LineEdit.InsertLines ins -> {
+                        int i = (int) ins.before() - 1;
+                        if (i == lines.size() && i > 0 && endings.get(i - 1).isEmpty()) {
+                            endings.set(i - 1, terminator);
+                        }
+                        for (String text : ins.lines()) {
+                            lines.add(i, text);
+                            endings.add(i, terminator);
+                            i++;
+                        }
                     }
                     case LineEdit.InsertColumn c -> throw new IllegalStateException("An output mapping inserts no column: " + c);
                 }

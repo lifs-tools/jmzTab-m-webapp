@@ -77,6 +77,19 @@ class V3EquivalenceTwoZeroTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"01", "02"})
+    void consecutiveNewLinesAreOneInsertLines(String n) {
+        MappingApplyResult result = apply(n);
+
+        assertThat(result.edits()).isNotEmpty().hasSizeLessThanOrEqualTo(10)
+            .allMatch(e -> e instanceof org.lifstools.mztab.validator.engine.api.LineEdit.InsertLines);
+        List<String> joined = result.edits().stream()
+            .flatMap(e -> ((org.lifstools.mztab.validator.engine.api.LineEdit.InsertLines) e).lines().stream()).toList();
+        String text = result.text();
+        assertThat(String.join("\n", joined)).isEqualTo(text.substring(0, text.length() - 1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"01", "02"})
     void outputHasNoErrorsOrWarnings(String n) throws IOException {
         Path file = dir.resolve("LCS-99999-" + n + ".mzTab");
         Files.writeString(file, apply(n).text(), StandardCharsets.UTF_8);

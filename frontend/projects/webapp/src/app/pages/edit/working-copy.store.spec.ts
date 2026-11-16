@@ -101,6 +101,7 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
 
   it.each([
     ['InsertLine', { op: 'InsertLine', before: 3, text: 'COM\tx' }],
+    ['InsertLines', { op: 'InsertLines', before: 3, lines: ['COM\tx', 'COM\ty'] }],
     ['MoveRow', { op: 'MoveRow', line: 3, before: 5 }],
     ['JoinWithPrevious', { op: 'JoinWithPrevious', line: 3 }],
   ])('pins the edit behind a %s', (_name, op) => {

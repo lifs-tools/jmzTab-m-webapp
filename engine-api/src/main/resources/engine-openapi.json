@@ -91,6 +91,25 @@
           "type" : "object"
         } ]
       },
+      "InsertLines" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/LineEdit"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "lines" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "JsonNode" : { },
       "LineEdit" : {
         "description" : "A text edit of a working copy; op names the edit, as in the webapp's edit operations.",
@@ -98,6 +117,7 @@
           "mapping" : {
             "InsertColumn" : "#/components/schemas/InsertColumn",
             "InsertLine" : "#/components/schemas/InsertLine",
+            "InsertLines" : "#/components/schemas/InsertLines",
             "SetCell" : "#/components/schemas/SetCell"
           },
           "propertyName" : "op"
@@ -106,6 +126,8 @@
           "$ref" : "#/components/schemas/SetCell"
         }, {
           "$ref" : "#/components/schemas/InsertLine"
+        }, {
+          "$ref" : "#/components/schemas/InsertLines"
         }, {
           "$ref" : "#/components/schemas/InsertColumn"
         } ],

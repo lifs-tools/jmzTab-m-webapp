@@ -83,6 +83,7 @@ export type EditOps = NonNullable<EditBatch['operations']>;
 export const LAYOUT_OPS: ReadonlySet<string> = new Set([
   'DeleteLine',
   'InsertLine',
+  'InsertLines',
   'MoveRow',
   'JoinWithPrevious',
   'InsertColumn',

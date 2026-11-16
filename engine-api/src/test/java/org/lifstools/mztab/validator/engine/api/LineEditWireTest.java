@@ -36,6 +36,12 @@ class LineEditWireTest {
     }
 
     @Test
+    void insertLinesRoundTrips() throws IOException {
+        pinned("{\"op\":\"InsertLines\",\"before\":3,\"lines\":[\"MTD\\ta\\tb\",\"MTD\\tc\\td\"]}",
+            new LineEdit.InsertLines(3, List.of("MTD\ta\tb", "MTD\tc\td")));
+    }
+
+    @Test
     void insertColumn() throws IOException {
         pinned("{\"op\":\"InsertColumn\",\"header\":\"SMH\",\"position\":14,\"name\":\"abundance_assay[9]\",\"fill\":\"null\"}",
             new LineEdit.InsertColumn("SMH", 14, "abundance_assay[9]", "null"));

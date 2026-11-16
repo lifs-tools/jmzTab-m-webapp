@@ -490,6 +490,8 @@
               }, {
                 "$ref" : "#/components/schemas/InsertLine"
               }, {
+                "$ref" : "#/components/schemas/InsertLines"
+              }, {
                 "$ref" : "#/components/schemas/JoinWithPrevious"
               }, {
                 "$ref" : "#/components/schemas/MergeColumns"
@@ -764,6 +766,25 @@
             },
             "text" : {
               "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InsertLines" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "lines" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
             }
           },
           "type" : "object"

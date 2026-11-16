@@ -62,12 +62,31 @@ class MappingApplierTest {
                 "MTD\tmzTab-version\t2.0.0-M\nMTD\tsample[1]\tP001\nMTD\tsample[1]-species[1]\t[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]\n"
                 + "MTD\tcv[1]-label\tNCBITaxon\nMTD\tcv[1]-full_name\tNCBI organismal classification\nMTD\tcv[1]-version\t2026-07-12\n"
                 + "MTD\tcv[1]-uri\thttp://purl.obolibrary.org/obo/ncbitaxon.owl\n");
-        assertThat(r.edits()).hasSize(7).allMatch(e -> e instanceof LineEdit.InsertLine);
-        assertThat(r.edits().get(0)).isEqualTo(new LineEdit.InsertLine(1, "MTD\tmzTab-version\t2.0.0-M"));
-        assertThat(r.edits().get(6)).isEqualTo(new LineEdit.InsertLine(7, "MTD\tcv[1]-uri\thttp://purl.obolibrary.org/obo/ncbitaxon.owl"));
+        assertThat(r.edits()).hasSize(1);
+        LineEdit.InsertLines all = (LineEdit.InsertLines) r.edits().get(0);
+        assertThat(all.before()).isEqualTo(1);
+        assertThat(all.lines()).hasSize(7).startsWith("MTD\tmzTab-version\t2.0.0-M")
+                .endsWith("MTD\tcv[1]-uri\thttp://purl.obolibrary.org/obo/ncbitaxon.owl");
         assertThat(r.suggestions()).hasSize(7).allMatch(s -> s.state() == SuggestionState.NEW);
         assertThat(r.suggestions().get(1)).isEqualTo(new Suggestion("sample[1]", "P001", SuggestionState.NEW));
         assertThat(r.notes()).isEmpty();
+    }
+
+    @Test
+    void consecutiveNewLinesAreOneInsertLines() {
+        String copy = "MTD\tmzTab-version\t2.0.0-M\nMTD\tsample[1]\tP001\nMTD\tcv[1]-label\tX\n";
+        MappingApplyResult r = applier().apply(request("tiny",
+                "{\"samples\":[{\"sample_name\":\"P001\",\"species\":" + HOMO_SAPIENS + "},{\"sample_name\":\"P002\"}]}",
+                copy, false), TWO_ZERO);
+        assertThat(r.edits()).isNotEmpty().allMatch(e -> e instanceof LineEdit.InsertLines);
+        // the numbers follow the anchor arithmetic: each run starts after the lines inserted before it
+        long inserted = 0;
+        for (LineEdit e : r.edits()) {
+            LineEdit.InsertLines ins = (LineEdit.InsertLines) e;
+            assertThat(ins.lines()).isNotEmpty();
+            assertThat(ins.before()).isGreaterThan(inserted);
+            inserted += ins.lines().size();
+        }
     }
 
     @Test
@@ -162,7 +181,7 @@ class MappingApplierTest {
         MappingApplyResult samples = applier().apply(request("tiny",
                 "{\"samples\":[{\"sample_name\":\" \",\"species\":" + HOMO_SAPIENS + "}]}", copy, false), TWO_ZERO);
         assertThat(samples.text()).startsWith(copy + "MTD\tsample[2]-species[1]\t[NCBITaxon, NCBITaxon:9606, Homo sapiens, ]\n");
-        assertThat(samples.edits()).allMatch(e -> e instanceof LineEdit.InsertLine);
+        assertThat(samples.edits()).allMatch(e -> e instanceof LineEdit.InsertLines);
         // a reference without a name refers to nothing: its line is not written, and no line names an unwritten index
         MappingApplyResult refs = applier().apply(request("merge",
                 "{\"samples\":[{\"species\":" + HOMO_SAPIENS + ",\"raw\":\"file:///x.mzML\"},"

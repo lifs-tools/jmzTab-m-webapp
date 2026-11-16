@@ -136,6 +136,7 @@ class MappingApplierMergeTest {
         List<String> lines = copy.lines().toList();
         for (LineEdit e : r.edits()) {
             switch (e) {
+                case LineEdit.InsertLines i -> assertThat(i.lines()).allMatch(t -> t.startsWith("MTD\t"));
                 case LineEdit.InsertLine i -> assertThat(i.text()).startsWith("MTD\t");
                 case LineEdit.SetCell s -> assertThat(lines.get((int) s.line() - 1)).startsWith("MTD");
                 case LineEdit.InsertColumn c -> throw new AssertionError("no column is inserted: " + c);
