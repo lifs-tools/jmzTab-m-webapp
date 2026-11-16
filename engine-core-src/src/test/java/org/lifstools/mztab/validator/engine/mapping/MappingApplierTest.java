@@ -51,7 +51,12 @@ class MappingApplierTest {
     }
 
     static MappingApplyRequest request(String mapping, String instance, String text, boolean provenance) {
-        return new MappingApplyRequest(mapping, "1.0.0", Map.of(), json(instance), text, provenance, null);
+        return request(mapping, instance, text, provenance, false);
+    }
+
+    static MappingApplyRequest request(String mapping, String instance, String text, boolean provenance,
+            boolean keepExisting) {
+        return new MappingApplyRequest(mapping, "1.0.0", Map.of(), json(instance), text, provenance, null, keepExisting);
     }
 
     @Test
@@ -105,7 +110,7 @@ class MappingApplierTest {
 
     @Test
     void anUnknownMappingVersionIsRefused() {
-        MappingApplyRequest r = new MappingApplyRequest("tiny", "9.9.9", Map.of(), json("{}"), "", false, null);
+        MappingApplyRequest r = new MappingApplyRequest("tiny", "9.9.9", Map.of(), json("{}"), "", false, null, false);
         assertThatThrownBy(() -> applier().apply(r, TWO_ZERO)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("mapping tiny has version 1.0.0, not 9.9.9");
     }
@@ -198,7 +203,7 @@ class MappingApplierTest {
     @Test
     void provenanceListsTheInputMappingAsTheThirdSetting() {
         MappingApplyRequest request = new MappingApplyRequest("tiny", "1.0.0", Map.of(), json("{\"samples\":[]}"), "", true,
-                "v3-workbook 1.0.0");
+                "v3-workbook 1.0.0", false);
         MappingApplyResult r = applier().apply(request, TWO_ZERO);
         assertThat(r.text().lines().skip(2).toList()).containsExactly("MTD\tsoftware[1]-setting[1]\tvocabulary 1.3.0",
                 "MTD\tsoftware[1]-setting[2]\ttiny 1.0.0", "MTD\tsoftware[1]-setting[3]\tv3-workbook 1.0.0");

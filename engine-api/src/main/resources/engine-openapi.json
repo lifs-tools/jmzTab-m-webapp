@@ -206,6 +206,9 @@
           "instance" : {
             "$ref" : "#/components/schemas/JsonNode"
           },
+          "keepExisting" : {
+            "type" : "boolean"
+          },
           "mapping" : {
             "type" : "string"
           },

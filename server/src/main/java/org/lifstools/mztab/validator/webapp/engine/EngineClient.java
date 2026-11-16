@@ -33,6 +33,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.lifstools.mztab.validator.engine.api.EngineError;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.FieldRules;
+import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
+import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
+import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.springframework.core.io.FileSystemResource;
@@ -153,6 +157,60 @@ public class EngineClient {
             .uri(b -> b.path("/engine/v1/conversions/json-to-tsv").queryParam("validate", validate).build())
             .contentType(MediaType.APPLICATION_JSON).accept(TSV).body(new InputStreamResource(json));
         return convert(request, target);
+    }
+
+    /**
+     * Applies an output mapping to the text of a working copy.
+     *
+     * @return the edits, the suggestions, the notes and the preview text
+     */
+    public MappingApplyResult applyMapping(MappingApplyRequest applyRequest) {
+        RestClient.RequestHeadersSpec<?> request = jobs.post().uri("/engine/v1/mappings/apply")
+            .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON).body(applyRequest);
+        return call(request, response -> {
+            if (response.getStatusCode().value() != 200) {
+                throw mapError(response);
+            }
+            return MAPPER.readValue(response.getBody(), MappingApplyResult.class);
+        });
+    }
+
+    /**
+     * Writes the starting text of a new mzTab-M file.
+     *
+     * @return the text
+     */
+    public String skeleton(SkeletonRequest skeletonRequest) {
+        RestClient.RequestHeadersSpec<?> request = jobs.post().uri("/engine/v1/skeletons")
+            .contentType(MediaType.APPLICATION_JSON).accept(TSV).body(skeletonRequest);
+        return call(request, response -> {
+            if (response.getStatusCode().value() != 200) {
+                throw mapError(response);
+            }
+            return new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        });
+    }
+
+    /**
+     * The field rules of a CV mapping, with their presence in a text.
+     *
+     * @param mapping the CV mapping file
+     * @param text the text to check for the fields; null for no presence
+     */
+    public FieldRules fieldRules(Path mapping, @Nullable Path text) {
+        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        parts.add("mapping", part(mapping, "mapping.xml"));
+        if (text != null) {
+            parts.add("file", part(text, "upload.mztab"));
+        }
+        RestClient.RequestHeadersSpec<?> request = jobs.post().uri("/engine/v1/field-rules")
+            .contentType(MediaType.MULTIPART_FORM_DATA).accept(MediaType.APPLICATION_JSON).body(parts);
+        return call(request, response -> {
+            if (response.getStatusCode().value() != 200) {
+                throw mapError(response);
+            }
+            return MAPPER.readValue(response.getBody(), FieldRules.class);
+        });
     }
 
     private Path convert(RestClient.RequestHeadersSpec<?> request, Path target) {

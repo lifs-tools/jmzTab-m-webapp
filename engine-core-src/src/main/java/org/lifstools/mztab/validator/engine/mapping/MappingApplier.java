@@ -388,7 +388,8 @@ public final class MappingApplier {
                     state = SuggestionState.NEW;
                 } else if (kv.value().equals(copy.metadataValue(kv.key()))) {
                     state = SuggestionState.UNCHANGED;
-                } else if (SINGLETONS.contains(kv.key()) || matched.contains(elementOf(kv.key()))) {
+                } else if (!request.keepExisting()
+                        && (SINGLETONS.contains(kv.key()) || matched.contains(elementOf(kv.key())))) {
                     edits.add(new LineEdit.SetCell(line, 2, kv.value()));
                     state = SuggestionState.REPLACES_EXISTING;
                 } else {

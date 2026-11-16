@@ -437,7 +437,7 @@ public class EngineController {
         }
         return new MappingApplyRequest(r.mapping(), r.mappingVersion(),
             r.parameters() == null ? Map.of() : r.parameters(), r.instance(), r.text() == null ? "" : r.text(),
-            r.provenance(), r.inputMapping());
+            r.provenance(), r.inputMapping(), r.keepExisting());
     }
 
     private JobLimiter.Permit acquire() {

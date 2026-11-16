@@ -29,7 +29,10 @@ import java.util.Map;
  * @param provenance whether the webapp, the vocabulary and the mappings are recorded as a {@code software[n]} entry
  * @param inputMapping the input mapping that produced {@code instance}, as {@code "<id> <version>"} (e.g.
  *     {@code v3-workbook 1.0.0}), recorded with the provenance; null when there was none or it is not known
+ * @param keepExisting if true, a value the copy already has with another value is never replaced: what would replace
+ *     it is a conflict, with no edit; absent in the JSON reads as false
  */
 public record MappingApplyRequest(String mapping, String mappingVersion, Map<String, String> parameters,
-    JsonNode instance, String text, boolean provenance, String inputMapping) {
+    JsonNode instance, String text, boolean provenance, String inputMapping,
+    boolean keepExisting) {
 }

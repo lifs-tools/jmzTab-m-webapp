@@ -211,7 +211,7 @@ class V3EquivalenceTwoZeroTest {
         Map<String, String> p = new LinkedHashMap<>();
         parameters.properties().forEach(e -> p.put(e.getKey(), e.getValue().asText()));
         MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.3.0", p, instance, "",
-            true, "v3-workbook 1.2.0");
+            true, "v3-workbook 1.2.0", false);
         return new MappingApplier().apply(request, engineVersions());
     }
 
