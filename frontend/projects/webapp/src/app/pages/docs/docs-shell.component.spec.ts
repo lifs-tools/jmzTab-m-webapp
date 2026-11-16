@@ -32,6 +32,7 @@ describe('DocsShellComponent', () => {
               { path: 'format', component: Blank },
               { path: 'validating', component: Blank },
               { path: 'fixing', component: Blank },
+              { path: 'new-file', component: Blank },
               { path: 'problems', component: Blank },
               { path: 'integration', component: Blank },
               { path: 'about', component: Blank },
@@ -78,6 +79,7 @@ describe('DocsShellComponent', () => {
       'mzTab-M 2.0 and 2.1',
       'Validating a file',
       'Fixing a file',
+      'Starting a new file',
       'Common problems',
       'For tools and services',
       'About this service',
@@ -91,11 +93,11 @@ describe('DocsShellComponent', () => {
     const next = pager().querySelector<HTMLAnchorElement>('a[rel=next]');
     expect(prev?.getAttribute('href')).toBe('/docs/validating');
     expect(prev?.textContent).toContain('Validating a file');
-    expect(next?.getAttribute('href')).toBe('/docs/problems');
-    expect(next?.textContent).toContain('Common problems');
+    expect(next?.getAttribute('href')).toBe('/docs/new-file');
+    expect(next?.textContent).toContain('Starting a new file');
 
     await harness.navigateByUrl('/docs/problems');
-    expect(pager().querySelector('a[rel=prev]')?.getAttribute('href')).toBe('/docs/fixing');
+    expect(pager().querySelector('a[rel=prev]')?.getAttribute('href')).toBe('/docs/new-file');
     expect(pager().querySelector('a[rel=next]')?.getAttribute('href')).toBe('/docs/integration');
 
     await harness.navigateByUrl('/docs/integration');

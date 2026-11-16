@@ -1,0 +1,138 @@
+<div class="page lifs-prose">
+  <p class="lifs-lead">
+    Start an mzTab-M file from three choices, see what it still needs, and fill it from a vocabulary file or by
+    hand.
+  </p>
+
+  <section class="lifs-card" aria-labelledby="new-choices">
+    <h2 id="new-choices" class="lifs-card__title">The three choices</h2>
+    <p>
+      Choose <b>New file</b> in the app bar, or go to <a routerLink="/new">the new file page</a>. The form asks for
+      three things, and for the name of the file:
+    </p>
+    <ul>
+      <li>
+        <b>mzTab-M version.</b> Only the versions this service can check are offered; the default is preselected.
+        See <a routerLink="/docs/versions">mzTab-M 2.0 and 2.1</a>.
+      </li>
+      <li>
+        <b>Content profile.</b> Asked for mzTab-M 2.1 only: <span class="lifs-mono">M</span>,
+        <span class="lifs-mono">M+S</span>, <span class="lifs-mono">M+F</span>,
+        <span class="lifs-mono">M+F+E</span> or <span class="lifs-mono">M+S+F+E</span>. It says which sections the
+        file has. A 2.0 file has no content profile.
+      </li>
+      <li>
+        <b>Repository rules.</b> The validation profile the file is checked against, from the catalog. Only the
+        profiles that list the chosen version are offered.
+      </li>
+      <li>
+        <b>mzTab-ID.</b> Letters, digits, dots, underscores and hyphens, starting with a letter or a digit, up to 64
+        characters. The file is named after it.
+      </li>
+    </ul>
+    <p>
+      <b>Create file</b> opens the editor on the new file. Like any file in the editor, it is kept for a time after
+      your last change (see <a routerLink="/docs/fixing#guide-retention">Fixing a file</a>), and anyone with the
+      address of the editor can open and change it.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="new-skeleton">
+    <h2 id="new-skeleton" class="lifs-card__title">Why the new file is not valid yet</h2>
+    <p>
+      The new file holds only what you chose: its <span class="lifs-mono">mzTab-version</span>, its
+      <span class="lifs-mono">mzTab-ID</span> and, for 2.1, its <span class="lifs-mono">mzTab-profile</span>. It is
+      not a valid file, and the editor shows errors from the first moment. That is intended. A valid file needs
+      facts nobody has given yet, such as the software, the assays, the polarity, the quantification method or the
+      controlled vocabularies, and the service does not make them up.
+    </p>
+    <p>
+      The messages and the list called <b>Still missing</b> say what to add. Add it by hand, as described in
+      <a routerLink="/docs/fixing">Fixing a file</a>, or from a vocabulary file.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="new-missing">
+    <h2 id="new-missing" class="lifs-card__title">Still missing</h2>
+    <p>
+      <b>Still missing</b> lists the rules of your repository rules that the file does not meet yet. It is decided
+      from the text of the file, so it follows every change.
+    </p>
+    <ul>
+      <li><b>Required</b> are the rules the repository demands (MUST).</li>
+      <li><b>Recommended</b> are the rules it asks for (SHOULD).</li>
+      <li>
+        When nothing is left, it says "Nothing is missing for these repository rules."
+      </li>
+      <li>
+        <b>Not yet checked</b> lists the rules while the file cannot be read into a model: "The file cannot be read
+        into a model yet, so these rules could not be checked against it. Fix the errors in the messages first."
+        A new file stays here until it has, at least, its software, assays and controlled vocabularies.
+      </li>
+    </ul>
+    <p>
+      It lists rules, not values: it says that a rule is not met, and the messages say where. Nothing is filled in
+      for you.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="new-add-from">
+    <h2 id="new-add-from" class="lifs-card__title">Add from a vocabulary file</h2>
+    <p>
+      The editor's panel <b>Add from…</b> fills the file from a file you already have. It is offered for mzTab-M 2.0
+      files; for 2.1 it says so.
+    </p>
+    <ol>
+      <li>Press <b>A vocabulary file (JSON)</b>.</li>
+      <li>
+        Choose the file. It is the JSON of the
+        <a
+          href="https://github.com/lifs-tools/jmzTab-m-webapp/blob/master/submission-vocabulary/README.md"
+          target="_blank"
+          rel="noopener"
+          >submission vocabulary</a
+        >: what its template reader writes, or what your tool writes. It can be at most 5 MiB.
+      </li>
+      <li>If the file has several datasets, choose the one this mzTab-M file is for.</li>
+      <li>
+        Check the <b>Study id</b>. It is prefilled from the file and the mzTab-ID is made from it, for example
+        LCS-00123.
+      </li>
+      <li>
+        Look at the preview. Nothing is changed in your file until you press <b>Apply</b>.
+      </li>
+    </ol>
+    <h3 id="new-states">The preview</h3>
+    <p>The preview lists each key and value that the import would write, with its state:</p>
+    <ul>
+      <li><b>new</b>: the file does not have it yet;</li>
+      <li><b>unchanged</b>: the file has the same value;</li>
+      <li><b>kept (differs)</b>: the file has another value and keeps it;</li>
+      <li><b>replaces existing</b>: the file has another value and the import replaces it.</li>
+    </ul>
+    <p>The notes below the table say what the import could not map.</p>
+    <h3 id="new-keep">Keep existing values</h3>
+    <p>
+      <b>Keep existing values</b> is on by default. A value your file already has stays, and where the import
+      differs it is listed as kept (differs). Turn it off, and the preview is made again, to let the import replace
+      the values the file has. The import is applied as a whole; single lines cannot be left out.
+    </p>
+    <h3 id="new-stale">When the file changes meanwhile</h3>
+    <p>
+      A preview belongs to the file as it was. If you change the file afterwards, the panel says so and offers
+      <b>Preview again</b>; <b>Apply</b> waits for it.
+    </p>
+  </section>
+
+  <section class="lifs-card" aria-labelledby="new-undo">
+    <h2 id="new-undo" class="lifs-card__title">Undo</h2>
+    <p>
+      An import is one change. One <b>Undo</b> takes back everything it wrote and returns the file to the text it
+      had before, and <b>Redo</b> applies it again.
+    </p>
+    <p>
+      After the import, the file is checked again. If errors remain, the messages and <b>Still missing</b> say what
+      is left. For the next steps see <a routerLink="/docs/fixing">Fixing a file</a>.
+    </p>
+  </section>
+</div>

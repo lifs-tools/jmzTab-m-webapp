@@ -140,6 +140,14 @@
             <li>Click a cell or a metadata value to change it. Enter saves, Escape cancels. While a table reloads, or if reloading it failed (press <b>Retry</b>), its cells cannot be edited. The × at a metadata entry (<b>Remove this line</b>) removes the line; Undo brings it back.</li>
             <li>Open a message and press <b>{{ previewLabel }}</b> to see a before and after. Where a fix applies to many lines, <b>{{ allLabel }}</b> does them all.</li>
             <li>
+              <b>Add from…</b> (below the messages) fills the file from a vocabulary file, for mzTab-M 2.0. Choose the
+              file, and check the dataset and the study id. The preview lists what would be written, as new, unchanged,
+              kept (differs) or replaces existing, and nothing changes until you press <b>Apply</b>. <b>Keep existing
+              values</b> is on by default. If the file changes meanwhile, press <b>Preview again</b>. One Undo takes the
+              whole import back. <b>Still missing</b> lists the rules of your repository rules that the file does not
+              meet yet.
+            </li>
+            <li>
               A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
               message with a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text. → stands for a tab. If lines
               moved since that message was checked, nothing is marked or opened for it: wait for the next check. A CV

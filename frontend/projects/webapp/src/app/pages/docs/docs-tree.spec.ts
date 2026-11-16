@@ -1,7 +1,7 @@
 import { docsNeighbours, docsOrder, docsTitle } from './docs-tree';
 
 describe('docs tree', () => {
-  it('orders home first, then the chapters (getting started, understanding mzTab-M with its pages, versions, validating, fixing, problems, integration, about)', () => {
+  it('orders home first, then the chapters (getting started, understanding mzTab-M with its pages, versions, validating, fixing, starting a new file, problems, integration, about)', () => {
     expect(docsOrder().map((n) => n.path)).toEqual([
       '/docs',
       '/docs/getting-started',
@@ -16,6 +16,7 @@ describe('docs tree', () => {
       '/docs/versions',
       '/docs/validating',
       '/docs/fixing',
+      '/docs/new-file',
       '/docs/problems',
       '/docs/integration',
       '/docs/about',
@@ -25,7 +26,7 @@ describe('docs tree', () => {
   it('gives neighbours in tree order', () => {
     const n = docsNeighbours('/docs/fixing');
     expect(n.prev?.path).toBe('/docs/validating');
-    expect(n.next?.path).toBe('/docs/problems');
+    expect(n.next?.path).toBe('/docs/new-file');
     expect(docsNeighbours('/docs').prev).toBeNull();
     expect(docsNeighbours('/docs/about').next).toBeNull();
   });
@@ -45,6 +46,12 @@ describe('docs tree', () => {
 
   it('gives no neighbours outside the tree', () => {
     expect(docsNeighbours('/docs/nothing')).toEqual({ prev: null, next: null });
+  });
+
+  it('puts "Starting a new file" after "Fixing a file"', () => {
+    expect(docsNeighbours('/docs/new-file').prev?.path).toBe('/docs/fixing');
+    expect(docsNeighbours('/docs/new-file').next?.path).toBe('/docs/problems');
+    expect(docsTitle('/docs/new-file')).toBe('Starting a new file');
   });
 
   it('titles a docs path', () => expect(docsTitle('/docs/problems')).toBe('Common problems'));

@@ -69,6 +69,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/docs/fixing.page').then((m) => m.FixingPage),
       },
       {
+        path: 'new-file',
+        title: pageTitle('/docs/new-file'),
+        loadComponent: () => import('./pages/docs/new-file.page').then((m) => m.NewFileDocsPage),
+      },
+      {
         path: 'problems',
         title: pageTitle('/docs/problems'),
         loadComponent: () => import('./pages/docs/problems.page').then((m) => m.ProblemsPage),
