@@ -53,6 +53,66 @@
         },
         "type" : "object"
       },
+      "FieldRule" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "logic" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "present" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "requirement" : {
+            "type" : "string"
+          },
+          "terms" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRuleTerm"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FieldRuleTerm" : {
+        "properties" : {
+          "accession" : {
+            "type" : "string"
+          },
+          "allowChildren" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "useTerm" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "FieldRules" : {
+        "properties" : {
+          "parsed" : {
+            "type" : "boolean"
+          },
+          "rules" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRule"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "InsertColumn" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/LineEdit"
@@ -609,6 +669,78 @@
           }
         },
         "summary" : "tsvToJson",
+        "tags" : [ "engine" ]
+      }
+    },
+    "/engine/v1/field-rules" : {
+      "post" : {
+        "description" : "Lists the rules of a CV mapping, each with the field it is about, its requirement, its terms and, if a file is given, whether the file has the field. A rule's field is present when the file's model has a value at the rule's path. The presence is null for every rule, and parsed is false, if no file was given or the file cannot be read into a model (jmzTab-m builds none for a file with errors, or for a skeleton that lacks software, assay or cv).",
+        "operationId" : "fieldRules",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "description" : "An mzTab-M file, tab separated, at most the upload limit of GET /info; without it no rule has a presence",
+                    "format" : "binary",
+                    "type" : "string"
+                  },
+                  "mapping" : {
+                    "description" : "The CV mapping file, at most 5 MiB",
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "mapping" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FieldRules"
+                }
+              }
+            },
+            "description" : "The rules"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The mapping is missing or is not a CV mapping (invalid_request)"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The file or the mapping is larger than its limit (file_too_large)"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EngineError"
+                }
+              }
+            },
+            "description" : "The engine is busy (busy); retry after Retry-After seconds"
+          }
+        },
+        "summary" : "fieldRules",
         "tags" : [ "engine" ]
       }
     },

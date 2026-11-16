@@ -46,6 +46,7 @@ import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.validator.engine.api.EngineError;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.FieldRules;
 import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
@@ -54,6 +55,7 @@ import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.engine.fieldrules.FieldRuleReader;
 import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
 import org.lifstools.mztab.validator.engine.skeleton.SkeletonWriter;
 import org.lifstools.mztab2.model.MzTab;
@@ -215,6 +217,51 @@ public class EngineController {
             deleteQuietly(upload);
             deleteQuietly(tsv);
             deleteQuietly(mappingFile);
+        }
+    }
+
+    @Operation(summary = "fieldRules", description = "Lists the rules of a CV mapping, each with the field it is "
+        + "about, its requirement, its terms and, if a file is given, whether the file has the field. A rule's "
+        + "field is present when the file's model has a value at the rule's path. The presence is null for every "
+        + "rule, and parsed is false, if no file was given or the file cannot be read into a model (jmzTab-m "
+        + "builds none for a file with errors, or for a skeleton that lacks software, assay or cv).")
+    @ApiResponse(responseCode = "200", description = "The rules",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = FieldRules.class)))
+    @ApiResponse(responseCode = "400", description = "The mapping is missing or is not a CV mapping (invalid_request)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "413", description = "The file or the mapping is larger than its limit (file_too_large)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "503", description = "The engine is busy (busy); retry after Retry-After seconds",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @PostMapping(value = "/field-rules", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE)
+    public FieldRules fieldRules(
+        @Parameter(description = "The CV mapping file, at most 5 MiB")
+        @RequestPart("mapping") MultipartFile mapping,
+        @Parameter(description = "An mzTab-M file, tab separated, at most the upload limit of GET /info; without it "
+            + "no rule has a presence")
+        @RequestPart(value = "file", required = false) @Nullable MultipartFile file) throws IOException {
+        if (mapping.getSize() > MAX_MAPPING_BYTES) {
+            throw new MaxUploadSizeExceededException(MAX_MAPPING_BYTES);
+        }
+        if (file != null && file.getSize() > maxUploadBytes) {
+            throw new MaxUploadSizeExceededException(maxUploadBytes);
+        }
+        Path mappingFile = null;
+        Path text = null;
+        try (JobLimiter.Permit permit = acquire()) {
+            mappingFile = spool(mapping, ".xml");
+            text = file == null ? null : spool(file, ".mztab");
+            try {
+                return FieldRuleReader.read(mappingFile, text);
+            } catch (InvalidMappingFileException e) {
+                log.info("The mapping could not be read: {}", e.getMessage());
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    shorten(e.getMessage()));
+            }
+        } finally {
+            deleteQuietly(mappingFile);
+            deleteQuietly(text);
         }
     }
 
