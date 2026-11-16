@@ -21,9 +21,11 @@ import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.TW
 import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.applier;
 import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.request;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.validator.engine.api.LineEdit;
+import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.Suggestion;
 import org.lifstools.mztab.validator.engine.api.SuggestionState;
@@ -179,10 +181,10 @@ class MappingApplierMergeTest {
 
     @Test
     void aRequestWithoutKeepExistingReadsAsFalse() throws Exception {
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        org.lifstools.mztab.validator.engine.api.MappingApplyRequest r = mapper.readValue(
+        ObjectMapper mapper = new ObjectMapper();
+        MappingApplyRequest r = mapper.readValue(
                 "{\"mapping\":\"merge\",\"mappingVersion\":\"1.0.0\",\"instance\":{},\"text\":\"\",\"provenance\":false}",
-                org.lifstools.mztab.validator.engine.api.MappingApplyRequest.class);
+                MappingApplyRequest.class);
         assertThat(r.keepExisting()).isFalse();
     }
 }

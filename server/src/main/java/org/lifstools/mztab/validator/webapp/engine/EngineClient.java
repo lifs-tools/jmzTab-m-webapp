@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -53,7 +54,9 @@ import org.springframework.web.client.RestClient;
 /**
  * Talks to the engine of one version line over its HTTP API
  * ({@code /engine/v1}). Uploads are streamed from files or streams, never
- * buffered; the callers own and close the streams they pass.
+ * buffered; the callers own and close the streams they pass. The exception is
+ * {@link #applyMapping}, whose request (with the copy's text) is JSON held in
+ * memory.
  */
 @Slf4j
 public class EngineClient {
@@ -160,7 +163,9 @@ public class EngineClient {
     }
 
     /**
-     * Applies an output mapping to the text of a working copy.
+     * Applies an output mapping to the text of a working copy. Unlike the uploads, the request is JSON held in
+     * memory, text included: the caller must cap the text at the engine's {@code maxUploadBytes}; this client adds
+     * no cap. Uses the job timeout.
      *
      * @return the edits, the suggestions, the notes and the preview text
      */
@@ -176,7 +181,7 @@ public class EngineClient {
     }
 
     /**
-     * Writes the starting text of a new mzTab-M file.
+     * Writes the starting text of a new mzTab-M file. Uses the job timeout.
      *
      * @return the text
      */
@@ -187,12 +192,13 @@ public class EngineClient {
             if (response.getStatusCode().value() != 200) {
                 throw mapError(response);
             }
-            return new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            return new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
         });
     }
 
     /**
-     * The field rules of a CV mapping, with their presence in a text.
+     * The field rules of a CV mapping, with their presence in a text. Uses the job timeout. The files are streamed
+     * from where they are: the caller owns them, and this method neither copies nor deletes them.
      *
      * @param mapping the CV mapping file
      * @param text the text to check for the fields; null for no presence
