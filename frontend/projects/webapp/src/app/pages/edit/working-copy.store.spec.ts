@@ -3,6 +3,7 @@ import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@a
 import { TestBed } from '@angular/core/testing';
 import { DocEdit, DocumentSource } from '@lifs-tools/mztabm-editor';
 
+import { ImportPreview } from '../../api/models/import-preview';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
@@ -1084,5 +1085,129 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     expect(errors.length).toBe(1);
     expect((errors[0] as { status: number }).status).toBe(503);
     http.verify();
+  });
+});
+
+/** Imports: a preview names the copy's revision; its batch is applied as a quick fix's is, and a conflict is "stale". */
+describe('WorkingCopyStore: imports', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+  let notices: string[];
+  let changed: number;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    store.id.set('abc');
+    store.info.set(info(3, { generation: 'g1' }));
+    notices = [];
+    changed = 0;
+    store.notices.subscribe((n) => notices.push(n));
+    store.changed.subscribe(() => changed++);
+  });
+
+  const preview = (revision: number): ImportPreview => ({
+    kind: 'vocabulary-instance',
+    revision,
+    mapping: 'mztab-m-2.0-output',
+    mappingVersion: '1.0.0',
+    suggestions: [{ key: 'title', value: 't', state: 'NEW' }],
+    notes: [],
+    batch: { revision, operations: [{ op: 'InsertLines', before: 3, lines: ['MTD\ttitle\tt', 'MTD\tdescription\td'] }] as never },
+  });
+  const request = { kind: 'vocabulary-instance', instance: { datasets: [{}] }, datasetIndex: 1, studyId: 'LCS-1', keepExisting: true };
+  const edits = () => http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits'));
+  const imports = () => http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/imports'));
+  const reread = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc'));
+
+  it('applyImport sends one batch: the preview revision, a change id of its own and the generation', () => {
+    const outcomes: string[] = [];
+    store.applyImport(preview(3)).subscribe((o) => outcomes.push(o));
+    const sent = edits();
+    expect(sent.length).toBe(1);
+    expect(sent[0].request.body).toEqual({
+      revision: 3,
+      operations: [{ op: 'InsertLines', before: 3, lines: ['MTD\ttitle\tt', 'MTD\tdescription\td'] }],
+      changeId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      generation: 'g1',
+    });
+    sent[0].flush(info(4, { generation: 'g1' }));
+    expect(outcomes).toEqual(['applied']);
+    expect(store.info()?.revision).toBe(4);
+    // the views read again: the import inserted lines
+    expect(changed).toBe(1);
+    // lines moved: a page read before it is stale for edits that name lines
+    expect(store.linesMovedSince(3)).toBe(true);
+    http.verify();
+  });
+
+  it('a 409 reads the copy again, through the conflict handling, and is "stale"', () => {
+    const outcomes: string[] = [];
+    store.applyImport(preview(3)).subscribe((o) => outcomes.push(o));
+    edits()[0].flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+    expect(outcomes).toEqual([]);
+    reread().flush(info(5, { generation: 'g1' }));
+    expect(outcomes).toEqual(['stale']);
+    expect(store.info()?.revision).toBe(5);
+    expect(notices).toEqual([CONFLICT_NOTICE]);
+    expect(changed).toBe(1);
+    http.verify();
+  });
+
+  it('a replaced copy is "stale" too, and says so', () => {
+    const outcomes: string[] = [];
+    store.applyImport(preview(3)).subscribe((o) => outcomes.push(o));
+    edits()[0].flush({ error: 'copy_replaced', message: 'replaced' }, { status: 409, statusText: 'Conflict' });
+    reread().flush(info(0, { generation: 'g2' }));
+    expect(outcomes).toEqual(['stale']);
+    expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+  });
+
+  it('another failure is passed on', () => {
+    const errors: unknown[] = [];
+    store.applyImport(preview(3)).subscribe({ error: (e) => errors.push(e) });
+    edits()[0].flush({ message: 'Line 3 is too long.' }, { status: 400, statusText: 'Bad Request' });
+    expect((errors[0] as { status: number }).status).toBe(400);
+    http.verify();
+  });
+
+  it('previewImport names the revision the store knows; a 409 reads the copy again and previews once more', () => {
+    const previews: ImportPreview[] = [];
+    store.previewImport(request).subscribe((p) => previews.push(p));
+    const first = imports();
+    expect(first.length).toBe(1);
+    expect(first[0].request.body).toEqual({ ...request, revision: 3 });
+    first[0].flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+    reread().flush(info(6, { generation: 'g1' }));
+    const second = imports();
+    expect(second.length).toBe(1);
+    expect(second[0].request.body).toEqual({ ...request, revision: 6 });
+    second[0].flush(preview(6));
+    expect(previews.map((p) => p.revision)).toEqual([6]);
+    // the copy moved on elsewhere: the views read again
+    expect(changed).toBe(1);
+    http.verify();
+  });
+
+  it('hasProfile comes from the copy: a new copy has its own repository rules', () => {
+    expect(store.hasProfile()).toBe(false);
+    store.info.set(info(3, { validationProfile: { kind: 'CATALOG', id: 'mztab-m-2.0-default', version: '1.1.0' } }));
+    expect(store.hasProfile()).toBe(true);
+    store.info.set(info(3, { validationProfile: { kind: 'NONE' } }));
+    expect(store.hasProfile()).toBe(false);
+  });
+
+  it('opening a copy asks nothing of the validation session', () => {
+    store.open('abc');
+    http.expectOne((r) => r.method === 'POST' && r.url.endsWith('rest/v2/working-copies'));
+    http.expectNone((r) => r.url.includes('rest/v2/validations'));
   });
 });

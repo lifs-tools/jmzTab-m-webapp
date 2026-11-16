@@ -5,6 +5,7 @@ export function pageTitle(path: string): string {
   const routes: Record<string, string> = {
     '/': 'Validate',
     '/examples': 'Examples',
+    '/new': 'New file',
   };
   if (path.startsWith('/docs')) {
     return `mzTab-M Validator · ${docsTitle(path) ?? 'Not found'}`;

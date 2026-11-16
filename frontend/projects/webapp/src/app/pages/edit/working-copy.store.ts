@@ -21,11 +21,11 @@ import {
 } from 'rxjs';
 
 import { EditBatch } from '../../api/models/edit-batch';
+import { ImportPreview } from '../../api/models/import-preview';
+import { ImportRequest } from '../../api/models/import-request';
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
 import { ValidationMessage } from '../../api/models/validation-message';
-import { ValidationRecord } from '../../api/models/validation-record';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
-import { ValidationsService } from '../../api/services/validations.service';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { AppInfoStore } from '../../core/app-info.store';
 import { quietRequest } from '../../core/http-error.interceptor';
@@ -74,6 +74,8 @@ export const JSON_NOT_READY = 'JSON is offered once the latest changes are check
 export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.';
 
 export type EditOps = NonNullable<EditBatch['operations']>;
+/** What an import preview asks for; the store adds the revision it knows. */
+export type ImportChoices = Omit<ImportRequest, 'revision'>;
 
 /**
  * Edits that change the layout of the text: lines move, columns are inserted, deleted, merged or renamed (a rename moves no column, but a cell edit queued behind it names the old header), cells are split
@@ -166,7 +168,6 @@ const GONE = 'gone' as const;
 @Injectable()
 export class WorkingCopyStore {
   private readonly api = inject(WorkingCopiesService);
-  private readonly validations = inject(ValidationsService);
   private readonly appInfo = inject(AppInfoStore);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -180,8 +181,6 @@ export class WorkingCopyStore {
    */
   readonly openFailure = signal<string | null>(null);
   readonly info = signal<WorkingCopyInfo | undefined>(undefined);
-  /** The validation the copy was made from: its profile decides whether CV rules can be checked. */
-  readonly record = signal<ValidationRecord | undefined>(undefined);
 
   private readonly inFlight = signal(0);
   private readonly idlePending = signal(false);
@@ -225,8 +224,9 @@ export class WorkingCopyStore {
       !(v.messages ?? []).some((t) => t.message?.message_type === 'error')
     );
   });
+  /** The copy's repository rules (its session's for an upload, its own for a new file) decide whether CV rules can be checked. */
   readonly hasProfile = computed(() => {
-    const kind = this.record()?.validationProfile?.kind;
+    const kind = this.info()?.validationProfile?.kind;
     return kind === 'CATALOG' || kind === 'CUSTOM';
   });
   /**
@@ -330,13 +330,6 @@ export class WorkingCopyStore {
     this.lastVersion = undefined;
     this.retired.clear();
     this.create('UTF_8');
-    this.validations
-      .getValidation({ id }, quietRequest())
-      .pipe(
-        catchError(() => of(undefined)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((r) => this.record.set(r));
   }
 
   /** Creates the copy again, reading the upload as Windows-1252 ("Re-encode from Windows-1252"). */
@@ -435,12 +428,63 @@ export class WorkingCopyStore {
 
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
+    return this.applyBatch(preview.batch);
+  }
+
+  /**
+   * Applies an import's batch whole, as it was previewed, the way a quick fix is applied: one change, so one undo
+   * takes it back. A 409 (the copy changed since the preview, or was created again; or a change queued before it
+   * may have been saved) has been answered by the store, which read the copy again and said so: the import is
+   * `'stale'`, and a new preview is of the copy as it is now.
+   */
+  applyImport(preview: ImportPreview): Observable<'applied' | 'stale'> {
+    return this.applyBatch(preview.batch).pipe(
+      map(() => 'applied' as const),
+      catchError((err: unknown) => (statusOf(err) === 409 ? of('stale' as const) : throwError(() => err))),
+    );
+  }
+
+  /** A previewed batch, sent with the revision it was previewed at, a change id of its own and the copy's generation. */
+  private applyBatch(batch: EditBatch | undefined): Observable<WorkingCopyInfo> {
     return this.enqueue((_, changeId, generation) =>
-      this.api.editWorkingCopy({ id: this.id(), body: { ...(preview.batch ?? {}), changeId, generation } }), {
-      sentAt: preview.batch?.revision ?? null,
+      this.api.editWorkingCopy({ id: this.id(), body: { ...(batch ?? {}), changeId, generation } }), {
+      sentAt: batch?.revision ?? null,
       reload: true,
-      layout: changesLayout(preview.batch?.operations),
+      layout: changesLayout(batch?.operations),
     });
+  }
+
+  /**
+   * Previews an import at the revision of the copy's last answer. A 409 means the copy is at another revision
+   * (another tab changed it, or an edit of this one is on its way): the copy is read again and the preview asked
+   * for once more, at the revision read.
+   */
+  previewImport(choices: ImportChoices): Observable<ImportPreview> {
+    const send = () =>
+      this.api.previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, quietRequest());
+    return defer(send).pipe(
+      catchError((err: unknown) =>
+        statusOf(err) === 409 ? this.reread().pipe(switchMap(() => defer(send))) : throwError(() => err),
+      ),
+    );
+  }
+
+  /**
+   * Reads the copy again without a notice. When it moved on while this tab has no change on its way, it changed
+   * elsewhere: lines may have moved, and the views read again. (A copy created again says so itself.)
+   */
+  private reread(): Observable<void> {
+    const known = this.revision();
+    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+      map((info) => {
+        const replaced = this.setInfo(info);
+        const now = info.revision ?? 0;
+        if (!replaced && !this.saving() && now > known) {
+          this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
+          this.changed.next();
+        }
+      }),
+    );
   }
 
   /** The user is still typing or moving around: a pending check waits for the pause. */

@@ -1,0 +1,110 @@
+<section class="hero">
+  <p class="lifs-eyebrow">LIFS Tools · Create</p>
+  <h1>New file</h1>
+  <p class="lifs-lead">
+    Start an mzTab-M file from three choices. The editor opens on it and checks it from the first moment: the messages
+    and the "still missing" list say what to add, by hand or from a vocabulary file.
+  </p>
+</section>
+
+<div class="page">
+  <form class="lifs-card form" (submit)="$event.preventDefault(); submit()" novalidate>
+    @if (!versions().length) {
+      <p class="lifs-note" role="status">No mzTab-M version is offered here right now. Please try again later.</p>
+    }
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>mzTab-M version</mat-label>
+      <select matNativeControl data-testid="version" [value]="version() ?? ''" (change)="onVersion($event)">
+        @for (v of versions(); track v.value) {
+          <option [value]="v.value" [selected]="v.value === version()">{{ v.label }}</option>
+        }
+      </select>
+    </mat-form-field>
+
+    @if (needsContentProfile()) {
+      <fieldset class="profiles" data-testid="content-profile" aria-describedby="content-profile-hint">
+        <legend>Content profile</legend>
+        <p id="content-profile-hint" class="lifs-note">
+          The content profile (<span class="lifs-mono">mzTab-profile</span>) says which sections the file has.
+        </p>
+        @for (p of contentProfiles; track p.value) {
+          <label class="choice">
+            <input
+              type="radio"
+              name="content-profile"
+              [value]="p.value"
+              [checked]="contentProfile() === p.value"
+              (change)="onContentProfile(p.value)"
+            />
+            <span class="choice__code lifs-mono">{{ p.value }}</span>&ngsp;<span class="choice__meaning">{{ p.meaning }}</span>
+          </label>
+        }
+      </fieldset>
+    }
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Repository rules</mat-label>
+      <select
+        matNativeControl
+        data-testid="rules"
+        [value]="rules() ?? ''"
+        [disabled]="!rulesOptions().length"
+        (change)="onRules($event)"
+      >
+        @for (o of rulesOptions(); track o.value) {
+          <option [value]="o.value" [selected]="o.value === rules()">{{ o.label }}</option>
+        }
+      </select>
+    </mat-form-field>
+    <p class="lifs-note hint">
+      @if (profilesFailed()) {
+        The repository rules could not be loaded. Please try again later.
+      } @else if (version() && !rulesOptions().length) {
+        No repository rules list mzTab-M {{ version() }}.
+      } @else {
+        The repository rules are the validation profile the file is checked against.
+        @if (rulesHint()) {
+          {{ rulesHint() }}
+        }
+      }
+    </p>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>mzTab-ID</mat-label>
+      <input
+        matInput
+        type="text"
+        data-testid="mztab-id"
+        spellcheck="false"
+        autocomplete="off"
+        maxlength="80"
+        aria-describedby="mztab-id-hint"
+        [value]="mzTabId()"
+        [attr.aria-invalid]="idInvalid() ? 'true' : 'false'"
+        (input)="onId($event)"
+      />
+    </mat-form-field>
+    <p id="mztab-id-hint" class="lifs-note hint" [class.hint--error]="idInvalid()">
+      @if (idInvalid()) {
+        Start with a letter or a digit, then use only letters, digits, dots, underscores or hyphens, 64 characters at
+        most.
+      } @else {
+        The file is named after it, e.g. <span class="lifs-mono">LCS-00123-01.mzTab</span>.
+      }
+    </p>
+
+    @if (error(); as reason) {
+      <div class="lifs-callout lifs-callout--error" role="alert" data-testid="create-failed">
+        <p class="callout__text">{{ reason }}</p>
+      </div>
+    }
+
+    <div class="actions">
+      <button mat-flat-button type="submit" [disabled]="!canSubmit()">
+        {{ submitting() ? 'Creating…' : 'Create file' }}
+      </button>
+      <a mat-button routerLink="/">Validate a file instead</a>
+    </div>
+  </form>
+</div>

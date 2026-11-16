@@ -12,8 +12,14 @@ import {
   DocTableHeader,
   DocTableQuery,
   DocumentSource,
+  ImportPreviewView,
+  ImportRequestView,
+  ImportSource,
+  StillMissingView,
 } from '@lifs-tools/mztabm-editor';
 
+import { ImportPreview } from '../../api/models/import-preview';
+import { JsonNode } from '../../api/models/json-node';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { quietRequest } from '../../core/http-error.interceptor';
 import { EditOps, LAYOUT_OPS, MaybeSavedError, WorkingCopyStore, serverMessage } from './working-copy.store';
@@ -120,4 +126,39 @@ function filtersByName(q: DocTableQuery) {
 
 function filtersByPosition(q: DocTableQuery) {
   return (q.filters ?? []).filter((f) => f.position != null);
+}
+
+/** A failure as the library's sources pass it on: the HTTP status and the server's reason, if it gave one. */
+function toDocError(err: unknown): Observable<never> {
+  const status = err instanceof HttpErrorResponse ? err.status : undefined;
+  return throwError(() => ({ status, detail: serverMessage(err) }));
+}
+
+/**
+ * The working copy as the library's Add-from panel sees it: the kinds of import of its version, previews (at the
+ * revision the store knows), applying a preview's batch through the store's queue, and the "still missing" rules.
+ */
+@Injectable()
+export class WorkingCopyImportSource extends ImportSource {
+  private readonly api = inject(WorkingCopiesService);
+  private readonly store = inject(WorkingCopyStore);
+
+  override importKinds(): Observable<string[]> {
+    return this.api.listWorkingCopyImportKinds({ id: this.store.id() }, quietRequest()).pipe(catchError(toDocError));
+  }
+
+  override previewImport(req: ImportRequestView): Observable<ImportPreviewView> {
+    return this.store
+      .previewImport({ ...req, instance: req.instance as JsonNode })
+      .pipe(catchError(toDocError));
+  }
+
+  override applyImport(p: ImportPreviewView): Observable<'applied' | 'stale'> {
+    // the view carries the server's ImportPreview as it came, batch included
+    return this.store.applyImport(p as ImportPreview).pipe(catchError(toDocError));
+  }
+
+  override stillMissing(): Observable<StillMissingView> {
+    return this.api.getWorkingCopyStillMissing({ id: this.store.id() }, quietRequest()).pipe(catchError(toDocError));
+  }
 }

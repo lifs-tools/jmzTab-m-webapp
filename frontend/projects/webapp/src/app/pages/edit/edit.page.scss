@@ -80,8 +80,29 @@ h1 {
   }
 }
 .messages,
-.doc {
+.doc,
+.side {
   min-width: 0;
+}
+// The Add-from panel sits next to the messages: below them in the left column, beside them while the columns are
+// stacked on a tablet, and below them again on a phone.
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+@media (min-width: 720px) and (max-width: 1099px) {
+  .side {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.add-from {
+  min-width: 0;
+  border: 1px solid var(--lifs-line);
+  background: #fff;
+  padding: 14px 16px;
 }
 .raw {
   display: block;

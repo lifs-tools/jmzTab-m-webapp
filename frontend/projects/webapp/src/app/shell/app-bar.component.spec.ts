@@ -38,11 +38,12 @@ describe('AppBarComponent', () => {
     expect(validate?.hasAttribute('aria-current')).toBe(false);
   });
 
-  it('shows the five nav items in order', async () => {
+  it('shows the six nav items in order', async () => {
     const el = await render();
     const items = Array.from(el.querySelectorAll('.nav__item')).map((a) => a.textContent?.trim());
     expect(items).toEqual([
       'Validate',
+      'New file',
       'Examples',
       'Documentation',
       'REST API',
@@ -106,6 +107,7 @@ describe('AppBarComponent', () => {
     ).toEqual(['All documentation', ...DOCS_TREE.map((n) => n.title)]);
     expect(menuTexts('app-bar-menu')).toEqual([
       'Validate',
+      'New file',
       'Examples',
       'All documentation',
       ...DOCS_TREE.map((n) => n.title),

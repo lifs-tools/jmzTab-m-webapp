@@ -1,0 +1,48 @@
+<section class="missing" aria-labelledby="still-missing-title" aria-live="polite">
+  <h3 class="title" id="still-missing-title">Still missing</h3>
+  @if (error(); as reason) {
+    <p class="callout" role="alert">{{ reason }}</p>
+  } @else if (result(); as r) {
+    @if (!r.checked) {
+      <div class="group" data-testid="missing-group">
+        <h4>Not yet checked</h4>
+        <p class="note">{{ NOT_CHECKED }}</p>
+        <ul>
+          @for (rule of unchecked(); track $index) {
+            <li>
+              <span class="rule">{{ label(rule) }}</span>
+              <span class="tag"> ({{ rule.requirement === 'MUST' ? 'required' : 'recommended' }})</span>
+            </li>
+          }
+        </ul>
+      </div>
+    } @else if (!required().length && !recommended().length) {
+      <p class="note ok">{{ NOTHING }}</p>
+    } @else {
+      @if (required().length) {
+        <div class="group" data-testid="missing-group">
+          <h4>Required</h4>
+          <ul>
+            @for (rule of required(); track $index) {
+              <li><span class="rule">{{ label(rule) }}</span></li>
+            }
+          </ul>
+        </div>
+      }
+      @if (recommended().length) {
+        <div class="group" data-testid="missing-group">
+          <h4>Recommended</h4>
+          <ul>
+            @for (rule of recommended(); track $index) {
+              <li><span class="rule">{{ label(rule) }}</span></li>
+            }
+          </ul>
+        </div>
+      }
+    }
+  } @else if (loading()) {
+    <p class="note">Checking the repository rules…</p>
+  } @else {
+    <p class="note">Listed after the first check of the file.</p>
+  }
+</section>

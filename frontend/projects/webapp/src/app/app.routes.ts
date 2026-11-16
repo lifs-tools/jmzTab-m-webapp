@@ -11,6 +11,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/landing/landing.page').then((m) => m.LandingPage),
   },
   {
+    path: 'new',
+    title: pageTitle('/new'),
+    loadComponent: () => import('./pages/new-file/new-file.page').then((m) => m.NewFilePage),
+  },
+  {
     path: 'result/:id',
     title: pageTitle('/result/:id'),
     loadComponent: () => import('./pages/result/result.page').then((m) => m.ResultPage),
