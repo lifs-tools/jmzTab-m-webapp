@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.jxpath.JXPathContext;
 import org.lifstools.mztab.validator.engine.InvalidMappingFileException;
@@ -67,7 +68,7 @@ public final class FieldRuleReader {
         JXPathContext context = model == null ? null : JXPathContext.newContext(model);
         List<FieldRule> rules = new ArrayList<>();
         for (CvMappingRule rule : cvMapping.getCvMappingRuleList().getCvMappingRule()) {
-            rules.add(toRule(rule, context == null ? null : present(context, rule)));
+            rules.add(toRule(rule, context == null ? null : present(context, model, rule)));
         }
         return new FieldRules(model != null, rules);
     }
@@ -85,17 +86,45 @@ public final class FieldRuleReader {
         }
     }
 
+    /**
+     * Whether the model has what the rule asks for. A rule whose element is absent because its table has no rows has
+     * nothing to apply to, so it counts as met, as in jmzTab-m's CV-mapping validation (CvMappingValidator, which
+     * skips such a rule): a summary-only file needs no evidence rule. The table is the one the element path starts
+     * with, or the one a metadata field is required with.
+     */
     @Nullable
-    private static Boolean present(JXPathContext context, CvMappingRule rule) {
+    private static Boolean present(JXPathContext context, MzTab model, CvMappingRule rule) {
         try {
-            return JxPathElement.toList(context, rule.getCvElementPath(), Object.class).stream()
+            boolean found = JxPathElement.toList(context, rule.getCvElementPath(), Object.class).stream()
                 .map(pair -> pair.getValue())
                 .anyMatch(value -> value != null && !(value instanceof Collection<?> c && c.isEmpty()));
+            return found || tableAbsent(model, rule.getCvElementPath());
         } catch (RuntimeException e) {
             log.warn("The path {} of rule {} could not be selected: {}", rule.getCvElementPath(), rule.getId(),
                 e.toString());
             return null;
         }
+    }
+
+    /** Metadata fields that the profile requires only together with a table, as in jmzTab-m. */
+    private static final Map<String, String> TABLE_OF_FIELD = Map.of(
+        "/metadata/@idConfidenceMeasure", "smallMoleculeEvidence",
+        "/metadata/@smallMoleculeQuantificationUnit", "smallMoleculeSummary",
+        "/metadata/@smallMoleculeFeatureQuantificationUnit", "smallMoleculeFeature");
+
+    private static boolean tableAbsent(MzTab model, String elementPath) {
+        String table = TABLE_OF_FIELD.getOrDefault(elementPath,
+            elementPath.replaceFirst("^/([^/\\[@]+).*$", "$1"));
+        List<?> rows = switch (table) {
+            case "smallMoleculeSummary" -> model.getSmallMoleculeSummary();
+            case "smallMoleculeFeature" -> model.getSmallMoleculeFeature();
+            case "smallMoleculeEvidence" -> model.getSmallMoleculeEvidence();
+            default -> null;
+        };
+        return switch (table) {
+            case "smallMoleculeSummary", "smallMoleculeFeature", "smallMoleculeEvidence" -> rows == null || rows.isEmpty();
+            default -> false;
+        };
     }
 
     private static FieldRule toRule(CvMappingRule rule, @Nullable Boolean present) {

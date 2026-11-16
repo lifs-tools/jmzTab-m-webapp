@@ -98,11 +98,8 @@ test('startANewFileAndAddFromAVocabularyFile', async ({ page, request }) => {
   await expect.poll(() => errorMessages(request, id), { timeout: 30_000 }).toEqual([]);
   await expect(page.getByTestId('download-json')).toBeEnabled();
   await expect(missing.getByRole('heading', { level: 4, name: 'Not yet checked' })).toHaveCount(0);
-  // Still missing: the import writes the metadata and the summary, not an evidence table. The two MUST rules left are
-  // scoped to /smallMoleculeEvidence (ms_level_must, identification_method_must); the engine lists a rule whose
-  // element is absent, whether or not the file has such rows (see the report of task 9). No other rule is Required.
-  const required = missing.locator('[data-testid=missing-group]').filter({ has: page.getByRole('heading', { level: 4, name: 'Required' }) });
-  await expect(required.locator('li .rule')).toHaveText(['ms_level_must', 'identification_method_must']);
+  // no Required rule is left (a rule of a table the file does not have is not missing, as in validation)
+  await expect(missing.getByRole('heading', { level: 4, name: 'Required' })).toHaveCount(0);
 
   // 6. one Undo brings back the skeleton text
   await page.getByTestId('undo').click();

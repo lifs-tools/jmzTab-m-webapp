@@ -92,6 +92,36 @@ class FieldRuleReaderTest {
     }
 
     @Test
+    void aRuleOfATableWithoutRowsHasNothingToApplyTo() throws IOException {
+        Assumptions.assumeTrue(servesTwoZero(), "the 2.0 mapping and example");
+        Path mapping = file("mapping.xml", resource(BUNDLED));
+        String example = new String(resource(EXAMPLE), StandardCharsets.UTF_8);
+        assertFalse(example.contains("\nSME\t"), "the fixture has no evidence rows");
+
+        // no SME rows: the rules of the evidence table are met, as in validation
+        FieldRules rules = FieldRuleReader.read(mapping, file("none.mzTab", example.getBytes(StandardCharsets.UTF_8)));
+        assertTrue(rules.parsed());
+        assertEquals(Boolean.TRUE, byId(rules, "ms_level_must").present());
+        assertEquals(Boolean.TRUE, byId(rules, "identification_method_must").present());
+
+        assertEquals(Boolean.TRUE, byId(rules, "derivatized_form_may").present());
+
+        // SME rows without a derivatized form: that rule is missing; the columns every row must have are present
+        String header = "SEH\tSME_ID\tevidence_input_id\tdatabase_identifier\tchemical_formula\tsmiles\tinchi\t"
+            + "chemical_name\turi\tderivatized_form\tadduct_ion\texp_mass_to_charge\tcharge\t"
+            + "theoretical_mass_to_charge\tspectra_ref\tidentification_method\tms_level\t"
+            + "id_confidence_measure[1]\trank\n";
+        String row = "SME\t1\tinput\tnull\tnull\tnull\tnull\tPC 15:0\tnull\tnull\tnull\t100.0\t1\t100.0\t"
+            + "ms_run[1]:scan=1\t[MS, MS:1001058, quality estimation by manual validation, ]\t"
+            + "[MS, MS:1000511, ms level, 2]\t1.0\t1\n";
+        FieldRules withRows = FieldRuleReader.read(mapping, file("rows.mzTab",
+            (example + "\n" + header + row).getBytes(StandardCharsets.UTF_8)));
+        assertTrue(withRows.parsed());
+        assertEquals(Boolean.FALSE, byId(withRows, "derivatized_form_may").present());
+        assertEquals(Boolean.TRUE, byId(withRows, "ms_level_must").present());
+    }
+
+    @Test
     void aSkeletonCannotBeReadIntoAModel() throws IOException {
         Assumptions.assumeTrue(servesTwoZero(), "the 2.0 skeleton");
         String skeleton = SkeletonWriter.write(new SkeletonRequest("2.0.0-M", null, "my-study"), Set.of("2.0.0-M"));
