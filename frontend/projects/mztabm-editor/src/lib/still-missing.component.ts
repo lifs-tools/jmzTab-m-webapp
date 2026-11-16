@@ -22,15 +22,17 @@ export const NOTHING_MISSING = 'Nothing is missing for these repository rules.';
 export const NOT_CHECKED_TEXT =
   'The file cannot be read into a model yet, so these rules could not be checked against it. Fix the errors in the messages first.';
 const LOAD_FAILED = 'The checklist could not be made. It is made again after the next check.';
+export const UNCHECKED_SUMMARY = 'The repository rules could not be checked yet.';
 
 /** A rule as the checklist names it: its name, else its path. */
 export const ruleLabel = (r: FieldRuleView) => r.name?.trim() || r.path || r.id || '';
 
 /**
  * "Still missing": the MUST and SHOULD rules of the document's repository rules that its text does not meet yet.
- * It is read again each time a check of a newer revision is done (`checkedRevision`); before the first check is
- * done it asks nothing. A text that cannot be read into a model lists every rule under "Not yet checked", never
- * "nothing is missing".
+ * It is read again each time a check of another revision is done (`checkedRevision`), or the document is another
+ * one at the same revision (`generation`, a document created again); before the first check is done it asks
+ * nothing. A text that cannot be read into a model lists every rule under "Not yet checked", never "nothing is
+ * missing". The list is not a live region (it would be read out whole after every check): a one-line summary is.
  */
 @Component({
   selector: 'mztabm-still-missing',
@@ -44,11 +46,14 @@ export class StillMissingComponent {
   protected readonly NOT_CHECKED = NOT_CHECKED_TEXT;
   /** The revision of the document's last finished check, or null while none is done. */
   readonly checkedRevision = input<number | null>(null);
+  /** Which document the revision is of: a document created again counts its revisions anew. */
+  readonly generation = input<string | null>(null);
 
   protected readonly result = signal<StillMissingView | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
-  private asked: number | null = null;
+  /** The generation and revision last asked for. */
+  private asked: string | null = null;
   private request: Subscription | undefined;
 
   protected readonly required = computed(() => this.rules('MUST'));
@@ -57,13 +62,23 @@ export class StillMissingComponent {
     const r = this.result();
     return r && !r.checked ? (r.missing ?? []) : [];
   });
+  /** What the live region says, in one line. */
+  protected readonly summary = computed(() => {
+    const r = this.result();
+    if (this.error() || !r) return '';
+    if (!r.checked) return UNCHECKED_SUMMARY;
+    const required = this.required().length;
+    const recommended = this.recommended().length;
+    return required || recommended ? `${required} required, ${recommended} recommended rules missing.` : NOTHING_MISSING;
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
     effect(() => {
       const revision = this.checkedRevision();
-      if (revision === null || revision === this.asked) return;
-      this.asked = revision;
+      const key = `${this.generation() ?? ''}|${revision}`;
+      if (revision === null || key === this.asked) return;
+      this.asked = key;
       untracked(() => this.load());
     });
   }

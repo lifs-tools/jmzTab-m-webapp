@@ -86,14 +86,16 @@ export class NewFilePage {
   private readonly info = inject(AppInfoStore).info;
 
   protected readonly contentProfiles = CONTENT_PROFILES;
-  /** The catalog's profiles; null if they could not be read. */
+  /** The catalog's profiles; undefined while they load, null if they could not be read. */
   private readonly profiles = toSignal(
     inject(ValidationProfilesService)
       .listValidationProfiles(undefined, quietRequest())
-      .pipe(catchError(() => of(null))),
-    { initialValue: [] as ValidationProfile[] | null },
+      .pipe(catchError(() => of(null as ValidationProfile[] | null))),
   );
+  protected readonly profilesLoading = computed(() => this.profiles() === undefined);
   protected readonly profilesFailed = computed(() => this.profiles() === null);
+  /** The app info (the engines) is not in yet; the store keeps it undefined also when it could not be read. */
+  protected readonly infoLoading = computed(() => this.info() === undefined);
 
   /** The declared versions of the configured engines; one that did not answer lately says so. */
   protected readonly versions = computed<VersionOption[]>(() =>
@@ -148,6 +150,10 @@ export class NewFilePage {
 
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Why Create file is disabled, where the form does not show it already: a 2.1 file needs a content profile. */
+  protected readonly waitingFor = computed(() =>
+    this.needsContentProfile() && !this.contentProfile() ? 'Choose a content profile.' : null,
+  );
   protected readonly canSubmit = computed(
     () =>
       !!this.version() &&

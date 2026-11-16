@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import {
@@ -28,6 +28,8 @@ import {
 /** The most an import may be: the host's server refuses a larger request (413). */
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 export const STALE_NOTICE = 'The file changed since the preview. Here is the preview for the current file.';
+export const OUT_OF_DATE_NOTICE = 'The file changed since this preview. Preview again before applying.';
+export const PREPARING = 'Preparing the preview…';
 /** Rows of the suggestion table shown at most; the rest are counted. */
 export const MAX_ROWS = 200;
 
@@ -61,8 +63,10 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
  * Previews an import into the document and applies it whole. The researcher chooses the file; for an instance
  * with several datasets, the dataset (one document is one dataset); and the study id, prefilled from the
  * instance's `study.lcs_id`, else from the document's file name. **Keep existing values** (on by default) keeps
- * the values the document already has. Any change of these previews again. A preview that is stale when it is
- * applied (the document changed) is made again for the document as it is now, and the panel says so.
+ * the values the document already has. Any change of these previews again. A preview of an older revision than
+ * the document's (`revision`) is out of date: Apply waits for **Preview again**. A preview that is stale when it is
+ * applied (the document changed) is made again for the document as it is now, and the panel says so. What it is
+ * doing is said in one live region that is always there.
  */
 @Component({
   selector: 'mztabm-import-preview',
@@ -78,6 +82,8 @@ export class ImportPreviewComponent {
   readonly kind = input.required<string>();
   /** The document's file name: its stem is the study id when the instance has none. */
   readonly fileName = input<string | null>(null);
+  /** The document's revision as the host knows it now, or null if it does not say: a preview of another is out of date. */
+  readonly revision = input<number | null>(null);
   /** The import was applied. */
   readonly applied = output<void>();
   /** Closed without applying. */
@@ -120,7 +126,27 @@ export class ImportPreviewComponent {
   protected readonly changes = computed(() =>
     this.suggestions().some((s) => s.state === 'NEW' || s.state === 'REPLACES_EXISTING'),
   );
-  protected readonly canApply = computed(() => !!this.preview() && this.changes() && !this.busy() && !this.applying());
+  /** The document changed since the preview was made. */
+  protected readonly outOfDate = computed(() => {
+    const p = this.preview();
+    const now = this.revision();
+    return !!p && now !== null && p.revision !== undefined && p.revision !== now;
+  });
+  protected readonly canApply = computed(
+    () => !!this.preview() && this.changes() && !this.outOfDate() && !this.busy() && !this.applying(),
+  );
+  /** The text of the live region: what is being done, or what changed. */
+  protected readonly status = computed(() => {
+    if (this.busy()) return PREPARING;
+    if (this.outOfDate()) return OUT_OF_DATE_NOTICE;
+    return this.notice() ?? '';
+  });
+  private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
+
+  /** Moves the focus to the heading, e.g. when the host has just opened the preview. */
+  focusHeading(): void {
+    this.heading().nativeElement.focus();
+  }
 
   private request: Subscription | undefined;
   /** Counts the file choices: a file read after a newer one was chosen is dropped. */
@@ -236,6 +262,10 @@ export class ImportPreviewComponent {
           this.error.set(importErrorOf(err, PREVIEW_FAILED));
         },
       });
+  }
+
+  protected again(): void {
+    this.previewAgain();
   }
 
   protected apply(): void {

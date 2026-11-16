@@ -18,11 +18,10 @@ import {
   StillMissingView,
 } from '@lifs-tools/mztabm-editor';
 
-import { ImportPreview } from '../../api/models/import-preview';
 import { JsonNode } from '../../api/models/json-node';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { quietRequest } from '../../core/http-error.interceptor';
-import { EditOps, LAYOUT_OPS, MaybeSavedError, WorkingCopyStore, serverMessage } from './working-copy.store';
+import { EditOps, LAYOUT_OPS, MaybeSavedError, StoredImportPreview, WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
 const COLUMN_OPS = new Set(['InsertColumn', 'DeleteColumn', 'RenameColumn', 'MergeColumns']);
@@ -154,8 +153,8 @@ export class WorkingCopyImportSource extends ImportSource {
   }
 
   override applyImport(p: ImportPreviewView): Observable<'applied' | 'stale'> {
-    // the view carries the server's ImportPreview as it came, batch included
-    return this.store.applyImport(p as ImportPreview).pipe(catchError(toDocError));
+    // the view is the store's preview as it came: the server's batch, and the generation it was made of
+    return this.store.applyImport(p as StoredImportPreview).pipe(catchError(toDocError));
   }
 
   override stillMissing(): Observable<StillMissingView> {

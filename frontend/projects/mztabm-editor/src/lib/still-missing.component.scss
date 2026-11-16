@@ -1,5 +1,6 @@
 :host {
   display: block;
+  position: relative;
   font-family: var(--mztabm-font-family);
   color: var(--mztabm-color-text);
 }
@@ -47,4 +48,16 @@
   border-left: 4px solid var(--mztabm-color-error);
   background: color-mix(in srgb, var(--mztabm-color-error) 8%, var(--mztabm-color-surface));
   font-size: 13px;
+}
+// Read by screen readers only: the list above says the same to the eye.
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

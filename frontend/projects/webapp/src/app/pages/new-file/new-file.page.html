@@ -9,7 +9,9 @@
 
 <div class="page">
   <form class="lifs-card form" (submit)="$event.preventDefault(); submit()" novalidate>
-    @if (!versions().length) {
+    @if (infoLoading()) {
+      <p class="lifs-note" role="status">Loading…</p>
+    } @else if (!versions().length) {
       <p class="lifs-note" role="status">No mzTab-M version is offered here right now. Please try again later.</p>
     }
 
@@ -48,6 +50,7 @@
       <select
         matNativeControl
         data-testid="rules"
+        aria-describedby="rules-hint"
         [value]="rules() ?? ''"
         [disabled]="!rulesOptions().length"
         (change)="onRules($event)"
@@ -57,8 +60,10 @@
         }
       </select>
     </mat-form-field>
-    <p class="lifs-note hint">
-      @if (profilesFailed()) {
+    <p id="rules-hint" class="lifs-note hint">
+      @if (profilesLoading() || infoLoading()) {
+        Loading…
+      } @else if (profilesFailed()) {
         The repository rules could not be loaded. Please try again later.
       } @else if (version() && !rulesOptions().length) {
         No repository rules list mzTab-M {{ version() }}.
@@ -101,9 +106,17 @@
     }
 
     <div class="actions">
-      <button mat-flat-button type="submit" [disabled]="!canSubmit()">
+      <button
+        mat-flat-button
+        type="submit"
+        [disabled]="!canSubmit()"
+        [attr.aria-describedby]="waitingFor() ? 'create-waits' : null"
+      >
         {{ submitting() ? 'Creating…' : 'Create file' }}
       </button>
+      @if (waitingFor(); as why) {
+        <span id="create-waits" class="lifs-note">{{ why }}</span>
+      }
       <a mat-button routerLink="/">Validate a file instead</a>
     </div>
   </form>

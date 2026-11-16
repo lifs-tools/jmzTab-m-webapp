@@ -76,6 +76,18 @@ export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.'
 export type EditOps = NonNullable<EditBatch['operations']>;
 /** What an import preview asks for; the store adds the revision it knows. */
 export type ImportChoices = Omit<ImportRequest, 'revision'>;
+/** An import preview as the store hands it out: with the generation of the copy it was made of. */
+export type StoredImportPreview = ImportPreview & { generation?: string | null };
+
+/**
+ * An import preview that was not sent: when its turn came, the copy was no longer the one it was made of (another
+ * revision, e.g. after an edit of this tab, or another generation). Nothing was asked of the server, nothing said.
+ */
+export class PreviewOutOfDate extends Error {
+  constructor() {
+    super('The copy changed since the preview.');
+  }
+}
 
 /**
  * Edits that change the layout of the text: lines move, columns are inserted, deleted, merged or renamed (a rename moves no column, but a cell edit queued behind it names the old header), cells are split
@@ -433,24 +445,37 @@ export class WorkingCopyStore {
 
   /**
    * Applies an import's batch whole, as it was previewed, the way a quick fix is applied: one change, so one undo
-   * takes it back. A 409 (the copy changed since the preview, or was created again; or a change queued before it
-   * may have been saved) has been answered by the store, which read the copy again and said so: the import is
-   * `'stale'`, and a new preview is of the copy as it is now.
+   * takes it back. It is `'stale'`, and a new preview is of the copy as it is now, when:
+   * - at its turn the copy this tab knows is no longer the one previewed: another revision (an edit of this tab,
+   *   saved since or queued ahead of it) or another generation. It is not sent, and nothing is said or reloaded: the
+   *   tab's own edits are not a change elsewhere;
+   * - the server refuses it (409): the copy changed in another tab, or was created again, or a change queued before
+   *   it may have been saved. The store has read the copy again and said so, as for any change.
    */
-  applyImport(preview: ImportPreview): Observable<'applied' | 'stale'> {
-    return this.applyBatch(preview.batch).pipe(
+  applyImport(preview: StoredImportPreview): Observable<'applied' | 'stale'> {
+    const batch = preview.batch;
+    const outOfDate = () =>
+      this.revision() !== (batch?.revision ?? -1) ||
+      (preview.generation !== undefined && (this.info()?.generation ?? null) !== preview.generation);
+    return this.applyBatch(batch, outOfDate).pipe(
       map(() => 'applied' as const),
-      catchError((err: unknown) => (statusOf(err) === 409 ? of('stale' as const) : throwError(() => err))),
+      catchError((err: unknown) =>
+        err instanceof PreviewOutOfDate || statusOf(err) === 409 ? of('stale' as const) : throwError(() => err),
+      ),
     );
   }
 
-  /** A previewed batch, sent with the revision it was previewed at, a change id of its own and the copy's generation. */
-  private applyBatch(batch: EditBatch | undefined): Observable<WorkingCopyInfo> {
+  /**
+   * A previewed batch, sent with the revision it was previewed at, a change id of its own and the copy's generation;
+   * not sent if `outOfDate` says so at its turn.
+   */
+  private applyBatch(batch: EditBatch | undefined, outOfDate?: () => boolean): Observable<WorkingCopyInfo> {
     return this.enqueue((_, changeId, generation) =>
       this.api.editWorkingCopy({ id: this.id(), body: { ...(batch ?? {}), changeId, generation } }), {
       sentAt: batch?.revision ?? null,
       reload: true,
       layout: changesLayout(batch?.operations),
+      outOfDate,
     });
   }
 
@@ -459,9 +484,14 @@ export class WorkingCopyStore {
    * (another tab changed it, or an edit of this one is on its way): the copy is read again and the preview asked
    * for once more, at the revision read.
    */
-  previewImport(choices: ImportChoices): Observable<ImportPreview> {
-    const send = () =>
-      this.api.previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, quietRequest());
+  previewImport(choices: ImportChoices): Observable<StoredImportPreview> {
+    const send = () => {
+      // the copy the preview is of: applying it to another generation is stale
+      const generation = this.info()?.generation ?? null;
+      return this.api
+        .previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, quietRequest())
+        .pipe(map((p): StoredImportPreview => ({ ...p, generation })));
+    };
     return defer(send).pipe(
       catchError((err: unknown) =>
         statusOf(err) === 409 ? this.reread().pipe(switchMap(() => defer(send))) : throwError(() => err),
@@ -550,6 +580,7 @@ export class WorkingCopyStore {
       linesNamed = true,
       readAt = null,
       sentAt = null,
+      outOfDate,
     }: {
       reload?: boolean;
       layout?: boolean;
@@ -557,6 +588,8 @@ export class WorkingCopyStore {
       readAt?: number | null;
       /** The revision the request names, when it does not take the one it is given (a previewed batch's). */
       sentAt?: number | null;
+      /** Asked at its turn: true drops the request with {@link PreviewOutOfDate}, before anything is sent. */
+      outOfDate?: () => boolean;
     },
   ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
@@ -579,18 +612,20 @@ export class WorkingCopyStore {
       const send =
         reloads !== this.reloads
           ? throwError(() => new NotSentError())
-          : defer(() => request(revision, changeId, generation)).pipe(
-              // before the next queued request is sent: it must name the revision this one produced, if it did
-              catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
-              // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
-              catchError((err: unknown) => {
-                if (statusOf(err) !== 409 || err instanceof MaybeSavedError) return throwError(() => err);
-                const replaced = err instanceof HttpErrorResponse && err.error?.error === COPY_REPLACED_CODE;
-                return this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE).pipe(
-                  switchMap(() => throwError(() => err)),
-                );
-              }),
-            );
+          : outOfDate?.()
+            ? throwError(() => new PreviewOutOfDate())
+            : defer(() => request(revision, changeId, generation)).pipe(
+                // before the next queued request is sent: it must name the revision this one produced, if it did
+                catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
+                // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
+                catchError((err: unknown) => {
+                  if (statusOf(err) !== 409 || err instanceof MaybeSavedError) return throwError(() => err);
+                  const replaced = err instanceof HttpErrorResponse && err.error?.error === COPY_REPLACED_CODE;
+                  return this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE).pipe(
+                    switchMap(() => throwError(() => err)),
+                  );
+                }),
+              );
       return send.pipe(
         tap({
           next: (info) => {

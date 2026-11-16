@@ -45,7 +45,7 @@ describe('NewFilePage', () => {
   let el: HTMLElement;
   let navigate: ReturnType<typeof vi.fn>;
 
-  async function render(info: AppInfoDto = APP_INFO) {
+  async function render(info: AppInfoDto = APP_INFO, answer = true) {
     await TestBed.configureTestingModule({
       imports: [NewFilePage],
       providers: [
@@ -60,6 +60,7 @@ describe('NewFilePage', () => {
     fixture = TestBed.createComponent(NewFilePage);
     el = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
+    if (!answer) return;
     http.expectOne((r) => r.url.endsWith('rest/v2/app-info')).flush(info);
     http.expectOne((r) => r.url.endsWith('rest/v2/validation-profiles')).flush(PROFILES);
     await fixture.whenStable();
@@ -131,6 +132,42 @@ describe('NewFilePage', () => {
     await choose('version', '2.1.0-M');
     expect(options('rules')).toEqual(['mzTab-M 2.1 default rules 1.0.0']);
     expect(select('rules').value).toBe('mztab-m-2.1-default@1.0.0');
+  });
+
+  it('says Loading… while the versions and the repository rules load, not that there are none', async () => {
+    await render(APP_INFO, false);
+    expect(el.textContent).toContain('Loading…');
+    expect(el.textContent).not.toContain('No mzTab-M version is offered');
+    expect(el.textContent).not.toContain('No repository rules list');
+    http.expectOne((r) => r.url.endsWith('rest/v2/app-info')).flush(APP_INFO);
+    fixture.detectChanges();
+    // the versions are in; the rules are still loading
+    expect(select('version').value).toBe('2.0.0-M');
+    expect(el.querySelector('#rules-hint')?.textContent).toContain('Loading…');
+    expect(el.textContent).not.toContain('No repository rules list');
+    http.expectOne((r) => r.url.endsWith('rest/v2/validation-profiles')).flush(PROFILES);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).not.toContain('Loading…');
+  });
+
+  it('links the repository-rules hint to its select', async () => {
+    await render();
+    const hint = el.querySelector(`#${select('rules').getAttribute('aria-describedby')}`);
+    expect(hint?.textContent).toContain('The reference rules.');
+  });
+
+  it('says why Create file waits for a content profile', async () => {
+    await render();
+    await choose('version', '2.1.0-M');
+    typeId('study');
+    expect(submit().disabled).toBe(true);
+    const why = el.querySelector(`#${submit().getAttribute('aria-describedby')}`);
+    expect(why?.textContent?.trim()).toBe('Choose a content profile.');
+    Array.from(contentProfiles()!.querySelectorAll<HTMLInputElement>('input[type=radio]'))[0].click();
+    fixture.detectChanges();
+    expect(el.textContent).not.toContain('Choose a content profile.');
+    expect(submit().hasAttribute('aria-describedby')).toBe(false);
   });
 
   it('posts the choices and opens the editor on the new copy', async () => {

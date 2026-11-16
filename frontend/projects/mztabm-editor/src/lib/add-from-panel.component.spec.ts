@@ -23,7 +23,7 @@ import { FakeImportSource } from './testing/fake-import-source';
 
 @Component({
   imports: [AddFromPanelComponent],
-  template: `<mztabm-add-from-panel [version]="version()" [fileName]="'my-study.mzTab'" [checkedRevision]="revision()" />`,
+  template: `<mztabm-add-from-panel [version]="version()" [fileName]="'my-study.mzTab'" [checkedRevision]="revision()" [revision]="revision()" generation="g1" />`,
 })
 class HostComponent {
   readonly version = signal<string | null>('2.0');
@@ -64,18 +64,58 @@ describe('AddFromPanelComponent', () => {
     expect(el.querySelector('mztabm-import-preview')).not.toBeNull();
   });
 
-  it('closes the preview once the import is applied, and says how to take it back', () => {
+  const previewOf = () =>
+    fixture.debugElement.query((d) => d.componentInstance instanceof ImportPreviewComponent).componentInstance as ImportPreviewComponent;
+  const notice = () => el.querySelector<HTMLElement>('[data-testid=add-from-status]')!;
+
+  it('closes the preview once the import is applied, says how to take it back, and moves the focus there', async () => {
     render();
     src.oneKinds().reply([VOCABULARY_INSTANCE]);
     fixture.detectChanges();
+    const region = notice();
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.textContent?.trim()).toBe('');
     buttons()[0].click();
     fixture.detectChanges();
-    const preview = fixture.debugElement.query((d) => d.componentInstance instanceof ImportPreviewComponent);
-    (preview.componentInstance as ImportPreviewComponent).applied.emit();
+    await fixture.whenStable();
+    previewOf().applied.emit();
     fixture.detectChanges();
+    await fixture.whenStable();
     expect(el.querySelector('mztabm-import-preview')).toBeNull();
-    expect(el.querySelector('[role=status]')?.textContent).toContain(APPLIED_NOTICE);
+    expect(notice()).toBe(region);
+    expect(region.textContent?.trim()).toBe(APPLIED_NOTICE);
+    expect(document.activeElement).toBe(region);
     expect(buttons().length).toBe(1);
+  });
+
+  it("moves the focus to the preview's heading when it opens, and back to its button on Cancel", async () => {
+    render();
+    src.oneKinds().reply([VOCABULARY_INSTANCE]);
+    fixture.detectChanges();
+    buttons()[0].focus();
+    buttons()[0].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const heading = el.querySelector<HTMLElement>('mztabm-import-preview h3')!;
+    expect(heading.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(heading);
+
+    Array.from(el.querySelectorAll<HTMLButtonElement>('mztabm-import-preview button')).find((b) => b.textContent?.trim() === 'Cancel')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(el.querySelector('mztabm-import-preview')).toBeNull();
+    expect(document.activeElement).toBe(buttons()[0]);
+  });
+
+  it('passes the revision of the file to the preview, and its generation to the checklist', () => {
+    render();
+    src.oneKinds().reply([VOCABULARY_INSTANCE]);
+    fixture.componentInstance.revision.set(4);
+    fixture.detectChanges();
+    src.oneMissing();
+    buttons()[0].click();
+    fixture.detectChanges();
+    expect(previewOf().revision()).toBe(4);
   });
 
   it('offers no kind it does not know', () => {

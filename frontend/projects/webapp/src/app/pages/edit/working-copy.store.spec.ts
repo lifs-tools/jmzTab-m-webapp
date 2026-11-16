@@ -1149,6 +1149,65 @@ describe('WorkingCopyStore: imports', () => {
     http.verify();
   });
 
+  /** A preview as the store hands it out: of generation g1. */
+  const stored = (revision: number, generation: string | null = 'g1') => ({ ...preview(revision), generation });
+
+  it('an edit of this tab queued ahead of it: "stale", not sent, nothing said or reloaded, the edit kept', () => {
+    const outcomes: string[] = [];
+    const saved: unknown[] = [];
+    store.edit([{ op: 'SetMetadataValue', line: 7, value: 'x' }] as EditOps).subscribe((i) => saved.push(i));
+    store.applyImport(stored(3)).subscribe((o) => outcomes.push(o));
+    const sent = edits();
+    expect(sent.length).toBe(1);
+    expect((sent[0].request.body as { operations: EditOps }).operations).toEqual([{ op: 'SetMetadataValue', line: 7, value: 'x' }]);
+    sent[0].flush(info(4, { generation: 'g1' }));
+    expect(saved.length).toBe(1);
+    expect(outcomes).toEqual(['stale']);
+    expect(edits().length).toBe(0);
+    expect(notices).toEqual([]);
+    expect(changed).toBe(0);
+    expect(store.info()?.revision).toBe(4);
+    http.verify();
+  });
+
+  it('an edit saved since the preview (R+1, preview of R): "stale", not sent', () => {
+    store.info.set(info(4, { generation: 'g1' }));
+    const outcomes: string[] = [];
+    store.applyImport(stored(3)).subscribe((o) => outcomes.push(o));
+    expect(outcomes).toEqual(['stale']);
+    expect(edits().length).toBe(0);
+    expect(notices).toEqual([]);
+    expect(changed).toBe(0);
+    http.verify();
+  });
+
+  it('a preview of another generation of the copy: "stale", not sent', () => {
+    const outcomes: string[] = [];
+    store.applyImport(stored(3, 'g0')).subscribe((o) => outcomes.push(o));
+    expect(outcomes).toEqual(['stale']);
+    expect(edits().length).toBe(0);
+    http.verify();
+  });
+
+  it('an edit queued ahead of it that is refused (400) changed nothing: the preview is still of the copy, and is sent', () => {
+    const outcomes: string[] = [];
+    store.edit([{ op: 'SetMetadataValue', line: 7, value: 'x' }] as EditOps).subscribe({ error: () => undefined });
+    store.applyImport(stored(3)).subscribe((o) => outcomes.push(o));
+    edits()[0].flush({ message: 'Line 7 is too long.' }, { status: 400, statusText: 'Bad Request' });
+    const sent = edits();
+    expect(sent.length).toBe(1);
+    expect((sent[0].request.body as { revision: number }).revision).toBe(3);
+    sent[0].flush(info(4, { generation: 'g1' }));
+    expect(outcomes).toEqual(['applied']);
+  });
+
+  it('a preview carries the generation of the copy it was made of', () => {
+    const previews: { generation?: string | null }[] = [];
+    store.previewImport(request).subscribe((p) => previews.push(p));
+    imports()[0].flush(preview(3));
+    expect(previews.map((p) => p.generation)).toEqual(['g1']);
+  });
+
   it('a 409 reads the copy again, through the conflict handling, and is "stale"', () => {
     const outcomes: string[] = [];
     store.applyImport(preview(3)).subscribe((o) => outcomes.push(o));

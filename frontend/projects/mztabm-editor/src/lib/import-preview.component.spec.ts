@@ -17,16 +17,17 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ImportPreviewView, ImportSource, VOCABULARY_INSTANCE } from './import-source';
-import { ImportPreviewComponent, MAX_IMPORT_BYTES, STALE_NOTICE } from './import-preview.component';
+import { ImportPreviewComponent, MAX_IMPORT_BYTES, OUT_OF_DATE_NOTICE, STALE_NOTICE } from './import-preview.component';
 import { FakeImportSource } from './testing/fake-import-source';
 
 @Component({
   imports: [ImportPreviewComponent],
-  template: `<mztabm-import-preview [kind]="kind" [fileName]="fileName()" (applied)="applied = applied + 1" (closed)="closed = closed + 1" />`,
+  template: `<mztabm-import-preview [kind]="kind" [fileName]="fileName()" [revision]="revision()" (applied)="applied = applied + 1" (closed)="closed = closed + 1" />`,
 })
 class HostComponent {
   readonly kind = VOCABULARY_INSTANCE;
   readonly fileName = signal<string | null>('my-study.mzTab');
+  readonly revision = signal<number | null>(null);
   applied = 0;
   closed = 0;
 }
@@ -196,6 +197,51 @@ describe('ImportPreviewComponent', () => {
     expect(el.textContent).toContain(STALE_NOTICE);
     expect(rows()).toEqual([['title', 'Plasma lipidome', 'new']]);
     expect(fixture.componentInstance.applied).toBe(0);
+  });
+
+  it('says what it is doing in one live region that is always there', async () => {
+    render();
+    const status = () => el.querySelector('[data-testid=import-status]');
+    const region = status();
+    expect(region?.getAttribute('role')).toBe('status');
+    expect(region?.textContent?.trim()).toBe('');
+    await choose(instance([dataset('D1', 'Only')]));
+    expect(status()).toBe(region);
+    expect(region?.textContent?.trim()).toBe('Preparing the preview…');
+    src.onePreview().reply(preview());
+    await settle();
+    expect(region?.textContent?.trim()).toBe('');
+    button('Apply')!.click();
+    src.oneApply().reply('stale');
+    await settle();
+    expect(status()).toBe(region);
+    expect(region?.textContent?.trim()).toBe('Preparing the preview…');
+    src.onePreview().reply(preview({ revision: 5 }));
+    await settle();
+    expect(status()).toBe(region);
+    expect(region?.textContent?.trim()).toBe(STALE_NOTICE);
+  });
+
+  it('marks a preview out of date when the file changes, before Apply is pressed', async () => {
+    render();
+    fixture.componentInstance.revision.set(3);
+    await choose(instance([dataset('D1', 'Only')]));
+    src.onePreview().reply(preview({ revision: 3 }));
+    await settle();
+    expect(button('Apply')!.disabled).toBe(false);
+    expect(button('Preview again')).toBeUndefined();
+
+    fixture.componentInstance.revision.set(4);
+    await settle();
+    expect(OUT_OF_DATE_NOTICE).toBe('The file changed since this preview. Preview again before applying.');
+    expect(el.querySelector('[data-testid=import-status]')?.textContent?.trim()).toBe(OUT_OF_DATE_NOTICE);
+    expect(button('Apply')!.disabled).toBe(true);
+    button('Preview again')!.click();
+    await settle();
+    src.onePreview().reply(preview({ revision: 4 }));
+    await settle();
+    expect(button('Apply')!.disabled).toBe(false);
+    expect(el.querySelector('[data-testid=import-status]')?.textContent?.trim()).toBe('');
   });
 
   it('offers no Apply when nothing would change', async () => {

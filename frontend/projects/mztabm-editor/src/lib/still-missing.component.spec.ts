@@ -22,10 +22,11 @@ import { FakeImportSource } from './testing/fake-import-source';
 
 @Component({
   imports: [StillMissingComponent],
-  template: `<mztabm-still-missing [checkedRevision]="revision()" />`,
+  template: `<mztabm-still-missing [checkedRevision]="revision()" [generation]="generation()" />`,
 })
 class HostComponent {
   readonly revision = signal<number | null>(1);
+  readonly generation = signal<string | null>('g1');
 }
 
 const rule = (name: string | undefined, path: string, requirement: string) => ({
@@ -116,6 +117,54 @@ describe('StillMissingComponent', () => {
     src.oneMissing().reply({ revision: 2, checked: true, missing: [] });
     fixture.detectChanges();
     expect(el.textContent).toContain(NOTHING_MISSING);
+  });
+
+  it('refreshes for a copy created again, also at a revision it read before', () => {
+    const { fixture } = render(1);
+    src.oneMissing().reply({ revision: 1, checked: true, missing: [] });
+    fixture.componentInstance.generation.set('g2');
+    fixture.detectChanges();
+    src.oneMissing();
+  });
+
+  it('says what is missing in one line, in a live region that is always there; the list itself is not live', () => {
+    const { fixture, el } = render();
+    const summary = () => el.querySelector('[data-testid=missing-summary]');
+    const region = summary();
+    expect(region?.getAttribute('role')).toBe('status');
+    expect(region?.textContent?.trim()).toBe('');
+    expect(el.querySelector('section')?.hasAttribute('aria-live')).toBe(false);
+    src.oneMissing().reply({
+      revision: 1,
+      checked: true,
+      missing: [rule('A', '/a', 'MUST'), rule('B', '/b', 'MUST'), rule('C', '/c', 'SHOULD')],
+    });
+    fixture.detectChanges();
+    expect(summary()).toBe(region);
+    expect(region?.textContent?.trim()).toBe('2 required, 1 recommended rules missing.');
+
+    fixture.componentInstance.revision.set(2);
+    fixture.detectChanges();
+    src.oneMissing().reply({ revision: 2, checked: true, missing: [] });
+    fixture.detectChanges();
+    expect(summary()).toBe(region);
+    expect(region?.textContent?.trim()).toBe(NOTHING_MISSING);
+
+    fixture.componentInstance.revision.set(3);
+    fixture.detectChanges();
+    src.oneMissing().reply({ revision: 3, checked: false, missing: [rule('A', '/a', 'MUST')] });
+    fixture.detectChanges();
+    expect(region?.textContent?.trim()).toBe('The repository rules could not be checked yet.');
+  });
+
+  it('a text that could not be read, with no rules to list, shows no empty heading or list', () => {
+    const { fixture, el, group } = render();
+    src.oneMissing().reply({ revision: 1, checked: false, missing: [] });
+    fixture.detectChanges();
+    expect(group('Not yet checked')).toBeUndefined();
+    expect(el.querySelector('ul')).toBeNull();
+    expect(el.textContent).toContain(NOT_CHECKED_TEXT);
+    expect(el.textContent).not.toContain(NOTHING_MISSING);
   });
 
   it('asks nothing before a check of the file is done', () => {

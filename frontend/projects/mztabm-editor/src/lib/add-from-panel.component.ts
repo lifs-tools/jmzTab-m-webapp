@@ -13,7 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { IMPORT_KIND_LABELS, ImportPreviewComponent } from './import-preview.component';
@@ -25,7 +40,10 @@ export const APPLIED_NOTICE = 'Added to the file. Undo takes the whole import ba
 /**
  * "Add from…": one entry per kind of file the document takes, each opening its import preview, and the "still
  * missing" checklist of the document's repository rules. The kinds are asked for again when the document's
- * version changes; the checklist follows the checks of the document (`checkedRevision`).
+ * version changes; the checklist follows the checks of the document (`checkedRevision`, `generation`).
+ *
+ * The focus follows the preview: to its heading when it opens, back to its button when it is cancelled, and to the
+ * notice that says it was applied. That notice is the panel's one live region, always there.
  */
 @Component({
   selector: 'mztabm-add-from-panel',
@@ -36,6 +54,7 @@ export const APPLIED_NOTICE = 'Added to the file. Undo takes the whole import ba
 })
 export class AddFromPanelComponent {
   private readonly source = inject(ImportSource);
+  private readonly injector = inject(Injector);
 
   /** The document's mzTab-M version (or its line), as the panel names it. */
   readonly version = input<string | null>(null);
@@ -43,6 +62,10 @@ export class AddFromPanelComponent {
   readonly fileName = input<string | null>(null);
   /** The revision of the document's last finished check, or null while none is done. */
   readonly checkedRevision = input<number | null>(null);
+  /** The document's revision now: a preview of an older one is out of date. */
+  readonly revision = input<number | null>(null);
+  /** Which document the revisions are of: a document created again counts them anew. */
+  readonly generation = input<string | null>(null);
 
   /** The kinds the source offers that the library can import; null while they are asked for. */
   protected readonly kinds = signal<string[] | null>(null);
@@ -53,6 +76,9 @@ export class AddFromPanelComponent {
   protected readonly open = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   private request: Subscription | undefined;
+  private readonly preview = viewChild(ImportPreviewComponent);
+  private readonly kindButtons = viewChildren<ElementRef<HTMLButtonElement>>('kindButton');
+  private readonly status = viewChild.required<ElementRef<HTMLElement>>('status');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
@@ -84,10 +110,25 @@ export class AddFromPanelComponent {
   protected choose(kind: string): void {
     this.notice.set(null);
     this.open.set(kind);
+    this.afterRender(() => this.preview()?.focusHeading());
+  }
+
+  protected onClosed(kind: string): void {
+    this.open.set(null);
+    this.afterRender(() => {
+      const i = this.offered().findIndex((k) => k.kind === kind);
+      this.kindButtons()[i]?.nativeElement.focus();
+    });
   }
 
   protected onApplied(): void {
     this.open.set(null);
     this.notice.set(APPLIED_NOTICE);
+    this.afterRender(() => this.status().nativeElement.focus());
+  }
+
+  /** Once the change is rendered: the element to focus may only exist then. */
+  private afterRender(run: () => void): void {
+    afterNextRender(run, { injector: this.injector });
   }
 }

@@ -8,17 +8,21 @@
     <p class="note">Adding from a file is not available for mzTab-M {{ version() }} yet.</p>
   } @else {
     @if (open(); as kind) {
-      <mztabm-import-preview [kind]="kind" [fileName]="fileName()" (applied)="onApplied()" (closed)="open.set(null)" />
+      <mztabm-import-preview
+        [kind]="kind"
+        [fileName]="fileName()"
+        [revision]="revision()"
+        (applied)="onApplied()"
+        (closed)="onClosed(kind)"
+      />
     } @else {
       <div class="kinds">
         @for (k of offered(); track k.kind) {
-          <button type="button" data-testid="import-kind" (click)="choose(k.kind)">{{ k.label }}</button>
+          <button #kindButton type="button" data-testid="import-kind" (click)="choose(k.kind)">{{ k.label }}</button>
         }
       </div>
     }
   }
-  @if (notice(); as n) {
-    <p class="notice" role="status">{{ n }}</p>
-  }
-  <mztabm-still-missing class="missing" [checkedRevision]="checkedRevision()" />
+  <p #status class="notice" role="status" tabindex="-1" data-testid="add-from-status" [class.notice--shown]="!!notice()">{{ notice() }}</p>
+  <mztabm-still-missing class="missing" [checkedRevision]="checkedRevision()" [generation]="generation()" />
 </section>

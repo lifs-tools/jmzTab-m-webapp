@@ -1,5 +1,5 @@
 <section class="import" [attr.aria-labelledby]="uid + '-title'">
-  <h3 class="title" [id]="uid + '-title'">{{ title() }}</h3>
+  <h3 #heading class="title" tabindex="-1" [id]="uid + '-title'">{{ title() }}</h3>
   <p class="note">
     The JSON of the submission vocabulary: what the template reader writes, or what your tool writes. Nothing changes
     until you apply the preview.
@@ -68,17 +68,18 @@
     </p>
   }
 
-  @if (busy()) {
-    <p class="note" role="status">Preparing the preview…</p>
-  }
+  <p
+    class="status"
+    role="status"
+    data-testid="import-status"
+    [class.status--busy]="busy()"
+    [class.status--notice]="!busy() && !!status()"
+  >{{ status() }}</p>
   @if (error(); as reason) {
     <p class="callout" role="alert">{{ reason }}</p>
   }
 
   @if (preview(); as p) {
-    @if (notice(); as n) {
-      <p class="notice" role="status">{{ n }}</p>
-    }
     <p class="note">
       Made with <span class="mono">{{ p.mapping }} {{ p.mappingVersion }}</span>.
       @if (counts()) {
@@ -124,7 +125,10 @@
   }
 
   <div class="actions">
-    <button type="button" class="primary" [disabled]="!canApply()" (click)="apply()">Apply</button>
+    @if (outOfDate()) {
+      <button type="button" class="primary" [disabled]="busy()" (click)="again()">Preview again</button>
+    }
+    <button type="button" [class.primary]="!outOfDate()" [disabled]="!canApply()" (click)="apply()">Apply</button>
     <button type="button" (click)="cancel()">Cancel</button>
   </div>
 </section>

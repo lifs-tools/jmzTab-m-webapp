@@ -15,6 +15,11 @@
   margin: 0 0 4px;
   font-size: 14px;
   font-weight: 600;
+
+  &:focus-visible {
+    outline: 2px solid var(--mztabm-color-primary);
+    outline-offset: 2px;
+  }
 }
 .sub {
   margin: 10px 0 4px;
@@ -98,12 +103,22 @@ input:focus-visible {
   background: color-mix(in srgb, var(--mztabm-color-error) 8%, var(--mztabm-color-surface));
   font-size: 13px;
 }
-.notice {
-  margin: 8px 0;
-  padding: 8px 10px;
-  border-left: 4px solid var(--mztabm-color-info);
-  background: color-mix(in srgb, var(--mztabm-color-info) 8%, var(--mztabm-color-surface));
+// The live region: always there, empty (and taking no room) while there is nothing to say.
+.status {
+  margin: 0;
   font-size: 13px;
+  line-height: 1.6;
+
+  &--busy {
+    margin: 8px 0;
+    color: var(--mztabm-color-text-muted);
+  }
+  &--notice {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border-left: 4px solid var(--mztabm-color-info);
+    background: color-mix(in srgb, var(--mztabm-color-info) 8%, var(--mztabm-color-surface));
+  }
 }
 .table-wrap {
   max-height: 360px;

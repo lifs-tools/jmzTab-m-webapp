@@ -20,12 +20,20 @@
   line-height: 1.6;
   color: var(--mztabm-color-text-muted);
 }
+// The live region: always there, shown once it has something to say.
 .notice {
   margin: 0;
-  padding: 8px 10px;
-  border-left: 4px solid var(--mztabm-color-ok);
-  background: color-mix(in srgb, var(--mztabm-color-ok) 8%, var(--mztabm-color-surface));
   font-size: 13px;
+
+  &--shown {
+    padding: 8px 10px;
+    border-left: 4px solid var(--mztabm-color-ok);
+    background: color-mix(in srgb, var(--mztabm-color-ok) 8%, var(--mztabm-color-surface));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--mztabm-color-primary);
+    outline-offset: 1px;
+  }
 }
 .kinds {
   display: flex;
