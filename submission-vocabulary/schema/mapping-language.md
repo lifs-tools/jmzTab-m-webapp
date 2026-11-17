@@ -543,7 +543,7 @@ A text counts as read only when `goslin-parse` reads it and Goslin knows its lip
 4. When a reading is not read, the result is Null.
 5. Each lipid is kept once, at its finest level. A reading is left out when an earlier reading has the same `normalised` name, or when another reading names the same lipid at a finer level. A reading names another at a finer level when its Goslin level is higher and Goslin writes it at the other's level as the other's `normalised` name. Goslin's levels, from coarse to fine, are category, class, species, molecular species, sn position, structure defined, full structure and complete structure. The order of the readings is kept.
 
-Whitespace is Python's, as in [`strip-name-notes`](#strip-name-notes). Null gives Null. Any other value than a text is an error.
+Whitespace is Python's, as in [`strip-name-notes`](#strip-name-notes). A name longer than 1,000 characters, or with more than 16 parts between `|` (or between `;`, for the split of step 2), is not read: the result is Null. Corpus names have at most 6 parts, and the bounds limit the Goslin parses per name. Null gives Null. Any other value than a text is an error.
 
 | Name | Readings |
 |---|---|

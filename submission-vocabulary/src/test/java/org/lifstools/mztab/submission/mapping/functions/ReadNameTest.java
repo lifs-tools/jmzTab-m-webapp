@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.lifstools.mztab.submission.mapping.MappingRequestException;
@@ -78,6 +79,19 @@ class ReadNameTest {
     @Test
     void theSphingoidRewriteCountsOnlyForASphingolipid() {
         assertThat(names("PC(d16:0_18:1)")).isNull();
+    }
+
+    @Test
+    @Timeout(5)
+    void aLongNameOrOneWithTooManyPartsIsNotRead() {
+        String many = String.join("|", java.util.Collections.nCopies(ReadName.MAX_PARTS + 1, "PC 34:1"));
+        assertThat(names(many)).isNull();
+        assertThat(names(String.join("|", java.util.Collections.nCopies(ReadName.MAX_PARTS, "PC 34:1")))).containsExactly("PC 34:1");
+        assertThat(names(String.join(";", java.util.Collections.nCopies(ReadName.MAX_PARTS + 1, "PC 34:1")))).isNull();
+        String longName = "PC 34:1" + " ".repeat(StripNameNotes.MAX_LENGTH);
+        assertThat(names(longName)).isNull();
+        names("|".repeat(StripNameNotes.MAX_LENGTH));
+        names("x;".repeat(StripNameNotes.MAX_LENGTH / 2));
     }
 
     @Test

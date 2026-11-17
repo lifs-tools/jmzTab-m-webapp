@@ -16,7 +16,9 @@
 package org.lifstools.mztab.submission.mapping.functions;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.lifstools.jgoslin.domain.LipidAdduct;
@@ -36,6 +38,9 @@ final class ReadName {
     /** Step 3: the separator after a sphingoid base written {@code _} ({@code SM(d18:1_14:0)}). */
     private static final Pattern SPHINGOID_UNDERSCORE = Pattern.compile(
             "\\A((?:(?!" + WS + ")[^(])+(?:" + WS + "|\\()(?:[dmt][0-9]+:[0-9]+|[0-9]+:[0-9]+;O[0-9]*))_");
+
+    /** At most this many readings: corpus names have up to 6, and the bound limits the Goslin parses per name. */
+    static final int MAX_PARTS = 16;
 
     private ReadName() {
     }
@@ -64,7 +69,7 @@ final class ReadName {
     }
 
     static List<LipidAdduct> read(String name) {
-        if (name.isEmpty() || strip(name).isEmpty()) {
+        if (name.length() > StripNameNotes.MAX_LENGTH || strip(name).isEmpty()) {
             return null;
         }
         LipidAdduct whole = known(name);
@@ -72,9 +77,12 @@ final class ReadName {
             return List.of(whole);
         }
         List<String> parts = parts(name, "|");
+        if (parts.size() > MAX_PARTS) {
+            return null;
+        }
         if (parts.size() == 1) {
             List<String> semi = parts(parts.get(0), ";");
-            if (semi.size() > 1) {
+            if (semi.size() > 1 && semi.size() <= MAX_PARTS) {
                 List<LipidAdduct> read = readAll(semi);
                 if (read != null) {
                     return distinct(read);
@@ -132,8 +140,9 @@ final class ReadName {
     private static List<LipidAdduct> distinct(List<LipidAdduct> readings) {
         List<String> names = readings.stream().map(LipidAdduct::getLipidString).toList();
         List<LipidAdduct> kept = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (int i = 0; i < readings.size(); i++) {
-            if (names.subList(0, i).contains(names.get(i))) {
+            if (!seen.add(names.get(i))) {
                 continue;
             }
             boolean coarser = false;
