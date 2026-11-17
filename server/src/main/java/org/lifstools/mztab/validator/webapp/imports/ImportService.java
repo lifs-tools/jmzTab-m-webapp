@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.lifstools.mztab.submission.mapping.Mapping;
+import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
 import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
@@ -79,7 +80,8 @@ public class ImportService {
      * @throws IllegalArgumentException (400) for an unknown kind, no output mapping for the copy's version, an
      * instance without datasets, a dataset index out of range or missing, no study id, or a refusal of the engine
      * @throws StaleRevisionException (409) if the copy is not at the request's revision
-     * @throws TooLargeException if the copy's text is over the engine's upload limit
+     * @throws TooLargeException if the copy's text is over the engine's upload limit, or the engine answers that the
+     * request (the text and the instance) is too large
      * @throws org.lifstools.mztab.validator.webapp.engine.EngineBusyException (503)
      * @throws EngineUnavailableException (503)
      */
@@ -125,8 +127,13 @@ public class ImportService {
             result = engine.applyMapping(new MappingApplyRequest(mapping.id(), mapping.version(), parameters,
                 request.instance(), text.toString(StandardCharsets.UTF_8), true, null, request.keepExisting()));
         } catch (EngineRequestException e) {
+            if (e.error().code() == EngineErrorCode.FILE_TOO_LARGE) {
+                // the request's JSON body (the copy's text and the instance) is over the engine's limit
+                throw new TooLargeException(e.error().message());
+            }
             throw new IllegalArgumentException(e.error().message());
         }
+        // result.text() (the engine's rendering of the result) is not used: the edits are all the caller applies
         List<EditOperation> operations = result.edits().stream().map(LineEdits::toOperation).toList();
         return new ImportPreview(request.kind(), revision, mapping.id(), mapping.version(), result.suggestions(),
             result.notes(), new EditBatch(revision, operations));

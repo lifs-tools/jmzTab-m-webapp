@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -194,5 +195,20 @@ class ImportServiceTest {
 
         maxUploadBytes = TEXT.length();
         service.preview(ID, request(4, instance(1), null, true));
+    }
+
+    @Test
+    void anEngineThatAnswersTooLargeIs422AndOtherRefusalsAre400() throws Exception {
+        doThrow(new org.lifstools.mztab.validator.webapp.engine.EngineRequestException(
+            new org.lifstools.mztab.validator.engine.api.EngineError(
+                org.lifstools.mztab.validator.engine.api.EngineErrorCode.FILE_TOO_LARGE, "too big")))
+            .when(engine).applyMapping(any());
+        assertThrows(TooLargeException.class, () -> service.preview(ID, request(4, instance(1), null, true)));
+
+        doThrow(new org.lifstools.mztab.validator.webapp.engine.EngineRequestException(
+            new org.lifstools.mztab.validator.engine.api.EngineError(
+                org.lifstools.mztab.validator.engine.api.EngineErrorCode.INVALID_REQUEST, "no")))
+            .when(engine).applyMapping(any());
+        assertThrows(IllegalArgumentException.class, () -> service.preview(ID, request(4, instance(1), null, true)));
     }
 }

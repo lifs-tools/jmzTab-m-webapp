@@ -198,7 +198,8 @@ export class ImportPreviewComponent {
   }
 
   private stem(): string {
-    return (this.fileName() ?? '').replace(/\.[^.]*$/, '').trim();
+    // the extension, then a trailing "-NN" (a copy number: LCS-99999-01 is the study LCS-99999)
+    return (this.fileName() ?? '').replace(/\.[^.]*$/, '').replace(/-\d{2}$/, '').trim();
   }
 
   private reset(): void {

@@ -26,7 +26,8 @@ import org.springframework.lang.Nullable;
  * @param instance the vocabulary instance (JSON)
  * @param datasetIndex the 1-based position of the dataset to import; may be left out if the instance has one
  * @param studyId the study id the mzTab-ID is made from (e.g. LCS-00123)
- * @param keepExisting whether lines the copy already has are kept instead of refused as a conflict
+ * @param keepExisting with true, a value the copy already has with another value is never replaced: what would replace it is
+ *     reported as a conflict, with no edit; with false, the import replaces the values it matches
  */
 public record ImportRequest(String kind, long revision, JsonNode instance, @Nullable Integer datasetIndex,
     String studyId, boolean keepExisting) {

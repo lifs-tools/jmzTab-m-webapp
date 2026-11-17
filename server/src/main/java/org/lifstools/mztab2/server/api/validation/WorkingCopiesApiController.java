@@ -102,6 +102,9 @@ public class WorkingCopiesApiController {
     private final RequestBodies bodies;
     /** The most an import's request (its instance) may be; more is 413 before it is parsed. */
     static final long MAX_IMPORT_BYTES = 5L * 1024 * 1024;
+
+    /** The most the choices of a new file may be (a few short strings); more is 413 before they are parsed. */
+    static final long MAX_NEW_FILE_BYTES = 16L * 1024;
     private static final String CHANGE_ID = "Your id (a UUID) of this change, kept as lastChangeId of the copy when the "
         + "change is applied, so that a caller that lost the answer can tell whether it was";
 
@@ -193,8 +196,8 @@ public class WorkingCopiesApiController {
     public ResponseEntity<WorkingCopyInfo> createNewWorkingCopy(@Parameter(hidden = true) HttpServletRequest request)
         throws IOException {
         NewFile file;
-        // the body is capped at the upload limit before it is read
-        try (InputStream in = bodies.open(request)) {
+        // the body is capped at 16 KiB before it is read
+        try (InputStream in = bodies.open(request, MAX_NEW_FILE_BYTES)) {
             file = newFiles.readValue(in);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("The new file could not be read"

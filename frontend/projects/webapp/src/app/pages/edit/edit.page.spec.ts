@@ -757,7 +757,9 @@ describe('EditPage', () => {
       expect(alert.textContent).toContain('The file could not be opened');
       expect(alert.textContent).toContain(body['message']);
       expect(alert.textContent).not.toContain('Please try again later');
-      expect(alert.querySelector('a')?.getAttribute('href')).toBe('/result/abc');
+      // the origin of a copy that could not be opened is unknown: both ways out are offered
+      expect(alert.querySelector('[data-testid=open-failed-start]')?.getAttribute('href')).toBe('/');
+      expect(alert.querySelector('[data-testid=open-failed-result]')?.getAttribute('href')).toBe('/result/abc');
       http.verify();
     }
   });
@@ -1443,6 +1445,17 @@ describe('EditPage', () => {
       expect(panel!.textContent).toContain('A vocabulary file (JSON)');
       expect(panel!.textContent).toContain('Required');
       expect(panel!.textContent).toContain('Quantification method');
+    });
+
+    it('an upload copy has the Add-from panel but no still-missing list and no still-missing request', async () => {
+      const { fixture, el } = await openWithPanel(info({ origin: 'upload' }));
+      kindsReq().flush(['vocabulary-instance']);
+      await settle(fixture);
+      answerDocs();
+      await settle(fixture);
+      expect(el.querySelector('mztabm-add-from-panel')).not.toBeNull();
+      expect(el.querySelector('mztabm-still-missing')).toBeNull();
+      http.expectNone((r) => r.url.endsWith('working-copies/abc/still-missing'));
     });
 
     it('asks for the still-missing rules again when the check of a newer revision is done', async () => {

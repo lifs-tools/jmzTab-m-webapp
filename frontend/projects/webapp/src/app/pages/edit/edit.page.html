@@ -24,7 +24,12 @@
             <b class="state-title">Something went wrong</b>
             <p class="lifs-note">The file could not be opened. Please try again later.</p>
           }
-          <p class="lifs-note"><a [routerLink]="['/result', store.id()]">Back to the result</a></p>
+          <p class="lifs-note">
+            <a routerLink="/" data-testid="open-failed-start">Start page</a>
+            @if (!isNew()) {
+              · <a [routerLink]="['/result', store.id()]" data-testid="open-failed-result">Back to the result</a>
+            }
+          </p>
         </div>
       </div>
     }
@@ -144,8 +149,8 @@
               file, and check the dataset and the study id. The preview lists what would be written, as new, unchanged,
               kept (differs) or replaces existing, and nothing changes until you press <b>Apply</b>. <b>Keep existing
               values</b> is on by default. If the file changes meanwhile, press <b>Preview again</b>. One Undo takes the
-              whole import back. <b>Still missing</b> lists the rules of your repository rules that the file does not
-              meet yet.
+              whole import back. For a new file, <b>Still missing</b> lists the rules of your repository rules that the
+              file does not meet yet.
             </li>
             <li>
               A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
@@ -250,6 +255,7 @@
                 [checkedRevision]="checkedRevision()"
                 [revision]="copy.revision ?? null"
                 [generation]="copy.generation ?? null"
+                [showStillMissing]="isNew()"
               />
             </div>
           </div>

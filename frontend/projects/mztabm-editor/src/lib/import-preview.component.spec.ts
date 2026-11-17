@@ -122,14 +122,21 @@ describe('ImportPreviewComponent', () => {
   it('takes the study id from the file name when the instance has none, and previews again when it is changed', async () => {
     render('LCS-99999-01.mzTab');
     await choose(instance([dataset('D1', 'Only')]));
-    expect(studyId().value).toBe('LCS-99999-01');
+    // the trailing -NN (two digits) of the file name is a copy number, not part of the study id
+    expect(studyId().value).toBe('LCS-99999');
     src.onePreview().reply(preview());
     await settle();
 
-    studyId().value = 'LCS-99999';
+    studyId().value = 'LCS-12345';
     studyId().dispatchEvent(new Event('change'));
     await settle();
-    expect(src.onePreview().args.studyId).toBe('LCS-99999');
+    expect(src.onePreview().args.studyId).toBe('LCS-12345');
+  });
+
+  it('strips only a trailing two-digit number from the file name stem', async () => {
+    render('my-study-1.mzTab');
+    await choose(instance([dataset('D1', 'Only')]));
+    expect(studyId().value).toBe('my-study-1');
   });
 
   it('asks for a study id rather than preview without one', async () => {

@@ -136,6 +136,14 @@ class WorkingCopiesNewFileApiTest {
     }
 
     @Test
+    void aBodyOverSixteenKiBIs413BeforeItIsParsed() throws Exception {
+        // not JSON: it would be 400 if it were parsed
+        postNew("x".repeat(16 * 1024 + 1)).andExpect(status().isPayloadTooLarge());
+        postNew(newFile("2.0.0-M", null, "mztab-m-2.0-default", "1.1.0", "x".repeat(16 * 1024)))
+            .andExpect(status().isPayloadTooLarge());
+    }
+
+    @Test
     void unreadableBodiesAre400() throws Exception {
         postNew("{\"mzTabVersion\":\"2.0.0-M\"}").andExpect(status().isBadRequest());
         postNew("{\"mzTabVersion\":\"2.0.0-M\",\"contentProfile\":null,\"profileId\":\"mztab-m-2.0-default\","

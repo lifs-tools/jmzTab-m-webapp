@@ -337,7 +337,7 @@
       "SkeletonRequest" : {
         "properties" : {
           "contentProfile" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "mzTabId" : {
             "type" : "string"

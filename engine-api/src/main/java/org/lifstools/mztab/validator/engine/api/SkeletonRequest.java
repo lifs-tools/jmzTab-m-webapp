@@ -15,6 +15,8 @@
  */
 package org.lifstools.mztab.validator.engine.api;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * The starting text of a new mzTab-M file.
  *
@@ -23,5 +25,6 @@ package org.lifstools.mztab.validator.engine.api;
  *     required for 2.1, refused for 2.0
  * @param mzTabId the {@code mzTab-ID}, matching {@code ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$}
  */
-public record SkeletonRequest(String mzTabVersion, String contentProfile, String mzTabId) {
+public record SkeletonRequest(String mzTabVersion, @Schema(nullable = true) String contentProfile,
+    String mzTabId) {
 }

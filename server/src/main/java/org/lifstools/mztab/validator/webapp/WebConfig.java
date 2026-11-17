@@ -92,7 +92,11 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(synchronousSlots).addPathPatterns("/rest/v2/validate", "/rest/v2/validatePlain",
-            "/rest/v2/convert", "/rest/v2/convertPlain");
+            "/rest/v2/convert", "/rest/v2/convertPlain",
+            // working-copy requests that call an engine (imports/kinds calls none); the interceptor matches the
+            // path only, so a GET on /new is answered 400 by the /{id} route before any engine call
+            "/rest/v2/working-copies/new", "/rest/v2/working-copies/*/still-missing",
+            "/rest/v2/working-copies/*/imports");
     }
 
     @Override

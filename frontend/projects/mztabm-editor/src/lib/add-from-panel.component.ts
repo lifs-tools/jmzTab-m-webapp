@@ -66,6 +66,8 @@ export class AddFromPanelComponent {
   readonly revision = input<number | null>(null);
   /** Which document the revisions are of: a document created again counts them anew. */
   readonly generation = input<string | null>(null);
+  /** Whether the "still missing" list is shown (and asked for); the host leaves it out for files that are not new. */
+  readonly showStillMissing = input(true);
 
   /** The kinds the source offers that the library can import; null while they are asked for. */
   protected readonly kinds = signal<string[] | null>(null);

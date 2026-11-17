@@ -160,4 +160,32 @@ class WorkingCopiesImportApiTest {
         postImport(id, request("vocabulary-instance", 0, "{\"datasets\":[{}]}"))
             .andExpect(status().isServiceUnavailable());
     }
+
+    @Test
+    void aReplacingPreviewWithASetCellWithoutAHeaderAppliesThroughTheEditsEndpoint() throws Exception {
+        com.fasterxml.jackson.databind.JsonNode instance;
+        try (java.io.InputStream in = getClass().getClassLoader()
+            .getResourceAsStream("submission-vocabulary/examples/v3-example/instance.json")) {
+            instance = json.readTree(in);
+        }
+        // keepExisting=false: the copy's own mzTab-ID (import-api) is replaced, which is a SetCell with no header
+        String body = request("vocabulary-instance", 0, json.writeValueAsString(instance)).replace(
+            "\"keepExisting\":true", "\"datasetIndex\":1,\"keepExisting\":false");
+        String preview = postImport(id, body).andExpect(status().isOk()).andReturn().getResponse()
+            .getContentAsString();
+        com.fasterxml.jackson.databind.JsonNode batch = json.readTree(preview).get("batch");
+        boolean setCell = false;
+        for (com.fasterxml.jackson.databind.JsonNode op : batch.get("operations")) {
+            if ("SetCell".equals(op.get("op").asText())) {
+                setCell = true;
+                assertEquals(true, op.get("header") == null || op.get("header").isNull(), op.toString());
+            }
+        }
+        assertEquals(true, setCell, "the preview replaces a value: " + batch.get("operations"));
+
+        // the batch as the SPA posts it: JSON round trip
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(batch))).andExpect(status().isOk())
+            .andExpect(jsonPath("$.revision").value(1));
+    }
 }
