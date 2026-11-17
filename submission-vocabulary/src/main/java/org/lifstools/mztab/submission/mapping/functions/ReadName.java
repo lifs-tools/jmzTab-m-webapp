@@ -35,7 +35,10 @@ final class ReadName {
 
     /** Python's whitespace, as in {@link StripNameNotes}. */
     private static final String WS = "[\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
-    /** Step 3: the separator after a sphingoid base written {@code _} ({@code SM(d18:1_14:0)}). */
+    /**
+     * Step 3: the separator after a sphingoid base written {@code _} ({@code SM(d18:1_14:0)}). This is an error in the
+     * name: a sphingoid base's position is always known, so the chains are written with {@code /}.
+     */
     private static final Pattern SPHINGOID_UNDERSCORE = Pattern.compile(
             "\\A((?:(?!" + WS + ")[^(])+(?:" + WS + "|\\()(?:[dmt][0-9]+:[0-9]+|[0-9]+:[0-9]+;O[0-9]*))_");
 

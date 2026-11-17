@@ -539,7 +539,7 @@ A text counts as read only when `goslin-parse` reads it and Goslin knows its lip
    - the base: either `d`, `m` or `t` followed by `<n>:<n>`, or `<n>:<n>;O` followed by optional digits, where `<n>` is one or more digits `0`-`9`;
    - then `_`.
 
-   This last reading counts only when Goslin reads it as a sphingolipid (category `SP`).
+   This last reading counts only when Goslin reads it as a sphingolipid (category `SP`). The `_` is an error in such a name, not a notation that Goslin lacks. `_` means that the positions of the chains are not known. A sphingoid base is always bound to its N-acyl chain at a known position, so a sphingolipid's chains are written with `/`, as in `SM 18:1;O2/14:0`. The reading corrects that error, and Goslin's grammars rightly do not read `SM(d18:1_14:0)`.
 4. When a reading is not read, the result is Null.
 5. Each lipid is kept once, at its finest level. A reading is left out when an earlier reading has the same `normalised` name, or when another reading names the same lipid at a finer level. A reading names another at a finer level when its Goslin level is higher and Goslin writes it at the other's level as the other's `normalised` name. Goslin's levels, from coarse to fine, are category, class, species, molecular species, sn position, structure defined, full structure and complete structure. The order of the readings is kept.
 
