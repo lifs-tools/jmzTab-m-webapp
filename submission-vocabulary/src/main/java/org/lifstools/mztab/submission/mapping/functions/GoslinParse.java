@@ -50,19 +50,37 @@ final class GoslinParse {
         if (!(name instanceof Value.Text text)) {
             throw new MappingRequestException("goslin-parse needs a text, not " + name);
         }
-        LipidAdduct lipid;
+        LipidAdduct lipid = lipid(text.value());
+        return lipid == null ? Value.Null.INSTANCE : reading(lipid);
+    }
+
+    /** Goslin's reading of a name, or null when no grammar reads it. */
+    static LipidAdduct lipid(String name) {
         try {
             synchronized (Parser.INSTANCE) {
-                lipid = Parser.INSTANCE.parse(text.value());
+                return Parser.INSTANCE.parse(name);
             }
         } catch (RuntimeException e) { // conv:163-167: any failure means the name does not parse
-            return Value.Null.INSTANCE;
+            return null;
         }
-        String formula = lipid.getSumFormula();
+    }
+
+    /** {@code Obj{normalised, formula, mass}} of a reading. */
+    static Value reading(LipidAdduct lipid) {
         LinkedHashMap<String, Value> m = new LinkedHashMap<>();
         m.put("normalised", new Value.Text(lipid.getLipidString()));
+        String formula;
+        double mass;
+        try {
+            formula = lipid.getSumFormula();
+            mass = mass(lipid);
+        } catch (RuntimeException e) { // jgoslin reads some names it cannot count the elements of ('5-6-EpETrE')
+            m.put("formula", Value.Null.INSTANCE);
+            m.put("mass", Value.Null.INSTANCE);
+            return new Value.Obj(m);
+        }
         m.put("formula", FormulaCheck.isPlain(formula) ? new Value.Text(formula) : Value.Null.INSTANCE);
-        m.put("mass", new Value.Dbl(mass(lipid)));
+        m.put("mass", new Value.Dbl(mass));
         return new Value.Obj(m);
     }
 

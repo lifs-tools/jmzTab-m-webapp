@@ -33,6 +33,10 @@ public final class Functions implements Evaluator.FunctionRegistry {
                 arity(name, args, 1);
                 yield GoslinParse.parse(args.get(0));
             }
+            case "read-name" -> {
+                arity(name, args, 1);
+                yield ReadName.read(args.get(0));
+            }
             case "strip-name-notes" -> {
                 arity(name, args, 1);
                 yield StripNameNotes.strip(args.get(0));

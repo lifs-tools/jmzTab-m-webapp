@@ -1,4 +1,4 @@
-# The submission vocabulary 1.3.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
+# The submission vocabulary 1.4.0 written as one mzTab-M 2.0.0-M file per dataset, rule for rule as
 # lipidcompass-submissions bb8dcbf tools/convert_submission_template.py writes it (Converter.dataset, conv:182-289, and
 # Converter.sml, conv:342-392). "conv:NNN" is a line of that file. The forms are defined in
 # ../../schema/mapping-language.md.
@@ -11,6 +11,11 @@
 # null: chemical_name holds the name, and jmzTab-m 1.0.8 requires as many identifiers as names (Error-2046). The
 # converter's other two readings of such a name (policy P7, lipidcompass-submissions#357) are not made: an identifier
 # from its curated table config/identifiers/analyte-identifiers.tsv, and goslin:<class> for a bare class name (PC).
+# Version 1.4.0 (vocabulary 1.4.0) reads a name reading by reading (read-name: the parts between '|', or between ';'
+# when every part is read; isomer letters and numbered duplicates removed; a sphingoid base's '_' read as '/'; each
+# lipid once at its finest level), writes one identifier, name, formula and mass per reading ('|'), and identifies
+# a name Goslin does not read, or one that is not normalised, through its alternative name when Goslin reads that.
+# Where the converter finds the name in its curated identifier table, it does not use the alternative name.
 #
 # Parameters: study_id (e.g. LCS-00123); dataset_index, the 1-based position in datasets that selects the dataset and
 # numbers the file (mzTab-ID <study_id>-<NN>), as the converter's enumerate does; and dataset_id, which is
@@ -23,9 +28,9 @@
 # conv:383-390 (the counts of lipids without an identification level). The note of conv:241-242 is replaced by the
 # engine's note on runs whose location is null.
 id: mztab-2.0.0-M
-version: 1.3.0
+version: 1.4.0
 kind: output
-vocabulary: 1.3.0
+vocabulary: 1.4.0
 target: 2.0.0-M
 # dataset_index selects the dataset; dataset_id is informational (not read, not checked)
 parameters: [study_id, dataset_id, dataset_index]
@@ -142,8 +147,8 @@ let:
       over: {field: dataset.quantities.lipids}
       as: l
       value: {find: {in: {ref: dataset_lipids}, as: x, where: {eq: [{field: x.lipid_name}, {field: l}]}}}
-  # Converter.lipid: Null when the lipid's row says normalise_name 'no'; else the name as Goslin reads it, else the name
-  # without its trailing notes as Goslin reads it (opt_global_original_name keeps the name as written)
+  # Converter.identified: Null when the lipid's row says normalise_name 'no'; else the name's readings (read-name;
+  # opt_global_original_name keeps the name as written)
   parsed:
     map:
       over: {ref: lipid_notes}
@@ -152,14 +157,30 @@ let:
         when:
           if: {eq: [{field: note.normalise_name.text}, {literal: "no"}]}
           then: {literal: null}
-          else:
-            first:
-              - {fn: {name: goslin-parse, args: [{at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}]}}
-              - fn:
-                  name: goslin-parse
-                  args: [{fn: {name: strip-name-notes, args: [{at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}]}}]
+          else: {fn: {name: read-name, args: [{at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}]}}
+  # the readings of the lipid's alternative name (vocabulary 1.4.0)
+  alternative_readings:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value: {fn: {name: read-name, args: [{field: note.alternative_name}]}}
+  # the readings that identify each lipid: its name's, else its alternative name's
+  identified:
+    map:
+      over: {ref: lipid_notes}
+      as: note
+      value:
+        first:
+          - {at: {list: {ref: parsed}, index: {pos: note}}}
+          - {at: {list: {ref: alternative_readings}, index: {pos: note}}}
   normalised_names:
-    map: {over: {ref: parsed}, as: p, value: {field: p.normalised}}
+    map:
+      over: {ref: identified}
+      as: r
+      value:
+        when:
+          if: {field: r}
+          then: {join: {items: {map: {over: {field: r}, as: x, value: {field: x.normalised}}}, sep: "|"}}
   # Converter.formula (conv:291-309)
   formulas_and_masses:
     map:
@@ -171,7 +192,7 @@ let:
           args:
             - {field: dataset.quantities.sheet}
             - {at: {list: {field: dataset.quantities.lipids}, index: {pos: note}}}
-            - {at: {list: {ref: parsed}, index: {pos: note}}}
+            - {at: {list: {ref: identified}, index: {pos: note}}}
             - {field: note.sum_formula}
   formulas:
     map: {over: {ref: formulas_and_masses}, as: f, value: {field: f.formula}}
@@ -193,7 +214,7 @@ let:
               then: {literal: "1"}
               else:
                 when:
-                  if: {at: {list: {ref: parsed}, index: {pos: note}}}
+                  if: {at: {list: {ref: identified}, index: {pos: note}}}
                   then: {literal: "3"}
                   else: {literal: "4"}
   # Converter.sml: each lipid's alternative name from its Lipids row, as written, else null (vocabulary 1.2.0)
@@ -595,10 +616,18 @@ tables:
       - header: database_identifier
         value:
           when:
-            if: {at: {list: {ref: normalised_names}, index: {pos: lipid}}}
-            then: {format: {template: "goslin:{0}", args: [{at: {list: {ref: normalised_names}, index: {pos: lipid}}}]}}
-            # P7: no identification by Goslin; as many identifiers as chemical names (jmzTab-m 1.0.8, Error-2046)
-            else: {literal: "goslin:null"}
+            if: {at: {list: {ref: identified}, index: {pos: lipid}}}
+            then:
+              join:
+                items:
+                  map:
+                    over: {at: {list: {ref: identified}, index: {pos: lipid}}}
+                    as: x
+                    value: {format: {template: "goslin:{0}", args: [{field: x.normalised}]}}
+                sep: "|"
+            # P7: no identification by Goslin; as many identifiers as chemical names, one per '|' part of the name
+            # (jmzTab-m 1.0.8, Error-2046)
+            else: {join: {items: {map: {over: {split: {value: {field: lipid}, sep: "|"}}, as: x, value: {literal: "goslin:null"}}}, sep: "|"}}
       - header: chemical_formula
         value: {first: [{at: {list: {ref: formulas}, index: {pos: lipid}}}, {literal: "null"}]}
       - header: smiles
@@ -610,7 +639,8 @@ tables:
       - header: uri
         value: {literal: "null"}
       - header: theoretical_neutral_mass
-        value: {number: {at: {list: {ref: masses}, index: {pos: lipid}}}}
+        # one mass per reading: a List renders its numbers joined with '|'
+        value: {first: [{at: {list: {ref: masses}, index: {pos: lipid}}}, {literal: "null"}]}
       - header: adduct_ions
         value: {literal: "null"}
       - header: reliability

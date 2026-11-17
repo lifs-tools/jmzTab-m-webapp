@@ -38,10 +38,17 @@ final class StripNameNotes {
     private static final Pattern COMMENT = Pattern.compile("//.*\\z", Pattern.DOTALL);
     private static final Pattern SQUARE_NOTE = Pattern.compile("\\[[^\\[\\]]*\\]\\z");
     private static final Pattern UNCLOSED = Pattern.compile(WS + "\\([^()]*\\z");
-    private static final Pattern ISOMER = Pattern.compile("_[A-Z]\\z");
+    private static final Pattern ISOMER = Pattern.compile("_[A-Za-z]\\z");
     private static final Pattern ADDUCT = Pattern.compile("_M[+-][A-Za-z0-9+-]*\\]?[+-]?\\z");
     private static final Pattern SQUARE_ADDUCT = Pattern.compile("\\[M[+-][^\\[\\]]*\\][+-]?\\z");
-    private static final List<Pattern> AFTER_ROUND = List.of(SQUARE_NOTE, UNCLOSED, ISOMER, ADDUCT, SQUARE_ADDUCT);
+    /** Vocabulary 1.4.0: an isomer letter after a closing bracket ({@code LPC(20:0)b}); the bracket stays. */
+    private static final Pattern BRACKET_LETTER = Pattern.compile("(?<=\\))[a-z]\\z");
+    /** Vocabulary 1.4.0: an isomer letter after whitespace ({@code PC 37:4 b}). */
+    private static final Pattern SPACE_LETTER = Pattern.compile(WS + "[a-z]\\z");
+    /** Vocabulary 1.4.0: the dash that step 2 leaves of a numbered duplicate ({@code TG 58:4 - (1)}). */
+    private static final Pattern DASH = Pattern.compile(WS + "-\\z");
+    private static final List<Pattern> AFTER_ROUND = List.of(SQUARE_NOTE, UNCLOSED, ISOMER, ADDUCT, SQUARE_ADDUCT,
+            BRACKET_LETTER, SPACE_LETTER, DASH);
 
     private StripNameNotes() {
     }

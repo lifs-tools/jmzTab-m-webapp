@@ -498,6 +498,7 @@ Abundance columns follow the same numbering. An engine writes the column `abunda
 A named function with `args`. The functions are exactly these:
 
 - [`goslin-parse`](#goslin-parse);
+- [`read-name`](#read-name) (vocabulary 1.4.0);
 - [`strip-name-notes`](#strip-name-notes);
 - [`factor-combinations`](#factor-combinations);
 - [`formula-check`](#formula-check).
@@ -518,10 +519,51 @@ The name `index-allocate` is **reserved**. It is not defined in this version of 
 - `formula` (Text or Null): Goslin's sum formula when it is plain, that is, when all of it matches `(?:[A-Z][a-z]?\d*)+`. A formula with heavy isotopes, such as `C41H73NO8PH'7`, gives Null.
 - `mass` (Dbl): the mass as pygoslin's `LipidAdduct.get_mass` computes it. The terms are the mass of each element times its count, including the adduct's elements, and they are added in Goslin's element order (C, C13, H, H2, N, N15, O, O17, O18, P, P32, S, S34, S33, F, Cl, Br, I, As) with Python's builtin `sum`, which is Neumaier's compensated summation. With an adduct of charge z ≠ 0, the mass is then `(sum - z × 0.00054857990946) / |z|`. jgoslin's `getMass()` adds plainly and can differ in the last digit, so it is not used.
 
-When no Goslin grammar reads the name, the result is Null, without a note. Null gives Null. Any other value than a text is an error.
+When no Goslin grammar reads the name, the result is Null, without a note. Null gives Null. Any other value than a text is an error. An implementation whose Goslin reads a name but cannot count its elements (jgoslin 2.2.1 for `5-6-EpETrE`) gives that reading with Null as `formula` and `mass`.
 
 ```yaml
 {fn: {name: goslin-parse, args: [{literal: PC 34:1}]}}   # {normalised: PC 34:1, formula: C42H82NO8P, mass: 759.57780591}
+```
+
+#### read-name
+
+`args: [name]`. The readings of a lipid name, as the converter's `read_name` reads them (vocabulary 1.4.0). The result is a List with one [`goslin-parse`](#goslin-parse) Obj per reading, or Null when a reading is not read. A mapping reads a name with this function, so that a name with several readings, such as `SM(d18:1_14:0);SM(d16:1_16:0)`, gets one identifier per reading, and the name as written can be kept (for example as `opt_global_original_name`).
+
+A text counts as read only when `goslin-parse` reads it and Goslin knows its lipid category. Goslin reads `2` or `0` as a lipid of an undefined category, which would otherwise split `Cer 34:1;2` at `;`. The steps are:
+
+1. The name as written, when it is read: one reading.
+2. Otherwise the readings are the parts of the name between `|`, each stripped of whitespace, with empty parts dropped. A name with one such part is split at `;` instead, when that gives two parts or more and every part is read (step 3). `;` is also part of Goslin's notation: in `SM 18:1;O2`, the part `O2` is not read, so that name is not split.
+3. A reading is read as written. Failing that, it is read without its notes ([`strip-name-notes`](#strip-name-notes)). Failing that, the stripped reading is read with the `_` that follows a sphingoid base written as `/`. That `_` is matched at the start of the text as follows:
+   - the class: one or more characters other than whitespace and `(`;
+   - one whitespace character or `(`;
+   - the base: either `d`, `m` or `t` followed by `<n>:<n>`, or `<n>:<n>;O` followed by optional digits, where `<n>` is one or more digits `0`-`9`;
+   - then `_`.
+
+   This last reading counts only when Goslin reads it as a sphingolipid (category `SP`). The `_` is an error in such a name, not a notation that Goslin lacks. `_` means that the positions of the chains are not known. A sphingoid base is always bound to its N-acyl chain at a known position, so a sphingolipid's chains are written with `/`, as in `SM 18:1;O2/14:0`. The reading corrects that error, and Goslin's grammars rightly do not read `SM(d18:1_14:0)`.
+4. When a reading is not read, the result is Null.
+5. Each lipid is kept once, at its finest level. A reading is left out when an earlier reading has the same `normalised` name, or when another reading names the same lipid at a finer level. A reading names another at a finer level when its Goslin level is higher and Goslin writes it at the other's level as the other's `normalised` name. Goslin's levels, from coarse to fine, are category, class, species, molecular species, sn position, structure defined, full structure and complete structure. The order of the readings is kept.
+
+Whitespace is Python's, as in [`strip-name-notes`](#strip-name-notes). A name longer than 1,000 characters, or with more than 16 parts between `|` (or between `;`, for the split of step 2), is not read: the result is Null. Corpus names have at most 6 parts, and the bounds limit the Goslin parses per name. Null gives Null. Any other value than a text is an error.
+
+| Name | Readings |
+|---|---|
+| `PC 34:1` | `PC 34:1` |
+| `PC 37:4 b` | `PC 37:4` |
+| `TG 58:4 - (1)` | `TG 58:4` |
+| `BMP 34:2\|BMP 16:1_18:1` | `BMP 16:1_18:1` |
+| `PC 16:0_18:1\|PC 34:1\|PC 16:0_18:1` | `PC 16:0_18:1` |
+| `SM(d18:1_14:0);SM(d16:1_16:0)` | `SM 18:1;O2/14:0`, `SM 16:1;O2/16:0` |
+| `PE(14:0_14:0)_B;PE(12:0_16:0)` | `PE 14:0_14:0`, `PE 12:0_16:0` |
+| `Cer d18:1_16:0` | `Cer 18:1;O2/16:0` |
+| `SM 18:1;O2` | `SM 18:1;O2` |
+| `PCp(35:5)\|PE O-38:6` | Null |
+| `PC 34:1;unknown` | Null |
+| `PC(d16:0_18:1)` | Null (not a sphingolipid) |
+
+pygoslin and jgoslin read some names differently (for example trivial names such as `12-HETE`, or `PE(P-16:0_20:1)`, which pygoslin writes `PE P-16:0/20:1`). This function then gives what the implementation's Goslin reads.
+
+```yaml
+{fn: {name: read-name, args: [{field: l}]}}   # "SM(d18:1_14:0);SM(d16:1_16:0)" gives two readings
 ```
 
 #### strip-name-notes
@@ -534,9 +576,12 @@ Whitespace is Python's: the characters for which `str.isspace()` is true (as in 
 2. A comment in round brackets at the end that follows whitespace. Brackets inside it nest: the comment starts at the `(` that matches the final `)`. Without whitespace before that `(`, nothing is removed.
 3. A note in square brackets at the end, `[...]` without square brackets inside, with the whitespace before it.
 4. An unclosed comment: whitespace, `(` and then no `(` or `)` up to the end.
-5. An isomer letter: `_` and one letter `A`-`Z` at the end.
+5. An isomer letter: `_` and one letter `A`-`Z` or `a`-`z` at the end.
 6. An adduct: `_M`, then `+` or `-`, then letters `A-Za-z`, digits and `+`/`-`, an optional `]` and an optional `+` or `-`, at the end.
 7. An adduct in square brackets: `[M`, then `+` or `-`, any characters but `[` and `]`, then `]` and an optional `+` or `-`, at the end, with the whitespace before it.
+8. An isomer letter after a bracket: one letter `a`-`z` at the end, right after `)`. The `)` stays (vocabulary 1.4.0).
+9. An isomer letter after whitespace: whitespace and one letter `a`-`z` at the end (vocabulary 1.4.0).
+10. A dash after whitespace at the end. This is what step 2 leaves of a numbered duplicate such as `TG 58:4 - (1)` (vocabulary 1.4.0).
 
 A name with nothing to remove is returned unchanged, and so is a name longer than 1,000 characters: lipid names are far shorter, and the limit bounds the work for any input. Null gives Null. Any other value than a text is an error.
 
@@ -552,6 +597,11 @@ A name with nothing to remove is returned unchanged, and so is a name longer tha
 | `PC 34:1 [M+H]+` | `PC 34:1` |
 | `PC(16:0/18:1)` | `PC(16:0/18:1)` |
 | `Cer(d18:1/18:0(OH))` | `Cer(d18:1/18:0(OH))` |
+| `LPC(20:0)b` | `LPC(20:0)` |
+| `PC 37:4 b` | `PC 37:4` |
+| `PE 38:4_b` | `PE 38:4` |
+| `TG 58:4 - (1)` | `TG 58:4` |
+| `LPC 20:3 c (104)` | `LPC 20:3` |
 
 ```yaml
 {fn: {name: strip-name-notes, args: [{field: l}]}}   # "TG(48:0) [NL-16:0]" gives "TG(48:0)"
@@ -581,7 +631,11 @@ Two keys are the same combination when they are equal as JSON with sorted object
 
 #### formula-check
 
-`args: [sheet, name, parsed, stated]`. A stated sum formula checked against the name, as `Converter.formula` (`conv:291-309`) does. `parsed` is the name's [`goslin-parse`](#goslin-parse), which may be Null, and `stated` the stated formula. `sheet` and `name` are read as text for the notes. The result is an Obj `{formula, mass}`:
+`args: [sheet, name, parsed, stated]`. A stated sum formula checked against the name, as `Converter.formula` (`conv:291-309`) does. `parsed` is the name's [`goslin-parse`](#goslin-parse), which may be Null, or its [`read-name`](#read-name), a List of readings. `stated` is the stated formula. `sheet` and `name` are read as text for the notes.
+
+For a List, each reading is checked as below. The result's `formula` and `mass` are then Lists with one item per reading, and they render joined with `|`. The formula is Null when any reading has no plain formula. When a stated formula does not match, the note lists the reading formulas that differ, joined with `|`, and the result is the stated formula alone, without a mass. Otherwise the stated formula is given once per reading.
+
+The result is an Obj `{formula, mass}`:
 
 1. When nothing is stated (Null, `""`, or anything else Python takes as false), the result is `parsed`'s formula and mass, both Null when the name does not parse.
 2. Otherwise the stated value is read as text, with its whitespace normalised as in [cell rendering](#cell-rendering). When it is not plain (all of it must match `(?:[A-Z][a-z]?\d*)+`), the result is as in 1, with the note `<sheet>: sum formula '<stated>' of '<name>' is not a plain formula (e.g. C42H82NO8P); not written`.

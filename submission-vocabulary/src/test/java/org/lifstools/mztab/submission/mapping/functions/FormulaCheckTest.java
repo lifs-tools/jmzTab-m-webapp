@@ -111,4 +111,31 @@ class FormulaCheckTest {
         assertThat(notes.all()).containsExactly(
                 "Q_D1: sum formula '12' of 'not a lipid' is not a plain formula (e.g. C42H82NO8P); not written");
     }
+
+    private Value readings(String name) {
+        return functions.call("read-name", List.of(new Value.Text(name)), notes);
+    }
+
+    private Value checkReadings(String name, Value stated) {
+        return functions.call("formula-check", List.of(SHEET, new Value.Text(name), readings(name), stated), notes);
+    }
+
+    @Test
+    void theReadingsOfANameGiveOneFormulaAndMassEach() {
+        String name = "SM(d18:1_14:0);SM(d16:1_16:0)";
+        Value mass = mass("SM 18:1;O2/14:0");
+        Value two = result(new Value.ListV(List.of(new Value.Text("C37H75N2O6P"), new Value.Text("C37H75N2O6P"))),
+                new Value.ListV(List.of(mass, mass)));
+        assertThat(checkReadings(name, NULL)).isEqualTo(two);
+        assertThat(checkReadings(name, new Value.Text("C37H75N2O6P"))).isEqualTo(two);
+        assertThat(checkReadings(name, new Value.Text("C37H77N2O6P"))).isEqualTo(result("C37H77N2O6P", NULL));
+        assertThat(notes.all()).containsExactly("Q_D1: sum formula C37H77N2O6P of '" + name
+                + "' does not match the name (C37H75N2O6P|C37H75N2O6P, Goslin); the stated formula is written, without a mass");
+    }
+
+    @Test
+    void oneReadingInAListIsAListOfOne() {
+        assertThat(checkReadings("PC 34:1", NULL)).isEqualTo(result(new Value.ListV(List.of(new Value.Text("C42H82NO8P"))),
+                new Value.ListV(List.of(mass("PC 34:1")))));
+    }
 }
