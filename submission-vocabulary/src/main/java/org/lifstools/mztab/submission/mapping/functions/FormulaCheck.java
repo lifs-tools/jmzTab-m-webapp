@@ -16,8 +16,10 @@
 package org.lifstools.mztab.submission.mapping.functions;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,35 +42,62 @@ final class FormulaCheck {
 
     /**
      * {@code Obj{formula, mass}}: without a stated formula, Goslin's formula and mass; with one, the stated formula,
-     * and the mass only when the formula is not known to contradict the name.
+     * and the mass only when the formula is not known to contradict the name. {@code parsed} is a reading (a
+     * {@code goslin-parse} Obj), Null, or a List of readings ({@code read-name}); for a List, formula and mass are
+     * Lists with one item per reading (vocabulary 1.4.0).
      *
      * @param sheet the sheet named in the notes
      * @param name the lipid name as written
-     * @param parsed the name's {@code goslin-parse}, or Null
+     * @param parsed the name's reading, readings or Null
      * @param stated the stated sum formula, or Null
      */
     static Value check(Value sheet, Value name, Value parsed, Value stated, Notes notes) {
-        Value derived = member(parsed, "formula");
-        Value mass = member(parsed, "mass");
+        boolean list = parsed instanceof Value.ListV;
+        List<Value> readings = list ? ((Value.ListV) parsed).value()
+                : parsed == Value.Null.INSTANCE ? List.of() : List.of(parsed);
+        List<Value> derived = new ArrayList<>();
+        List<Value> masses = new ArrayList<>();
+        for (Value r : readings) {
+            derived.add(member(r, "formula"));
+            masses.add(member(r, "mass"));
+        }
+        boolean allPlain = !derived.isEmpty() && derived.stream().allMatch(d -> d instanceof Value.Text);
+        Value plain = allPlain ? items(derived, list) : Value.Null.INSTANCE;
+        Value mass = masses.isEmpty() ? Value.Null.INSTANCE : items(masses, list);
         if (Functions.falsy(stated)) {
-            return result(derived, mass);
+            return result(plain, mass);
         }
         String formula = Render.text(Numbers.python(stated));
         String where = Numbers.python(sheet) + ": sum formula ";
         if (!isPlain(formula)) {
             notes.add(where + "'" + formula + "' of '" + Numbers.python(name)
                     + "' is not a plain formula (e.g. C42H82NO8P); not written");
-            return result(derived, mass);
+            return result(plain, mass);
         }
-        if (derived instanceof Value.Text d && !elements(formula).equals(elements(d.value()))) {
-            notes.add(where + formula + " of '" + Numbers.python(name) + "' does not match the name (" + d.value()
-                    + ", Goslin); the stated formula is written, without a mass");
+        List<String> wrong = new ArrayList<>();
+        for (Value d : derived) {
+            if (d instanceof Value.Text t && !elements(formula).equals(elements(t.value()))) {
+                wrong.add(t.value());
+            }
+        }
+        if (!wrong.isEmpty()) {
+            notes.add(where + formula + " of '" + Numbers.python(name) + "' does not match the name ("
+                    + String.join("|", wrong) + ", Goslin); the stated formula is written, without a mass");
             return result(new Value.Text(formula), Value.Null.INSTANCE);
         }
-        if (parsed != Value.Null.INSTANCE && derived == Value.Null.INSTANCE) {
+        if (!readings.isEmpty() && !allPlain) {
             notes.add(where + formula + " of '" + Numbers.python(name) + "' not checked (Goslin gives no plain formula)");
         }
-        return result(new Value.Text(formula), mass);
+        List<Value> stateds = new ArrayList<>();
+        for (int i = 0; i < Math.max(readings.size(), 1); i++) {
+            stateds.add(new Value.Text(formula));
+        }
+        return result(items(stateds, list), mass);
+    }
+
+    /** The values as a List for a List of readings, else the one value. */
+    private static Value items(List<Value> values, boolean list) {
+        return list ? new Value.ListV(List.copyOf(values)) : values.get(0);
     }
 
     /** A plain sum formula, e.g. {@code C42H82NO8P} ({@code conv:102}); Goslin's {@code C41H73NO8PH'7} is not one. */

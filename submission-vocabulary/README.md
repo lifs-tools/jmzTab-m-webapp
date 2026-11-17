@@ -36,6 +36,8 @@ Version 1.3.0 adds the optional field `lipids.normalise_name` (column 'Normalise
 
 The mztab-2.0.0-M mapping 1.3.0 writes `goslin:null` (the database prefix followed by null) as the database identifier of a name Goslin does not read or that is not normalised, instead of `null`. `chemical_name` holds the name, and jmzTab-m 1.0.8 requires as many identifiers as names (Error-2046). The vocabulary is unchanged.
 
+Version 1.4.0 changes how a lipid name is read, not the fields. The mapping language gains the function `read-name`: a name is read reading by reading. The readings are the parts between `|`, or between `;` when every part is read, and each is read as written, else without its notes, else with the `_` after a sphingoid base read as `/` (`SM(d18:1_14:0)`). Each lipid is kept once, at its finest level, so `BMP 34:2|BMP 16:1_18:1` gives `BMP 16:1_18:1`, and a reading counts only when Goslin knows its lipid category. `strip-name-notes` also removes isomer letters (`LPC(20:0)b`, `PC 37:4 b`, `_b`) and what is left of a numbered duplicate (`TG 58:4 - (1)`). `formula-check` takes a list of readings as well. The mztab-2.0.0-M mapping (1.4.0) writes one identifier, name, formula and mass per reading (`|`), and identifies a name that Goslin does not read, or that is not normalised, through its alternative name when Goslin reads that. The v3-workbook mapping is 1.2.1, with the same rules.
+
 The `mztab` hint of a field says where the field usually ends up in mzTab-M. It is informative: what is written is defined by the output mapping, which is normative.
 
 ## Getting it

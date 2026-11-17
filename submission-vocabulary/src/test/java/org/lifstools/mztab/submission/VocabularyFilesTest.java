@@ -158,7 +158,7 @@ class VocabularyFilesTest {
     }
 
     @Test
-    void versionIs130() {
-        assertThat(Vocabulary.load().version()).isEqualTo("1.3.0");
+    void versionIs140() {
+        assertThat(Vocabulary.load().version()).isEqualTo("1.4.0");
     }
 }

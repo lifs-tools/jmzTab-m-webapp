@@ -71,7 +71,7 @@ class V3EquivalenceTwoZeroTest {
         MappingApplyResult result = apply(n);
 
         // the allowed software[3] lines record the v3 route (R11) before they are dropped
-        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.2.0\n");
+        assertThat(result.text()).contains("MTD\tsoftware[3]-setting[3]\tv3-workbook 1.2.1\n");
         assertThat(normalised(result.text())).isEqualTo(normalised(text("expected/LCS-99999-" + n + ".mzTab")));
     }
 
@@ -188,6 +188,46 @@ class V3EquivalenceTwoZeroTest {
             .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
     }
 
+    @Test
+    void aNameIsReadReadingByReadingAndANameKeptAsWrittenIsIdentifiedThroughItsAlternativeName() throws IOException {
+        ObjectNode instance = (ObjectNode) json("instance.json");
+        ObjectNode first = (ObjectNode) instance.get("lipids").get(0);
+        ObjectNode second = (ObjectNode) instance.get("lipids").get(1);
+        String name = first.get("lipid_name").asText();
+        String two = "SM(d18:1_14:0);SM(d16:1_16:0)";
+        String kept = second.get("lipid_name").asText();
+        first.put("lipid_name", two);
+        second.set("normalise_name", JSON.createObjectNode().put("text", "no"));
+        second.put("alternative_name", "PE 34:1");
+        com.fasterxml.jackson.databind.node.ArrayNode lipids = (com.fasterxml.jackson.databind.node.ArrayNode)
+            instance.get("datasets").get(0).get("quantities").get("lipids");
+        for (int i = 0; i < lipids.size(); i++) {
+            if (lipids.get(i).asText().equals(name)) {
+                lipids.set(i, JSON.getNodeFactory().textNode(two));
+            }
+        }
+        String text = apply("01", instance).text();
+
+        List<String> header = List.of(text.lines().filter(l -> l.startsWith("SMH\t")).findFirst().orElseThrow().split("\t", -1));
+        int original = header.indexOf("opt_global_original_name");
+        List<String[]> rows = text.lines().filter(l -> l.startsWith("SML\t")).map(l -> l.split("\t", -1)).toList();
+        String[] r = rows.stream().filter(x -> x[original].equals(two)).findFirst().orElseThrow();
+        assertThat(r[header.indexOf("database_identifier")]).isEqualTo("goslin:SM 18:1;O2/14:0|goslin:SM 16:1;O2/16:0");
+        assertThat(r[header.indexOf("chemical_name")]).isEqualTo("SM 18:1;O2/14:0|SM 16:1;O2/16:0");
+        assertThat(r[header.indexOf("chemical_formula")]).isEqualTo("C37H75N2O6P|C37H75N2O6P");
+        assertThat(r[header.indexOf("theoretical_neutral_mass")].split("\\|")).hasSize(2);
+        String[] k = rows.stream().filter(x -> x[original].equals(kept)).findFirst().orElseThrow();
+        assertThat(k[header.indexOf("database_identifier")]).isEqualTo("goslin:PE 34:1");
+        assertThat(k[header.indexOf("chemical_name")]).isEqualTo("PE 34:1");
+        assertThat(k[header.indexOf("reliability")]).isNotEqualTo("4");
+
+        Path file = dir.resolve("LCS-99999-01-readings.mzTab");
+        Files.writeString(file, text, StandardCharsets.UTF_8);
+        List<ValidationMessage> messages = validator.validate(file, ValidationLevel.INFO, 100, null).messages();
+        assertThat(messages).as("messages: %s", messages.stream().map(m -> m.getCode() + ": " + m.getMessage()).toList())
+            .noneMatch(m -> m.getMessageType() == MessageType.ERROR || m.getMessageType() == MessageType.WARN);
+    }
+
     /** The output mapping applied to the example, as a new file, with the provenance of the v3 route. */
     private static MappingApplyResult apply(String n) {
         return apply(n, json("instance.json"));
@@ -197,8 +237,8 @@ class V3EquivalenceTwoZeroTest {
         JsonNode parameters = json("parameters.json").get(Integer.parseInt(n) - 1);
         Map<String, String> p = new LinkedHashMap<>();
         parameters.properties().forEach(e -> p.put(e.getKey(), e.getValue().asText()));
-        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.3.0", p, instance, "",
-            true, "v3-workbook 1.2.0");
+        MappingApplyRequest request = new MappingApplyRequest("mztab-2.0.0-M", "1.4.0", p, instance, "",
+            true, "v3-workbook 1.2.1");
         return new MappingApplier().apply(request, engineVersions());
     }
 

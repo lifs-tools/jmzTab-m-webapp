@@ -48,6 +48,13 @@ class StripNameNotesTest {
         Cer(d18:1/18:0(OH))                                             | Cer(d18:1/18:0(OH))
         TG 48:2[NL-14:0]                                                | TG 48:2
         "PC 34:1 (a) "                                                  | PC 34:1
+        LPC(20:0)b                                                      | LPC(20:0)
+        PC 37:4 b                                                       | PC 37:4
+        PE 38:4_b                                                       | PE 38:4
+        TG 58:4 - (1)                                                   | TG 58:4
+        LPC 20:3 c (104)                                                | LPC 20:3
+        PC O-36:4 -                                                     | PC O-36:4
+        PE-O 36:4                                                       | PE-O 36:4
         """)
     void removesTheNotesAtTheEnd(String name, String expected) {
         assertThat(call(new Value.Text(name))).isEqualTo(new Value.Text(expected));
