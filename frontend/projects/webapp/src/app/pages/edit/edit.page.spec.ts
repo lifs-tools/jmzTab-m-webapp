@@ -670,6 +670,16 @@ describe('EditPage', () => {
     http.match(() => true);
   });
 
+  it('theReportLinkFollowsReportRevision: a reopened copy with a report, while a later run is RUNNING, offers it', async () => {
+    const running: WorkingCopyValidation = { ...done({ revision: 3 }), status: 'RUNNING', messages: [] };
+    const { el } = await open(info({ revision: 3, reportRevision: 2, validation: running }));
+    const report = el.querySelector('[data-testid=download-report]') as HTMLAnchorElement;
+    expect(report.getAttribute('href')).toBe('rest/v2/working-copies/abc/report?format=md');
+    expect(report.hasAttribute('download')).toBe(true);
+    expect(el.querySelector('[data-testid=report-note]')).toBeNull();
+    http.match(() => true);
+  });
+
   it('downloads the report instead of navigating to it', async () => {
     const { el } = await open(info());
     const report = el.querySelector('[data-testid=download-report]') as HTMLAnchorElement;

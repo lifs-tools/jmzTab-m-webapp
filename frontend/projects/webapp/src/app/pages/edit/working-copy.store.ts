@@ -41,6 +41,8 @@ export const CONFLICT_NOTICE =
 export const COPY_REPLACED_NOTICE = 'This copy was replaced (deleted and created again). The editor reloaded it.';
 /** The `error` of the server's 409 for a generation that is not the copy's. */
 const COPY_REPLACED_CODE = 'copy_replaced';
+/** The `error` of the server's 409 for an undo or redo with nothing to undo or redo: the copy is as this tab knows it. */
+const NOTHING_TO_UNDO_CODE = 'nothing_to_undo';
 export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const LINES_MOVED_NOTICE =
   'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
@@ -173,9 +175,12 @@ const GONE = 'gone' as const;
  * - A 409 from an edit, undo or redo means the copy changed elsewhere (another tab): the info is read again,
  *   `changed` tells the views to reload, and the conflict notice is shown. The re-read is part of the refused
  *   request's turn, and the requests queued behind it are not sent ({@link NotSentError}): they were made on the
- *   text before, and are refused once, with the one notice, rather than each with a notice of its own.
+ *   text before, and are refused once, with the one notice, rather than each with a notice of its own. Not a 409
+ *   with nothing to undo or redo (a second undo queued behind the first): the copy is as this tab knows it, so it
+ *   is read again quietly for `canUndo` and `canRedo`, and the requests behind it are sent.
  * - A copy deleted and created again (another `generation`) starts anew: what the store knew of the old one (its
- *   layout changes, CV checks, report) is dropped, the views reload and {@link COPY_REPLACED_NOTICE} is shown once.
+ *   layout changes, CV checks, report) is dropped, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and
+ *   the new copy is checked as an opened one is.
  */
 @Injectable()
 export class WorkingCopyStore {
@@ -206,7 +211,10 @@ export class WorkingCopyStore {
   /** A CV check was asked for and the server has not accepted it yet. */
   private cvCheckPending = false;
 
-  /** A check of this copy has finished (DONE) since it was opened: only then has it a report (else 409). */
+  /**
+   * The copy has a report (else `GET /{id}/report` answers 409): the server names its run (`reportRevision`), or a
+   * check of this copy has finished (DONE) since it was opened (a server that does not name it).
+   */
   readonly reportReady = signal(false);
 
   readonly validation = computed(() => this.info()?.validation ?? null);
@@ -620,7 +628,10 @@ export class WorkingCopyStore {
                 // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
                 catchError((err: unknown) => {
                   if (statusOf(err) !== 409 || err instanceof MaybeSavedError) return throwError(() => err);
-                  const replaced = err instanceof HttpErrorResponse && err.error?.error === COPY_REPLACED_CODE;
+                  const code = err instanceof HttpErrorResponse ? err.error?.error : undefined;
+                  // the copy is the one this tab knows: nothing changed elsewhere, the requests behind it are sent
+                  if (code === NOTHING_TO_UNDO_CODE) return this.quietReread().pipe(switchMap(() => throwError(() => err)));
+                  const replaced = code === COPY_REPLACED_CODE;
                   return this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE).pipe(
                     switchMap(() => throwError(() => err)),
                   );
@@ -671,10 +682,12 @@ export class WorkingCopyStore {
       catchError(() => throwError(() => err)),
       switchMap((info) => {
         if (info.lastChangeId === changeId) return of(info);
-        const now = info.revision ?? 0;
         // a late answer about a copy that was replaced since tells nothing about this change
-        if (now <= sent || this.isRetired(info)) return throwError(() => err);
-        const replaced = this.setInfo(info, true, false, true);
+        if (this.isRetired(info)) return throwError(() => err);
+        const now = info.revision ?? 0;
+        // a copy created again counts its revisions anew: it is taken whatever its revision
+        if (now <= sent && !this.isReplacement(info)) return throwError(() => err);
+        const replaced = this.setInfo(info, { force: true, reloading: true });
         this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
         this.reloads++;
         this.changed.next();
@@ -692,6 +705,24 @@ export class WorkingCopyStore {
     this.notices.next((status === 400 && serverMessage(err)) || SAVE_FAILED);
   }
 
+  /**
+   * Reads the copy again in the turn of an undo or redo that had nothing to do (two quick clicks, the second queued
+   * before the first was answered): `canUndo` and `canRedo` follow the server. The copy is the one this tab knows,
+   * so the views do not reload, nothing is said and the requests queued behind it are sent. Completes also when the
+   * copy cannot be read (a vanished one shows "not found"); the buttons then stay as they were.
+   */
+  private quietReread(): Observable<void> {
+    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+      map((info) => {
+        this.setInfo(info);
+      }),
+      catchError((err: unknown) => {
+        if (statusOf(err) === 404) this.view.set('notFound');
+        return of(undefined);
+      }),
+    );
+  }
+
   /** Lines may have moved up to this answer: pages read before it are stale for edits that name lines. */
   private layoutChanged(info: WorkingCopyInfo): void {
     this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.revision ?? 0);
@@ -707,7 +738,7 @@ export class WorkingCopyStore {
       map((info) => {
         // a late answer about a copy that was replaced since: the replacement was taken and announced
         if (this.isRetired(info)) return;
-        const replaced = this.setInfo(info, true, false, true);
+        const replaced = this.setInfo(info, { force: true, reloading: true });
         // the copy shown was already the new one (a poll found it first, and said so)
         if (!replaced && notice === COPY_REPLACED_NOTICE) return;
         // what changed elsewhere is not known: any line may have moved
@@ -729,7 +760,7 @@ export class WorkingCopyStore {
       .getWorkingCopy({ id: this.id() }, quietRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (info) => this.setInfo(info, true),
+        next: (info) => this.setInfo(info, { force: true }),
         error: (err: unknown) => {
           if (statusOf(err) === 404) this.view.set('notFound');
         },
@@ -772,7 +803,7 @@ export class WorkingCopyStore {
           };
           accepted();
           // a copy created again forgets what was asked of the old one, not this request
-          if (this.setInfo(info, false, true)) accepted();
+          if (this.setInfo(info, { checkAnswer: true })) accepted();
         },
         error: (err: unknown) => {
           if (statusOf(err) === 404) {
@@ -813,17 +844,22 @@ export class WorkingCopyStore {
    * - for the same copy revision, an ended run of a lower revision than the running one shown (a poll that
    *   crossed the request for the next run).
    * `force` (a reload after a conflict) takes it anyway, as it may go back. Starts polling while a run is
-   * RUNNING (`restartPoll`: anew), and announces a version change when a run has ended.
+   * RUNNING (anew for `checkAnswer`, the answer to a request for a check), and announces a version change when a
+   * run has ended.
    *
    * A copy of another generation (deleted and created again) is taken whatever its revision, which counts anew:
    * what was known of the old copy is dropped ({@link forget}), the views reload and {@link COPY_REPLACED_NOTICE} is
-   * shown, unless the caller (`reloading`: a reload that says so itself) does. A late answer about the old copy is
-   * not taken. Returns whether the copy was replaced.
+   * shown, unless the caller (`reloading`: a reload that says so itself) does. It is checked as an opened copy is
+   * ({@link checkOnOpen}), once: not when this is the answer to a check, which was of the new copy. A late answer
+   * about the old copy is not taken. Returns whether the copy was replaced.
    */
-  private setInfo(info: WorkingCopyInfo, force = false, restartPoll = false, reloading = false): boolean {
+  private setInfo(
+    info: WorkingCopyInfo,
+    { force = false, checkAnswer = false, reloading = false }: { force?: boolean; checkAnswer?: boolean; reloading?: boolean } = {},
+  ): boolean {
     const shown = this.info();
     if (this.isRetired(info)) return false;
-    const replaced = !!shown?.generation && !!info.generation && info.generation !== shown.generation;
+    const replaced = this.isReplacement(info);
     if (!force && !replaced && shown && this.isOlder(info, shown)) return false;
     if (replaced) {
       this.retired.add(shown!.generation!);
@@ -836,14 +872,14 @@ export class WorkingCopyStore {
     // a layout change of an earlier session (or another tab) is known from the first answer on
     this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.layoutRevision ?? 0);
     const v = info.validation;
-    if (v?.status === 'DONE') this.reportReady.set(true);
+    if (info.reportRevision != null || v?.status === 'DONE') this.reportReady.set(true);
     // only a run of the CV check asked for here, or a later one; not one that an earlier session left
     const requested = this.cvRequestedAt;
     if (v?.status === 'DONE' && v.semantic && requested !== null && (v.revision ?? -1) >= requested) {
       this.cvCheckedHere.set(true);
     }
     if (v?.status === 'RUNNING') {
-      if (restartPoll || !this.polling) this.polls.next();
+      if (checkAnswer || !this.polling) this.polls.next();
     } else if (v) {
       this.announceVersion(info.mzTabVersion ?? null);
     }
@@ -851,7 +887,19 @@ export class WorkingCopyStore {
       this.changed.next();
       this.notices.next(COPY_REPLACED_NOTICE);
     }
+    if (replaced && !checkAnswer) {
+      // the idle wait after an edit of the old copy would ask for a second check
+      if (this.idlePending()) this.idle.next(false);
+      // its answer restarts the poll if the check makes the copy RUNNING
+      this.checkOnOpen(info);
+    }
     return replaced;
+  }
+
+  /** Whether this answer is about another copy than the one shown: it was deleted and created again. */
+  private isReplacement(info: WorkingCopyInfo): boolean {
+    const shown = this.info()?.generation;
+    return !!shown && !!info.generation && info.generation !== shown;
   }
 
   /** Whether this answer is about a copy that was deleted and created again since. */
