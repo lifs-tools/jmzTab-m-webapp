@@ -21,6 +21,7 @@ import {
   BUSY_RETRIES,
   CONFLICT_NOTICE,
   COPY_REPLACED_NOTICE,
+  CopyReplacedError,
   EditOps,
   IDLE_MS,
   LAYOUT_CHANGED_NOTICE,
@@ -1871,6 +1872,41 @@ describe('WorkingCopyStore: a server that does not answer', () => {
       expect(notices).toEqual([COPY_REPLACED_NOTICE]);
       expect(errors).toEqual([{ status: 409, detail: null }]);
       http.expectNone(isPost('edits'));
+    });
+
+    it.each([
+      ['at a lower revision', 0],
+      ['at a higher revision', 7],
+    ])('a copy created again that a poll took while the save was in flight (%s): refused as replaced, said once', (_name, rev) => {
+      const running = { status: 'RUNNING', revision: 4 } as WorkingCopyValidation;
+      store.info.set(info(4, { generation: 'g1' }));
+      store.reload();
+      reread().flush(info(4, { generation: 'g1', validation: running }));
+      const errors: unknown[] = [];
+      store.edit([{ op: 'SetMetadataValue', line: 3, value: 'a' }] as EditOps).subscribe({ error: (e) => errors.push(e) });
+      store.info.set({ ...store.info()!, canUndo: true });
+      store.undo();
+      const save = post();
+      expect((save.request.body as { generation: string }).generation).toBe('g1');
+      // the poll finds the copy created again, checked: it says so once, and the poll ends
+      vi.advanceTimersByTime(POLL_MS);
+      const done = { status: 'DONE', revision: rev } as WorkingCopyValidation;
+      reread().flush(info(rev, { generation: 'g2', validation: done }));
+      expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      expect(store.info()?.generation).toBe('g2');
+      // the save to g1 times out; the copy read again is g2, which cannot hold the change
+      silence();
+      reread().flush(info(rev, { generation: 'g2', validation: done, lastChangeId: 'g2s-own-change' }));
+      expect(errors.length).toBe(1);
+      expect(errors[0]).toBeInstanceOf(CopyReplacedError);
+      expect((errors[0] as { status: number }).status).toBe(409);
+      // the undo queued behind it was made on g1: not sent, and nothing more is said
+      http.expectNone(isPost('undo'));
+      http.expectNone(isPost('edits'));
+      expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      expect(notices).not.toContain(SAVE_FAILED);
+      expect(notices).not.toContain(MAYBE_SAVED_NOTICE);
+      expect(store.saving()).toBe(false);
     });
 
     it('a lost answer that is not a timeout (status 0 from the network) is not sent again: the failure is reported', () => {

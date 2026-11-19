@@ -646,7 +646,9 @@ export class WorkingCopyStore {
             : defer(() => request(revision, changeId, generation)).pipe(
                 // before the next queued request is sent: it must name the revision this one produced, if it did.
                 // A timeout of a change that was not applied sends it once more, as it was: the same change id and
-                // revision, so the server refuses it (409) if the first one was committed after all.
+                // revision, so the server refuses it (409) if the first one was committed after all. Only a first send
+                // committed by the time the second is answered (the second waits up to 5 s for the copy's lock) is
+                // then found in the copy and counts as saved; a later commit leaves the resend refused as a conflict.
                 catchError((err: unknown) =>
                   this.committedOrFailed(err, sentAt ?? revision, changeId, generation, () =>
                     defer(() => request(revision, changeId, generation)).pipe(
@@ -706,14 +708,18 @@ export class WorkingCopyStore {
    *   {@link MaybeSavedError}, which nobody answers with "could not be saved".
    * - a copy of another generation (deleted and created again), whatever its revision, does not hold the change: it is
    *   taken, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and the error is a {@link CopyReplacedError}.
+   *   When a poll (or a reload) took the new copy first, while the change was in flight, it has said so already: the
+   *   error is a {@link CopyReplacedError}, and nothing more is said.
    * A 4xx was refused before changing anything, and a copy that cannot be read (after the retries of a read) leaves
    * the failure as it was. A lost answer whose re-read comes before the server's delayed commit reports a failure
    * (the safe direction): the next edit is then refused (409) and the copy reloaded.
    *
    * A timeout of a change that was not applied (`lastChangeId` is not its own, the copy is still at `sent` and of the
    * `generation` it was sent to) is sent once more by `resend`, unchanged: if the first one was committed after the
-   * re-read, the server refuses the second (409), and {@link resendRefused} finds the change in the copy. It is never
-   * applied twice.
+   * re-read, the server refuses the second (409). It is never applied twice. {@link resendRefused} finds the change
+   * in the copy, and counts it as saved, only when the first send has committed by the time the second is answered
+   * (or while the second waits, up to 5 s, for the copy's lock); a first send committed later still leaves the
+   * resend refused, on the conflict path.
    */
   private committedOrFailed(
     err: unknown,
@@ -731,6 +737,10 @@ export class WorkingCopyStore {
         if (info.lastChangeId === changeId) return of(info);
         // a late answer about a copy that was replaced since tells nothing about this change
         if (this.isRetired(info)) return throwError(() => err);
+        // the copy the change was sent to was replaced, and a poll (or a reload) took the new one first and said so
+        // (as conflict() does): it cannot hold the change, and nothing more is said
+        const otherCopy = generation !== undefined && !!info.generation && info.generation !== generation;
+        if (otherCopy && !this.isReplacement(info)) return throwError(() => new CopyReplacedError());
         const now = info.revision ?? 0;
         const sameCopy = !this.isReplacement(info) && (info.generation ?? undefined) === generation;
         if (resend && isTimeout(err) && now === sent && sameCopy) return resend();
