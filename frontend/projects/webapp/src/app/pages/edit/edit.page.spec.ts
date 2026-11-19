@@ -14,6 +14,7 @@ import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
+import { EDITOR_TIMEOUT_MS, READ_RETRY_DELAYS_MS, REQUEST_TIMEOUT } from '../../core/request-timeout.interceptor';
 import { EditPage, isUnreadable } from './edit.page';
 import {
   CHECK_FAILED,
@@ -592,6 +593,35 @@ describe('EditPage', () => {
     const editor = el.querySelector('mztabm-raw-line-editor')!;
     expect(editor.textContent).toContain('Line 70');
     expect(editor.querySelector<HTMLInputElement>('input')!.value).toBe('SML→1→x');
+  });
+
+  it('the line and header reads are given 30 s and asked again after a lost answer', async () => {
+    vi.useFakeTimers();
+    const shortRow = msg({ code: '[Error-2001] line 70: x', message: 'Row 1 has 3 cells', line_number: 70, location: undefined });
+    const { fixture, el } = await open(info({ validation: done({ messages: [{ message: shortRow, state: 'OPEN' }] }) }));
+    chipOf(el, 'line 70').click();
+    await settle(fixture);
+    const lines = linesReq(69);
+    expect(lines.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    lines.error(new ProgressEvent('error'));
+    await vi.advanceTimersByTimeAsync(READ_RETRY_DELAYS_MS[0]);
+    linesReq(69).flush([
+      { number: 69, section: 'SMH', cells: ['SMH', 'SML_ID', 'a', 'b'], eol: '\n' },
+      { number: 70, section: 'SML', cells: ['SML', '1', 'x'], eol: '\n' },
+      { number: 71, section: 'SML', cells: ['SML', '2', 'y', 'z'], eol: '\n' },
+    ]);
+    await settle(fixture);
+    const headerAt = (r: { url: string; params: { get(k: string): string | null } }) =>
+      r.url.endsWith('working-copies/abc/tables/sml') && r.params.get('size') === '1';
+    const header = http.expectOne(headerAt);
+    expect(header.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    header.error(new ProgressEvent('error'));
+    await vi.advanceTimersByTimeAsync(READ_RETRY_DELAYS_MS[0]);
+    http
+      .expectOne(headerAt)
+      .flush({ section: 'SML', page: 0, size: 1, totalRows: 2, allColumns: ['SML_ID', 'a', 'b'], columns: ['SML_ID'], rows: [] });
+    await settle(fixture);
+    expect(el.querySelector('mztabm-raw-line-editor')?.textContent).toContain('Line 70');
   });
 
   it('keeps a table row of the header\'s length in the table', async () => {

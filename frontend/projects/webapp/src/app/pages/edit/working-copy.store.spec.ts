@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { DocEdit, DocumentSource } from '@lifs-tools/mztabm-editor';
@@ -8,6 +8,14 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
 import { AppInfoStore } from '../../core/app-info.store';
+import {
+  EDITOR_TIMEOUT_MS,
+  ENGINE_TIMEOUT_MS,
+  READ_RETRY_DELAYS_MS,
+  REQUEST_TIMEOUT,
+  isTimeout,
+  requestTimeoutInterceptor,
+} from '../../core/request-timeout.interceptor';
 import { WorkingCopySource } from './working-copy-source';
 import {
   BUSY_RETRIES,
@@ -1517,5 +1525,455 @@ describe('WorkingCopyStore: imports', () => {
     store.open('abc');
     http.expectOne((r) => r.method === 'POST' && r.url.endsWith('rest/v2/working-copies'));
     http.expectNone((r) => r.url.includes('rest/v2/validations'));
+  });
+});
+
+/**
+ * A server that does not answer: every editor request has a client timeout (30 s; 120 s for the requests that wait
+ * for the engine), reads are asked again on a lost answer (status 0) after 1 s and then 3 s, and a change that timed
+ * out is sent once more only when the copy read again shows it was not applied. A change names its revision, so a
+ * resend after a late commit is refused (409): no change is applied twice.
+ */
+describe('WorkingCopyStore: a server that does not answer', () => {
+  let http: HttpTestingController;
+  let store: WorkingCopyStore;
+  let source: WorkingCopySource;
+  let notices: string[];
+  let changed: number;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([requestTimeoutInterceptor])),
+        provideHttpClientTesting(),
+        WorkingCopyStore,
+        WorkingCopySource,
+        { provide: DocumentSource, useExisting: WorkingCopySource },
+        { provide: AppInfoStore, useValue: { load: () => undefined, info: () => undefined } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(WorkingCopyStore);
+    source = TestBed.inject(WorkingCopySource);
+    store.id.set('abc');
+    store.info.set(info(0));
+    notices = [];
+    changed = 0;
+    store.notices.subscribe((n) => notices.push(n));
+    store.changed.subscribe(() => changed++);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const isPost = (path: string) => (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith(`working-copies/abc/${path}`);
+  const isRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('working-copies/abc');
+  const post = () => http.expectOne(isPost('edits'));
+  const reread = () => http.expectOne(isRead);
+  const noRead = () => expect(http.match(isRead)).toEqual([]);
+  const changeIdOf = (r: TestRequest) => (r.request.body as { changeId: string }).changeId;
+  const revisionOf = (r: TestRequest) => (r.request.body as { revision: number }).revision;
+  /** The server does not answer: the client gives up after its timeout. */
+  const silence = (ms = EDITOR_TIMEOUT_MS) => vi.advanceTimersByTime(ms);
+  const lost = (r: TestRequest) => r.error(new ProgressEvent('error'));
+  const edit = (results: unknown[], errors: unknown[], value = 'a') =>
+    source
+      .applyEdits([{ op: 'SetMetadataValue', line: 3, value }])
+      .subscribe({ next: (i) => results.push(i), error: (e) => errors.push(e) });
+
+  /** The re-read after a failed save waits 1 s, then 3 s, before it is asked again; each one times out. */
+  function rereadTimesOutThreeTimes(): void {
+    reread();
+    silence();
+    vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[0] - 1);
+    noRead();
+    vi.advanceTimersByTime(1);
+    reread();
+    silence();
+    vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[1] - 1);
+    noRead();
+    vi.advanceTimersByTime(1);
+    reread();
+    silence();
+  }
+
+  describe('the time each request is given', () => {
+    it('an edit, an undo and a redo are given 30 s', () => {
+      edit([], []);
+      expect(post().request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    });
+
+    it.each(['undo', 'redo'] as const)('%s is given 30 s', (action) => {
+      store.info.set(info(1, { canUndo: true, canRedo: true }));
+      store[action]();
+      expect(http.expectOne(isPost(action)).request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    });
+
+    it('a quick fix applied and an import applied are given 30 s', () => {
+      store.applyFix({ fixId: 'f', batch: { revision: 0, operations: [] } } as never).subscribe({ error: () => undefined });
+      expect(post().request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    });
+
+    it('a read of the copy is given 30 s', () => {
+      store.reload();
+      expect(reread().request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    });
+
+    it('a request for a check and a quick-fix preview are given 30 s, and are not asked again on a lost answer', () => {
+      store.validate(false);
+      const check = http.expectOne(isPost('validations'));
+      expect(check.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+      silence();
+      expect(store.checkFailed()).toBe(true);
+      store.previewFix('f', 0, false).subscribe({ error: () => undefined });
+      const fix = http.expectOne((r) => r.url.endsWith('working-copies/abc/quick-fixes/f'));
+      expect(fix.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+      lost(fix);
+      vi.advanceTimersByTime(10_000);
+      http.expectNone(isPost('validations'));
+      http.expectNone((r) => r.url.endsWith('working-copies/abc/quick-fixes/f'));
+    });
+
+    it('opening a copy (made server-side from the stored file) is given 120 s and is not asked again', () => {
+      store.open('abc');
+      const create = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('rest/v2/working-copies'));
+      expect(create.request.context.get(REQUEST_TIMEOUT)).toBe(ENGINE_TIMEOUT_MS);
+      silence(ENGINE_TIMEOUT_MS - 1);
+      expect(store.view()).toBe('loading');
+      silence(1);
+      expect(store.view()).toBe('error');
+      vi.advanceTimersByTime(10_000);
+      http.expectNone((r) => r.method === 'POST' && r.url.endsWith('rest/v2/working-copies'));
+    });
+
+    it('the import preview is given 120 s and is not asked again', () => {
+      const errors: unknown[] = [];
+      store
+        .previewImport({ kind: 'vocabulary-instance', instance: {}, datasetIndex: 0, studyId: 'S', keepExisting: true } as never)
+        .subscribe({ error: (e) => errors.push(e) });
+      const sent = http.expectOne(isPost('imports'));
+      expect(sent.request.context.get(REQUEST_TIMEOUT)).toBe(ENGINE_TIMEOUT_MS);
+      silence(ENGINE_TIMEOUT_MS - 1);
+      expect(errors).toEqual([]);
+      silence(1);
+      expect(errors.length).toBe(1);
+      expect(isTimeout(errors[0])).toBe(true);
+      vi.advanceTimersByTime(10_000);
+      http.expectNone(isPost('imports'));
+      noRead();
+    });
+
+    it('the JSON download, which can be large, has no client timeout', () => {
+      store.downloadJson().subscribe({ error: () => undefined });
+      const download = http.expectOne((r) => r.url.endsWith('working-copies/abc/file'));
+      expect(download.request.context.get(REQUEST_TIMEOUT)).toBeNull();
+      vi.advanceTimersByTime(10 * 60_000);
+      expect(download.cancelled).toBe(false);
+    });
+  });
+
+  describe('reads are asked again on a lost answer', () => {
+    it('reload: after 1 s, and the answer is taken', () => {
+      store.reload();
+      reread();
+      silence();
+      vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[0]);
+      reread().flush(info(2));
+      expect(store.info()?.revision).toBe(2);
+    });
+
+    it('reload: a 503 is not asked again', () => {
+      store.reload();
+      reread().flush({}, { status: 503, statusText: 'Service Unavailable' });
+      vi.advanceTimersByTime(10_000);
+      noRead();
+    });
+
+    it('the poll: a read that timed out is asked again, and the poll goes on', () => {
+      store.reload();
+      reread().flush(info(0, { validation: { status: 'RUNNING', revision: 0 } as WorkingCopyValidation }));
+      vi.advanceTimersByTime(POLL_MS);
+      const first = reread();
+      expect(first.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+      silence();
+      vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[0]);
+      reread().flush(info(0, { validation: { status: 'DONE', revision: 0 } as WorkingCopyValidation }));
+      expect(store.validation()?.status).toBe('DONE');
+    });
+
+    it('the quiet re-read after "nothing to undo" is asked again, and the buttons follow its answer', () => {
+      store.info.set(info(2, { canUndo: true }));
+      store.undo();
+      http
+        .expectOne(isPost('undo'))
+        .flush({ error: 'nothing_to_undo', message: 'There is nothing to undo.' }, { status: 409, statusText: 'Conflict' });
+      lost(reread());
+      vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[0]);
+      reread().flush(info(2, { canUndo: false }));
+      expect(store.info()?.canUndo).toBe(false);
+      expect(notices).toEqual([]);
+    });
+
+    it('the re-read after a conflict is asked again, and the copy is reloaded with one notice', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post().flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+      lost(reread());
+      vi.advanceTimersByTime(READ_RETRY_DELAYS_MS[0]);
+      reread().flush(info(4));
+      expect(store.info()?.revision).toBe(4);
+      expect(notices).toEqual([CONFLICT_NOTICE]);
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+    });
+  });
+
+  describe('a re-read that fails after its retries: the failure is shown, nothing hangs', () => {
+    it('after a failed save: "could not be saved" as before, and the next edit is sent', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post();
+      silence();
+      rereadTimesOutThreeTimes();
+      // the views say the change could not be saved (no status of a refusal)
+      expect(errors).toEqual([{ status: 0, detail: null }]);
+      expect(store.saving()).toBe(false);
+      expect(notices).toEqual([]);
+      // the queue goes on: the next edit is sent, at the revision known
+      edit([], [], 'b');
+      expect(revisionOf(post())).toBe(0);
+    });
+
+    it('after a failed undo: the notice "could not be saved", and the next undo is sent', () => {
+      store.info.set(info(1, { canUndo: true }));
+      store.undo();
+      lost(http.expectOne(isPost('undo')));
+      rereadTimesOutThreeTimes();
+      expect(notices).toEqual([SAVE_FAILED]);
+      expect(store.saving()).toBe(false);
+      store.undo();
+      http.expectOne(isPost('undo'));
+    });
+
+    it('after a conflict: the page shows that the copy could not be read, and the next edit is sent', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post().flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+      rereadTimesOutThreeTimes();
+      expect(store.view()).toBe('error');
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      expect(store.saving()).toBe(false);
+      edit([], [], 'b');
+      post();
+    });
+  });
+
+  describe('a change that timed out', () => {
+    it('applied (the copy names it as its last change): answered from the re-read, not sent again', () => {
+      const results: unknown[] = [];
+      const errors: unknown[] = [];
+      edit(results, errors);
+      const sent = post();
+      silence();
+      expect(sent.cancelled).toBe(true);
+      reread().flush(info(1, { lastChangeId: changeIdOf(sent) }));
+      expect(results.length).toBe(1);
+      expect(errors).toEqual([]);
+      expect(store.info()?.revision).toBe(1);
+      vi.advanceTimersByTime(10 * EDITOR_TIMEOUT_MS);
+      http.expectNone(isPost('edits'));
+      expect(notices).toEqual([]);
+    });
+
+    it('not applied (same revision, same generation): sent once more, with the same change id and revision', () => {
+      store.info.set(info(4, { generation: 'g1' }));
+      const results: unknown[] = [];
+      const errors: unknown[] = [];
+      edit(results, errors);
+      const sent = post();
+      silence();
+      reread().flush(info(4, { generation: 'g1', lastChangeId: 'an-earlier-change' }));
+      const again = post();
+      expect(again.request.body).toEqual(sent.request.body);
+      expect(changeIdOf(again)).toBe(changeIdOf(sent));
+      expect(revisionOf(again)).toBe(4);
+      again.flush(info(5, { generation: 'g1', lastChangeId: changeIdOf(sent) }));
+      expect(results.length).toBe(1);
+      expect(errors).toEqual([]);
+      expect(store.info()?.revision).toBe(5);
+      expect(notices).toEqual([]);
+      http.verify();
+    });
+
+    it('not applied, and the second send times out too: the failure is reported, nothing is sent a third time', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post();
+      silence();
+      reread().flush(info(0, { lastChangeId: null }));
+      post();
+      silence();
+      // the copy is read again after the second timeout as well: it is still not applied
+      reread().flush(info(0, { lastChangeId: null }));
+      expect(errors).toEqual([{ status: 0, detail: null }]);
+      expect(store.saving()).toBe(false);
+      vi.advanceTimersByTime(10 * EDITOR_TIMEOUT_MS);
+      http.expectNone(isPost('edits'));
+      // the next edit is sent
+      edit([], [], 'b');
+      post();
+    });
+
+    it('the second send timed out but was applied: it counts as saved', () => {
+      const results: unknown[] = [];
+      edit(results, []);
+      const sent = post();
+      silence();
+      reread().flush(info(0));
+      post();
+      silence();
+      reread().flush(info(1, { lastChangeId: changeIdOf(sent) }));
+      expect(results.length).toBe(1);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('an undo not applied is sent once more, with the same change id and revision', () => {
+      store.info.set(info(3, { canUndo: true }));
+      store.undo();
+      const sent = http.expectOne(isPost('undo'));
+      silence();
+      reread().flush(info(3, { canUndo: true }));
+      const again = http.expectOne(isPost('undo'));
+      expect(again.request.params.get('changeId')).toBe(sent.request.params.get('changeId'));
+      expect(again.request.params.get('revision')).toBe('3');
+      again.flush(info(4, { canUndo: false }));
+      expect(store.info()?.revision).toBe(4);
+      expect(notices).toEqual([]);
+    });
+
+    it('a copy that moved on (another tab): "may have been saved", not sent again', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post();
+      silence();
+      reread().flush(info(1, { lastChangeId: 'another-tabs-change' }));
+      expect(errors).toEqual([{ status: 409, detail: null, maybeSaved: true }]);
+      expect(notices).toEqual([MAYBE_SAVED_NOTICE]);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('a copy created again at the same revision: announced as replaced, not sent again', () => {
+      store.info.set(info(4, { generation: 'g1' }));
+      const errors: unknown[] = [];
+      edit([], errors);
+      post();
+      silence();
+      reread().flush(info(4, { generation: 'g2' }));
+      expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('a lost answer that is not a timeout (status 0 from the network) is not sent again: the failure is reported', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      lost(post());
+      reread().flush(info(0));
+      expect(errors).toEqual([{ status: 0, detail: null }]);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('a 503 that did not commit is not sent again', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      post().flush({}, { status: 503, statusText: 'Service Unavailable' });
+      reread().flush(info(0));
+      expect((errors[0] as { status: number }).status).toBe(503);
+      http.expectNone(isPost('edits'));
+    });
+  });
+
+  /**
+   * The server as far as a change is concerned: it applies a change whose revision is the copy's and refuses any
+   * other (409). The first send is committed late, after the re-read saw the copy unchanged.
+   */
+  describe('never two applies', () => {
+    let copy: { revision: number; lastChangeId: string | null };
+    let applied: string[];
+
+    const serve = (r: TestRequest) => {
+      const { revision, changeId } = r.request.body as { revision: number; changeId: string };
+      if (revision !== copy.revision) {
+        r.flush({ message: 'stale' }, { status: 409, statusText: 'Conflict' });
+        return;
+      }
+      copy = { revision: copy.revision + 1, lastChangeId: changeId };
+      applied.push(changeId);
+      r.flush(info(copy.revision, { lastChangeId: changeId }));
+    };
+    const commitLate = (r: TestRequest) => {
+      const { changeId } = r.request.body as { changeId: string };
+      copy = { revision: copy.revision + 1, lastChangeId: changeId };
+      applied.push(changeId);
+    };
+
+    beforeEach(() => {
+      copy = { revision: 0, lastChangeId: null };
+      applied = [];
+    });
+
+    it('a resend after a late commit is refused (409) and goes through the conflict path: applied once', () => {
+      const results: unknown[] = [];
+      const errors: unknown[] = [];
+      edit(results, errors);
+      const first = post();
+      silence();
+      // the re-read comes before the server's commit of the first send
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      const again = post();
+      expect(changeIdOf(again)).toBe(changeIdOf(first));
+      expect(revisionOf(again)).toBe(revisionOf(first));
+      // the first send is committed now, before the second arrives
+      commitLate(first);
+      serve(again);
+      // the conflict path: the copy is read again, the views reload, one notice
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      expect(applied).toEqual([changeIdOf(first)]);
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      expect(results).toEqual([]);
+      expect(notices).toEqual([CONFLICT_NOTICE]);
+      expect(changed).toBe(1);
+      expect(store.info()?.revision).toBe(1);
+      vi.advanceTimersByTime(10 * EDITOR_TIMEOUT_MS);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('a timeout whose re-read sees the commit is not sent again: applied once', () => {
+      const results: unknown[] = [];
+      edit(results, []);
+      const first = post();
+      commitLate(first);
+      silence();
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      expect(results.length).toBe(1);
+      http.expectNone(isPost('edits'));
+      expect(applied).toEqual([changeIdOf(first)]);
+    });
+
+    it('two edits queued, the first resent: each applied once, the second at the revision the first made', () => {
+      const results: unknown[] = [];
+      edit(results, []);
+      edit(results, [], 'b');
+      const first = post();
+      silence();
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      serve(post());
+      const second = post();
+      expect(revisionOf(second)).toBe(1);
+      serve(second);
+      expect(applied).toEqual([changeIdOf(first), changeIdOf(second)]);
+      expect(results.length).toBe(2);
+      expect(store.info()?.revision).toBe(2);
+      http.verify();
+    });
   });
 });

@@ -29,6 +29,7 @@ import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { AppInfoStore } from '../../core/app-info.store';
 import { quietRequest } from '../../core/http-error.interceptor';
+import { ENGINE_TIMEOUT_MS, editorRequest, engineRequest, isTimeout, retryReads } from '../../core/request-timeout.interceptor';
 import { lineOf } from '../../core/mztab-version';
 
 /** After an accepted batch, structural validation starts once the user has been idle this long [my call]. */
@@ -193,6 +194,10 @@ const GONE = 'gone' as const;
  * - A copy deleted and created again (another `generation`) starts anew: what the store knew of the old one (its
  *   layout changes, CV checks, report) is dropped, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and
  *   the new copy is checked as an opened one is.
+ * - Every request has a client timeout ({@link editorRequest}: 30 s; 120 s for the import preview and the creation
+ *   of the copy), except the JSON download. A read of the copy that gets no answer (status 0) is asked again after
+ *   1 s and then 3 s ({@link retryReads}). A change is never sent again blindly: one that timed out goes through
+ *   {@link committedOrFailed}, which sends it once more only when the copy read again shows it was not applied.
  */
 @Injectable()
 export class WorkingCopyStore {
@@ -333,7 +338,8 @@ export class WorkingCopyStore {
             this.polling = true;
             return timer(POLL_MS, POLL_MS).pipe(
               exhaustMap(() =>
-                this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+                this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+                  retryReads(),
                   catchError((err: unknown) => of(statusOf(err) === 404 ? GONE : null)),
                 ),
               ),
@@ -373,7 +379,8 @@ export class WorkingCopyStore {
   private create(encoding: 'UTF_8' | 'WINDOWS_1252'): void {
     this.forget();
     this.api
-      .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
+      // the server copies the stored file: given as long as a request that waits for the engine, and not asked again
+      .createWorkingCopy({ validation: this.id(), encoding }, editorRequest(ENGINE_TIMEOUT_MS))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
@@ -432,7 +439,7 @@ export class WorkingCopyStore {
   edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
       (revision, changeId, generation) =>
-        this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId, generation } }),
+        this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId, generation } }, editorRequest()),
       { reload, layout: changesLayout(ops), readAt },
     );
   }
@@ -441,7 +448,7 @@ export class WorkingCopyStore {
     if (!this.info()?.canUndo) return;
     // undo names no line, so it may follow a layout change; what it brings back or takes away may change it
     this.enqueue((revision, changeId, generation) =>
-      this.api.undoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
+      this.api.undoWorkingCopy({ id: this.id(), revision, changeId, generation }, editorRequest()), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -451,7 +458,7 @@ export class WorkingCopyStore {
   redo(): void {
     if (!this.info()?.canRedo) return;
     this.enqueue((revision, changeId, generation) =>
-      this.api.redoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
+      this.api.redoWorkingCopy({ id: this.id(), revision, changeId, generation }, editorRequest()), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -491,7 +498,7 @@ export class WorkingCopyStore {
    */
   private applyBatch(batch: EditBatch | undefined, outOfDate?: () => boolean): Observable<WorkingCopyInfo> {
     return this.enqueue((_, changeId, generation) =>
-      this.api.editWorkingCopy({ id: this.id(), body: { ...(batch ?? {}), changeId, generation } }), {
+      this.api.editWorkingCopy({ id: this.id(), body: { ...(batch ?? {}), changeId, generation } }, editorRequest()), {
       sentAt: batch?.revision ?? null,
       reload: true,
       layout: changesLayout(batch?.operations),
@@ -509,7 +516,8 @@ export class WorkingCopyStore {
       // the copy the preview is of: applying it to another generation is stale
       const generation = this.info()?.generation ?? null;
       return this.api
-        .previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, quietRequest())
+        // waits for the engine; not asked again by itself (the panel's Try again does)
+        .previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, engineRequest())
         .pipe(map((p): StoredImportPreview => ({ ...p, generation })));
     };
     return defer(send).pipe(
@@ -525,7 +533,8 @@ export class WorkingCopyStore {
    */
   private reread(): Observable<void> {
     const known = this.revision();
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       map((info) => {
         const replaced = this.setInfo(info);
         const now = info.revision ?? 0;
@@ -635,8 +644,16 @@ export class WorkingCopyStore {
           : outOfDate?.()
             ? throwError(() => new PreviewOutOfDate())
             : defer(() => request(revision, changeId, generation)).pipe(
-                // before the next queued request is sent: it must name the revision this one produced, if it did
-                catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
+                // before the next queued request is sent: it must name the revision this one produced, if it did.
+                // A timeout of a change that was not applied sends it once more, as it was: the same change id and
+                // revision, so the server refuses it (409) if the first one was committed after all.
+                catchError((err: unknown) =>
+                  this.committedOrFailed(err, sentAt ?? revision, changeId, generation, () =>
+                    defer(() => request(revision, changeId, generation)).pipe(
+                      catchError((again: unknown) => this.committedOrFailed(again, sentAt ?? revision, changeId, generation)),
+                    ),
+                  ),
+                ),
                 // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
                 catchError((err: unknown) => {
                   // the store has read the copy again and said so already
@@ -687,20 +704,33 @@ export class WorkingCopyStore {
    *   {@link MaybeSavedError}, which nobody answers with "could not be saved".
    * - a copy of another generation (deleted and created again), whatever its revision, does not hold the change: it is
    *   taken, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and the error is a {@link CopyReplacedError}.
-   * A 4xx was refused before changing anything, and a copy that cannot be read leaves the failure as it was. A lost
-   * answer whose re-read comes before the server's delayed commit reports a failure (the safe direction): the
-   * next edit is then refused (409) and the copy reloaded.
+   * A 4xx was refused before changing anything, and a copy that cannot be read (after the retries of a read) leaves
+   * the failure as it was. A lost answer whose re-read comes before the server's delayed commit reports a failure
+   * (the safe direction): the next edit is then refused (409) and the copy reloaded.
+   *
+   * A timeout of a change that was not applied (`lastChangeId` is not its own, the copy is still at `sent` and of the
+   * `generation` it was sent to) is sent once more by `resend`, unchanged: if the first one was committed after the
+   * re-read, the server refuses the second (409), and the conflict path reloads. It is never applied twice.
    */
-  private committedOrFailed(err: unknown, sent: number, changeId: string): Observable<WorkingCopyInfo> {
+  private committedOrFailed(
+    err: unknown,
+    sent: number,
+    changeId: string,
+    generation: string | undefined,
+    resend?: () => Observable<WorkingCopyInfo>,
+  ): Observable<WorkingCopyInfo> {
     const status = statusOf(err);
     if (status === undefined || (status !== 0 && status < 500)) return throwError(() => err);
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       catchError(() => throwError(() => err)),
       switchMap((info) => {
         if (info.lastChangeId === changeId) return of(info);
         // a late answer about a copy that was replaced since tells nothing about this change
         if (this.isRetired(info)) return throwError(() => err);
         const now = info.revision ?? 0;
+        const sameCopy = !this.isReplacement(info) && (info.generation ?? undefined) === generation;
+        if (resend && isTimeout(err) && now === sent && sameCopy) return resend();
         // a copy created again counts its revisions anew: it is taken whatever its revision
         if (now <= sent && !this.isReplacement(info)) return throwError(() => err);
         const replaced = this.setInfo(info, { force: true, reloading: true });
@@ -728,7 +758,8 @@ export class WorkingCopyStore {
    * copy cannot be read (a vanished one shows "not found"); the buttons then stay as they were.
    */
   private quietReread(): Observable<void> {
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       map((info) => {
         this.setInfo(info);
       }),
@@ -750,7 +781,8 @@ export class WorkingCopyStore {
    * be read (the page then shows "not found" or the error).
    */
   private conflict(notice: string): Observable<void> {
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       map((info) => {
         // a late answer about a copy that was replaced since: the replacement was taken and announced
         if (this.isRetired(info)) return;
@@ -773,8 +805,8 @@ export class WorkingCopyStore {
   /** Reads the copy again, e.g. after a download was refused because it changed. */
   reload(): void {
     this.api
-      .getWorkingCopy({ id: this.id() }, quietRequest())
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .getWorkingCopy({ id: this.id() }, editorRequest())
+      .pipe(retryReads(), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => this.setInfo(info, { force: true }),
         error: (err: unknown) => {
@@ -808,7 +840,7 @@ export class WorkingCopyStore {
     this.checkFailed.set(false);
     this.checkFailure.set(null);
     this.api
-      .validateWorkingCopy({ id: this.id(), semantic }, quietRequest())
+      .validateWorkingCopy({ id: this.id(), semantic }, editorRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
@@ -843,7 +875,7 @@ export class WorkingCopyStore {
    */
   previewFix(fixId: string, messageIndex: number, all: boolean): Observable<QuickFixPreview> {
     return this.api
-      .previewWorkingCopyQuickFix({ id: this.id(), fixId, message: messageIndex, all }, quietRequest())
+      .previewWorkingCopyQuickFix({ id: this.id(), fixId, message: messageIndex, all }, editorRequest())
       .pipe(
         catchError((err: unknown) => {
           if (statusOf(err) !== 409) return throwError(() => err);
@@ -958,6 +990,7 @@ export class WorkingCopyStore {
    * 404 shows "not found"; any other failure is said with the server's reason when it gives one.
    */
   downloadJson(): Observable<Blob> {
+    // no client timeout: the JSON of a large file can take long to arrive
     return this.api.downloadWorkingCopy$Json({ id: this.id(), format: 'json' }, quietRequest()).pipe(
       catchError((err: unknown) => {
         const status = statusOf(err);
