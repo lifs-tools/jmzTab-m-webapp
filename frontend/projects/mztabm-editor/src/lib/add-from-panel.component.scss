@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  font-family: var(--mztabm-font-family);
+  color: var(--mztabm-color-text);
+  min-width: 0;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--mztabm-color-text-muted);
+}
+// The live region: always there, shown once it has something to say.
+.notice {
+  margin: 0;
+  font-size: 13px;
+
+  &--shown {
+    padding: 8px 10px;
+    border-left: 4px solid var(--mztabm-color-ok);
+    background: color-mix(in srgb, var(--mztabm-color-ok) 8%, var(--mztabm-color-surface));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--mztabm-color-primary);
+    outline-offset: 1px;
+  }
+}
+.kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  button {
+    border: 1px solid var(--mztabm-color-primary);
+    background: var(--mztabm-color-surface);
+    color: var(--mztabm-color-primary);
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--mztabm-color-primary);
+      outline-offset: 1px;
+    }
+  }
+}
+.missing {
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--mztabm-color-text-muted) 25%, transparent);
+}

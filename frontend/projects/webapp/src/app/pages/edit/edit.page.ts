@@ -10,7 +10,9 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
+  AddFromPanelComponent,
   DocumentSource,
+  ImportSource,
   MetadataHighlight,
   MetadataViewComponent,
   RawLineEditorComponent,
@@ -26,12 +28,13 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { AppInfoStore } from '../../core/app-info.store';
-import { quietRequest } from '../../core/http-error.interceptor';
+import { editorRequest, retryReads } from '../../core/request-timeout.interceptor';
+import { lineOf } from '../../core/mztab-version';
 import { QuickFixState } from '../result/guidance-panel.component';
 import { DocTab, DocTarget, groupOf, targetOf } from '../result/message-groups';
 import { FixRequest, MessagesTabComponent, MessagesViewState, ShowRequest } from '../result/messages-tab.component';
 import { QuickFixDialogComponent } from './quick-fix-dialog.component';
-import { WorkingCopySource } from './working-copy-source';
+import { WorkingCopyImportSource, WorkingCopySource } from './working-copy-source';
 import { LINES_MOVED_NOTICE, NotCheckedYet, WorkingCopyStore } from './working-copy.store';
 
 const DAY_MS = 86_400_000;
@@ -71,8 +74,9 @@ export function isUnreadable(line: Line, prev?: Line, next?: Line): boolean {
 }
 
 /**
- * The editor of a working copy (`edit/:id`, the id of the validation it is made from): messages on the left,
- * the document on the right, both live. Edits are saved as they are made and checked after a pause.
+ * The editor of a working copy (`edit/:id`, the id of the validation it is made from, or of a new file): messages
+ * and the Add-from panel on the left, the document on the right, all live. Edits are saved as they are made and
+ * checked after a pause.
  */
 @Component({
   selector: 'app-edit-page',
@@ -85,6 +89,7 @@ export function isUnreadable(line: Line, prev?: Line, next?: Line): boolean {
     MetadataViewComponent,
     TableViewComponent,
     RawLineEditorComponent,
+    AddFromPanelComponent,
   ],
   templateUrl: './edit.page.html',
   styleUrl: './edit.page.scss',
@@ -92,6 +97,8 @@ export function isUnreadable(line: Line, prev?: Line, next?: Line): boolean {
     WorkingCopyStore,
     WorkingCopySource,
     { provide: DocumentSource, useExisting: WorkingCopySource },
+    WorkingCopyImportSource,
+    { provide: ImportSource, useExisting: WorkingCopyImportSource },
     MessagesViewState,
   ],
   host: {
@@ -117,6 +124,18 @@ export class EditPage {
   /** Relative to `<base href>`, so the links work under any servlet context path. */
   protected readonly base = computed(() => `rest/v2/working-copies/${this.store.id()}`);
   protected readonly reportUrl = computed(() => `rest/v2/working-copies/${this.store.id()}/report?format=md`);
+  /** A new file (New file), made from the engine's skeleton: it has no upload behind it, so no original. */
+  protected readonly isNew = computed(() => this.info()?.origin === 'new');
+  /** The version as the Add-from panel names it: its line, e.g. 2.1. */
+  protected readonly panelVersion = computed(() => {
+    const v = this.info()?.mzTabVersion ?? null;
+    return lineOf(v) ?? v;
+  });
+  /** The revision of the last finished check: the still-missing rules are read again after each one. */
+  protected readonly checkedRevision = computed(() => {
+    const v = this.validation();
+    return v?.status === 'DONE' ? (v.revision ?? null) : null;
+  });
 
   /** "Kept for N days after your last change": N is the server's retention, else what is left of it. */
   protected readonly retentionDays = computed(() => {
@@ -263,7 +282,8 @@ export class EditPage {
   private headerOf(id: string, prefix: Prefix): Observable<readonly string[]> {
     const known = this.headers().get(prefix);
     if (known) return of(known);
-    return this.api.getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, quietRequest()).pipe(
+    return this.api.getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, editorRequest()).pipe(
+      retryReads(),
       map((page) => page.allColumns ?? []),
       tap((columns) => this.headers.update((h) => new Map(h).set(prefix, columns))),
     );
@@ -359,7 +379,7 @@ export class EditPage {
     const run = ++this.inspection;
     const id = this.store.id();
     const from = Math.max(1, n - 1);
-    this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({
+    this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, editorRequest()).pipe(retryReads()).subscribe({
       next: (lines) => {
         if (run !== this.inspection) return;
         const at = (k: number) => lines.find((l) => l.number === k);
@@ -411,7 +431,7 @@ export class EditPage {
       this.store.notices.next(movedNotice);
       return;
     }
-    this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({
+    this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, editorRequest()).pipe(retryReads()).subscribe({
       next: (lines) => {
         const line = lines.find((l) => l.number === n);
         if (run === this.inspection && line) {

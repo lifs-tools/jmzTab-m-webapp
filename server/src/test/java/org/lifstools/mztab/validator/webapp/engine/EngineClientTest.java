@@ -41,6 +41,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.FieldRules;
+import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
+import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
+import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
+import org.lifstools.mztab.validator.engine.api.SuggestionState;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 
 class EngineClientTest {
@@ -233,6 +238,106 @@ class EngineClientTest {
         assertEquals(1, e.messages().size());
         assertEquals("bad", e.messages().get(0).getMessage());
         assertFalse(Files.exists(target));
+    }
+
+    private static MappingApplyRequest applyRequest() {
+        return new MappingApplyRequest("mztab-2.0.0-M", "1.0.0", java.util.Map.of("study_id", "S1"),
+            new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("a", 1), "MTD\tx\ty\n", true,
+            null, true);
+    }
+
+    @Test
+    void applyMappingPostsJsonAndReadsTheResult() throws Exception {
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(
+            "{\"edits\":[{\"op\":\"InsertLine\",\"before\":1,\"text\":\"MTD\\ta\\tb\"}],"
+            + "\"suggestions\":[{\"key\":\"title\",\"value\":\"T\",\"state\":\"CONFLICTS\"}],"
+            + "\"notes\":[\"n\"],\"text\":\"MTD\\ta\\tb\\n\"}"));
+        MappingApplyResult result = client(Duration.ofSeconds(5)).applyMapping(applyRequest());
+        assertEquals(SuggestionState.CONFLICTS, result.suggestions().get(0).state());
+        assertEquals("MTD\ta\tb\n", result.text());
+        RecordedRequest request = server.takeRequest();
+        assertEquals("POST", request.getMethod());
+        assertEquals("/engine/v1/mappings/apply", request.getPath());
+        assertTrue(request.getHeader("Content-Type").startsWith("application/json"));
+        String body = request.getBody().readUtf8();
+        assertTrue(body.contains("\"mapping\":\"mztab-2.0.0-M\""), body);
+        assertTrue(body.contains("\"keepExisting\":true"), body);
+        assertTrue(body.contains("\"study_id\":\"S1\""), body);
+    }
+
+    @Test
+    void skeletonPostsJsonAndReturnsTheText() throws Exception {
+        server.enqueue(new MockResponse().setHeader("Content-Type", "text/tab-separated-values;charset=UTF-8")
+            .setBody("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-ID\tX1\n"));
+        String text = client(Duration.ofSeconds(5)).skeleton(new SkeletonRequest("2.1.0-M", "M+S", "X1"));
+        assertEquals("MTD\tmzTab-version\t2.1.0-M\nMTD\tmzTab-ID\tX1\n", text);
+        RecordedRequest request = server.takeRequest();
+        assertEquals("/engine/v1/skeletons", request.getPath());
+        assertTrue(request.getHeader("Content-Type").startsWith("application/json"));
+        String body = request.getBody().readUtf8();
+        assertTrue(body.contains("\"contentProfile\":\"M+S\""), body);
+        assertTrue(body.contains("\"mzTabId\":\"X1\""), body);
+    }
+
+    @Test
+    void fieldRulesSendsMappingAndOptionalText() throws Exception {
+        String json = "{\"parsed\":true,\"rules\":[{\"id\":\"r\",\"name\":\"R\",\"path\":\"/p\","
+            + "\"requirement\":\"MUST\",\"logic\":\"OR\",\"terms\":[{\"accession\":\"MS:1\",\"name\":\"n\","
+            + "\"allowChildren\":false,\"useTerm\":true}],\"present\":true}]}";
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(json));
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(json));
+        EngineClient c = client(Duration.ofSeconds(5));
+        FieldRules rules = c.fieldRules(file("<mapping/>"), file("MTD\tmzTab-version\t2.0.0-M\n"));
+        assertTrue(rules.parsed());
+        assertEquals("MS:1", rules.rules().get(0).terms().get(0).accession());
+        RecordedRequest request = server.takeRequest();
+        assertEquals("/engine/v1/field-rules", request.getPath());
+        assertTrue(request.getHeader("Content-Type").startsWith("multipart/form-data"));
+        String body = request.getBody().readUtf8();
+        assertTrue(body.contains("name=\"mapping\""), body);
+        assertTrue(body.contains("name=\"file\""), body);
+        c.fieldRules(file("<mapping/>"), null);
+        String without = server.takeRequest().getBody().readUtf8();
+        assertTrue(without.contains("name=\"mapping\""), without);
+        assertFalse(without.contains("name=\"file\""), without);
+    }
+
+    @Test
+    void newCallsMapBusyAndBadRequest() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            server.enqueue(new MockResponse().setResponseCode(503).setHeader("Retry-After", "7")
+                .setHeader("Content-Type", "application/json").setBody("{\"code\":\"busy\",\"message\":\"busy\"}"));
+        }
+        EngineClient c = client(Duration.ofSeconds(5));
+        assertEquals(Duration.ofSeconds(7),
+            assertThrows(EngineBusyException.class, () -> c.applyMapping(applyRequest())).retryAfter());
+        assertEquals(Duration.ofSeconds(7), assertThrows(EngineBusyException.class,
+            () -> c.skeleton(new SkeletonRequest("2.0.0-M", null, "X"))).retryAfter());
+        assertEquals(Duration.ofSeconds(7),
+            assertThrows(EngineBusyException.class, () -> c.fieldRules(file("<m/>"), null)).retryAfter());
+        for (int i = 0; i < 3; i++) {
+            server.enqueue(new MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json")
+                .setBody("{\"code\":\"invalid_request\",\"message\":\"nope\"}"));
+        }
+        assertEquals(EngineErrorCode.INVALID_REQUEST,
+            assertThrows(EngineRequestException.class, () -> c.applyMapping(applyRequest())).error().code());
+        assertEquals("nope", assertThrows(EngineRequestException.class,
+            () -> c.skeleton(new SkeletonRequest("2.0.0-M", null, "X"))).error().message());
+        assertEquals(EngineErrorCode.INVALID_REQUEST,
+            assertThrows(EngineRequestException.class, () -> c.fieldRules(file("<m/>"), null)).error().code());
+    }
+
+    @Test
+    void newCallsMapAnUnreachableEngineToUnavailable() throws Exception {
+        int port;
+        try (ServerSocket s = new ServerSocket(0)) {
+            port = s.getLocalPort();
+        }
+        EngineClient c = new EngineClient("2.0", URI.create("http://localhost:" + port), Duration.ofSeconds(2),
+            Duration.ofSeconds(5));
+        assertThrows(EngineUnavailableException.class, () -> c.applyMapping(applyRequest()));
+        assertThrows(EngineUnavailableException.class, () -> c.skeleton(new SkeletonRequest("2.0.0-M", null, "X")));
+        assertThrows(EngineUnavailableException.class, () -> c.fieldRules(file("<m/>"), null));
     }
 
     @Test

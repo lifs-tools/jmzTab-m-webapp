@@ -1,0 +1,134 @@
+<section class="import" [attr.aria-labelledby]="uid + '-title'">
+  <h3 #heading class="title" tabindex="-1" [id]="uid + '-title'">{{ title() }}</h3>
+  <p class="note">
+    The JSON of the submission vocabulary: what the template reader writes, or what your tool writes. Nothing changes
+    until you apply the preview.
+  </p>
+  <label class="field" [for]="uid + '-file'">File</label>
+  <input class="file" type="file" accept=".json,application/json" [id]="uid + '-file'" (change)="onFile($event)" />
+  @if (fileError(); as reason) {
+    <p class="callout" role="alert">{{ reason }}</p>
+  }
+
+  @if (instance() !== null) {
+    @if (datasets().length > 1) {
+      <fieldset class="datasets" data-testid="dataset-choice">
+        <legend>Dataset</legend>
+        <p class="note">This file has {{ datasets().length }} datasets. Choose the one this mzTab-M file is for.</p>
+        @for (d of datasets(); track $index) {
+          <div class="choice">
+            <input
+              type="radio"
+              name="dataset"
+              [id]="uid + '-dataset-' + $index"
+              [checked]="datasetIndex() === $index + 1"
+              (change)="chooseDataset($index + 1)"
+            />
+            <label [for]="uid + '-dataset-' + $index">{{ d.label }}</label>
+          </div>
+        }
+      </fieldset>
+    }
+    <label class="field" [for]="uid + '-study'">Study id</label>
+    <input
+      class="text"
+      type="text"
+      data-testid="study-id"
+      spellcheck="false"
+      autocomplete="off"
+      [id]="uid + '-study'"
+      [value]="studyId()"
+      [attr.aria-invalid]="needStudyId() ? 'true' : null"
+      [attr.aria-describedby]="uid + '-study-hint'"
+      (change)="onStudyId($event)"
+    />
+    <p class="hint" [id]="uid + '-study-hint'" [class.hint--error]="needStudyId()">
+      @if (needStudyId()) {
+        Enter the study id.
+      } @else {
+        The mzTab-ID is made from it, e.g. LCS-00123.
+      }
+    </p>
+    <div class="check">
+      <input
+        type="checkbox"
+        data-testid="keep-existing"
+        [id]="uid + '-keep'"
+        [checked]="keepExisting()"
+        (change)="onKeep($event)"
+      />
+      <label [for]="uid + '-keep'">Keep existing values</label>
+    </div>
+    <p class="hint">
+      @if (keepExisting()) {
+        A value the file already has stays; where the import differs, it is listed as kept (differs).
+      } @else {
+        The import replaces the values the file already has.
+      }
+    </p>
+  }
+
+  <p
+    class="status"
+    role="status"
+    data-testid="import-status"
+    [class.status--busy]="busy()"
+    [class.status--notice]="!busy() && !!status()"
+  >{{ status() }}</p>
+  @if (error(); as reason) {
+    <p class="callout" role="alert">{{ reason }}</p>
+  }
+
+  @if (preview(); as p) {
+    <p class="note">
+      Made with <span class="mono">{{ p.mapping }} {{ p.mappingVersion }}</span>.
+      @if (counts()) {
+        {{ counts() }}.
+      }
+    </p>
+    @if (suggestions().length) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Key</th>
+              <th scope="col">Value</th>
+              <th scope="col">State</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of shown(); track $index) {
+              <tr [class]="'state--' + (s.state ?? '').toLowerCase()">
+                <td class="mono">{{ s.key }}</td>
+                <td>{{ s.value }}</td>
+                <td class="state">{{ stateLabel(s) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (suggestions().length > shown().length) {
+        <p class="note">… and {{ (suggestions().length - shown().length).toLocaleString('en') }} more.</p>
+      }
+    }
+    @if (!changes()) {
+      <p class="note">Nothing would change.</p>
+    }
+    @if (p.notes?.length) {
+      <h4 class="sub">Notes</h4>
+      <ul class="notes" data-testid="import-notes">
+        @for (n of p.notes; track $index) {
+          <li>{{ n }}</li>
+        }
+      </ul>
+    }
+  }
+
+  <div class="actions">
+    @if (outOfDate()) {
+      <button type="button" class="primary" [disabled]="busy()" (click)="again()">Preview again</button>
+    }
+    <button type="button" [class.primary]="!outOfDate()" [disabled]="!canApply()" (click)="apply()">Apply</button>
+    <button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</section>

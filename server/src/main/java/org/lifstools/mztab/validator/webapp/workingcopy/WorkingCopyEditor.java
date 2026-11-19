@@ -102,7 +102,8 @@ public final class WorkingCopyEditor {
      * and cell positions read before it may name other places afterwards. The same set as the SPA's LAYOUT_OPS.
      */
     static boolean changesLayout(EditOperation op) {
-        return op instanceof EditOperation.InsertLine || op instanceof EditOperation.DeleteLine
+        return op instanceof EditOperation.InsertLine || op instanceof EditOperation.InsertLines
+            || op instanceof EditOperation.DeleteLine
             || op instanceof EditOperation.MoveRow || op instanceof EditOperation.JoinWithPrevious
             || op instanceof EditOperation.InsertColumn || op instanceof EditOperation.DeleteColumn
             || op instanceof EditOperation.MergeColumns || op instanceof EditOperation.RenameColumn
@@ -334,7 +335,8 @@ public final class WorkingCopyEditor {
             case SetCell o -> setCell(r, o.line(), o.cell(), o.text(), o.header());
             case SetMetadataValue o -> setMetadata(r, o.line(), 2, o.value());
             case RenameMetadataKey o -> setMetadata(r, o.line(), 1, o.key());
-            case InsertLine o -> insertLine(r, o.before(), o.text());
+            case InsertLine o -> insertLines(r, o.before(), List.of(o.text()));
+            case InsertLines o -> insertLines(r, o.before(), o.lines());
             case DeleteLine o -> {
                 lineAt(r.db, o.line());
                 r.delete(o.line(), 1);
@@ -371,11 +373,14 @@ public final class WorkingCopyEditor {
 
     private static void requireWellFormedText(EditOperation op) {
         for (java.lang.reflect.RecordComponent c : op.getClass().getRecordComponents()) {
-            if (c.getType() == String.class) {
+            if (c.getType() == String.class || c.getType() == List.class) {
                 try {
-                    String s = (String) c.getAccessor().invoke(op);
-                    if (s != null && hasLoneSurrogate(s)) {
-                        throw new IllegalArgumentException("Text must not contain an unpaired surrogate character.");
+                    Object v = c.getAccessor().invoke(op);
+                    Iterable<?> texts = v instanceof List<?> l ? l : java.util.Collections.singletonList(v);
+                    for (Object t : texts) {
+                        if (t instanceof String s && hasLoneSurrogate(s)) {
+                            throw new IllegalArgumentException("Text must not contain an unpaired surrogate character.");
+                        }
                     }
                 } catch (ReflectiveOperationException e) {
                     throw new IllegalStateException(e);
@@ -486,32 +491,51 @@ public final class WorkingCopyEditor {
         return first.isEmpty() ? "\n" : first;
     }
 
-    private void insertLine(Recorder r, long before, String text) {
-        rawLine(text);
+    /**
+     * Inserts the lines so the first becomes line {@code before}: one forward and one inverse step for the whole
+     * list, so undo is one step. Every line gets the checks of a single inserted line.
+     */
+    private void insertLines(Recorder r, long before, List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            throw new IllegalArgumentException("InsertLines needs at least one line");
+        }
         long count = r.db.lineCount();
         if (before < 1 || before > count + 1) {
             throw new IllegalArgumentException("Cannot insert before line " + before);
         }
+        if (count + texts.size() > CopyText.MAX_LINES) {
+            throw new IllegalArgumentException("A working copy has at most 2,000,000 lines.");
+        }
+        texts.forEach(WorkingCopyEditor::rawLine);
         String eol;
+        // an unterminated last line gains the terminator; then the last new line is the unterminated one
+        String lastEol = null;
         if (before <= count) {
             eol = lineAt(r.db, before).eol();
             if (eol.isEmpty()) {
                 eol = terminator(r.db);
             }
         } else if (count == 0) {
-            eol = "";
+            eol = terminator(r.db);
+            lastEol = "";
         } else {
             Line last = lineAt(r.db, count);
             if (last.eol().isEmpty()) {
-                eol = "";
+                eol = terminator(r.db);
+                lastEol = "";
                 r.replace(count, new Line(count, last.section(), last.cells(), terminator(r.db)));
             } else {
                 eol = last.eol();
             }
         }
-        Line inserted = CopyText.line(before, text, eol);
-        noNewRepeat(null, inserted);
-        r.insert(before, List.of(inserted));
+        List<Line> inserted = new ArrayList<>(texts.size());
+        for (int i = 0; i < texts.size(); i++) {
+            String e = i == texts.size() - 1 && lastEol != null ? lastEol : eol;
+            Line line = CopyText.line(before + i, texts.get(i), e);
+            noNewRepeat(null, line);
+            inserted.add(line);
+        }
+        r.insert(before, inserted);
     }
 
     private void setRaw(Recorder r, long n, String text) {

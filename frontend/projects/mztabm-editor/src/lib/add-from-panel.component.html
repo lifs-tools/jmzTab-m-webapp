@@ -1,0 +1,30 @@
+<section class="panel" aria-labelledby="add-from-title">
+  <h2 class="title" id="add-from-title">Add from…</h2>
+  @if (kinds() === null) {
+    <p class="note">Loading…</p>
+  } @else if (kindsFailed()) {
+    <p class="note">The ways to add from a file could not be loaded.</p>
+  } @else if (!offered().length) {
+    <p class="note">Adding from a file is not available for mzTab-M {{ version() }} yet.</p>
+  } @else {
+    @if (open(); as kind) {
+      <mztabm-import-preview
+        [kind]="kind"
+        [fileName]="fileName()"
+        [revision]="revision()"
+        (applied)="onApplied()"
+        (closed)="onClosed(kind)"
+      />
+    } @else {
+      <div class="kinds">
+        @for (k of offered(); track k.kind) {
+          <button #kindButton type="button" data-testid="import-kind" (click)="choose(k.kind)">{{ k.label }}</button>
+        }
+      </div>
+    }
+  }
+  <p #status class="notice" role="status" tabindex="-1" data-testid="add-from-status" [class.notice--shown]="!!notice()">{{ notice() }}</p>
+  @if (showStillMissing()) {
+    <mztabm-still-missing class="missing" [checkedRevision]="checkedRevision()" [generation]="generation()" />
+  }
+</section>

@@ -452,6 +452,75 @@ class WorkingCopyEditorTest {
     }
 
     @Test
+    void insertLinesInsertsInOrder() throws Exception {
+        load("1\n2\n3\n");
+        long rev = db.revision();
+        apply(new InsertLines(2, List.of("A", "B")));
+        assertEquals("1\nA\nB\n2\n3\n", text());
+        assertEquals(rev + 1, db.revision());
+        assertEquals(rev + 1, Long.parseLong(db.meta(WorkingCopyEditor.LAYOUT_REVISION_KEY)));
+    }
+
+    @Test
+    void insertLinesAtTheEndKeepsTheEndingRule() throws Exception {
+        load("MTD\ta\tb\nMTD\tc\td");
+        apply(new InsertLines(3, List.of("MTD\te\tf", "MTD\tg\th")));
+        assertEquals("MTD\ta\tb\nMTD\tc\td\nMTD\te\tf\nMTD\tg\th", text());
+        editor.undo(db, db.revision());
+        assertEquals("MTD\ta\tb\nMTD\tc\td", text());
+    }
+
+    @Test
+    void insertLinesUndoesInOneStep() throws Exception {
+        String before = text();
+        List<String> lines = new ArrayList<>();
+        for (int i = 0; i < 3000; i++) {
+            lines.add("SML\t" + (i + 10) + "\tPC " + i);
+        }
+        apply(new InsertLines(5, lines));
+        assertEquals(8 + 3000, db.lineCount());
+        editor.undo(db, db.revision());
+        assertEquals(before, text());
+        assertFalse(editor.canUndo(db));
+        editor.redo(db, db.revision());
+        assertEquals(8 + 3000, db.lineCount());
+    }
+
+    @Test
+    void insertLinesOverBudgetRefused() throws Exception {
+        String cells = "x".repeat(99_999);
+        String wide = "COM" + ("\t" + cells).repeat(9);
+        List<String> lines = new ArrayList<>();
+        for (int i = 0; i < 80; i++) {
+            lines.add(wide);
+        }
+        long rev = db.revision();
+        String before = text();
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, lines)));
+        assertEquals(rev, db.revision());
+        assertEquals(before, text());
+    }
+
+    @Test
+    void insertLinesChecksEachLine() throws Exception {
+        long rev = db.revision();
+        String before = text();
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, List.of())));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, List.of("ok", "a\nb"))));
+        assertThrows(IllegalArgumentException.class,
+            () -> apply(new InsertLines(1, List.of("ok", "x".repeat(WorkingCopyEditor.MAX_LINE + 1)))));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, List.of("ok", "bad\uD83D"))));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, java.util.Arrays.asList("ok", null))));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(10, List.of("ok"))));
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, List.of("SEH\tA\tA"))));
+        // past the copy's line cap
+        List<String> many = java.util.Collections.nCopies(CopyText.MAX_LINES, "x");
+        assertThrows(IllegalArgumentException.class, () -> apply(new InsertLines(1, many)));
+        assertEquals(rev, db.revision());
+        assertEquals(before, text());
+    }
+
+    @Test
     void appendingToUnterminatedTextKeepsTheEndingRule() throws Exception {
         load("MTD\ta\tb\nMTD\tc\td");
         apply(new InsertLine(3, "MTD\te\tf"));

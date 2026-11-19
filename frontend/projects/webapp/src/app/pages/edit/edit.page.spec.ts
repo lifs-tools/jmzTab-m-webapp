@@ -14,6 +14,7 @@ import { Guidance } from '../../api/models/guidance';
 import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopyValidation } from '../../api/models/working-copy-validation';
+import { EDITOR_TIMEOUT_MS, READ_RETRY_DELAYS_MS, REQUEST_TIMEOUT } from '../../core/request-timeout.interceptor';
 import { EditPage, isUnreadable } from './edit.page';
 import {
   CHECK_FAILED,
@@ -123,13 +124,10 @@ describe('EditPage', () => {
     }
   }
 
-  /** Opens the editor on a copy: create, the validation record (for its profile), and the first document pages. */
+  /** Opens the editor on a copy (its repository rules of the kind `profile`) and answers the first document pages. */
   async function open(copy: WorkingCopyInfo = info(), profile: 'NONE' | 'CATALOG' = 'NONE') {
     const ctx = await render();
-    http.expectOne(isCreate()).flush(copy, { status: 201, statusText: 'Created' });
-    http
-      .expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc'))
-      .flush({ id: 'abc', status: 'FINISHED', validationProfile: { kind: profile } });
+    http.expectOne(isCreate()).flush({ validationProfile: { kind: profile }, ...copy }, { status: 201, statusText: 'Created' });
     await settle(ctx.fixture);
     answerDocs();
     await settle(ctx.fixture);
@@ -138,7 +136,10 @@ describe('EditPage', () => {
     return ctx;
   }
 
-  /** Answers the metadata and table requests of the views with an empty document. */
+  /**
+   * Answers the metadata and table requests of the views with an empty document, and those of the Add-from panel
+   * (no kinds, nothing missing); returns the number of document requests.
+   */
   function answerDocs(): number {
     const docs = http.match((r) => r.method === 'GET' && /working-copies\/abc\/(metadata|tables)/.test(r.url));
     for (const r of docs) {
@@ -146,6 +147,10 @@ describe('EditPage', () => {
       else if (r.request.url.includes('/metadata/')) r.flush({ group: 'general', page: 0, size: 50, total: 0, entries: [] });
       else r.flush({ section: 'SML', page: 0, size: 50, totalRows: 0, allColumns: ['SML_ID'], columns: ['SML_ID'], rows: [] });
     }
+    http.match((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/imports/kinds')).forEach((r) => r.flush([]));
+    http
+      .match((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/still-missing'))
+      .forEach((r) => r.flush({ revision: 0, checked: true, missing: [] }));
     return docs.length;
   }
 
@@ -590,6 +595,35 @@ describe('EditPage', () => {
     expect(editor.querySelector<HTMLInputElement>('input')!.value).toBe('SML→1→x');
   });
 
+  it('the line and header reads are given 30 s and asked again after a lost answer', async () => {
+    vi.useFakeTimers();
+    const shortRow = msg({ code: '[Error-2001] line 70: x', message: 'Row 1 has 3 cells', line_number: 70, location: undefined });
+    const { fixture, el } = await open(info({ validation: done({ messages: [{ message: shortRow, state: 'OPEN' }] }) }));
+    chipOf(el, 'line 70').click();
+    await settle(fixture);
+    const lines = linesReq(69);
+    expect(lines.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    lines.error(new ProgressEvent('error'));
+    await vi.advanceTimersByTimeAsync(READ_RETRY_DELAYS_MS[0]);
+    linesReq(69).flush([
+      { number: 69, section: 'SMH', cells: ['SMH', 'SML_ID', 'a', 'b'], eol: '\n' },
+      { number: 70, section: 'SML', cells: ['SML', '1', 'x'], eol: '\n' },
+      { number: 71, section: 'SML', cells: ['SML', '2', 'y', 'z'], eol: '\n' },
+    ]);
+    await settle(fixture);
+    const headerAt = (r: { url: string; params: { get(k: string): string | null } }) =>
+      r.url.endsWith('working-copies/abc/tables/sml') && r.params.get('size') === '1';
+    const header = http.expectOne(headerAt);
+    expect(header.request.context.get(REQUEST_TIMEOUT)).toBe(EDITOR_TIMEOUT_MS);
+    header.error(new ProgressEvent('error'));
+    await vi.advanceTimersByTimeAsync(READ_RETRY_DELAYS_MS[0]);
+    http
+      .expectOne(headerAt)
+      .flush({ section: 'SML', page: 0, size: 1, totalRows: 2, allColumns: ['SML_ID', 'a', 'b'], columns: ['SML_ID'], rows: [] });
+    await settle(fixture);
+    expect(el.querySelector('mztabm-raw-line-editor')?.textContent).toContain('Line 70');
+  });
+
   it('keeps a table row of the header\'s length in the table', async () => {
     const row = msg({ code: '[Error-2001] line 71: x', message: 'x', line_number: 71, location: undefined });
     const { fixture, el } = await open(info({ validation: done({ messages: [{ message: row, state: 'OPEN' }] }) }));
@@ -663,6 +697,16 @@ describe('EditPage', () => {
     expect(report.getAttribute('href')).toBeNull();
     expect((report as HTMLButtonElement).disabled).toBe(true);
     expect(el.querySelector('[data-testid=report-note]')?.textContent).toContain('available after the first check');
+    http.match(() => true);
+  });
+
+  it('theReportLinkFollowsReportRevision: a reopened copy with a report, while a later run is RUNNING, offers it', async () => {
+    const running: WorkingCopyValidation = { ...done({ revision: 3 }), status: 'RUNNING', messages: [] };
+    const { el } = await open(info({ revision: 3, reportRevision: 2, validation: running }));
+    const report = el.querySelector('[data-testid=download-report]') as HTMLAnchorElement;
+    expect(report.getAttribute('href')).toBe('rest/v2/working-copies/abc/report?format=md');
+    expect(report.hasAttribute('download')).toBe(true);
+    expect(el.querySelector('[data-testid=report-note]')).toBeNull();
     http.match(() => true);
   });
 
@@ -748,13 +792,14 @@ describe('EditPage', () => {
       TestBed.resetTestingModule();
       const { fixture, el } = await render();
       http.expectOne(isCreate()).flush(body, { status, statusText });
-      http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
       await settle(fixture);
       const alert = el.querySelector('[data-testid=open-failed]')!;
       expect(alert.textContent).toContain('The file could not be opened');
       expect(alert.textContent).toContain(body['message']);
       expect(alert.textContent).not.toContain('Please try again later');
-      expect(alert.querySelector('a')?.getAttribute('href')).toBe('/result/abc');
+      // the origin of a copy that could not be opened is unknown: both ways out are offered
+      expect(alert.querySelector('[data-testid=open-failed-start]')?.getAttribute('href')).toBe('/');
+      expect(alert.querySelector('[data-testid=open-failed-result]')?.getAttribute('href')).toBe('/result/abc');
       http.verify();
     }
   });
@@ -762,7 +807,6 @@ describe('EditPage', () => {
   it('says only that something went wrong when the server gives no reason', async () => {
     const { fixture, el } = await render();
     http.expectOne(isCreate()).flush('boom', { status: 500, statusText: 'Server Error' });
-    http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(fixture);
     const alert = el.querySelector('[data-testid=open-failed]')!;
     expect(alert.textContent).toContain('Something went wrong');
@@ -775,7 +819,6 @@ describe('EditPage', () => {
       { error: 'not_utf8', message: 'The file is not encoded as UTF-8; the first line that is not is line 3.' },
       { status: 422, statusText: 'Unprocessable Entity' },
     );
-    http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(fixture);
     const notice = el.querySelector('[data-testid=not-utf8]')!;
     expect(notice.textContent).toContain('the first line that is not is line 3.');
@@ -824,7 +867,6 @@ describe('EditPage', () => {
     vi.useFakeTimers();
     const { fixture, el } = await render();
     http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
-    http.expectOne((r) => r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(fixture);
     postValidation().flush(info({ validation: done({ status: 'RUNNING' }) }));
     await settle(fixture);
@@ -882,7 +924,6 @@ describe('EditPage', () => {
   it('a check refused as busy (503) shows the server message', async () => {
     const ctx = await render();
     http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
-    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(ctx.fixture);
     const full = 'Too many files are being checked. Please try again in a moment.';
     postValidation().flush({ message: full }, { status: 503, statusText: 'Unavailable', headers: { 'Retry-After': '30' } });
@@ -894,7 +935,6 @@ describe('EditPage', () => {
   it('a failed request for a check says so and offers Retry', async () => {
     const ctx = await render();
     http.expectOne(isCreate()).flush(info({ validation: undefined }), { status: 201, statusText: 'Created' });
-    http.expectOne((r) => r.method === 'GET' && r.url.endsWith('rest/v2/validations/abc')).flush({ id: 'abc', status: 'FINISHED' });
     await settle(ctx.fixture);
     postValidation().flush({ message: 'down' }, { status: 500, statusText: 'Server Error' });
     await settle(ctx.fixture);
@@ -1060,7 +1100,7 @@ describe('EditPage', () => {
     await settle(fixture);
   });
 
-  it('offers CV rules only for a session with a profile', async () => {
+  it('offers CV rules only for a copy with repository rules', async () => {
     const { el } = await open(info(), 'NONE');
     expect(el.querySelector('[data-testid=check-cv]')).toBeNull();
     TestBed.resetTestingModule();
@@ -1087,6 +1127,7 @@ describe('EditPage', () => {
         revision,
         canUndo: revision > 0,
         cvCheckedRevision,
+        validationProfile: { kind: 'CATALOG' },
         validation: done({ revision, messages: [{ message: cv, state: 'OPEN' }], ...v }),
       });
     const { fixture, el } = await open(withCv(0, 0), 'CATALOG');
@@ -1411,6 +1452,86 @@ describe('EditPage', () => {
       );
       await settle(fixture);
       expect(button(el, 'edit-as-text')).toBeTruthy();
+    });
+  });
+
+  describe('a new file and Add from…', () => {
+    const kindsReq = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/imports/kinds'));
+    const missingReq = () => http.expectOne((r) => r.method === 'GET' && r.url.endsWith('working-copies/abc/still-missing'));
+
+    /** Opens the copy, leaving the panel's requests for the test to answer. */
+    async function openWithPanel(copy: WorkingCopyInfo) {
+      const ctx = await render();
+      http.expectOne(isCreate()).flush(copy, { status: 201, statusText: 'Created' });
+      await settle(ctx.fixture);
+      return ctx;
+    }
+
+    it('shows the Add-from panel beside the messages, with the kinds of the copy and what is still missing', async () => {
+      const { fixture, el } = await openWithPanel(info({ origin: 'new', fileName: 'LCS-99999-01.mzTab' }));
+      kindsReq().flush(['vocabulary-instance']);
+      missingReq().flush({
+        revision: 0,
+        checked: true,
+        missing: [{ id: 'q', name: 'Quantification method', path: '/metadata/@quantificationMethod', requirement: 'MUST', present: false }],
+      });
+      await settle(fixture);
+      answerDocs();
+      await settle(fixture);
+      const panel = el.querySelector('.split .side mztabm-add-from-panel');
+      expect(panel).not.toBeNull();
+      // next to the messages panel, in the same column: below it when the columns stack on a phone
+      expect(panel!.closest('.side')!.querySelector('section.messages')).not.toBeNull();
+      expect(panel!.textContent).toContain('A vocabulary file (JSON)');
+      expect(panel!.textContent).toContain('Required');
+      expect(panel!.textContent).toContain('Quantification method');
+    });
+
+    it('an upload copy has the Add-from panel but no still-missing list and no still-missing request', async () => {
+      const { fixture, el } = await openWithPanel(info({ origin: 'upload' }));
+      kindsReq().flush(['vocabulary-instance']);
+      await settle(fixture);
+      answerDocs();
+      await settle(fixture);
+      expect(el.querySelector('mztabm-add-from-panel')).not.toBeNull();
+      expect(el.querySelector('mztabm-still-missing')).toBeNull();
+      http.expectNone((r) => r.url.endsWith('working-copies/abc/still-missing'));
+    });
+
+    it('asks for the still-missing rules again when the check of a newer revision is done', async () => {
+      vi.useFakeTimers();
+      const { fixture } = await openWithPanel(info({ origin: 'new' }));
+      kindsReq().flush([]);
+      missingReq().flush({ revision: 0, checked: true, missing: [] });
+      await settle(fixture);
+      answerDocs();
+      const edit = await editThroughSource(fixture);
+      edit.flush(info({ revision: 1, origin: 'new', canUndo: true, validation: done({ stale: true }) }));
+      await settle(fixture);
+      http.expectNone((r) => r.url.endsWith('working-copies/abc/still-missing'));
+      await vi.advanceTimersByTimeAsync(IDLE_MS);
+      postValidation().flush(info({ revision: 1, origin: 'new', validation: done({ revision: 1 }) }));
+      await settle(fixture);
+      missingReq().flush({ revision: 1, checked: true, missing: [] });
+      await settle(fixture);
+    });
+
+    it('a new file has no original to download, and asks nothing of a validation session', async () => {
+      const { el } = await open(info({ origin: 'new' }));
+      expect(el.querySelector('[data-testid=download-original]')).toBeNull();
+      expect(el.querySelector('[data-testid=help]')?.textContent).not.toContain('Download original');
+      expect(el.querySelector('[data-testid=open-failed]')).toBeNull();
+      http.expectNone((r) => r.url.includes('rest/v2/validations'));
+    });
+
+    it('an upload keeps its Download original', async () => {
+      const { el } = await open(info({ origin: 'upload' }));
+      expect(el.querySelector('[data-testid=download-original]')?.getAttribute('href')).toBe('rest/v2/working-copies/abc/original');
+    });
+
+    it('offers CV rules for a new file with repository rules of the catalog', async () => {
+      const { el } = await open(info({ origin: 'new', validationProfile: { kind: 'CATALOG', id: 'mztab-m-2.0-default', version: '1.1.0' } }));
+      expect(button(el, 'check-cv')).toBeTruthy();
     });
   });
 });

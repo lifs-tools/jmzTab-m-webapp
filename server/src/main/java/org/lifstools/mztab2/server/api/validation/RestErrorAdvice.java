@@ -30,8 +30,10 @@ import org.lifstools.mztab2.server.api.ValidateApiController;
 import org.lifstools.mztab2.server.api.ValidatePlainApiController;
 import org.lifstools.mztab.validator.webapp.domain.ErrorResponse;
 import org.lifstools.mztab.validator.webapp.session.StorageFullException;
+import org.lifstools.mztab.validator.webapp.workingcopy.NewFileRefusedException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NoSuchWorkingCopyException;
 import org.lifstools.mztab.validator.webapp.workingcopy.CopyReplacedException;
+import org.lifstools.mztab.validator.webapp.workingcopy.NothingToUndoException;
 import org.lifstools.mztab.validator.webapp.workingcopy.NotUtf8Exception;
 import org.lifstools.mztab.validator.webapp.workingcopy.StaleRevisionException;
 import org.lifstools.mztab.validator.webapp.workingcopy.TooLargeException;
@@ -89,6 +91,9 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     /** The {@code error} of the 409 for a generation that is not the copy's: the copy was created again. */
     public static final String COPY_REPLACED = "copy_replaced";
 
+    /** The {@code error} of the 409 for an undo or redo with nothing to undo or redo. */
+    public static final String NOTHING_TO_UNDO = "nothing_to_undo";
+
     /** The {@code error} of a 422 for a file over a cap of the editor (lines, or cells in a line). */
     public static final String TOO_LARGE_FOR_EDITOR = "too_large";
 
@@ -120,6 +125,14 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         return respond(HttpStatus.CONFLICT, e.getMessage(), request);
     }
 
+    /** An undo or redo with nothing to do: the client re-reads the copy, whose buttons then show it. */
+    @ExceptionHandler(NothingToUndoException.class)
+    public ResponseEntity<ErrorResponse> nothingToUndo(NothingToUndoException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
+            .body(new ErrorResponse(status, NOTHING_TO_UNDO, e.getMessage(), request.getRequestURI()));
+    }
+
     /** An edit, undo or redo that names the generation of a copy that was deleted and created again. */
     @ExceptionHandler(CopyReplacedException.class)
     public ResponseEntity<ErrorResponse> copyReplaced(CopyReplacedException e, HttpServletRequest request) {
@@ -142,6 +155,12 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
         HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
         return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON)
             .body(new ErrorResponse(status, TOO_LARGE_FOR_EDITOR, e.getMessage(), request.getRequestURI()));
+    }
+
+    /** A new file whose choices do not fit together (version, repository rules, content profile, mzTab-ID). */
+    @ExceptionHandler(NewFileRefusedException.class)
+    public ResponseEntity<ErrorResponse> newFileRefused(NewFileRefusedException e, HttpServletRequest request) {
+        return respond(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -175,8 +194,13 @@ public class RestErrorAdvice extends ResponseEntityExceptionHandler {
     /** A working copy locked by another change past the busy timeout: retry, as for a busy engine. */
     @ExceptionHandler(WorkingCopyBusyException.class)
     public ResponseEntity<ErrorResponse> copyBusy(WorkingCopyBusyException e, HttpServletRequest request) {
-        log.warn("{} {}: the working copy stayed locked: {}", request.getMethod(), request.getRequestURI(),
-            e.getCause() == null ? e.getMessage() : e.getCause().toString());
+        if (e.getCause() instanceof RejectedExecutionException) {
+            log.warn("{} {}: the run queue is full: {}", request.getMethod(), request.getRequestURI(),
+                e.getCause().toString());
+        } else {
+            log.warn("{} {}: the working copy stayed locked: {}", request.getMethod(), request.getRequestURI(),
+                e.getCause() == null ? e.getMessage() : e.getCause().toString());
+        }
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
             .contentType(MediaType.APPLICATION_JSON).body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
                 HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), e.getMessage(), request.getRequestURI()));

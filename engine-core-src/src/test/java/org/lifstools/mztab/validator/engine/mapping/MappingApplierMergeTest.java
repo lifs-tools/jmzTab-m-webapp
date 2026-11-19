@@ -21,9 +21,11 @@ import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.TW
 import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.applier;
 import static org.lifstools.mztab.validator.engine.mapping.MappingApplierTest.request;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.lifstools.mztab.validator.engine.api.LineEdit;
+import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.Suggestion;
 import org.lifstools.mztab.validator.engine.api.SuggestionState;
@@ -136,6 +138,7 @@ class MappingApplierMergeTest {
         List<String> lines = copy.lines().toList();
         for (LineEdit e : r.edits()) {
             switch (e) {
+                case LineEdit.InsertLines i -> assertThat(i.lines()).allMatch(t -> t.startsWith("MTD\t"));
                 case LineEdit.InsertLine i -> assertThat(i.text()).startsWith("MTD\t");
                 case LineEdit.SetCell s -> assertThat(lines.get((int) s.line() - 1)).startsWith("MTD");
                 case LineEdit.InsertColumn c -> throw new AssertionError("no column is inserted: " + c);
@@ -153,5 +156,35 @@ class MappingApplierMergeTest {
         MappingApplyResult r = applier().apply(request("merge", INSTANCE, METADATA, false), TWO_ZERO);
         assertThat(r.text()).isEqualTo(MERGED_METADATA + "\nSMH\tSML_ID\tchemical_name\tabundance_assay[2]\tabundance_assay[3]\n"
                 + "SML\t1\tPC 34:1\t1.5\t2.5\nSML\t2\tPE 36:2\tnull\t4\n");
+    }
+
+    @Test
+    void keepExistingTurnsReplacementsIntoConflicts() {
+        MappingApplyResult replacing = applier().apply(request("merge", INSTANCE, METADATA + SML, false), TWO_ZERO);
+        MappingApplyResult kept = applier().apply(request("merge", INSTANCE, METADATA + SML, false, true), TWO_ZERO);
+        List<String> replaced = replacing.suggestions().stream()
+                .filter(s -> s.state() == SuggestionState.REPLACES_EXISTING).map(Suggestion::key).toList();
+        assertThat(replaced).contains("title", "contact[1]-email");
+        assertThat(kept.suggestions()).noneMatch(s -> s.state() == SuggestionState.REPLACES_EXISTING);
+        for (Suggestion s : replacing.suggestions()) {
+            if (s.state() == SuggestionState.REPLACES_EXISTING) {
+                assertThat(kept.suggestions()).contains(new Suggestion(s.key(), s.value(), SuggestionState.CONFLICTS));
+            }
+        }
+        assertThat(kept.edits()).noneMatch(e -> e instanceof LineEdit.SetCell);
+        assertThat(kept.text()).contains("MTD\ttitle\tOld\n").contains("MTD\tcontact[1]-email\told@example.org\n")
+                .doesNotContain("New title");
+        // the new lines are still written, as one InsertLines per anchor
+        assertThat(kept.edits()).anyMatch(e -> e instanceof LineEdit.InsertLines);
+        assertThat(kept.suggestions()).contains(new Suggestion("sample[2]", "P001", SuggestionState.NEW));
+    }
+
+    @Test
+    void aRequestWithoutKeepExistingReadsAsFalse() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        MappingApplyRequest r = mapper.readValue(
+                "{\"mapping\":\"merge\",\"mappingVersion\":\"1.0.0\",\"instance\":{},\"text\":\"\",\"provenance\":false}",
+                MappingApplyRequest.class);
+        assertThat(r.keepExisting()).isFalse();
     }
 }

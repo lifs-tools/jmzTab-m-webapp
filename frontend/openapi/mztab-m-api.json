@@ -490,6 +490,8 @@
               }, {
                 "$ref" : "#/components/schemas/InsertLine"
               }, {
+                "$ref" : "#/components/schemas/InsertLines"
+              }, {
                 "$ref" : "#/components/schemas/JoinWithPrevious"
               }, {
                 "$ref" : "#/components/schemas/MergeColumns"
@@ -630,6 +632,52 @@
         },
         "type" : "object"
       },
+      "FieldRule" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "logic" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "present" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "requirement" : {
+            "type" : "string"
+          },
+          "terms" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRuleTerm"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FieldRuleTerm" : {
+        "properties" : {
+          "accession" : {
+            "type" : "string"
+          },
+          "allowChildren" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "useTerm" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "Guidance" : {
         "properties" : {
           "cause" : {
@@ -731,6 +779,64 @@
         },
         "type" : "object"
       },
+      "ImportPreview" : {
+        "properties" : {
+          "batch" : {
+            "$ref" : "#/components/schemas/EditBatch"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "mapping" : {
+            "type" : "string"
+          },
+          "mappingVersion" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "suggestions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Suggestion"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ImportRequest" : {
+        "properties" : {
+          "datasetIndex" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "instance" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "keepExisting" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "studyId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "InsertColumn" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/EditOperation"
@@ -764,6 +870,25 @@
             },
             "text" : {
               "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InsertLines" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EditOperation"
+        }, {
+          "properties" : {
+            "before" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "lines" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
             }
           },
           "type" : "object"
@@ -842,6 +967,7 @@
           "type" : "object"
         } ]
       },
+      "JsonNode" : { },
       "Line" : {
         "properties" : {
           "cells" : {
@@ -1652,6 +1778,26 @@
           }
         },
         "required" : [ "metadata", "smallMoleculeEvidence", "smallMoleculeFeature", "smallMoleculeSummary" ],
+        "type" : "object"
+      },
+      "NewFile" : {
+        "properties" : {
+          "contentProfile" : {
+            "type" : [ "string", "null" ]
+          },
+          "mzTabId" : {
+            "type" : "string"
+          },
+          "mzTabVersion" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string"
+          },
+          "profileVersion" : {
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "OptColumnMapping_2_0" : {
@@ -3100,6 +3246,24 @@
           "type" : "object"
         } ]
       },
+      "StillMissing" : {
+        "properties" : {
+          "checked" : {
+            "type" : "boolean"
+          },
+          "missing" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FieldRule"
+            },
+            "type" : "array"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "StringList_2_0" : {
         "default" : [ ],
         "description" : "A typed list of strings.",
@@ -3281,6 +3445,21 @@
         "type" : "object",
         "x-mztab-example" : "MTD\tstudy_variable[1]\tcontrol\nMTD\tstudy_variable[1]-assay_refs\tassay[1]| assay[2]| assay[3]\nMTD\tstudy_variable-average_function\t[MS, MS:1002883, median, ]\nMTD\tstudy_variable-variation_function\t[MS, MS:1002885, standard error, ]\nMTD\tstudy_variable[1]-description\tGroup B (spike-in 0.74 fmol/uL)\nMTD\tstudy_variable[2]\t1 minute 0.5mg rapamycin\n",
         "x-mztab-serialize-by-id" : "true"
+      },
+      "Suggestion" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "NEW", "REPLACES_EXISTING", "UNCHANGED", "CONFLICTS" ],
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       },
       "TablePage" : {
         "properties" : {
@@ -3710,6 +3889,13 @@
           "mzTabVersion" : {
             "type" : [ "string", "null" ]
           },
+          "origin" : {
+            "type" : "string"
+          },
+          "reportRevision" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
           "revision" : {
             "format" : "int64",
             "type" : "integer"
@@ -3719,6 +3905,9 @@
           },
           "validation" : {
             "$ref" : "#/components/schemas/WorkingCopyValidation"
+          },
+          "validationProfile" : {
+            "$ref" : "#/components/schemas/ProfileRef"
           }
         },
         "type" : "object"
@@ -4877,6 +5066,35 @@
         "tags" : [ "working-copies" ]
       }
     },
+    "/rest/v2/working-copies/new" : {
+      "post" : {
+        "operationId" : "createNewWorkingCopy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewFile"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkingCopyInfo"
+                }
+              }
+            },
+            "description" : "The new copy"
+          }
+        },
+        "summary" : "Creates a new mzTab-M file from the engine's skeleton of the chosen version, mzTab-ID and content profile, checked against the chosen repository rules; it has no validation behind it. 422 with the reason for a version without a validator here, repository rules that do not list the version, or a content profile or mzTab-ID that does not fit; 503 if the storage is full or the engine is busy or unavailable",
+        "tags" : [ "working-copies" ]
+      }
+    },
     "/rest/v2/working-copies/{id}" : {
       "delete" : {
         "operationId" : "deleteWorkingCopy",
@@ -5047,6 +5265,73 @@
           }
         },
         "summary" : "Downloads the current text: tsv always, byte for byte; json only when the last validation is of the current revision and found no error (else 409)",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/imports" : {
+      "post" : {
+        "operationId" : "previewWorkingCopyImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Previews importing a vocabulary instance into the copy at the named revision, without changing the copy: the copy's output mapping runs in the engine and the result is an edit batch; post the batch to the edits endpoint to apply it. The request is at most 5 MiB (413). 400 for an unknown kind, no output mapping for the copy's version, a dataset index out of range or missing, or a mapping the engine refuses; 409 if the copy is not at the revision; 422 if the copy's text is over the engine's upload limit; 503 if the engine is busy or unavailable",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/imports/kinds" : {
+      "get" : {
+        "operationId" : "listWorkingCopyImportKinds",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the kinds of file that can be imported into the copy: empty if no output mapping writes the copy's mzTab-M version",
         "tags" : [ "working-copies" ]
       }
     },
@@ -5316,7 +5601,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Re-applies the change undone last; 409 if the revision is stale or there is nothing to redo",
+        "summary" : "Re-applies the change undone last; 409 if the revision is stale or there is nothing to redo (error code nothing_to_undo)",
         "tags" : [ "working-copies" ]
       }
     },
@@ -5354,6 +5639,33 @@
           }
         },
         "summary" : "Downloads the problems of the copy's last finished check and how to fix them, as Markdown, with the line numbers of the copy as it was checked. A check of an older revision still gives a report whose header says so; 409 if the copy has not been checked or its last check gave no result",
+        "tags" : [ "working-copies" ]
+      }
+    },
+    "/rest/v2/working-copies/{id}/still-missing" : {
+      "get" : {
+        "operationId" : "getWorkingCopyStillMissing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StillMissing"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Lists the MUST and SHOULD rules of the copy's repository rules that its current text does not meet yet, as the engine decides them. If the engine could not read the text into a model, checked is false and every MUST and SHOULD rule is listed. 409 if no validator here serves the text's version or the rules are of another version",
         "tags" : [ "working-copies" ]
       }
     },
@@ -5526,7 +5838,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Reverts the newest change; 409 if the revision is stale or there is nothing to undo",
+        "summary" : "Reverts the newest change; 409 if the revision is stale or there is nothing to undo (error code nothing_to_undo)",
         "tags" : [ "working-copies" ]
       }
     },

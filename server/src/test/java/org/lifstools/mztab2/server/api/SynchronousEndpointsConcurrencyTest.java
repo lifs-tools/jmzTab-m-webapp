@@ -16,12 +16,15 @@
 package org.lifstools.mztab2.server.api;
 
 import static org.hamcrest.Matchers.oneOf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,6 +39,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * At most rest.synchronous.max-concurrent synchronous validations and
@@ -82,6 +86,27 @@ class SynchronousEndpointsConcurrencyTest {
         for (int i = 0; i < 2; i++) {
             mvc.perform(endpoint.request())
                 .andExpect(status().is(oneOf(200, 422)));
+        }
+    }
+
+    /** The working-copy endpoints that call an engine take a slot too; imports/kinds calls none. */
+    @Test
+    void workingCopyEnginesCallsAre503WhileAllSlotsAreTaken() throws Exception {
+        String base = "/rest/v2/working-copies";
+        String id = "00000000-0000-0000-0000-000000000000";
+        MockHttpServletRequestBuilder[] requests = {
+            post(base + "/new").contentType(MediaType.APPLICATION_JSON).content("{}"),
+            get(base + "/" + id + "/still-missing"),
+            post(base + "/" + id + "/imports").contentType(MediaType.APPLICATION_JSON).content("{}")};
+        try (SynchronousLimiter.Permit held = limiter.acquire()) {
+            for (MockHttpServletRequestBuilder request : requests) {
+                mvc.perform(request)
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(header().exists("Retry-After"))
+                    .andExpect(jsonPath("$.message").value(SynchronousLimiter.BUSY));
+            }
+            // imports/kinds calls no engine: a missing copy is 404, not busy
+            mvc.perform(get(base + "/" + id + "/imports/kinds")).andExpect(status().isNotFound());
         }
     }
 }

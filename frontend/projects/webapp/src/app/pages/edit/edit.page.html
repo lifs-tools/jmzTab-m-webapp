@@ -24,7 +24,12 @@
             <b class="state-title">Something went wrong</b>
             <p class="lifs-note">The file could not be opened. Please try again later.</p>
           }
-          <p class="lifs-note"><a [routerLink]="['/result', store.id()]">Back to the result</a></p>
+          <p class="lifs-note">
+            <a routerLink="/" data-testid="open-failed-start">Start page</a>
+            @if (!isNew()) {
+              · <a [routerLink]="['/result', store.id()]" data-testid="open-failed-result">Back to the result</a>
+            }
+          </p>
         </div>
       </div>
     }
@@ -49,7 +54,7 @@
         <header class="head">
           <div class="head__text">
             <p class="lifs-eyebrow">
-              Fix a file
+              {{ isNew() ? 'New file' : 'Fix a file' }}
               @if (retentionDays(); as days) {
                 · <span data-testid="retention">Kept for {{ days }} days after your last change</span>
                 @if (copy.expiresAt) {
@@ -119,7 +124,9 @@
           >
             Download JSON
           </button>
-          <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
+          @if (!isNew()) {
+            <a mat-stroked-button data-testid="download-original" [attr.href]="base() + '/original'">Download original</a>
+          }
           @if (store.reportReady()) {
             <a mat-stroked-button data-testid="download-report" [attr.href]="reportUrl()" download>Download report</a>
           } @else {
@@ -138,6 +145,14 @@
             <li>Click a cell or a metadata value to change it. Enter saves, Escape cancels. While a table reloads, or if reloading it failed (press <b>Retry</b>), its cells cannot be edited. The × at a metadata entry (<b>Remove this line</b>) removes the line; Undo brings it back.</li>
             <li>Open a message and press <b>{{ previewLabel }}</b> to see a before and after. Where a fix applies to many lines, <b>{{ allLabel }}</b> does them all.</li>
             <li>
+              <b>Add from…</b> (below the messages) fills the file from a vocabulary file, for mzTab-M 2.0. Choose the
+              file, and check the dataset and the study id. The preview lists what would be written, as new, unchanged,
+              kept (differs) or replaces existing, and nothing changes until you press <b>Apply</b>. <b>Keep existing
+              values</b> is on by default. If the file changes meanwhile, press <b>Preview again</b>. One Undo takes the
+              whole import back. For a new file, <b>Still missing</b> lists the rules of your repository rules that the
+              file does not meet yet.
+            </li>
+            <li>
               A line the editor cannot show, or a table row with the wrong number of cells, opens as text. For any
               message with a line, press <b>{{ editLineAsTextLabel }}</b> to open it as text. → stands for a tab. If lines
               moved since that message was checked, nothing is marked or opened for it: wait for the next check. A CV
@@ -145,7 +160,9 @@
               to check it again.
             </li>
             <li>Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) keep your last 100 steps.</li>
-            <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
+            @if (!isNew()) {
+              <li>Your original upload is not changed. Use <b>Download original</b> to get it.</li>
+            }
             <li>
               <b>Download report</b> lists the problems of the last check of your corrected copy, with the line
               numbers of the copy, for the tool that wrote the file. If you have changed the file since that check, its
@@ -202,34 +219,46 @@
         }
 
         <div class="split">
-          <section class="messages" aria-label="Messages">
-            <app-messages-tab
-              [messages]="messages()"
-              [states]="states()"
-              [guidance]="store.guidance()"
-              [selected]="selected()"
-              [quickFixState]="quickFixState()"
-              [headers]="headers()"
-              [lineChips]="true"
-              (show)="onShow($event)"
-              (fix)="onFix($event)"
-            />
-            @if (store.fixed().length; as n) {
-              <details class="fixed" data-testid="fixed">
-                <summary>Fixed since the last check ({{ n }})</summary>
-                <ul>
-                  @for (m of store.fixed(); track $index) {
-                    <li>
-                      @if (m.line_number) {
-                        <span class="lifs-mono">line {{ m.line_number }}</span> ·
-                      }
-                      {{ m.suggestion || m.message }}
-                    </li>
-                  }
-                </ul>
-              </details>
-            }
-          </section>
+          <div class="side">
+            <section class="messages" aria-label="Messages">
+              <app-messages-tab
+                [messages]="messages()"
+                [states]="states()"
+                [guidance]="store.guidance()"
+                [selected]="selected()"
+                [quickFixState]="quickFixState()"
+                [headers]="headers()"
+                [lineChips]="true"
+                (show)="onShow($event)"
+                (fix)="onFix($event)"
+              />
+              @if (store.fixed().length; as n) {
+                <details class="fixed" data-testid="fixed">
+                  <summary>Fixed since the last check ({{ n }})</summary>
+                  <ul>
+                    @for (m of store.fixed(); track $index) {
+                      <li>
+                        @if (m.line_number) {
+                          <span class="lifs-mono">line {{ m.line_number }}</span> ·
+                        }
+                        {{ m.suggestion || m.message }}
+                      </li>
+                    }
+                  </ul>
+                </details>
+              }
+            </section>
+            <div class="add-from">
+              <mztabm-add-from-panel
+                [version]="panelVersion()"
+                [fileName]="copy.fileName ?? null"
+                [checkedRevision]="checkedRevision()"
+                [revision]="copy.revision ?? null"
+                [generation]="copy.generation ?? null"
+                [showStillMissing]="isNew()"
+              />
+            </div>
+          </div>
 
           <div class="doc">
             @if (shownLine(); as n) {

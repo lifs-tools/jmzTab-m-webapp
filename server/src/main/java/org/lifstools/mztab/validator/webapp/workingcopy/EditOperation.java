@@ -33,6 +33,7 @@ import org.springframework.lang.Nullable;
     @JsonSubTypes.Type(value = EditOperation.SetMetadataValue.class, name = "SetMetadataValue"),
     @JsonSubTypes.Type(value = EditOperation.RenameMetadataKey.class, name = "RenameMetadataKey"),
     @JsonSubTypes.Type(value = EditOperation.InsertLine.class, name = "InsertLine"),
+    @JsonSubTypes.Type(value = EditOperation.InsertLines.class, name = "InsertLines"),
     @JsonSubTypes.Type(value = EditOperation.DeleteLine.class, name = "DeleteLine"),
     @JsonSubTypes.Type(value = EditOperation.MoveRow.class, name = "MoveRow"),
     @JsonSubTypes.Type(value = EditOperation.InsertColumn.class, name = "InsertColumn"),
@@ -71,6 +72,13 @@ public sealed interface EditOperation {
 
     /** Inserts a line (tabs split it into cells) so that it becomes line {@code before}. */
     record InsertLine(long before, String text) implements EditOperation {
+    }
+
+    /**
+     * Inserts consecutive lines (tabs split each into cells) so that the first becomes line {@code before}. One
+     * operation and one undo step, however many lines; the same per-line checks as {@code InsertLine} apply to each.
+     */
+    record InsertLines(long before, List<String> lines) implements EditOperation {
     }
 
     record DeleteLine(long line) implements EditOperation {

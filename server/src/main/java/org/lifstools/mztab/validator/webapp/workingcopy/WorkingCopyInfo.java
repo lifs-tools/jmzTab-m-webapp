@@ -17,6 +17,7 @@ package org.lifstools.mztab.validator.webapp.workingcopy;
 
 import java.time.Instant;
 import java.util.UUID;
+import org.lifstools.mztab.validator.webapp.session.ProfileRef;
 import org.lifstools.mztab.validator.webapp.session.SectionsSummary;
 import org.springframework.lang.Nullable;
 
@@ -25,8 +26,8 @@ import org.springframework.lang.Nullable;
  * {@code layoutRevision} and {@code lastChangeId} are those of that change's commit; the other values are read after
  * it, so they may already show a later change (of another tab).
  *
- * @param id the copy's id, which is the id of the validation it was made from
- * @param fileName the name of the uploaded file
+ * @param id the copy's id: for an upload copy the id of the validation it was made from, for a new file its own
+ * @param fileName the name of the uploaded file; {@code <mzTab-ID>.mzTab} for a new file
  * @param revision 0 after creation; every edit, undo and redo adds one
  * @param mzTabVersion the version the last ended run validated the text as (the
  * engine's report, else the declared version); before any run, the session's;
@@ -47,9 +48,16 @@ import org.springframework.lang.Nullable;
  * change was made yet)
  * @param generation names this incarnation of the copy: a copy deleted and created again has another one, and restarts
  * at revision 0. Give it back with an edit, undo or redo to have it refused (409) if the copy was re-created.
+ * @param origin {@code upload} for a copy of an uploaded file (made from its validation), {@code new} for a new file
+ * made from the engine's skeleton, which has no validation behind it
+ * @param validationProfile the repository rules a CV check of the copy applies: the new file's own, or the upload's
+ * validation's; null if that validation no longer exists
+ * @param reportRevision the revision of the run whose report {@code GET /{id}/report} serves now (the last run that
+ * finished with a result, even if a later one is running or failed); null if the report would answer 409
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
     @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision,
-    long layoutRevision, @Nullable UUID lastChangeId, @Nullable UUID generation) {
+    long layoutRevision, @Nullable UUID lastChangeId, @Nullable UUID generation, String origin,
+    @Nullable ProfileRef validationProfile, @Nullable Long reportRevision) {
 }

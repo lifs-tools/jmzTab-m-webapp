@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
 /**
  * A text edit of a working copy, as an engine proposes it. The types, names and fields are those of the webapp's
@@ -27,17 +28,20 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * prefix (MTD, SML, ...), so a metadata value is cell 2. In JSON the type is the property {@code op}.
  */
 @Schema(description = "A text edit of a working copy; op names the edit, as in the webapp's edit operations.",
-    oneOf = {LineEdit.SetCell.class, LineEdit.InsertLine.class, LineEdit.InsertColumn.class},
+    oneOf = {LineEdit.SetCell.class, LineEdit.InsertLine.class, LineEdit.InsertLines.class,
+        LineEdit.InsertColumn.class},
     discriminatorProperty = "op",
     discriminatorMapping = {
         @DiscriminatorMapping(value = "SetCell", schema = LineEdit.SetCell.class),
         @DiscriminatorMapping(value = "InsertLine", schema = LineEdit.InsertLine.class),
+        @DiscriminatorMapping(value = "InsertLines", schema = LineEdit.InsertLines.class),
         @DiscriminatorMapping(value = "InsertColumn", schema = LineEdit.InsertColumn.class)
     })
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "op")
 @JsonSubTypes({
     @JsonSubTypes.Type(value = LineEdit.SetCell.class, name = "SetCell"),
     @JsonSubTypes.Type(value = LineEdit.InsertLine.class, name = "InsertLine"),
+    @JsonSubTypes.Type(value = LineEdit.InsertLines.class, name = "InsertLines"),
     @JsonSubTypes.Type(value = LineEdit.InsertColumn.class, name = "InsertColumn")
 })
 public sealed interface LineEdit {
@@ -59,6 +63,20 @@ public sealed interface LineEdit {
      * @param text the line, without a line ending
      */
     record InsertLine(long before, String text) implements LineEdit {
+    }
+
+    /**
+     * Inserts consecutive lines (tabs split each into cells) so that the first becomes line {@code before}, the next
+     * {@code before + 1}, and so on. One edit, so one operation of a batch and one undo step, however many lines.
+     *
+     * @param before the number the first new line gets
+     * @param lines the lines, without line endings; at least one
+     */
+    record InsertLines(long before, List<String> lines) implements LineEdit {
+
+        public InsertLines {
+            lines = List.copyOf(lines);
+        }
     }
 
     /**

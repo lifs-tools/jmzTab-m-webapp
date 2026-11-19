@@ -15,14 +15,17 @@
  */
 package org.lifstools.mztab.validator.webapp.workingcopy;
 
+import static org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyRuns.ofKind;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -30,38 +33,38 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
+import org.lifstools.mztab.validator.engine.api.FieldRule;
+import org.lifstools.mztab.validator.engine.api.FieldRules;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
-import org.lifstools.mztab.validator.engine.api.ValidationEvent;
+import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
+import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
 import org.lifstools.mztab.validator.webapp.engine.DeclaredVersions;
 import org.lifstools.mztab.validator.webapp.engine.EngineBusyException;
+import org.lifstools.mztab.validator.webapp.engine.EngineClient;
 import org.lifstools.mztab.validator.webapp.engine.EngineMessages;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry;
 import org.lifstools.mztab.validator.webapp.engine.EngineRegistry.RouteDecision;
-import org.lifstools.mztab.validator.webapp.engine.EngineRejection;
 import org.lifstools.mztab.validator.webapp.engine.EngineRequestException;
 import org.lifstools.mztab.validator.webapp.engine.EngineResultReader;
 import org.lifstools.mztab.validator.webapp.engine.EngineUnavailableException;
 import org.lifstools.mztab.validator.webapp.engine.EnginesProperties;
-import org.lifstools.mztab.validator.webapp.guidance.Guidance;
 import org.lifstools.mztab.validator.webapp.guidance.GuidanceResolver;
 import org.lifstools.mztab.validator.webapp.guidance.ResolutionReport;
-import org.lifstools.mztab.validator.webapp.guidance.UploadLines;
+import org.lifstools.mztab.validator.webapp.service.SessionIdGenerator;
 import org.lifstools.mztab.validator.webapp.service.StorageService;
 import org.lifstools.mztab.validator.webapp.service.StorageService.SLOT;
 import org.lifstools.mztab.validator.webapp.service.storage.StorageProperties;
@@ -86,11 +89,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionException;
 
 /**
- * Working copies of uploaded files: creation from a validation session, edits
- * with undo and redo ({@link WorkingCopyEditor}), the validation loop and the
- * downloads. A copy lives in the session's {@code WORKINGCOPY} slot as one
- * SQLite file ({@link WorkingCopyDb}); its id is the session's id, so each
- * session has at most one copy, and deleting the session deletes it.
+ * Working copies of uploaded files and new files: creation from a validation
+ * session or from the engine's skeleton ({@link #createNew}), edits with undo
+ * and redo ({@link WorkingCopyEditor}), the validation loop, the rules still
+ * missing ({@link #stillMissing}) and the downloads. A copy lives in the
+ * {@code WORKINGCOPY} slot of its id's storage directory as one SQLite file
+ * ({@link WorkingCopyDb}). An upload copy's id is its session's id, so each
+ * session has at most one copy, and deleting the session deletes it. A new file
+ * has no session: its directory holds only the copy, and its settings
+ * ({@link CopySettings}) are in the copy's meta. The storage maintenance deletes
+ * either by the age of the directory.
  *
  * <p>
  * <b>Database handles.</b> A {@link WorkingCopyDb} holds no open connection
@@ -103,10 +111,10 @@ import org.springframework.transaction.TransactionException;
  * creation has completed (meta {@code copy.complete}).
  *
  * <p>
- * <b>The validation loop.</b> A run assembles the text of one revision (the
+ * <b>The validation loop</b> ({@link WorkingCopyRuns}). A run assembles the text of one revision (the
  * revision and the lines come from one snapshot), detects its declared version
- * as an upload's is, and sends it to that version's engine with the session's
- * level, error limit and, for a semantic run, profile. It runs on
+ * as an upload's is, and sends it to that version's engine with the copy's
+ * level, error limit and, for a semantic run, profile ({@link #settings}). It runs on
  * {@code workingCopyRunExecutor} (its own bounded pool and queue, {@code workingcopy.runs.threads} and
  * {@code workingcopy.runs.queue}, so that it never delays an upload's validation; a request that finds the queue
  * full is a {@link WorkingCopyBusyException}); one run per copy at a time. A request
@@ -138,36 +146,40 @@ public class WorkingCopyService {
 
     static final String DB_FILE = "copy.db";
     static final String UNKNOWN_VALIDATION = "Unknown or expired validation.";
-    static final String UNEXPECTED_ERROR = "The validation could not be completed because of an unexpected server "
-        + "error. Please try again later.";
     /** Free capacity needed to create a copy, as a multiple of the upload size. */
     static final int CREATE_OVERHEAD = 3;
     static final long USAGE_MAX_AGE_SECONDS = 5;
-    private static final Duration MIN_RETRY = Duration.ofSeconds(1);
     private static final int STRIPES = 64;
-    /** Shown to the user when the queue of the copies' runs is full. */
-    static final String RUNS_BUSY = "Too many files are being checked. Please try again in a moment.";
-    /** Why a run asked to check the CV rules did not, when the engine gave no reason. */
-    static final String CV_NOT_CHECKED = "The CV rules were not checked: the file could not be read.";
     private static final int FACTS_CACHE_SIZE = 256;
+    /** The {@code mzTab-ID} of a new file. */
+    static final Pattern MZTAB_ID = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$");
+    /** The content profiles ({@code mzTab-profile}) of mzTab-M 2.1. */
+    static final List<String> CONTENT_PROFILES = List.of("M", "M+S", "M+F", "M+F+E", "M+S+F+E");
+    /** The line whose files have no content profile. */
+    private static final String NO_CONTENT_PROFILE_LINE = "2.0";
 
     private static final String META_COMPLETE = "copy.complete";
-    private static final String META_GENERATION = "copy.generation";
+    static final String META_GENERATION = "copy.generation";
     private static final String META_FILE_NAME = "copy.fileName";
     private static final String META_ENCODING = "copy.encoding";
     private static final String META_CHANGED = "copy.changedAt";
     /** The caller's id of the last change ("" if it gave none). */
     private static final String META_LAST_CHANGE = "copy.lastChangeId";
-    private static final String META_VERSION = "copy.mzTabVersion";
-    private static final String META_LAST = "validation.last";
-    private static final String META_LAST_DONE = "validation.lastDone";
-    private static final String META_LAST_DONE_AT = "validation.lastDoneAt";
-    private static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
+    static final String META_VERSION = "copy.mzTabVersion";
+    /** {@link CopySettings#UPLOAD} or {@link CopySettings#NEW}; absent (copies made before it) is an upload. */
+    static final String META_ORIGIN = "copy.origin";
+    /** A new copy's settings: the profile as JSON {@link ProfileRef}, the level, the error limit, the content profile. */
+    static final String META_PROFILE = "copy.profile";
+    static final String META_LEVEL = "copy.level";
+    static final String META_MAX_ERRORS = "copy.maxErrors";
+    static final String META_CONTENT_PROFILE = "copy.contentProfile";
+    static final String META_LAST = "validation.last";
+    static final String META_LAST_DONE = "validation.lastDone";
+    static final String META_LAST_DONE_AT = "validation.lastDoneAt";
+    static final String META_BASELINE_STRUCTURAL = "validation.baseline.structural";
     static final String META_BASELINE_SEMANTIC = "validation.baseline.semantic";
     /** The revision of the last CV check; 0 for the session's own, absent if the CV rules were never checked. */
-    private static final String META_CV_REVISION = "validation.cvRevision";
-    private static final TypeReference<List<ValidationMessage>> MESSAGES = new TypeReference<>() {
-    };
+    static final String META_CV_REVISION = "validation.cvRevision";
 
     /** The result of {@link #createOrFind}. */
     public record Creation(WorkingCopyInfo info, boolean created) {
@@ -181,56 +193,27 @@ public class WorkingCopyService {
     private record FactsKey(UUID id, @Nullable String generation, long revision) {
     }
 
-    /**
-     * The validation run of a copy, from its request until it ends. Guarded by
-     * {@link #runs}.
-     */
-    private static final class Run {
-
-        final String generation;
-        boolean semantic;
-        /** The revision being validated; -1 until its text is assembled. */
-        long revision = -1;
-        /** The newest revision an edit reported during the run. */
-        long latest = -1;
-        boolean again;
-        boolean againSemantic;
-        Instant deadline;
-
-        Run(String generation, boolean semantic, Instant deadline) {
-            this.generation = generation;
-            this.semantic = semantic;
-            this.deadline = deadline;
-        }
-    }
-
     private final StorageService storage;
     private final StorageProperties storageProperties;
     private final ValidationSessionService sessions;
     private final EngineRegistry registry;
-    private final EngineResultReader results;
     private final EnginesProperties engines;
     private final ValidationProfileCatalog catalog;
     private final SynchronousEngineService conversions;
-    private final GuidanceResolver guidance;
+    private final SessionIdGenerator ids;
     private final ObjectMapper json;
-    private final TaskScheduler scheduler;
-    private final Executor executor;
     private final long retentionDays;
     private final WorkingCopyEditor editor = new WorkingCopyEditor();
     private final Object[] locks = new Object[STRIPES];
-    private final Map<UUID, Run> runs = new LinkedHashMap<>();
-    private final Map<FactsKey, Facts> facts = new LinkedHashMap<>(16, 0.75f, true) {
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<FactsKey, Facts> eldest) {
-            return size() > FACTS_CACHE_SIZE;
-        }
-    };
-    /** Test hook: called in a run after its result is stored and before it decides whether to run again. */
-    @Nullable
-    private volatile Consumer<UUID> beforeRunEnds;
+    private final WorkingCopyRuns runs;
+    private final Map<FactsKey, Facts> facts = lru();
+    /** The rules still missing of a revision, which do not change either; guarded by itself. */
+    private final Map<FactsKey, StillMissing> stillMissing = lru();
+    /**
+     * The profile of an upload copy's session, which never changes: {@link #info} names it on every answer, and
+     * reading the session's whole record each time would cost more than the edit. Guarded by itself.
+     */
+    private final Map<UUID, ProfileRef> uploadProfiles = lru();
     /** Test hook: called in {@link #info} between its read of the running run and its read of the stored run. */
     @Nullable
     private volatile Consumer<UUID> betweenInfoReads;
@@ -241,37 +224,61 @@ public class WorkingCopyService {
     public WorkingCopyService(StorageService storage, StorageProperties storageProperties,
         ValidationSessionService sessions, EngineRegistry registry, EngineResultReader results,
         EnginesProperties engines, ValidationProfileCatalog catalog, SynchronousEngineService conversions,
-        GuidanceResolver guidance, ObjectMapper json, TaskScheduler scheduler,
+        GuidanceResolver guidance, SessionIdGenerator ids, ObjectMapper json, TaskScheduler scheduler,
         @Qualifier("workingCopyRunExecutor") Executor executor,
         @Value("${minCleanupAge:7}") long retentionDays) {
         this.storage = storage;
         this.storageProperties = storageProperties;
         this.sessions = sessions;
         this.registry = registry;
-        this.results = results;
         this.engines = engines;
         this.catalog = catalog;
         this.conversions = conversions;
-        this.guidance = guidance;
+        this.ids = ids;
         this.json = json;
-        this.scheduler = scheduler;
-        this.executor = executor;
         this.retentionDays = retentionDays;
         for (int i = 0; i < STRIPES; i++) {
             locks[i] = new Object();
         }
+        // built here, not a bean of its own: it reaches the copies through this service, which owns it, so there is
+        // no cycle for Spring to resolve; it is called only after this constructor has returned
+        this.runs = new WorkingCopyRuns(new WorkingCopyRuns.Copies() {
+            @Override
+            public Optional<WorkingCopyDb> openQuietly(UUID id) {
+                return WorkingCopyService.this.openQuietly(id);
+            }
+
+            @Override
+            public Optional<CopySettings> settings(UUID id, WorkingCopyDb db) {
+                return WorkingCopyService.this.settings(id, db);
+            }
+        }, storage, registry, results, engines, catalog, guidance, json, scheduler, executor);
+    }
+
+    /** A map that keeps the {@value #FACTS_CACHE_SIZE} entries used last. */
+    private static <K, V> Map<K, V> lru() {
+        return new LinkedHashMap<>(16, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                return size() > FACTS_CACHE_SIZE;
+            }
+        };
     }
 
     // ---- creation and deletion ----
 
     /**
      * The copy of a validation, created from its upload if there is none yet.
-     * An existing copy is returned unchanged, whatever {@code encoding} says.
+     * An existing copy is returned unchanged, whatever {@code encoding} says,
+     * before a session is looked for: a new file ({@link #createNew}), which has
+     * none, opens as any other copy.
      * A JSON upload is converted to tab separated text by the engine of its
      * version first (then read as UTF-8).
      *
      * @param encoding how the upload's bytes are decoded
-     * @throws NoSuchWorkingCopyException if there is no such validation
+     * @throws NoSuchWorkingCopyException if there is no such copy or validation
      * @throws NotUtf8Exception for {@link SourceEncoding#UTF_8} and an upload
      * that is not UTF-8; nothing is stored
      * @throws TooLargeException for a file of more than {@value CopyText#MAX_LINES} lines or a line of more than
@@ -284,13 +291,120 @@ public class WorkingCopyService {
             throw new IllegalArgumentException("An encoding is required.");
         }
         synchronized (lock(validationId)) {
-            ValidationRecord record = sessions.find(validationId)
-                .orElseThrow(() -> new NoSuchWorkingCopyException(UNKNOWN_VALIDATION));
             Optional<WorkingCopyDb> existing = openExisting(validationId);
             if (existing.isPresent()) {
                 return new Creation(info(validationId, existing.get()), false);
             }
+            ValidationRecord record = sessions.find(validationId)
+                .orElseThrow(() -> new NoSuchWorkingCopyException(UNKNOWN_VALIDATION));
             return new Creation(create(record, encoding), true);
+        }
+    }
+
+    /**
+     * A new file: a copy of the engine's skeleton for the chosen version, {@code mzTab-ID} and content profile
+     * ({@link SkeletonRequest}), with its own id and no validation session. Its settings are kept in its meta: the
+     * repository rules chosen, and the validator form's level and error limit ({@link CopySettings#DEFAULT_LEVEL},
+     * {@link CopySettings#DEFAULT_MAX_ERRORS}). The choices are checked before the engine is asked.
+     *
+     * @throws NewFileRefusedException for a version whose line has no engine here, a content profile that does not
+     * fit the version (none for 2.0, one of {@link #CONTENT_PROFILES} otherwise), an {@code mzTab-ID} outside
+     * {@link #MZTAB_ID}, repository rules not in the catalog or that do not list the version, or a request the
+     * engine refuses; nothing is stored
+     * @throws StorageFullException if less than three times the skeleton's size is free
+     * @throws EngineBusyException if the engine is busy
+     * @throws EngineUnavailableException if the engine cannot be reached, or answers a text that does not start with
+     * the version line asked for
+     */
+    public WorkingCopyInfo createNew(NewFile f) {
+        if (f == null) {
+            throw new NewFileRefusedException("The choices of the new file are required.");
+        }
+        String version = f.mzTabVersion() == null ? "" : f.mzTabVersion().strip();
+        Optional<String> line = MzTabVersions.lineOf(version);
+        Optional<EngineClient> engine = line.flatMap(registry::forLine);
+        if (version.isEmpty() || engine.isEmpty()) {
+            throw new NewFileRefusedException("This server has no validator for mzTab-M "
+                + (version.isEmpty() ? "(no version given)" : version) + "; it offers mzTab-M "
+                + String.join(" and ", registry.lines()) + ".");
+        }
+        String contentProfile = f.contentProfile();
+        if (NO_CONTENT_PROFILE_LINE.equals(line.get())) {
+            if (contentProfile != null) {
+                throw new NewFileRefusedException("mzTab-M " + version + " has no content profile.");
+            }
+        } else if (contentProfile == null || !CONTENT_PROFILES.contains(contentProfile)) {
+            throw new NewFileRefusedException("mzTab-M " + version + " needs a content profile, one of "
+                + String.join(", ", CONTENT_PROFILES) + ".");
+        }
+        if (f.mzTabId() == null || !MZTAB_ID.matcher(f.mzTabId()).matches()) {
+            throw new NewFileRefusedException("The mzTab-ID must start with a letter or a digit, followed by up to 63 "
+                + "letters, digits, dots, underscores or hyphens.");
+        }
+        if (f.profileId() == null || f.profileId().isBlank() || f.profileVersion() == null
+            || f.profileVersion().isBlank()) {
+            throw new NewFileRefusedException("Choose the repository rules of the new file.");
+        }
+        ValidationProfile profile = catalog.find(f.profileId(), f.profileVersion())
+            .orElseThrow(() -> new NewFileRefusedException("Unknown repository rules: " + f.profileId() + " "
+                + f.profileVersion() + "."));
+        List<String> listed = profile.mzTabVersions() == null ? List.of() : profile.mzTabVersions();
+        if (!listed.isEmpty() && !listed.contains(version)) {
+            throw new NewFileRefusedException("The repository rules " + profile.id() + " " + profile.version()
+                + " apply to mzTab-M " + String.join(" and ", listed) + ", not to mzTab-M " + version + ".");
+        }
+        String skeleton;
+        try {
+            skeleton = engine.get().skeleton(new SkeletonRequest(version, contentProfile, f.mzTabId()));
+        } catch (EngineRequestException e) {
+            throw new NewFileRefusedException(e.error().message());
+        }
+        if (!skeleton.startsWith("MTD\tmzTab-version\t" + version + "\n")) {
+            // the only line the webapp reads: a text without it is not the skeleton asked for
+            log.warn("The engine for mzTab-M {} answered a skeleton without the version line of {}", line.get(),
+                version);
+            throw new EngineUnavailableException(line.get());
+        }
+        String settings;
+        try {
+            settings = json.writeValueAsString(ProfileRef.catalog(profile.id(), profile.version()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Could not store the repository rules of a new file", e);
+        }
+        byte[] text = skeleton.getBytes(StandardCharsets.UTF_8);
+        UUID id = ids.generate();
+        synchronized (lock(id)) {
+            if (storageProperties.getMaxTotalBytes() - storage.totalBytes() < CREATE_OVERHEAD * (long) text.length) {
+                throw new StorageFullException();
+            }
+            try {
+                WorkingCopyDb db = WorkingCopyDb.open(storage.localFile(id, SLOT.WORKINGCOPY, DB_FILE));
+                db.importFrom(new ByteArrayInputStream(text), SourceEncoding.UTF_8);
+                db.setMeta(META_GENERATION, UUID.randomUUID().toString());
+                db.setMeta(META_FILE_NAME, f.mzTabId() + ".mzTab");
+                db.setMeta(META_ENCODING, SourceEncoding.UTF_8.name());
+                db.setMeta(META_VERSION, version);
+                db.setMeta(META_CHANGED, Instant.now().toString());
+                db.setMeta(META_ORIGIN, CopySettings.NEW);
+                db.setMeta(META_PROFILE, settings);
+                db.setMeta(META_LEVEL, CopySettings.DEFAULT_LEVEL.name());
+                db.setMeta(META_MAX_ERRORS, Integer.toString(CopySettings.DEFAULT_MAX_ERRORS));
+                db.setMeta(META_CONTENT_PROFILE, contentProfile == null ? "" : contentProfile);
+                db.setMeta(META_COMPLETE, "true");
+                storage.touch(id);
+                return info(id, db);
+            } catch (RuntimeException | IOException e) {
+                // nothing else is in the directory of a new file
+                try {
+                    storage.deleteAll(id);
+                } catch (RuntimeException suppressed) {
+                    e.addSuppressed(suppressed);
+                }
+                if (e instanceof IOException io) {
+                    throw new UncheckedIOException("Could not create the new file " + id, io);
+                }
+                throw (RuntimeException) e;
+            }
         }
     }
 
@@ -382,12 +496,13 @@ public class WorkingCopyService {
             if (storage.existingFile(id, SLOT.WORKINGCOPY, DB_FILE).isEmpty()) {
                 throw new NoSuchWorkingCopyException();
             }
-            synchronized (runs) {
-                runs.remove(id);
-            }
+            runs.remove(id);
             storage.delete(id, SLOT.WORKINGCOPY);
             synchronized (facts) {
                 facts.keySet().removeIf(k -> k.id().equals(id));
+            }
+            synchronized (stillMissing) {
+                stillMissing.keySet().removeIf(k -> k.id().equals(id));
             }
         }
     }
@@ -426,23 +541,16 @@ public class WorkingCopyService {
                 WorkingCopyDb.REVISION_KEY, META_VERSION, META_FILE_NAME);
             long current = stored[4] == null ? 0L : Long.parseLong(stored[4]);
             WorkingCopyValidation latest = parseValidation(stored[0]);
-            WorkingCopyValidation finished = parseValidation(stored[1]);
-            if (finished == null && latest != null && latest.status() == Status.DONE) {
-                // a copy whose run was stored before the finished run had a key of its own
-                finished = latest;
-            }
+            WorkingCopyValidation finished = finishedRun(latest, stored[1]);
             if (finished == null) {
                 throw new WorkingCopyConflictException(latest == null
                     ? "The copy has not been checked yet. Check it first."
                     : "No check of the copy has given a result yet. Check it again.");
             }
             boolean failed = latest != null && latest.status() == Status.FAILED;
-            boolean running;
-            synchronized (runs) {
-                running = runs.containsKey(id);
-            }
+            boolean running = runs.isRunning(id);
             String version = stored[5];
-            ProfileRef profile = sessions.find(id).map(ValidationRecord::validationProfile).orElse(null);
+            ProfileRef profile = settings(id, db).map(CopySettings::profile).orElse(null);
             return ResolutionReport.markdown(new ResolutionReport.CopyCheck(stored[6],
                 version == null || version.isEmpty() ? null : version, finished.revision(), current,
                 stored[2] == null ? null : Instant.parse(stored[2]), finished.semantic(), profile, running,
@@ -450,6 +558,19 @@ public class WorkingCopyService {
                 failed ? latest.failureReason() : null, stored[3] == null ? null : Long.valueOf(stored[3])),
                 finished.guidance());
         });
+    }
+
+    /**
+     * The run whose report the copy serves: the stored finished run, else the latest if it is DONE (a copy whose run
+     * was stored before the finished run had a key of its own); null if there is none. Shared by the report and
+     * {@code info}'s {@code reportRevision}, so the two agree.
+     */
+    private WorkingCopyValidation finishedRun(@Nullable WorkingCopyValidation latest, @Nullable String storedDone) {
+        WorkingCopyValidation finished = parseValidation(storedDone);
+        if (finished == null && latest != null && latest.status() == Status.DONE) {
+            finished = latest;
+        }
+        return finished;
     }
 
     /**
@@ -516,15 +637,10 @@ public class WorkingCopyService {
         // the running run before the stored one: a run that ends between the two reads is then shown as running
         // (with the result it stored), never as no validation at all (stored run read before it was stored, running
         // run read after it was removed)
-        boolean running;
-        long runRevision;
-        boolean runSemantic;
-        synchronized (runs) {
-            Run run = runs.get(id);
-            running = run != null;
-            runRevision = run == null ? -1 : run.revision;
-            runSemantic = run != null && run.semantic;
-        }
+        WorkingCopyRuns.Running run = runs.snapshot(id);
+        boolean running = run != null;
+        long runRevision = run == null ? -1 : run.revision();
+        boolean runSemantic = run != null && run.semantic();
         Consumer<UUID> hook = betweenInfoReads;
         if (hook != null) {
             hook.accept(id);
@@ -533,7 +649,7 @@ public class WorkingCopyService {
         // writer): the revision, the last change's id and the rest belong together, so a reader never pairs the
         // id of a change with the revision before it. A CV check stores its two values together as well.
         String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
-            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION);
+            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION, META_ORIGIN, META_PROFILE, META_LAST_DONE);
         // the revision before the facts: facts read after it may be newer, never older (see facts)
         long revision = committed != null ? committed.revision()
             : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
@@ -541,6 +657,7 @@ public class WorkingCopyService {
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
         WorkingCopyValidation last = parseValidation(stored[0]);
+        WorkingCopyValidation finishedRun = finishedRun(last, stored[8]);
         WorkingCopyValidation shown = last;
         if (running) {
             long validated = runRevision >= 0 ? runRevision : revision;
@@ -557,13 +674,66 @@ public class WorkingCopyService {
         Instant expiresAt = (changed == null ? Instant.now() : Instant.parse(changed))
             .plus(Duration.ofDays(retentionDays));
         String version = db.meta(META_VERSION);
+        boolean isNew = CopySettings.NEW.equals(stored[6]);
+        ProfileRef profile = isNew ? readProfile(id, stored[7]) : uploadProfile(id);
         return new WorkingCopyInfo(id, db.meta(META_FILE_NAME), revision,
             version == null || version.isEmpty() ? null : version, f.lineCount(), f.sections(), canUndo, canRedo,
             expiresAt, shown, stored[1] == null ? null : Long.valueOf(stored[1]),
             committed != null ? committed.layoutRevision() : stored[2] == null ? 0L : Long.parseLong(stored[2]),
             committed != null ? committed.changeId()
                 : stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]),
-            stored[5] == null || stored[5].isEmpty() ? null : UUID.fromString(stored[5]));
+            stored[5] == null || stored[5].isEmpty() ? null : UUID.fromString(stored[5]),
+            isNew ? CopySettings.NEW : CopySettings.UPLOAD, profile,
+            finishedRun == null ? null : finishedRun.revision());
+    }
+
+    /**
+     * How the copy is validated: a new copy's settings from its meta, an upload copy's from its session.
+     *
+     * @return empty for an upload copy whose session is gone (being deleted)
+     * @throws IllegalStateException if a new copy's stored settings cannot be read
+     */
+    public Optional<CopySettings> settings(UUID id, WorkingCopyDb db) {
+        String[] stored = db.snapshotMeta(META_ORIGIN, META_PROFILE, META_LEVEL, META_MAX_ERRORS);
+        if (!CopySettings.NEW.equals(stored[0])) {
+            return sessions.find(id).map(r -> new CopySettings(r.validationProfile(), r.level(), r.maxErrors(),
+                CopySettings.UPLOAD));
+        }
+        try {
+            return Optional.of(new CopySettings(readProfile(id, stored[1]), ValidationLevel.valueOf(stored[2]),
+                Integer.parseInt(stored[3]), CopySettings.NEW));
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("The settings of working copy " + id + " cannot be read", e);
+        }
+    }
+
+    private ProfileRef readProfile(UUID id, @Nullable String stored) {
+        if (stored == null) {
+            throw new IllegalStateException("Working copy " + id + " has no repository rules");
+        }
+        try {
+            return json.readValue(stored, ProfileRef.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("The repository rules of working copy " + id + " cannot be read", e);
+        }
+    }
+
+    /** The profile of an upload copy's session, cached; null if the session is gone. */
+    @Nullable
+    private ProfileRef uploadProfile(UUID id) {
+        synchronized (uploadProfiles) {
+            ProfileRef cached = uploadProfiles.get(id);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        ProfileRef profile = sessions.find(id).map(ValidationRecord::validationProfile).orElse(null);
+        if (profile != null) {
+            synchronized (uploadProfiles) {
+                uploadProfiles.put(id, profile);
+            }
+        }
+        return profile;
     }
 
     /**
@@ -684,7 +854,7 @@ public class WorkingCopyService {
                 throw new StaleRevisionException(current, revision);
             }
             if (undo ? !editor.canUndo(db) : !editor.canRedo(db)) {
-                throw new WorkingCopyConflictException(undo ? "There is nothing to undo." : "There is nothing to redo.");
+                throw new NothingToUndoException(undo);
             }
             long applied = undo ? editor.undo(db, revision) : editor.redo(db, revision);
             stamp(db, changeId);
@@ -721,16 +891,7 @@ public class WorkingCopyService {
         } catch (RuntimeException e) {
             log.warn("Could not restart the retention of working copy {} after revision {}", id, revision, e);
         }
-        synchronized (runs) {
-            Run run = runs.get(id);
-            if (run != null) {
-                if (!run.again) {
-                    run.again = true;
-                    run.againSemantic = run.semantic;
-                }
-                run.latest = Math.max(run.latest, revision);
-            }
-        }
+        runs.markChanged(id, revision);
     }
 
     private void requireCapacity() {
@@ -761,423 +922,8 @@ public class WorkingCopyService {
     }
 
     private WorkingCopyInfo requestValidation(UUID id, WorkingCopyDb db, boolean semantic) {
-        String generation = db.meta(META_GENERATION);
-        Run started = null;
-        synchronized (runs) {
-            Run run = runs.get(id);
-            if (run == null) {
-                started = new Run(generation, semantic, deadline());
-                runs.put(id, started);
-            } else {
-                // a CV check asked for is not replaced by a structural request after it
-                run.againSemantic = run.again ? run.againSemantic || semantic : semantic;
-                run.again = true;
-            }
-        }
-        if (started != null) {
-            submit(id, started);
-        }
+        runs.requestValidation(id, db, semantic);
         return info(id, db);
-    }
-
-    private Instant deadline() {
-        return Instant.now().plus(engines.jobTimeout());
-    }
-
-    private void submit(UUID id, Run run) {
-        try {
-            executor.execute(() -> runLoop(id, run));
-        } catch (RejectedExecutionException e) {
-            synchronized (runs) {
-                runs.remove(id, run);
-            }
-            throw new WorkingCopyBusyException(RUNS_BUSY, e);
-        }
-    }
-
-    /** Runs until the run has ended and no run again is due, or until it waits for a busy engine. */
-    private void runLoop(UUID id, Run run) {
-        while (true) {
-            boolean semantic;
-            synchronized (runs) {
-                if (runs.get(id) != run) {
-                    return;
-                }
-                semantic = run.semantic;
-            }
-            Optional<WorkingCopyDb> db = openQuietly(id);
-            if (db.isEmpty()) {
-                synchronized (runs) {
-                    runs.remove(id, run);
-                }
-                return;
-            }
-            Duration retry = null;
-            try {
-                retry = validateOnce(id, db.get(), run, semantic);
-            } catch (IOException | RuntimeException e) {
-                if (openQuietly(id).isEmpty()) {
-                    log.debug("Working copy {} was deleted during its validation", id);
-                } else {
-                    log.error("Working copy {}: the validation failed", id, e);
-                    long revision;
-                    synchronized (runs) {
-                        revision = run.revision;
-                    }
-                    persistQuietly(id, db.get(), run, WorkingCopyValidation.failed(
-                        revision >= 0 ? revision : revisionQuietly(db.get()), semantic, UNEXPECTED_ERROR), null);
-                }
-            }
-            if (retry != null) {
-                schedule(id, run, retry);
-                return;
-            }
-            Consumer<UUID> hook = beforeRunEnds;
-            if (hook != null) {
-                hook.accept(id);
-            }
-            synchronized (runs) {
-                if (runs.get(id) != run) {
-                    return;
-                }
-                // read under the lock: an edit committed before this read runs again even if its changed() has
-                // not marked the run yet; one committed after it finds the run ended and leaves stale=true
-                long current = revisionQuietly(db.get());
-                boolean newer = run.revision >= 0 && current >= 0 && current != run.revision;
-                // a CV check covers a structural one of the same revision, not the other way round
-                boolean again = newer || run.again && (run.latest > run.revision
-                    || run.againSemantic && !run.semantic || run.revision < 0 && current >= 0);
-                if (!again) {
-                    runs.remove(id);
-                    return;
-                }
-                run.semantic = run.again ? run.againSemantic : run.semantic;
-                run.again = false;
-                run.revision = -1;
-                run.latest = -1;
-                run.deadline = deadline();
-            }
-        }
-    }
-
-    private void schedule(UUID id, Run run, Duration delay) {
-        try {
-            scheduler.schedule(() -> {
-                try {
-                    executor.execute(() -> runLoop(id, run));
-                } catch (RejectedExecutionException e) {
-                    // the copies' pool and queue are full right now: not a failure of the run, ask again shortly
-                    // for as long as the run may last
-                    boolean again;
-                    synchronized (runs) {
-                        again = runs.get(id) == run && Instant.now().plus(MIN_RETRY).isBefore(run.deadline);
-                    }
-                    if (again) {
-                        log.info("Working copy {}: no room for another attempt yet; trying again in {} s", id,
-                            MIN_RETRY.toSeconds());
-                        schedule(id, run, MIN_RETRY);
-                    } else {
-                        abandon(id, run, e);
-                    }
-                }
-            }, Instant.now().plus(delay));
-        } catch (RuntimeException e) {
-            abandon(id, run, e);
-        }
-    }
-
-    private void abandon(UUID id, Run run, RuntimeException e) {
-        log.error("Working copy {}: could not schedule another attempt", id, e);
-        openQuietly(id).ifPresent(db -> {
-            boolean semantic;
-            long revision;
-            synchronized (runs) {
-                semantic = run.semantic;
-                revision = run.revision;
-            }
-            persistQuietly(id, db, run, WorkingCopyValidation.failed(revision, semantic, UNEXPECTED_ERROR), null);
-        });
-        synchronized (runs) {
-            runs.remove(id, run);
-        }
-    }
-
-    /**
-     * One attempt: assembles the text, routes and validates it, and stores the
-     * ended run.
-     *
-     * @return when to try again, for a busy engine; null if the run has ended
-     */
-    @Nullable
-    private Duration validateOnce(UUID id, WorkingCopyDb db, Run run, boolean semantic) throws IOException {
-        Optional<ValidationRecord> found = sessions.find(id);
-        if (found.isEmpty()) {
-            // the session is being deleted
-            return null;
-        }
-        ValidationRecord record = found.get();
-        Path text = Files.createTempFile("mztab-workingcopy-", ".mztab");
-        Path mapping = null;
-        try {
-            long revision;
-            // the last layout change up to the validated text, from the same snapshot as the text
-            long layout;
-            try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(text))) {
-                WorkingCopyDb.Snapshot written = db.writeRevisionTo(out, WorkingCopyEditor.LAYOUT_REVISION_KEY);
-                revision = written.revision();
-                layout = written.meta()[0] == null ? 0L : Long.parseLong(written.meta()[0]);
-            }
-            synchronized (runs) {
-                run.revision = revision;
-            }
-            Optional<String> declared = DeclaredVersions.ofTsv(text);
-            RouteDecision decision = registry.route(declared);
-            Optional<String> rejection = EngineMessages.rejection(decision, engines.unavailableHintUrl());
-            if (rejection.isPresent()) {
-                List<ValidationMessage> messages = List.of(ValidationMessage.error(rejection.get()));
-                // nothing was checked, the CV rules neither
-                persist(id, db, run, done(db, revision, layout, false, false, declared.orElse(null), messages, text,
-                    null),
-                    declared.orElse(""));
-                return null;
-            }
-            RouteDecision.Routed routed = (RouteDecision.Routed) decision;
-            List<ValidationMessage> notes = new ArrayList<>();
-            if (semantic) {
-                Optional<String> mismatch = profileMismatch(record, routed.line());
-                if (mismatch.isPresent()) {
-                    persist(id, db, run, WorkingCopyValidation.failed(revision, true, mismatch.get()), null);
-                    return null;
-                }
-                mapping = mappingFile(record, routed.line(), notes);
-            }
-            try {
-                ValidationEvent.Outcome outcome = routed.engine().validate(text, mapping, record.level(),
-                    record.maxErrors(), results::outcomeOnly);
-                List<ValidationMessage> messages = new ArrayList<>(notes);
-                if (outcome.messages() != null) {
-                    messages.addAll(outcome.messages());
-                }
-                String version = outcome.mzTabVersion() == null || outcome.mzTabVersion().isBlank()
-                    ? declared.orElse(null) : outcome.mzTabVersion();
-                // the CV rules were not checked without a mapping (no default profile for the line), nor if the
-                // file could not be read into a model or the check broke: the engine then says so by its code
-                List<ValidationMessage> notChecked = messages.stream().filter(MessageDiff::isCvNotChecked).toList();
-                boolean cvChecked = semantic && mapping != null && outcome.parsed() && notChecked.isEmpty();
-                String why = !semantic || cvChecked ? null : notChecked.isEmpty() ? CV_NOT_CHECKED
-                    : String.join("\n", notChecked.stream().map(ValidationMessage::getMessage).toList());
-                messages.removeAll(notChecked);
-                persist(id, db, run, done(db, revision, layout, cvChecked, outcome.parsed(), version, messages, text,
-                    why),
-                    version == null ? "" : version);
-                return null;
-            } catch (EngineBusyException busy) {
-                Duration delay = busy.retryAfter().compareTo(MIN_RETRY) < 0 ? MIN_RETRY : busy.retryAfter();
-                Instant deadline;
-                synchronized (runs) {
-                    deadline = run.deadline;
-                }
-                if (Instant.now().plus(delay).isAfter(deadline)) {
-                    log.warn("Working copy {}: the engine for mzTab-M {} was busy for longer than {}", id,
-                        routed.line(), engines.jobTimeout());
-                    persist(id, db, run, WorkingCopyValidation.failed(revision, semantic,
-                        EngineMessages.unavailable(routed.line())), null);
-                    return null;
-                }
-                log.info("Working copy {}: the engine is busy; trying again in {} s", id, delay.toSeconds());
-                return delay;
-            } catch (EngineUnavailableException e) {
-                log.warn("Working copy {}: the engine for mzTab-M {} is unavailable: {}", id, routed.line(),
-                    e.getCause() == null ? e.getMessage() : e.getCause().toString());
-                persist(id, db, run, WorkingCopyValidation.failed(revision, semantic,
-                    EngineMessages.unavailable(routed.line())), null);
-                return null;
-            } catch (EngineRequestException e) {
-                log.warn("Working copy {}: the engine for mzTab-M {} refused the text: {} {}", id, routed.line(),
-                    e.error().code(), e.error().message());
-                persist(id, db, run, WorkingCopyValidation.failed(revision, semantic, e.error().message()), null);
-                return null;
-            } catch (EngineRejection e) {
-                persist(id, db, run, WorkingCopyValidation.failed(revision, semantic, e.messages().isEmpty()
-                    ? UNEXPECTED_ERROR : e.messages().get(0).getMessage()), null);
-                return null;
-            }
-        } finally {
-            SynchronousEngineService.deleteQuietly(text);
-            SynchronousEngineService.deleteQuietly(mapping);
-        }
-    }
-
-    /** A semantic run with a catalog profile of another version line cannot use its rules. */
-    private Optional<String> profileMismatch(ValidationRecord record, String line) {
-        ProfileRef profile = record.validationProfile();
-        if (profile == null || profile.kind() != ProfileRef.Kind.CATALOG) {
-            return Optional.empty();
-        }
-        Optional<ValidationProfile> p = catalog.find(profile.id(), profile.version());
-        if (p.isEmpty()) {
-            return Optional.of("The validation profile " + profile.id() + " " + profile.version()
-                + " is no longer available.");
-        }
-        Set<String> lines = new LinkedHashSet<>();
-        p.get().mzTabVersions().forEach(v -> MzTabVersions.lineOf(v).ifPresent(lines::add));
-        if (lines.isEmpty() || lines.contains(line)) {
-            return Optional.empty();
-        }
-        return Optional.of(EngineMessages.profileOfOtherLine(profile.id(), profile.version(), lines, line));
-    }
-
-    /** The mapping of the session's profile, or of the line's default profile for a session without one. */
-    @Nullable
-    private Path mappingFile(ValidationRecord record, String line, List<ValidationMessage> notes)
-        throws IOException {
-        ProfileRef profile = record.validationProfile();
-        ProfileRef.Kind kind = profile == null ? ProfileRef.Kind.NONE : profile.kind();
-        switch (kind) {
-            case CATALOG -> {
-                ValidationProfile p = catalog.find(profile.id(), profile.version()).orElseThrow();
-                return toTempFile(catalog.mappingUrl(p).openStream(), ".xml");
-            }
-            case CUSTOM -> {
-                return toTempFile(storage.read(record.id(), SLOT.MAPPINGFILE, ValidationSessionService.CUSTOM_MAPPING)
-                    .orElseThrow(() -> new IllegalStateException("The custom mapping of validation " + record.id()
-                    + " is missing")), ".xml");
-            }
-            default -> {
-                Optional<ValidationProfile> p = catalog.defaultFor(line);
-                if (p.isEmpty()) {
-                    // no rules to check: said as the engine says it did not check them
-                    ValidationMessage note = ValidationMessage.info(EngineMessages.noDefaultProfile(line));
-                    note.setCode(ValidationMessage.CV_NOT_CHECKED);
-                    note.setCategory(ValidationMessage.Category.CROSS_CHECK);
-                    notes.add(note);
-                    return null;
-                }
-                return toTempFile(catalog.mappingUrl(p.get()).openStream(), ".xml");
-            }
-        }
-    }
-
-    /**
-     * An ended run with a result, compared with the messages shown before it ({@link MessageDiff#compareRun}: a
-     * structural run keeps the CV messages of the last CV check), with guidance from the validated text. The
-     * lines of kept CV messages are quoted only if no line moved since their check: their numbers are of the text
-     * of that check, and the validated text may have other lines under them.
-     *
-     * @param layout the revision of the last layout change up to the validated text
-     * @param semantic whether the run checked the CV rules
-     * @param cvNotChecked why a run asked to check them did not
-     */
-    private WorkingCopyValidation done(WorkingCopyDb db, long revision, long layout, boolean semantic,
-        boolean parsed, @Nullable String version, List<ValidationMessage> found, Path text,
-        @Nullable String cvNotChecked) throws IOException {
-        MessageDiff.Result diff = MessageDiff.compareRun(baseline(db, false), baseline(db, true), found, semantic);
-        List<ValidationMessage> messages = diff.current().stream().map(TrackedMessage::message).toList();
-        // one run per copy at a time, and only a run writes it: the CV check whose messages a structural run keeps
-        String cvRevision = db.meta(META_CV_REVISION);
-        boolean cvLinesMoved = !semantic && cvRevision != null && layout > Long.parseLong(cvRevision);
-        String line = MzTabVersions.lineOf(version).orElse(null);
-        List<String> software;
-        try (InputStream in = Files.newInputStream(text)) {
-            software = UploadLines.softwareNames(in);
-        }
-        List<Guidance> resolved = guidance.resolve(messages, line, software, numbers -> {
-            try (InputStream in = Files.newInputStream(text)) {
-                return UploadLines.lines(in, numbers);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }, i -> !(cvLinesMoved && MessageDiff.isCvRule(messages.get(i))));
-        return new WorkingCopyValidation(Status.DONE, revision, false, parsed, parsed ? null : readUpTo(messages,
-            resolved), semantic, diff.current(), diff.fixed(), resolved, null, cvNotChecked);
-    }
-
-    /** The smallest line of a message whose guidance says the engine stops reading there. */
-    @Nullable
-    static Long readUpTo(List<ValidationMessage> messages, List<Guidance> guidance) {
-        Long first = null;
-        for (Guidance g : guidance) {
-            if (!g.stopsParsing()) {
-                continue;
-            }
-            for (int index : g.messages()) {
-                Long n = messages.get(index).getLineNumber();
-                if (n != null && n > 0 && (first == null || n < first)) {
-                    first = n;
-                }
-            }
-        }
-        return first;
-    }
-
-    /**
-     * Stores an ended run. The structural messages of a DONE run become the
-     * comparison for the next run; the CV messages of a DONE CV check become
-     * the CV messages shown until the next one, with its revision. Nothing is
-     * stored into another copy than the run's.
-     *
-     * @param version the version to record, "" for none, or null to keep the recorded one
-     */
-    private void persist(UUID id, WorkingCopyDb db, Run run, WorkingCopyValidation v, @Nullable String version) {
-        String last;
-        String structural;
-        String cv;
-        try {
-            last = json.writeValueAsString(v);
-            List<ValidationMessage> messages = v.messages().stream().map(TrackedMessage::message).toList();
-            structural = json.writeValueAsString(ofKind(messages, false));
-            cv = json.writeValueAsString(ofKind(messages, true));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Could not store the validation of working copy " + id, e);
-        }
-        db.inTransaction(() -> {
-            if (!Objects.equals(run.generation, db.meta(META_GENERATION))) {
-                return null;
-            }
-            db.setMeta(META_LAST, last);
-            if (v.status() == Status.DONE) {
-                db.setMeta(META_LAST_DONE, last);
-                db.setMeta(META_LAST_DONE_AT, Instant.now().toString());
-                db.setMeta(META_BASELINE_STRUCTURAL, structural);
-                if (v.semantic()) {
-                    db.setMeta(META_BASELINE_SEMANTIC, cv);
-                    db.setMeta(META_CV_REVISION, Long.toString(v.revision()));
-                }
-            }
-            if (version != null) {
-                db.setMeta(META_VERSION, version);
-            }
-            return null;
-        });
-    }
-
-    private void persistQuietly(UUID id, WorkingCopyDb db, Run run, WorkingCopyValidation v,
-        @Nullable String version) {
-        try {
-            persist(id, db, run, v, version);
-        } catch (RuntimeException e) {
-            log.warn("Working copy {}: could not store the failed validation", id, e);
-        }
-    }
-
-    /** The CV messages ({@code cv}) or the structural ones of {@code messages}. */
-    private static List<ValidationMessage> ofKind(List<ValidationMessage> messages, boolean cv) {
-        return messages.stream().filter(m -> MessageDiff.isCvRule(m) == cv).toList();
-    }
-
-    /** The stored structural messages, or ({@code cv}) the CV messages of the last CV check. */
-    private List<ValidationMessage> baseline(WorkingCopyDb db, boolean cv) {
-        String stored = db.meta(cv ? META_BASELINE_SEMANTIC : META_BASELINE_STRUCTURAL);
-        if (stored == null) {
-            return List.of();
-        }
-        try {
-            // a copy stored before the kinds were kept apart has a run's whole list under either key
-            return ofKind(json.readValue(stored, MESSAGES), cv);
-        } catch (JsonProcessingException e) {
-            log.warn("Could not read the stored messages of a working copy; comparing with none", e);
-            return List.of();
-        }
     }
 
     @Nullable
@@ -1207,12 +953,101 @@ public class WorkingCopyService {
         }
     }
 
-    private static long revisionQuietly(WorkingCopyDb db) {
-        try {
-            return db.revision();
-        } catch (RuntimeException e) {
-            return -1;
+    // ---- still missing ----
+
+    /** The requirement levels "still missing" lists, in its order. */
+    private static final List<String> MISSING_LEVELS = List.of("MUST", "SHOULD");
+
+    /**
+     * The MUST and SHOULD rules of the copy's repository rules that the text of its current revision does not meet
+     * yet. The engine of the text's version decides it from the field rules of the profile's mapping: the copy's
+     * catalog profile, an upload's custom mapping, or the line's default profile for a copy without one. A
+     * revision's result is cached, as its text never changes.
+     *
+     * @throws NoSuchWorkingCopyException if there is no copy
+     * @throws WorkingCopyConflictException if no engine here serves the text's version, the copy's catalog profile
+     * is of another version line, or the engine refuses the mapping
+     * @throws TooLargeException if the text is larger than the engine takes
+     * @throws EngineBusyException if the engine is busy
+     * @throws EngineUnavailableException if the engine cannot be reached
+     */
+    public StillMissing stillMissing(UUID id) {
+        return guard(id, () -> {
+            try {
+                return stillMissing(id, db(id));
+            } catch (IOException e) {
+                throw new UncheckedIOException("Could not check the rules of working copy " + id, e);
+            }
+        });
+    }
+
+    private StillMissing stillMissing(UUID id, WorkingCopyDb db) throws IOException {
+        String[] current = db.snapshotMeta(META_GENERATION, WorkingCopyDb.REVISION_KEY);
+        synchronized (stillMissing) {
+            StillMissing cached = stillMissing.get(new FactsKey(id, current[0],
+                current[1] == null ? 0L : Long.parseLong(current[1])));
+            if (cached != null) {
+                return cached;
+            }
         }
+        Path text = Files.createTempFile("mztab-workingcopy-", ".mztab");
+        Path mapping = null;
+        try {
+            WorkingCopyDb.Snapshot written;
+            try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(text))) {
+                written = db.writeRevisionTo(out, META_GENERATION);
+            }
+            RouteDecision decision = registry.route(DeclaredVersions.ofTsv(text));
+            Optional<String> rejection = EngineMessages.rejection(decision, engines.unavailableHintUrl());
+            if (rejection.isPresent()) {
+                throw new WorkingCopyConflictException(rejection.get());
+            }
+            RouteDecision.Routed routed = (RouteDecision.Routed) decision;
+            ProfileRef profile = settings(id, db).map(CopySettings::profile).orElse(null);
+            Optional<String> mismatch = runs.profileMismatch(profile, routed.line());
+            if (mismatch.isPresent()) {
+                throw new WorkingCopyConflictException(mismatch.get());
+            }
+            mapping = runs.mappingFile(id, profile, routed.line(), new ArrayList<>());
+            StillMissing result;
+            if (mapping == null) {
+                // no rules for the line: nothing can be missing
+                result = new StillMissing(written.revision(), true, List.of());
+            } else {
+                try {
+                    result = unmet(written.revision(), routed.engine().fieldRules(mapping, text));
+                } catch (EngineRequestException e) {
+                    if (e.error().code() == EngineErrorCode.FILE_TOO_LARGE) {
+                        throw new TooLargeException(e.error().message());
+                    }
+                    throw new WorkingCopyConflictException(e.error().message());
+                }
+            }
+            synchronized (stillMissing) {
+                stillMissing.put(new FactsKey(id, written.meta()[0], written.revision()), result);
+            }
+            return result;
+        } finally {
+            SynchronousEngineService.deleteQuietly(text);
+            SynchronousEngineService.deleteQuietly(mapping);
+        }
+    }
+
+    /**
+     * The MUST rules, then the SHOULD rules, that {@code rules} says are absent. A text the engine could not read
+     * into a model was not checked: every MUST and SHOULD rule is listed, its presence unknown. A rule whose
+     * presence could not be decided in a read text ({@code present} null) is not listed as missing.
+     */
+    static StillMissing unmet(long revision, FieldRules rules) {
+        List<FieldRule> missing = new ArrayList<>();
+        for (String level : MISSING_LEVELS) {
+            for (FieldRule rule : rules.rules()) {
+                if (level.equals(rule.requirement()) && (!rules.parsed() || Boolean.FALSE.equals(rule.present()))) {
+                    missing.add(rule);
+                }
+            }
+        }
+        return new StillMissing(revision, rules.parsed(), missing);
     }
 
     // ---- downloads ----
@@ -1295,9 +1130,19 @@ public class WorkingCopyService {
         this.betweenInfoReads = hook;
     }
 
-    /** For tests only: see {@link #beforeRunEnds}. */
+    /** For tests only: see {@link WorkingCopyRuns#retryGate}. */
+    void retryGate(@Nullable Consumer<UUID> hook) {
+        runs.retryGate(hook);
+    }
+
+    /** For tests only: see {@link WorkingCopyRuns#retryDeferred}. */
+    void retryDeferred(@Nullable Consumer<UUID> hook) {
+        runs.retryDeferred(hook);
+    }
+
+    /** For tests only: see {@link WorkingCopyRuns#beforeRunEnds}. */
     void beforeRunEnds(@Nullable Consumer<UUID> hook) {
-        this.beforeRunEnds = hook;
+        runs.beforeRunEnds(hook);
     }
 
     /**
@@ -1360,7 +1205,7 @@ public class WorkingCopyService {
         }
     }
 
-    private static Path toTempFile(InputStream content, String suffix) throws IOException {
+    static Path toTempFile(InputStream content, String suffix) throws IOException {
         try (InputStream in = content) {
             Path file = Files.createTempFile("mztab-workingcopy-", suffix);
             try {

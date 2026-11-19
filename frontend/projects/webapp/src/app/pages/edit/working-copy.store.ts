@@ -21,14 +21,15 @@ import {
 } from 'rxjs';
 
 import { EditBatch } from '../../api/models/edit-batch';
+import { ImportPreview } from '../../api/models/import-preview';
+import { ImportRequest } from '../../api/models/import-request';
 import { QuickFixPreview } from '../../api/models/quick-fix-preview';
 import { ValidationMessage } from '../../api/models/validation-message';
-import { ValidationRecord } from '../../api/models/validation-record';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
-import { ValidationsService } from '../../api/services/validations.service';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { AppInfoStore } from '../../core/app-info.store';
 import { quietRequest } from '../../core/http-error.interceptor';
+import { ENGINE_TIMEOUT_MS, editorRequest, engineRequest, isTimeout, retryReads } from '../../core/request-timeout.interceptor';
 import { lineOf } from '../../core/mztab-version';
 
 /** After an accepted batch, structural validation starts once the user has been idle this long [my call]. */
@@ -41,6 +42,8 @@ export const CONFLICT_NOTICE =
 export const COPY_REPLACED_NOTICE = 'This copy was replaced (deleted and created again). The editor reloaded it.';
 /** The `error` of the server's 409 for a generation that is not the copy's. */
 const COPY_REPLACED_CODE = 'copy_replaced';
+/** The `error` of the server's 409 for an undo or redo with nothing to undo or redo: the copy is as this tab knows it. */
+const NOTHING_TO_UNDO_CODE = 'nothing_to_undo';
 export const LAYOUT_CHANGED_NOTICE = 'The lines or columns changed before this change was saved, so it was not saved. The file was reloaded: please make the change again.';
 export const LINES_MOVED_NOTICE =
   'The lines or columns changed after this message was checked, so its line number may name another line now. Wait for the next check, then try again.';
@@ -74,6 +77,20 @@ export const JSON_NOT_READY = 'JSON is offered once the latest changes are check
 export const JSON_FAILED = 'The JSON could not be downloaded. Please try again.';
 
 export type EditOps = NonNullable<EditBatch['operations']>;
+/** What an import preview asks for; the store adds the revision it knows. */
+export type ImportChoices = Omit<ImportRequest, 'revision'>;
+/** An import preview as the store hands it out: with the generation of the copy it was made of. */
+export type StoredImportPreview = ImportPreview & { generation?: string | null };
+
+/**
+ * An import preview that was not sent: when its turn came, the copy was no longer the one it was made of (another
+ * revision, e.g. after an edit of this tab, or another generation). Nothing was asked of the server, nothing said.
+ */
+export class PreviewOutOfDate extends Error {
+  constructor() {
+    super('The copy changed since the preview.');
+  }
+}
 
 /**
  * Edits that change the layout of the text: lines move, columns are inserted, deleted, merged or renamed (a rename moves no column, but a cell edit queued behind it names the old header), cells are split
@@ -83,6 +100,7 @@ export type EditOps = NonNullable<EditBatch['operations']>;
 export const LAYOUT_OPS: ReadonlySet<string> = new Set([
   'DeleteLine',
   'InsertLine',
+  'InsertLines',
   'MoveRow',
   'JoinWithPrevious',
   'InsertColumn',
@@ -104,6 +122,18 @@ type View = 'loading' | 'ready' | 'notFound' | 'notUtf8' | 'error';
 export class NotSentError extends HttpErrorResponse {
   constructor() {
     super({ status: 409, statusText: 'Not sent', error: { message: 'The file was reloaded before this change was sent.' } });
+  }
+}
+
+/**
+ * The failure the store hands on when a change failed and the copy read again was another one (deleted and created
+ * again): the new copy does not hold the change, whatever the old one did. The views were reloaded and
+ * {@link COPY_REPLACED_NOTICE} was shown; the status 409 makes the views, the quick fix dialog, undo/redo and an
+ * import ("stale") add no message of their own.
+ */
+export class CopyReplacedError extends HttpErrorResponse {
+  constructor() {
+    super({ status: 409, statusText: 'Copy replaced', error: { error: COPY_REPLACED_CODE, message: COPY_REPLACED_NOTICE } });
   }
 }
 
@@ -158,14 +188,20 @@ const GONE = 'gone' as const;
  * - A 409 from an edit, undo or redo means the copy changed elsewhere (another tab): the info is read again,
  *   `changed` tells the views to reload, and the conflict notice is shown. The re-read is part of the refused
  *   request's turn, and the requests queued behind it are not sent ({@link NotSentError}): they were made on the
- *   text before, and are refused once, with the one notice, rather than each with a notice of its own.
+ *   text before, and are refused once, with the one notice, rather than each with a notice of its own. Not a 409
+ *   with nothing to undo or redo (a second undo queued behind the first): the copy is as this tab knows it, so it
+ *   is read again quietly for `canUndo` and `canRedo`, and the requests behind it are sent.
  * - A copy deleted and created again (another `generation`) starts anew: what the store knew of the old one (its
- *   layout changes, CV checks, report) is dropped, the views reload and {@link COPY_REPLACED_NOTICE} is shown once.
+ *   layout changes, CV checks, report) is dropped, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and
+ *   the new copy is checked as an opened one is.
+ * - Every request has a client timeout ({@link editorRequest}: 30 s; 120 s for the import preview and the creation
+ *   of the copy), except the JSON download. A read of the copy that gets no answer (status 0) is asked again after
+ *   1 s and then 3 s ({@link retryReads}). A change is never sent again blindly: one that timed out goes through
+ *   {@link committedOrFailed}, which sends it once more only when the copy read again shows it was not applied.
  */
 @Injectable()
 export class WorkingCopyStore {
   private readonly api = inject(WorkingCopiesService);
-  private readonly validations = inject(ValidationsService);
   private readonly appInfo = inject(AppInfoStore);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -179,8 +215,6 @@ export class WorkingCopyStore {
    */
   readonly openFailure = signal<string | null>(null);
   readonly info = signal<WorkingCopyInfo | undefined>(undefined);
-  /** The validation the copy was made from: its profile decides whether CV rules can be checked. */
-  readonly record = signal<ValidationRecord | undefined>(undefined);
 
   private readonly inFlight = signal(0);
   private readonly idlePending = signal(false);
@@ -194,7 +228,10 @@ export class WorkingCopyStore {
   /** A CV check was asked for and the server has not accepted it yet. */
   private cvCheckPending = false;
 
-  /** A check of this copy has finished (DONE) since it was opened: only then has it a report (else 409). */
+  /**
+   * The copy has a report (else `GET /{id}/report` answers 409): the server names its run (`reportRevision`), or a
+   * check of this copy has finished (DONE) since it was opened (a server that does not name it).
+   */
   readonly reportReady = signal(false);
 
   readonly validation = computed(() => this.info()?.validation ?? null);
@@ -224,8 +261,9 @@ export class WorkingCopyStore {
       !(v.messages ?? []).some((t) => t.message?.message_type === 'error')
     );
   });
+  /** The copy's repository rules (its session's for an upload, its own for a new file) decide whether CV rules can be checked. */
   readonly hasProfile = computed(() => {
-    const kind = this.record()?.validationProfile?.kind;
+    const kind = this.info()?.validationProfile?.kind;
     return kind === 'CATALOG' || kind === 'CUSTOM';
   });
   /**
@@ -300,7 +338,8 @@ export class WorkingCopyStore {
             this.polling = true;
             return timer(POLL_MS, POLL_MS).pipe(
               exhaustMap(() =>
-                this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+                this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+                  retryReads(),
                   catchError((err: unknown) => of(statusOf(err) === 404 ? GONE : null)),
                 ),
               ),
@@ -329,13 +368,6 @@ export class WorkingCopyStore {
     this.lastVersion = undefined;
     this.retired.clear();
     this.create('UTF_8');
-    this.validations
-      .getValidation({ id }, quietRequest())
-      .pipe(
-        catchError(() => of(undefined)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((r) => this.record.set(r));
   }
 
   /** Creates the copy again, reading the upload as Windows-1252 ("Re-encode from Windows-1252"). */
@@ -347,7 +379,8 @@ export class WorkingCopyStore {
   private create(encoding: 'UTF_8' | 'WINDOWS_1252'): void {
     this.forget();
     this.api
-      .createWorkingCopy({ validation: this.id(), encoding }, quietRequest())
+      // the server copies the stored file: given as long as a request that waits for the engine, and not asked again
+      .createWorkingCopy({ validation: this.id(), encoding }, editorRequest(ENGINE_TIMEOUT_MS))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
@@ -406,7 +439,7 @@ export class WorkingCopyStore {
   edit(ops: EditOps, reload = false, readAt: number | null = null): Observable<WorkingCopyInfo> {
     return this.enqueue(
       (revision, changeId, generation) =>
-        this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId, generation } }),
+        this.api.editWorkingCopy({ id: this.id(), body: { revision, operations: ops, changeId, generation } }, editorRequest()),
       { reload, layout: changesLayout(ops), readAt },
     );
   }
@@ -415,7 +448,7 @@ export class WorkingCopyStore {
     if (!this.info()?.canUndo) return;
     // undo names no line, so it may follow a layout change; what it brings back or takes away may change it
     this.enqueue((revision, changeId, generation) =>
-      this.api.undoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
+      this.api.undoWorkingCopy({ id: this.id(), revision, changeId, generation }, editorRequest()), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -425,7 +458,7 @@ export class WorkingCopyStore {
   redo(): void {
     if (!this.info()?.canRedo) return;
     this.enqueue((revision, changeId, generation) =>
-      this.api.redoWorkingCopy({ id: this.id(), revision, changeId, generation }), {
+      this.api.redoWorkingCopy({ id: this.id(), revision, changeId, generation }, editorRequest()), {
       reload: true,
       layout: true,
       linesNamed: false,
@@ -434,12 +467,83 @@ export class WorkingCopyStore {
 
   /** Applies a quick fix's batch as it was previewed: a newer revision is refused (409) and reloads. */
   applyFix(preview: QuickFixPreview): Observable<WorkingCopyInfo> {
+    return this.applyBatch(preview.batch);
+  }
+
+  /**
+   * Applies an import's batch whole, as it was previewed, the way a quick fix is applied: one change, so one undo
+   * takes it back. It is `'stale'`, and a new preview is of the copy as it is now, when:
+   * - at its turn the copy this tab knows is no longer the one previewed: another revision (an edit of this tab,
+   *   saved since or queued ahead of it) or another generation. It is not sent, and nothing is said or reloaded: the
+   *   tab's own edits are not a change elsewhere;
+   * - the server refuses it (409): the copy changed in another tab, or was created again, or a change queued before
+   *   it may have been saved. The store has read the copy again and said so, as for any change.
+   */
+  applyImport(preview: StoredImportPreview): Observable<'applied' | 'stale'> {
+    const batch = preview.batch;
+    const outOfDate = () =>
+      this.revision() !== (batch?.revision ?? -1) ||
+      (preview.generation !== undefined && (this.info()?.generation ?? null) !== preview.generation);
+    return this.applyBatch(batch, outOfDate).pipe(
+      map(() => 'applied' as const),
+      catchError((err: unknown) =>
+        err instanceof PreviewOutOfDate || statusOf(err) === 409 ? of('stale' as const) : throwError(() => err),
+      ),
+    );
+  }
+
+  /**
+   * A previewed batch, sent with the revision it was previewed at, a change id of its own and the copy's generation;
+   * not sent if `outOfDate` says so at its turn.
+   */
+  private applyBatch(batch: EditBatch | undefined, outOfDate?: () => boolean): Observable<WorkingCopyInfo> {
     return this.enqueue((_, changeId, generation) =>
-      this.api.editWorkingCopy({ id: this.id(), body: { ...(preview.batch ?? {}), changeId, generation } }), {
-      sentAt: preview.batch?.revision ?? null,
+      this.api.editWorkingCopy({ id: this.id(), body: { ...(batch ?? {}), changeId, generation } }, editorRequest()), {
+      sentAt: batch?.revision ?? null,
       reload: true,
-      layout: changesLayout(preview.batch?.operations),
+      layout: changesLayout(batch?.operations),
+      outOfDate,
     });
+  }
+
+  /**
+   * Previews an import at the revision of the copy's last answer. A 409 means the copy is at another revision
+   * (another tab changed it, or an edit of this one is on its way): the copy is read again and the preview asked
+   * for once more, at the revision read.
+   */
+  previewImport(choices: ImportChoices): Observable<StoredImportPreview> {
+    const send = () => {
+      // the copy the preview is of: applying it to another generation is stale
+      const generation = this.info()?.generation ?? null;
+      return this.api
+        // waits for the engine; not asked again by itself (the panel's Try again does)
+        .previewWorkingCopyImport({ id: this.id(), body: { ...choices, revision: this.revision() } }, engineRequest())
+        .pipe(map((p): StoredImportPreview => ({ ...p, generation })));
+    };
+    return defer(send).pipe(
+      catchError((err: unknown) =>
+        statusOf(err) === 409 ? this.reread().pipe(switchMap(() => defer(send))) : throwError(() => err),
+      ),
+    );
+  }
+
+  /**
+   * Reads the copy again without a notice. When it moved on while this tab has no change on its way, it changed
+   * elsewhere: lines may have moved, and the views read again. (A copy created again says so itself.)
+   */
+  private reread(): Observable<void> {
+    const known = this.revision();
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
+      map((info) => {
+        const replaced = this.setInfo(info);
+        const now = info.revision ?? 0;
+        if (!replaced && !this.saving() && now > known) {
+          this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
+          this.changed.next();
+        }
+      }),
+    );
   }
 
   /** The user is still typing or moving around: a pending check waits for the pause. */
@@ -505,6 +609,7 @@ export class WorkingCopyStore {
       linesNamed = true,
       readAt = null,
       sentAt = null,
+      outOfDate,
     }: {
       reload?: boolean;
       layout?: boolean;
@@ -512,6 +617,8 @@ export class WorkingCopyStore {
       readAt?: number | null;
       /** The revision the request names, when it does not take the one it is given (a previewed batch's). */
       sentAt?: number | null;
+      /** Asked at its turn: true drops the request with {@link PreviewOutOfDate}, before anything is sent. */
+      outOfDate?: () => boolean;
     },
   ): Observable<WorkingCopyInfo> {
     const result = new AsyncSubject<WorkingCopyInfo>();
@@ -534,18 +641,37 @@ export class WorkingCopyStore {
       const send =
         reloads !== this.reloads
           ? throwError(() => new NotSentError())
-          : defer(() => request(revision, changeId, generation)).pipe(
-              // before the next queued request is sent: it must name the revision this one produced, if it did
-              catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
-              // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
-              catchError((err: unknown) => {
-                if (statusOf(err) !== 409 || err instanceof MaybeSavedError) return throwError(() => err);
-                const replaced = err instanceof HttpErrorResponse && err.error?.error === COPY_REPLACED_CODE;
-                return this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE).pipe(
-                  switchMap(() => throwError(() => err)),
-                );
-              }),
-            );
+          : outOfDate?.()
+            ? throwError(() => new PreviewOutOfDate())
+            : defer(() => request(revision, changeId, generation)).pipe(
+                // before the next queued request is sent: it must name the revision this one produced, if it did.
+                // A timeout of a change that was not applied sends it once more, as it was: the same change id and
+                // revision, so the server refuses it (409) if the first one was committed after all. Only a first send
+                // committed by the time the second is answered (the second waits up to 5 s for the copy's lock) is
+                // then found in the copy and counts as saved; a later commit leaves the resend refused as a conflict.
+                catchError((err: unknown) =>
+                  this.committedOrFailed(err, sentAt ?? revision, changeId, generation, () =>
+                    defer(() => request(revision, changeId, generation)).pipe(
+                      catchError((again: unknown) => this.committedOrFailed(again, sentAt ?? revision, changeId, generation)),
+                      // refused because the first send was committed meanwhile (the usual case: a slow edit)
+                      catchError((again: unknown) => this.resendRefused(again, changeId, generation)),
+                    ),
+                  ),
+                ),
+                // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
+                catchError((err: unknown) => {
+                  // the store has read the copy again and said so already
+                  const handled = err instanceof MaybeSavedError || err instanceof NotSentError || err instanceof CopyReplacedError;
+                  if (statusOf(err) !== 409 || handled) return throwError(() => err);
+                  const code = err instanceof HttpErrorResponse ? err.error?.error : undefined;
+                  // the copy is the one this tab knows: nothing changed elsewhere, the requests behind it are sent
+                  if (code === NOTHING_TO_UNDO_CODE) return this.quietReread().pipe(switchMap(() => throwError(() => err)));
+                  const replaced = code === COPY_REPLACED_CODE;
+                  return this.conflict(replaced ? COPY_REPLACED_NOTICE : moved ? LAYOUT_CHANGED_NOTICE : CONFLICT_NOTICE).pipe(
+                    switchMap(() => throwError(() => err)),
+                  );
+                }),
+              );
       return send.pipe(
         tap({
           next: (info) => {
@@ -580,28 +706,77 @@ export class WorkingCopyStore {
    * - else the copy moved on, and the change may or may not be in it (another tab wrote meanwhile): the info is taken
    *   (the next edit must name it), the views reload, the notice says "may", and the error is a
    *   {@link MaybeSavedError}, which nobody answers with "could not be saved".
-   * A 4xx was refused before changing anything, and a copy that cannot be read leaves the failure as it was. A lost
-   * answer whose re-read comes before the server's delayed commit reports a failure (the safe direction): the
-   * next edit is then refused (409) and the copy reloaded.
+   * - a copy of another generation (deleted and created again), whatever its revision, does not hold the change: it is
+   *   taken, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and the error is a {@link CopyReplacedError}.
+   *   When a poll (or a reload) took the new copy first, while the change was in flight, it has said so already: the
+   *   error is a {@link CopyReplacedError}, and nothing more is said.
+   * A 4xx was refused before changing anything, and a copy that cannot be read (after the retries of a read) leaves
+   * the failure as it was. A lost answer whose re-read comes before the server's delayed commit reports a failure
+   * (the safe direction): the next edit is then refused (409) and the copy reloaded.
+   *
+   * A timeout of a change that was not applied (`lastChangeId` is not its own, the copy is still at `sent` and of the
+   * `generation` it was sent to) is sent once more by `resend`, unchanged: if the first one was committed after the
+   * re-read, the server refuses the second (409). It is never applied twice. {@link resendRefused} finds the change
+   * in the copy, and counts it as saved, only when the first send has committed by the time the second is answered
+   * (or while the second waits, up to 5 s, for the copy's lock); a first send committed later still leaves the
+   * resend refused, on the conflict path.
    */
-  private committedOrFailed(err: unknown, sent: number, changeId: string): Observable<WorkingCopyInfo> {
+  private committedOrFailed(
+    err: unknown,
+    sent: number,
+    changeId: string,
+    generation: string | undefined,
+    resend?: () => Observable<WorkingCopyInfo>,
+  ): Observable<WorkingCopyInfo> {
     const status = statusOf(err);
     if (status === undefined || (status !== 0 && status < 500)) return throwError(() => err);
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       catchError(() => throwError(() => err)),
       switchMap((info) => {
         if (info.lastChangeId === changeId) return of(info);
-        const now = info.revision ?? 0;
         // a late answer about a copy that was replaced since tells nothing about this change
-        if (now <= sent || this.isRetired(info)) return throwError(() => err);
-        const replaced = this.setInfo(info, true, false, true);
+        if (this.isRetired(info)) return throwError(() => err);
+        // the copy the change was sent to was replaced, and a poll (or a reload) took the new one first and said so
+        // (as conflict() does): it cannot hold the change, and nothing more is said
+        const otherCopy = generation !== undefined && !!info.generation && info.generation !== generation;
+        if (otherCopy && !this.isReplacement(info)) return throwError(() => new CopyReplacedError());
+        const now = info.revision ?? 0;
+        const sameCopy = !this.isReplacement(info) && (info.generation ?? undefined) === generation;
+        if (resend && isTimeout(err) && now === sent && sameCopy) return resend();
+        // a copy created again counts its revisions anew: it is taken whatever its revision
+        if (now <= sent && !this.isReplacement(info)) return throwError(() => err);
+        const replaced = this.setInfo(info, { force: true, reloading: true });
         this.lastLayoutRevision = Math.max(this.lastLayoutRevision, now);
         this.reloads++;
         this.changed.next();
         // a copy created again does not hold the change, whatever the old one did
         this.notices.next(replaced ? COPY_REPLACED_NOTICE : MAYBE_SAVED_NOTICE);
-        return throwError(() => (replaced ? err : new MaybeSavedError()));
+        return throwError(() => (replaced ? new CopyReplacedError() : new MaybeSavedError()));
       }),
+    );
+  }
+
+  /**
+   * A resend refused (409): the first send may have been committed after the re-read that let it be resent (a slow
+   * change). The copy is read again: if it names this change as its last, of the generation it was sent to, the
+   * change was applied once, by the first send, and that is its answer (no notice, the queue goes on). Anything else,
+   * and a failure the store has already handled or a copy that cannot be read, goes on to the conflict path.
+   */
+  private resendRefused(err: unknown, changeId: string, generation: string | undefined): Observable<WorkingCopyInfo> {
+    const handled = err instanceof MaybeSavedError || err instanceof NotSentError || err instanceof CopyReplacedError;
+    const code = err instanceof HttpErrorResponse ? err.error?.error : undefined;
+    if (statusOf(err) !== 409 || handled || code === COPY_REPLACED_CODE || code === NOTHING_TO_UNDO_CODE) {
+      return throwError(() => err);
+    }
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
+      catchError(() => throwError(() => err)),
+      switchMap((info) =>
+        info.lastChangeId === changeId && (info.generation ?? undefined) === generation && !this.isReplacement(info)
+          ? of(info)
+          : throwError(() => err),
+      ),
     );
   }
 
@@ -610,6 +785,25 @@ export class WorkingCopyStore {
     const status = statusOf(err);
     if (status === 409 || status === 404) return;
     this.notices.next((status === 400 && serverMessage(err)) || SAVE_FAILED);
+  }
+
+  /**
+   * Reads the copy again in the turn of an undo or redo that had nothing to do (two quick clicks, the second queued
+   * before the first was answered): `canUndo` and `canRedo` follow the server. The copy is the one this tab knows,
+   * so the views do not reload, nothing is said and the requests queued behind it are sent. Completes also when the
+   * copy cannot be read (a vanished one shows "not found"); the buttons then stay as they were.
+   */
+  private quietReread(): Observable<void> {
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
+      map((info) => {
+        this.setInfo(info);
+      }),
+      catchError((err: unknown) => {
+        if (statusOf(err) === 404) this.view.set('notFound');
+        return of(undefined);
+      }),
+    );
   }
 
   /** Lines may have moved up to this answer: pages read before it are stale for edits that name lines. */
@@ -623,11 +817,12 @@ export class WorkingCopyStore {
    * be read (the page then shows "not found" or the error).
    */
   private conflict(notice: string): Observable<void> {
-    return this.api.getWorkingCopy({ id: this.id() }, quietRequest()).pipe(
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
       map((info) => {
         // a late answer about a copy that was replaced since: the replacement was taken and announced
         if (this.isRetired(info)) return;
-        const replaced = this.setInfo(info, true, false, true);
+        const replaced = this.setInfo(info, { force: true, reloading: true });
         // the copy shown was already the new one (a poll found it first, and said so)
         if (!replaced && notice === COPY_REPLACED_NOTICE) return;
         // what changed elsewhere is not known: any line may have moved
@@ -646,10 +841,10 @@ export class WorkingCopyStore {
   /** Reads the copy again, e.g. after a download was refused because it changed. */
   reload(): void {
     this.api
-      .getWorkingCopy({ id: this.id() }, quietRequest())
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .getWorkingCopy({ id: this.id() }, editorRequest())
+      .pipe(retryReads(), takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (info) => this.setInfo(info, true),
+        next: (info) => this.setInfo(info, { force: true }),
         error: (err: unknown) => {
           if (statusOf(err) === 404) this.view.set('notFound');
         },
@@ -681,7 +876,7 @@ export class WorkingCopyStore {
     this.checkFailed.set(false);
     this.checkFailure.set(null);
     this.api
-      .validateWorkingCopy({ id: this.id(), semantic }, quietRequest())
+      .validateWorkingCopy({ id: this.id(), semantic }, editorRequest())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (info) => {
@@ -692,7 +887,7 @@ export class WorkingCopyStore {
           };
           accepted();
           // a copy created again forgets what was asked of the old one, not this request
-          if (this.setInfo(info, false, true)) accepted();
+          if (this.setInfo(info, { checkAnswer: true })) accepted();
         },
         error: (err: unknown) => {
           if (statusOf(err) === 404) {
@@ -716,7 +911,7 @@ export class WorkingCopyStore {
    */
   previewFix(fixId: string, messageIndex: number, all: boolean): Observable<QuickFixPreview> {
     return this.api
-      .previewWorkingCopyQuickFix({ id: this.id(), fixId, message: messageIndex, all }, quietRequest())
+      .previewWorkingCopyQuickFix({ id: this.id(), fixId, message: messageIndex, all }, editorRequest())
       .pipe(
         catchError((err: unknown) => {
           if (statusOf(err) !== 409) return throwError(() => err);
@@ -733,17 +928,22 @@ export class WorkingCopyStore {
    * - for the same copy revision, an ended run of a lower revision than the running one shown (a poll that
    *   crossed the request for the next run).
    * `force` (a reload after a conflict) takes it anyway, as it may go back. Starts polling while a run is
-   * RUNNING (`restartPoll`: anew), and announces a version change when a run has ended.
+   * RUNNING (anew for `checkAnswer`, the answer to a request for a check), and announces a version change when a
+   * run has ended.
    *
    * A copy of another generation (deleted and created again) is taken whatever its revision, which counts anew:
    * what was known of the old copy is dropped ({@link forget}), the views reload and {@link COPY_REPLACED_NOTICE} is
-   * shown, unless the caller (`reloading`: a reload that says so itself) does. A late answer about the old copy is
-   * not taken. Returns whether the copy was replaced.
+   * shown, unless the caller (`reloading`: a reload that says so itself) does. It is checked as an opened copy is
+   * ({@link checkOnOpen}), once: not when this is the answer to a check, which was of the new copy. A late answer
+   * about the old copy is not taken. Returns whether the copy was replaced.
    */
-  private setInfo(info: WorkingCopyInfo, force = false, restartPoll = false, reloading = false): boolean {
+  private setInfo(
+    info: WorkingCopyInfo,
+    { force = false, checkAnswer = false, reloading = false }: { force?: boolean; checkAnswer?: boolean; reloading?: boolean } = {},
+  ): boolean {
     const shown = this.info();
     if (this.isRetired(info)) return false;
-    const replaced = !!shown?.generation && !!info.generation && info.generation !== shown.generation;
+    const replaced = this.isReplacement(info);
     if (!force && !replaced && shown && this.isOlder(info, shown)) return false;
     if (replaced) {
       this.retired.add(shown!.generation!);
@@ -756,14 +956,14 @@ export class WorkingCopyStore {
     // a layout change of an earlier session (or another tab) is known from the first answer on
     this.lastLayoutRevision = Math.max(this.lastLayoutRevision, info.layoutRevision ?? 0);
     const v = info.validation;
-    if (v?.status === 'DONE') this.reportReady.set(true);
+    if (info.reportRevision != null || v?.status === 'DONE') this.reportReady.set(true);
     // only a run of the CV check asked for here, or a later one; not one that an earlier session left
     const requested = this.cvRequestedAt;
     if (v?.status === 'DONE' && v.semantic && requested !== null && (v.revision ?? -1) >= requested) {
       this.cvCheckedHere.set(true);
     }
     if (v?.status === 'RUNNING') {
-      if (restartPoll || !this.polling) this.polls.next();
+      if (checkAnswer || !this.polling) this.polls.next();
     } else if (v) {
       this.announceVersion(info.mzTabVersion ?? null);
     }
@@ -771,7 +971,19 @@ export class WorkingCopyStore {
       this.changed.next();
       this.notices.next(COPY_REPLACED_NOTICE);
     }
+    if (replaced && !checkAnswer) {
+      // the idle wait after an edit of the old copy would ask for a second check
+      if (this.idlePending()) this.idle.next(false);
+      // its answer restarts the poll if the check makes the copy RUNNING
+      this.checkOnOpen(info);
+    }
     return replaced;
+  }
+
+  /** Whether this answer is about another copy than the one shown: it was deleted and created again. */
+  private isReplacement(info: WorkingCopyInfo): boolean {
+    const shown = this.info()?.generation;
+    return !!shown && !!info.generation && info.generation !== shown;
   }
 
   /** Whether this answer is about a copy that was deleted and created again since. */
@@ -814,6 +1026,7 @@ export class WorkingCopyStore {
    * 404 shows "not found"; any other failure is said with the server's reason when it gives one.
    */
   downloadJson(): Observable<Blob> {
+    // no client timeout: the JSON of a large file can take long to arrive
     return this.api.downloadWorkingCopy$Json({ id: this.id(), format: 'json' }, quietRequest()).pipe(
       catchError((err: unknown) => {
         const status = statusOf(err);

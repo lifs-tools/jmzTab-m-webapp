@@ -46,14 +46,18 @@ import org.lifstools.mztab.submission.mapping.MappingRequestException;
 import org.lifstools.mztab.validator.engine.api.EngineError;
 import org.lifstools.mztab.validator.engine.api.EngineErrorCode;
 import org.lifstools.mztab.validator.engine.api.EngineInfo;
+import org.lifstools.mztab.validator.engine.api.FieldRules;
 import org.lifstools.mztab.validator.engine.api.MappingApplyRequest;
 import org.lifstools.mztab.validator.engine.api.MappingApplyResult;
 import org.lifstools.mztab.validator.engine.api.MzTabVersionDetector;
 import org.lifstools.mztab.validator.engine.api.MzTabVersions;
+import org.lifstools.mztab.validator.engine.api.SkeletonRequest;
 import org.lifstools.mztab.validator.engine.api.ValidationEvent;
 import org.lifstools.mztab.validator.engine.api.ValidationLevel;
 import org.lifstools.mztab.validator.engine.api.ValidationMessage;
+import org.lifstools.mztab.validator.engine.fieldrules.FieldRuleReader;
 import org.lifstools.mztab.validator.engine.mapping.MappingApplier;
+import org.lifstools.mztab.validator.engine.skeleton.SkeletonWriter;
 import org.lifstools.mztab2.model.MzTab;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -216,6 +220,51 @@ public class EngineController {
         }
     }
 
+    @Operation(summary = "fieldRules", description = "Lists the rules of a CV mapping, each with the field it is "
+        + "about, its requirement, its terms and, if a file is given, whether the file has the field. A rule's "
+        + "field is present when the file's model has a value at the rule's path. The presence is null for every "
+        + "rule, and parsed is false, if no file was given or the file cannot be read into a model (jmzTab-m "
+        + "builds none for a file with errors, or for a skeleton that lacks software, assay or cv).")
+    @ApiResponse(responseCode = "200", description = "The rules",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = FieldRules.class)))
+    @ApiResponse(responseCode = "400", description = "The mapping is missing or is not a CV mapping (invalid_request)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "413", description = "The file or the mapping is larger than its limit (file_too_large)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "503", description = "The engine is busy (busy); retry after Retry-After seconds",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @PostMapping(value = "/field-rules", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE)
+    public FieldRules fieldRules(
+        @Parameter(description = "The CV mapping file, at most 5 MiB")
+        @RequestPart("mapping") MultipartFile mapping,
+        @Parameter(description = "An mzTab-M file, tab separated, at most the upload limit of GET /info; without it "
+            + "no rule has a presence")
+        @RequestPart(value = "file", required = false) @Nullable MultipartFile file) throws IOException {
+        if (mapping.getSize() > MAX_MAPPING_BYTES) {
+            throw new MaxUploadSizeExceededException(MAX_MAPPING_BYTES);
+        }
+        if (file != null && file.getSize() > maxUploadBytes) {
+            throw new MaxUploadSizeExceededException(maxUploadBytes);
+        }
+        Path mappingFile = null;
+        Path text = null;
+        try (JobLimiter.Permit permit = acquire()) {
+            mappingFile = spool(mapping, ".xml");
+            text = file == null ? null : spool(file, ".mztab");
+            try {
+                return FieldRuleReader.read(mappingFile, text);
+            } catch (InvalidMappingFileException e) {
+                log.info("The mapping could not be read: {}", e.getMessage());
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    shorten(e.getMessage()));
+            }
+        } finally {
+            deleteQuietly(mappingFile);
+            deleteQuietly(text);
+        }
+    }
+
     @Operation(summary = "tsvToJson", description = "Converts a tab separated mzTab-M file to its JSON "
         + "representation. A file with errors is reported with 422.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -321,6 +370,50 @@ public class EngineController {
         }
     }
 
+    @Operation(summary = "skeleton", description = "Writes the starting text of a new mzTab-M file: the version line, "
+        + "the mzTab-ID and, for 2.1, the content profile.",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "The mzTab-M version, the content profile (2.1 only) and the mzTab-ID.",
+            required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = SkeletonRequest.class))))
+    @ApiResponse(responseCode = "200", description = "The text of the new file",
+        content = @Content(mediaType = "text/tab-separated-values", schema = @Schema(type = "string")))
+    @ApiResponse(responseCode = "400", description = "The body is not a skeleton request, the version is not served by "
+        + "this engine, a content profile is given for 2.0 or is missing or unknown for 2.1, or the mzTab-ID does "
+        + "not match ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ (invalid_request)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "413", description = "The body is larger than the upload limit (file_too_large)",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @ApiResponse(responseCode = "503", description = "The engine is busy (busy); retry after Retry-After seconds",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = EngineError.class)))
+    @PostMapping(value = "/skeletons", produces = "text/tab-separated-values;charset=UTF-8")
+    public ResponseEntity<String> skeleton(HttpServletRequest request) throws IOException {
+        Path body = null;
+        try (JobLimiter.Permit permit = acquire()) {
+            body = receive(request);
+            SkeletonRequest skeletonRequest;
+            try (InputStream in = Files.newInputStream(body)) {
+                skeletonRequest = objectMapper.readValue(in, SkeletonRequest.class);
+            } catch (JsonProcessingException e) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    "The body is not a skeleton request: " + jsonDetail(e));
+            }
+            if (skeletonRequest == null) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    "A skeleton request needs mzTabVersion and mzTabId.");
+            }
+            try {
+                return ResponseEntity.ok().contentType(new MediaType("text", "tab-separated-values",
+                    StandardCharsets.UTF_8)).body(SkeletonWriter.write(skeletonRequest, Set.copyOf(mzTabVersions)));
+            } catch (MappingRequestException e) {
+                throw new EngineException(HttpStatus.BAD_REQUEST, EngineErrorCode.INVALID_REQUEST,
+                    shorten(String.valueOf(e.getMessage())));
+            }
+        } finally {
+            deleteQuietly(body);
+        }
+    }
+
     private MappingApplyRequest readMappingRequest(Path body) throws IOException {
         MappingApplyRequest r;
         try (InputStream in = Files.newInputStream(body)) {
@@ -344,7 +437,7 @@ public class EngineController {
         }
         return new MappingApplyRequest(r.mapping(), r.mappingVersion(),
             r.parameters() == null ? Map.of() : r.parameters(), r.instance(), r.text() == null ? "" : r.text(),
-            r.provenance(), r.inputMapping());
+            r.provenance(), r.inputMapping(), r.keepExisting());
     }
 
     private JobLimiter.Permit acquire() {

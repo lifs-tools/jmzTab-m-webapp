@@ -29,6 +29,7 @@ export class AppBarComponent {
 
   protected readonly items: readonly NavItem[] = [
     { label: 'Validate', route: '/' },
+    { label: 'New file', route: '/new' },
     { label: 'Examples', route: '/examples' },
     {
       label: 'Documentation',

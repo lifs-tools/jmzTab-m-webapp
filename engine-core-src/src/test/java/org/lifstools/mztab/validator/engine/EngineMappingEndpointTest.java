@@ -87,7 +87,7 @@ class EngineMappingEndpointTest extends EngineContextTest {
     void aWrongMappingVersionIsInvalid() throws Exception {
         MappingApplyRequest r = v3Request("mztab-2.0.0-M");
         String body = objectMapper.writeValueAsString(new MappingApplyRequest(r.mapping(), "9.9.9", r.parameters(),
-            r.instance(), r.text(), r.provenance(), r.inputMapping()));
+            r.instance(), r.text(), r.provenance(), r.inputMapping(), false));
         mvc.perform(post(APPLY).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("invalid_request"));
@@ -155,7 +155,7 @@ class EngineMappingEndpointTest extends EngineContextTest {
         objectMapper.readTree(text("parameters.json")).get(0).properties()
             .forEach(e -> parameters.put(e.getKey(), e.getValue().asText()));
         JsonNode instance = objectMapper.readTree(text("instance.json"));
-        return new MappingApplyRequest(mapping, "1.3.0", parameters, instance, "", true, "v3-workbook 1.2.0");
+        return new MappingApplyRequest(mapping, "1.3.0", parameters, instance, "", true, "v3-workbook 1.2.0", false);
     }
 
     private static String text(String name) {

@@ -11,6 +11,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/landing/landing.page').then((m) => m.LandingPage),
   },
   {
+    path: 'new',
+    title: pageTitle('/new'),
+    loadComponent: () => import('./pages/new-file/new-file.page').then((m) => m.NewFilePage),
+  },
+  {
     path: 'result/:id',
     title: pageTitle('/result/:id'),
     loadComponent: () => import('./pages/result/result.page').then((m) => m.ResultPage),
@@ -62,6 +67,11 @@ export const routes: Routes = [
         path: 'fixing',
         title: pageTitle('/docs/fixing'),
         loadComponent: () => import('./pages/docs/fixing.page').then((m) => m.FixingPage),
+      },
+      {
+        path: 'new-file',
+        title: pageTitle('/docs/new-file'),
+        loadComponent: () => import('./pages/docs/new-file.page').then((m) => m.NewFileDocsPage),
       },
       {
         path: 'problems',

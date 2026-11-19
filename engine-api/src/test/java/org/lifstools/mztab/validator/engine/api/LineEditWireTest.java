@@ -36,6 +36,12 @@ class LineEditWireTest {
     }
 
     @Test
+    void insertLinesRoundTrips() throws IOException {
+        pinned("{\"op\":\"InsertLines\",\"before\":3,\"lines\":[\"MTD\\ta\\tb\",\"MTD\\tc\\td\"]}",
+            new LineEdit.InsertLines(3, List.of("MTD\ta\tb", "MTD\tc\td")));
+    }
+
+    @Test
     void insertColumn() throws IOException {
         pinned("{\"op\":\"InsertColumn\",\"header\":\"SMH\",\"position\":14,\"name\":\"abundance_assay[9]\",\"fill\":\"null\"}",
             new LineEdit.InsertColumn("SMH", 14, "abundance_assay[9]", "null"));
@@ -60,7 +66,7 @@ class LineEditWireTest {
     @Test
     void request() throws IOException {
         String json = "{\"mapping\":\"mztab-2.0.0-M\",\"mappingVersion\":\"1.0.0\",\"parameters\":{\"study_id\":\"LCS-99999\"},"
-            + "\"instance\":{\"samples\":[]},\"text\":\"\",\"provenance\":true,\"inputMapping\":\"v3-workbook 1.0.0\"}";
+            + "\"instance\":{\"samples\":[]},\"text\":\"\",\"provenance\":true,\"inputMapping\":\"v3-workbook 1.0.0\",\"keepExisting\":false}";
         MappingApplyRequest r = mapper.readValue(json, MappingApplyRequest.class);
         assertEquals("mztab-2.0.0-M", r.mapping());
         assertEquals("LCS-99999", r.parameters().get("study_id"));

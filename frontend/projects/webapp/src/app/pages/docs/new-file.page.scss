@@ -1,0 +1,29 @@
+:host {
+  display: block;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+p,
+ul,
+ol {
+  margin: 0;
+  line-height: 1.65;
+}
+
+ul,
+ol {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+h3 {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
