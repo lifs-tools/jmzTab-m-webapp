@@ -803,7 +803,8 @@ class WorkingCopiesApiTest {
             .content(edits(0, "{\"op\":\"SetMetadataValue\",\"line\":2,\"value\":\"2.1.0-M\"}")))
             .andExpect(status().isOk());
         assertReportAgrees(id, 0L);
-        // a later semantic run that cannot be made fails; while it runs and after it failed, the report is revision 0's
+        // a later semantic run that cannot be made fails; the report stays revision 0's (HTTP-level agreement only: the
+        // RUNNING state is asserted deterministically in WorkingCopyServiceTest)
         mvc.perform(post(BASE + "/" + id + "/validations").param("semantic", "true")).andExpect(status().isAccepted());
         long end = System.currentTimeMillis() + 60_000;
         String status;
