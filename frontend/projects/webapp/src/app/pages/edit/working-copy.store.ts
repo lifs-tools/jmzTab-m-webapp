@@ -124,6 +124,18 @@ export class NotSentError extends HttpErrorResponse {
   }
 }
 
+/**
+ * The failure the store hands on when a change failed and the copy read again was another one (deleted and created
+ * again): the new copy does not hold the change, whatever the old one did. The views were reloaded and
+ * {@link COPY_REPLACED_NOTICE} was shown; the status 409 makes the views, the quick fix dialog, undo/redo and an
+ * import ("stale") add no message of their own.
+ */
+export class CopyReplacedError extends HttpErrorResponse {
+  constructor() {
+    super({ status: 409, statusText: 'Copy replaced', error: { error: COPY_REPLACED_CODE, message: COPY_REPLACED_NOTICE } });
+  }
+}
+
 /** A quick-fix preview was refused because the last check is not of the current text; a new one was started. */
 export class NotCheckedYet extends Error {
   constructor() {
@@ -627,7 +639,9 @@ export class WorkingCopyStore {
                 catchError((err: unknown) => this.committedOrFailed(err, sentAt ?? revision, changeId)),
                 // a conflict reads the copy again in this turn, so the requests queued behind it see the reload
                 catchError((err: unknown) => {
-                  if (statusOf(err) !== 409 || err instanceof MaybeSavedError) return throwError(() => err);
+                  // the store has read the copy again and said so already
+                  const handled = err instanceof MaybeSavedError || err instanceof NotSentError || err instanceof CopyReplacedError;
+                  if (statusOf(err) !== 409 || handled) return throwError(() => err);
                   const code = err instanceof HttpErrorResponse ? err.error?.error : undefined;
                   // the copy is the one this tab knows: nothing changed elsewhere, the requests behind it are sent
                   if (code === NOTHING_TO_UNDO_CODE) return this.quietReread().pipe(switchMap(() => throwError(() => err)));
@@ -671,6 +685,8 @@ export class WorkingCopyStore {
    * - else the copy moved on, and the change may or may not be in it (another tab wrote meanwhile): the info is taken
    *   (the next edit must name it), the views reload, the notice says "may", and the error is a
    *   {@link MaybeSavedError}, which nobody answers with "could not be saved".
+   * - a copy of another generation (deleted and created again), whatever its revision, does not hold the change: it is
+   *   taken, the views reload, {@link COPY_REPLACED_NOTICE} is shown once and the error is a {@link CopyReplacedError}.
    * A 4xx was refused before changing anything, and a copy that cannot be read leaves the failure as it was. A lost
    * answer whose re-read comes before the server's delayed commit reports a failure (the safe direction): the
    * next edit is then refused (409) and the copy reloaded.
@@ -693,7 +709,7 @@ export class WorkingCopyStore {
         this.changed.next();
         // a copy created again does not hold the change, whatever the old one did
         this.notices.next(replaced ? COPY_REPLACED_NOTICE : MAYBE_SAVED_NOTICE);
-        return throwError(() => (replaced ? err : new MaybeSavedError()));
+        return throwError(() => (replaced ? new CopyReplacedError() : new MaybeSavedError()));
       }),
     );
   }

@@ -18,6 +18,7 @@ import {
   LAYOUT_CHANGED_NOTICE,
   MAYBE_SAVED_NOTICE,
   POLL_MS,
+  SAVE_FAILED,
   WorkingCopyStore,
 } from './working-copy.store';
 
@@ -434,6 +435,7 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
           expect(checks().length).toBe(1);
           vi.advanceTimersByTime(IDLE_MS * 2);
           expect(checks()).toEqual([]);
+          http.verify();
         });
 
         it('a replaced copy whose current revision is running is polled, not checked again', () => {
@@ -554,6 +556,23 @@ describe('WorkingCopyStore: edits behind a layout change', () => {
       // the next edit is sent at the revision the copy is at
       source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }]).subscribe();
       expect(revisionOf(onePost())).toBe(2);
+      http.verify();
+    });
+
+    it('a quiet re-read that finds a copy created again says so once and checks it once', () => {
+      store.info.set(info(2, { generation: 'g1', canUndo: true }));
+      store.undo();
+      const errors: unknown[] = [];
+      source.applyEdits([{ op: 'SetMetadataValue', line: 4, value: 'b' }], { readAt: 2 }).subscribe({ error: (e) => errors.push(e) });
+      nothingToUndo(undos()[0]);
+      reread().flush(info(0, { generation: 'g2' }));
+      expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+      expect(changed).toBe(1);
+      expect(store.info()?.generation).toBe('g2');
+      // the edit behind it was made on the old copy: not sent
+      expect(posts()).toEqual([]);
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).length).toBe(1);
       http.verify();
     });
 
@@ -1232,8 +1251,8 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     expect(changed).toBe(1);
     expect(store.info()?.generation).toBe('g2');
     expect(store.info()?.revision).toBe(0);
-    // the failure is passed on (the new copy does not hold the change), and the edit queued behind it is not sent
-    expect(errors.map((e) => (e as { status: number }).status)).toEqual([503, 409]);
+    // refused as a copy created again (409: the views add no "could not be saved"), and the edit queued behind it is not sent
+    expect(errors.map((e) => (e as { status: number }).status)).toEqual([409, 409]);
     expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/edits'))).toEqual([]);
     // the new copy has no run: it is checked at once, once
     const checks = http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations'));
@@ -1251,7 +1270,21 @@ describe('WorkingCopyStore: an edit whose answer failed after the server committ
     expect(notices).toEqual([COPY_REPLACED_NOTICE]);
     expect(changed).toBe(1);
     expect(store.info()?.generation).toBe('g2');
-    expect(errors.length).toBe(1);
+    expect(errors).toEqual([{ status: 409, detail: null }]);
+  });
+
+  it('an undo whose answer failed, when the copy was created again meanwhile, says only that it was replaced', () => {
+    store.info.set(info(5, { generation: 'g1', canUndo: true }));
+    store.undo();
+    fail(http.expectOne((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/undo')), 503);
+    reread().flush(info(0, { generation: 'g2' }));
+    expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+    expect(notices).not.toContain(SAVE_FAILED);
+    expect(changed).toBe(1);
+    expect(store.saving()).toBe(false);
+    // one check of the new copy, and no conflict re-read
+    expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).length).toBe(1);
+    http.verify();
   });
 
   it('a failed save whose re-read is a late answer about a replaced copy changes nothing', () => {
@@ -1430,6 +1463,20 @@ describe('WorkingCopyStore: imports', () => {
     reread().flush(info(0, { generation: 'g2' }));
     expect(outcomes).toEqual(['stale']);
     expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+  });
+
+  it('an import whose answer failed, when the copy was created again meanwhile, is "stale" and says so once', () => {
+    const outcomes: string[] = [];
+    const errors: unknown[] = [];
+    store.applyImport(preview(3)).subscribe({ next: (o) => outcomes.push(o), error: (e) => errors.push(e) });
+    edits()[0].flush({ message: 'busy' }, { status: 503, statusText: 'Service Unavailable' });
+    reread().flush(info(0, { generation: 'g2' }));
+    expect(outcomes).toEqual(['stale']);
+    expect(errors).toEqual([]);
+    expect(notices).toEqual([COPY_REPLACED_NOTICE]);
+    expect(changed).toBe(1);
+    expect(http.match((r) => r.method === 'POST' && r.url.endsWith('working-copies/abc/validations')).length).toBe(1);
+    http.verify();
   });
 
   it('another failure is passed on', () => {
