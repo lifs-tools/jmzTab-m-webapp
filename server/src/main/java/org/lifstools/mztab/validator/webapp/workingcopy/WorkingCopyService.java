@@ -263,6 +263,9 @@ public class WorkingCopyService {
     /** Test hook: called in {@link #info} between its read of the running run and its read of the stored run. */
     @Nullable
     private volatile Consumer<UUID> betweenInfoReads;
+    /** Test hook: called when a retry found no room in the runs' pool and was scheduled again. */
+    @Nullable
+    private volatile Consumer<UUID> retryDeferred;
     private volatile long usageBytes;
     private volatile long usageMeasuredAt;
     private volatile boolean usageKnown;
@@ -1093,6 +1096,10 @@ public class WorkingCopyService {
                         log.info("Working copy {}: no room for another attempt yet; trying again in {} s", id,
                             MIN_RETRY.toSeconds());
                         schedule(id, run, MIN_RETRY);
+                        Consumer<UUID> hook = retryDeferred;
+                        if (hook != null) {
+                            hook.accept(id);
+                        }
                     } else {
                         abandon(id, run, e);
                     }
@@ -1608,6 +1615,11 @@ public class WorkingCopyService {
     /** For tests only: see {@link #betweenInfoReads}. */
     void betweenInfoReads(@Nullable Consumer<UUID> hook) {
         this.betweenInfoReads = hook;
+    }
+
+    /** For tests only: see {@link #retryDeferred}. */
+    void retryDeferred(@Nullable Consumer<UUID> hook) {
+        this.retryDeferred = hook;
     }
 
     /** For tests only: see {@link #beforeRunEnds}. */

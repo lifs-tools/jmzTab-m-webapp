@@ -53,9 +53,10 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean(name = "toolThreadPoolTaskExecutor")
-    public Executor threadPoolTaskExecutor() {
+    public Executor threadPoolTaskExecutor(
+        @Value("${validation.threads:#{T(java.lang.Math).max(1, T(java.lang.Runtime).getRuntime().availableProcessors() - 1)}}") int threads) {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
-        tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+        tpe.setCorePoolSize(Math.max(1, threads));
         return tpe;
     }
 
