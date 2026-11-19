@@ -142,7 +142,7 @@ class WorkingCopyRunExecutorTest {
     @Test
     void copyRunsDoNotUseTheValidationPool() {
         WorkingCopyService target = AopTestUtils.getTargetObject(copies);
-        Object used = ReflectionTestUtils.getField(target, "executor");
+        Object used = ReflectionTestUtils.getField(ReflectionTestUtils.getField(target, "runs"), "executor");
         assertNotNull(used);
         assertNotSame(validationExecutor, used);
         assertSame(runExecutor, used);
