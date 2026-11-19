@@ -263,6 +263,9 @@ public class WorkingCopyService {
     /** Test hook: called in {@link #info} between its read of the running run and its read of the stored run. */
     @Nullable
     private volatile Consumer<UUID> betweenInfoReads;
+    /** Test hook: called by a scheduled retry before it asks for a thread; it may block to hold the retry back. */
+    @Nullable
+    private volatile Consumer<UUID> retryGate;
     /** Test hook: called when a retry found no room in the runs' pool and was scheduled again. */
     @Nullable
     private volatile Consumer<UUID> retryDeferred;
@@ -1083,6 +1086,10 @@ public class WorkingCopyService {
     private void schedule(UUID id, Run run, Duration delay) {
         try {
             scheduler.schedule(() -> {
+                Consumer<UUID> gate = retryGate;
+                if (gate != null) {
+                    gate.accept(id);
+                }
                 try {
                     executor.execute(() -> runLoop(id, run));
                 } catch (RejectedExecutionException e) {
@@ -1615,6 +1622,11 @@ public class WorkingCopyService {
     /** For tests only: see {@link #betweenInfoReads}. */
     void betweenInfoReads(@Nullable Consumer<UUID> hook) {
         this.betweenInfoReads = hook;
+    }
+
+    /** For tests only: see {@link #retryGate}. */
+    void retryGate(@Nullable Consumer<UUID> hook) {
+        this.retryGate = hook;
     }
 
     /** For tests only: see {@link #retryDeferred}. */
