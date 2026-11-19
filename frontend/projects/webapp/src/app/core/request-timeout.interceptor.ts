@@ -45,7 +45,7 @@ export const requestTimeoutInterceptor: HttpInterceptorFn = (req, next) => {
   const ms = req.context.get(REQUEST_TIMEOUT);
   if (ms == null) return next(req);
   return new Observable<HttpEvent<unknown>>((subscriber) => {
-    const timer = setTimeout(
+    const deadline = setTimeout(
       () => subscriber.error(new HttpErrorResponse({ status: 0, statusText: TIMEOUT_STATUS_TEXT, url: req.urlWithParams })),
       ms,
     );
@@ -56,7 +56,7 @@ export const requestTimeoutInterceptor: HttpInterceptorFn = (req, next) => {
     });
     // also on the timeout: unsubscribing from the request cancels it
     return () => {
-      clearTimeout(timer);
+      clearTimeout(deadline);
       inner.unsubscribe();
     };
   });

@@ -1921,30 +1921,76 @@ describe('WorkingCopyStore: a server that does not answer', () => {
       applied = [];
     });
 
-    it('a resend after a late commit is refused (409) and goes through the conflict path: applied once', () => {
+    it('a resend refused (409) because the first send was committed meanwhile: saved, no notice, the queue goes on', () => {
+      const results: unknown[] = [];
+      const errors: unknown[] = [];
+      edit(results, errors);
+      // queued behind it
+      edit(results, errors, 'b');
+      const first = post();
+      silence();
+      // the re-read comes before the server's commit of the first send (reads do not wait for a writer)
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      const again = post();
+      expect(changeIdOf(again)).toBe(changeIdOf(first));
+      expect(revisionOf(again)).toBe(revisionOf(first));
+      // the first send is committed now, before the second arrives: the second is refused
+      commitLate(first);
+      serve(again);
+      // the copy read again names this change: it was applied, once
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      expect(results.length).toBe(1);
+      expect(errors).toEqual([]);
+      expect(notices).toEqual([]);
+      expect(changed).toBe(0);
+      expect(store.info()?.revision).toBe(1);
+      // the edit queued behind it is sent, at the revision the first made
+      const second = post();
+      expect(revisionOf(second)).toBe(1);
+      serve(second);
+      expect(applied).toEqual([changeIdOf(first), changeIdOf(second)]);
+      expect(results.length).toBe(2);
+      expect(errors).toEqual([]);
+      vi.advanceTimersByTime(10 * EDITOR_TIMEOUT_MS);
+      http.expectNone(isPost('edits'));
+    });
+
+    it('a resend refused (409) whose re-read shows another change: the conflict path, as before', () => {
       const results: unknown[] = [];
       const errors: unknown[] = [];
       edit(results, errors);
       const first = post();
       silence();
-      // the re-read comes before the server's commit of the first send
       reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
       const again = post();
-      expect(changeIdOf(again)).toBe(changeIdOf(first));
-      expect(revisionOf(again)).toBe(revisionOf(first));
-      // the first send is committed now, before the second arrives
-      commitLate(first);
+      // another tab wrote meanwhile: the resend is refused
+      copy = { revision: 1, lastChangeId: 'another-tabs-change' };
       serve(again);
-      // the conflict path: the copy is read again, the views reload, one notice
+      // the check of the refusal: not this change
       reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
-      expect(applied).toEqual([changeIdOf(first)]);
-      expect(errors).toEqual([{ status: 409, detail: null }]);
+      // the conflict path reads the copy again, reloads the views and says so once
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      expect(applied).toEqual([]);
       expect(results).toEqual([]);
+      expect(errors).toEqual([{ status: 409, detail: null }]);
       expect(notices).toEqual([CONFLICT_NOTICE]);
       expect(changed).toBe(1);
       expect(store.info()?.revision).toBe(1);
+      expect(changeIdOf(again)).toBe(changeIdOf(first));
       vi.advanceTimersByTime(10 * EDITOR_TIMEOUT_MS);
       http.expectNone(isPost('edits'));
+    });
+
+    it('the first send refused (409) is not checked for its own change: the conflict path at once', () => {
+      const errors: unknown[] = [];
+      edit([], errors);
+      copy = { revision: 1, lastChangeId: 'another-tabs-change' };
+      serve(post());
+      // one read: the conflict path's
+      reread().flush(info(copy.revision, { lastChangeId: copy.lastChangeId }));
+      noRead();
+      expect(errors).toEqual([{ status: 409, detail: null }]);
+      expect(notices).toEqual([CONFLICT_NOTICE]);
     });
 
     it('a timeout whose re-read sees the commit is not sent again: applied once', () => {

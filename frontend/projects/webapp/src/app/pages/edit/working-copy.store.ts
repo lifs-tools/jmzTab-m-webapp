@@ -651,6 +651,8 @@ export class WorkingCopyStore {
                   this.committedOrFailed(err, sentAt ?? revision, changeId, generation, () =>
                     defer(() => request(revision, changeId, generation)).pipe(
                       catchError((again: unknown) => this.committedOrFailed(again, sentAt ?? revision, changeId, generation)),
+                      // refused because the first send was committed meanwhile (the usual case: a slow edit)
+                      catchError((again: unknown) => this.resendRefused(again, changeId, generation)),
                     ),
                   ),
                 ),
@@ -710,7 +712,8 @@ export class WorkingCopyStore {
    *
    * A timeout of a change that was not applied (`lastChangeId` is not its own, the copy is still at `sent` and of the
    * `generation` it was sent to) is sent once more by `resend`, unchanged: if the first one was committed after the
-   * re-read, the server refuses the second (409), and the conflict path reloads. It is never applied twice.
+   * re-read, the server refuses the second (409), and {@link resendRefused} finds the change in the copy. It is never
+   * applied twice.
    */
   private committedOrFailed(
     err: unknown,
@@ -741,6 +744,29 @@ export class WorkingCopyStore {
         this.notices.next(replaced ? COPY_REPLACED_NOTICE : MAYBE_SAVED_NOTICE);
         return throwError(() => (replaced ? new CopyReplacedError() : new MaybeSavedError()));
       }),
+    );
+  }
+
+  /**
+   * A resend refused (409): the first send may have been committed after the re-read that let it be resent (a slow
+   * change). The copy is read again: if it names this change as its last, of the generation it was sent to, the
+   * change was applied once, by the first send, and that is its answer (no notice, the queue goes on). Anything else,
+   * and a failure the store has already handled or a copy that cannot be read, goes on to the conflict path.
+   */
+  private resendRefused(err: unknown, changeId: string, generation: string | undefined): Observable<WorkingCopyInfo> {
+    const handled = err instanceof MaybeSavedError || err instanceof NotSentError || err instanceof CopyReplacedError;
+    const code = err instanceof HttpErrorResponse ? err.error?.error : undefined;
+    if (statusOf(err) !== 409 || handled || code === COPY_REPLACED_CODE || code === NOTHING_TO_UNDO_CODE) {
+      return throwError(() => err);
+    }
+    return this.api.getWorkingCopy({ id: this.id() }, editorRequest()).pipe(
+      retryReads(),
+      catchError(() => throwError(() => err)),
+      switchMap((info) =>
+        info.lastChangeId === changeId && (info.generation ?? undefined) === generation && !this.isReplacement(info)
+          ? of(info)
+          : throwError(() => err),
+      ),
     );
   }
 
