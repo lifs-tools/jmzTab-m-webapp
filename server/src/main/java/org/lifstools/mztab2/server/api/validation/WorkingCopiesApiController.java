@@ -304,7 +304,7 @@ public class WorkingCopiesApiController {
     }
 
     @Operation(operationId = "undoWorkingCopy", summary = "Reverts the newest change; 409 if the revision is stale "
-        + "or there is nothing to undo")
+        + "or there is nothing to undo (error code nothing_to_undo)")
     @PostMapping(value = "/{id}/undo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo undoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,
@@ -317,7 +317,7 @@ public class WorkingCopiesApiController {
     }
 
     @Operation(operationId = "redoWorkingCopy", summary = "Re-applies the change undone last; 409 if the revision "
-        + "is stale or there is nothing to redo")
+        + "is stale or there is nothing to redo (error code nothing_to_undo)")
     @PostMapping(value = "/{id}/redo", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkingCopyInfo redoWorkingCopy(@PathVariable("id") String id,
         @Parameter(description = "The copy's current revision") @RequestParam("revision") long revision,

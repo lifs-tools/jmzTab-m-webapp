@@ -580,11 +580,7 @@ public class WorkingCopyService {
                 WorkingCopyDb.REVISION_KEY, META_VERSION, META_FILE_NAME);
             long current = stored[4] == null ? 0L : Long.parseLong(stored[4]);
             WorkingCopyValidation latest = parseValidation(stored[0]);
-            WorkingCopyValidation finished = parseValidation(stored[1]);
-            if (finished == null && latest != null && latest.status() == Status.DONE) {
-                // a copy whose run was stored before the finished run had a key of its own
-                finished = latest;
-            }
+            WorkingCopyValidation finished = finishedRun(latest, stored[1]);
             if (finished == null) {
                 throw new WorkingCopyConflictException(latest == null
                     ? "The copy has not been checked yet. Check it first."
@@ -604,6 +600,19 @@ public class WorkingCopyService {
                 failed ? latest.failureReason() : null, stored[3] == null ? null : Long.valueOf(stored[3])),
                 finished.guidance());
         });
+    }
+
+    /**
+     * The run whose report the copy serves: the stored finished run, else the latest if it is DONE (a copy whose run
+     * was stored before the finished run had a key of its own); null if there is none. Shared by the report and
+     * {@code info}'s {@code reportRevision}, so the two agree.
+     */
+    private WorkingCopyValidation finishedRun(@Nullable WorkingCopyValidation latest, @Nullable String storedDone) {
+        WorkingCopyValidation finished = parseValidation(storedDone);
+        if (finished == null && latest != null && latest.status() == Status.DONE) {
+            finished = latest;
+        }
+        return finished;
     }
 
     /**
@@ -687,7 +696,7 @@ public class WorkingCopyService {
         // writer): the revision, the last change's id and the rest belong together, so a reader never pairs the
         // id of a change with the revision before it. A CV check stores its two values together as well.
         String[] stored = db.snapshotMeta(META_LAST, META_CV_REVISION, WorkingCopyEditor.LAYOUT_REVISION_KEY,
-            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION, META_ORIGIN, META_PROFILE);
+            META_LAST_CHANGE, WorkingCopyDb.REVISION_KEY, META_GENERATION, META_ORIGIN, META_PROFILE, META_LAST_DONE);
         // the revision before the facts: facts read after it may be newer, never older (see facts)
         long revision = committed != null ? committed.revision()
             : (stored[4] == null ? 0L : Long.parseLong(stored[4]));
@@ -695,6 +704,7 @@ public class WorkingCopyService {
         boolean canUndo = editor.canUndo(db);
         boolean canRedo = editor.canRedo(db);
         WorkingCopyValidation last = parseValidation(stored[0]);
+        WorkingCopyValidation finishedRun = finishedRun(last, stored[8]);
         WorkingCopyValidation shown = last;
         if (running) {
             long validated = runRevision >= 0 ? runRevision : revision;
@@ -720,7 +730,8 @@ public class WorkingCopyService {
             committed != null ? committed.changeId()
                 : stored[3] == null || stored[3].isEmpty() ? null : UUID.fromString(stored[3]),
             stored[5] == null || stored[5].isEmpty() ? null : UUID.fromString(stored[5]),
-            isNew ? CopySettings.NEW : CopySettings.UPLOAD, profile);
+            isNew ? CopySettings.NEW : CopySettings.UPLOAD, profile,
+            finishedRun == null ? null : finishedRun.revision());
     }
 
     /**
@@ -890,7 +901,7 @@ public class WorkingCopyService {
                 throw new StaleRevisionException(current, revision);
             }
             if (undo ? !editor.canUndo(db) : !editor.canRedo(db)) {
-                throw new WorkingCopyConflictException(undo ? "There is nothing to undo." : "There is nothing to redo.");
+                throw new NothingToUndoException(undo);
             }
             long applied = undo ? editor.undo(db, revision) : editor.redo(db, revision);
             stamp(db, changeId);

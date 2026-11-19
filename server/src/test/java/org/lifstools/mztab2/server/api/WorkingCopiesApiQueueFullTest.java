@@ -17,6 +17,8 @@ package org.lifstools.mztab2.server.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -27,6 +29,10 @@ import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.lifstools.mztab.validator.webapp.workingcopy.WorkingCopyBusyException;
 import org.junit.jupiter.api.io.TempDir;
 import org.lifstools.mztab.validator.webapp.Application;
 import org.lifstools.mztab.validator.webapp.EngineTestSupport;
@@ -43,6 +49,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(classes = Application.class, properties = {"eureka.client.enabled=false",
     "spring.cloud.discovery.enabled=false"})
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 class WorkingCopiesApiQueueFullTest {
 
     @TempDir
@@ -69,5 +76,24 @@ class WorkingCopiesApiQueueFullTest {
             .andExpect(header().exists("Retry-After"))
             .andExpect(jsonPath("$.message").value("Too many files are being checked. Please try again in a "
                 + "moment."));
+    }
+
+    @Test
+    void aFullRunQueueIsLoggedAsSuch(CapturedOutput output) throws Exception {
+        when(copies.requestValidation(any(UUID.class), anyBoolean())).thenThrow(new WorkingCopyBusyException(
+            "Too many files are being checked.", new RejectedExecutionException("rejected")));
+        mvc.perform(post("/rest/v2/working-copies/" + UUID.randomUUID() + "/validations"))
+            .andExpect(status().isServiceUnavailable()).andExpect(header().exists("Retry-After"));
+        assertTrue(output.getAll().contains("the run queue is full"), output.getAll());
+        assertFalse(output.getAll().contains("stayed locked"), output.getAll());
+    }
+
+    @Test
+    void aLockedCopyIsStillLoggedAsLocked(CapturedOutput output) throws Exception {
+        when(copies.requestValidation(any(UUID.class), anyBoolean())).thenThrow(new WorkingCopyBusyException(
+            new IllegalStateException("lock timeout")));
+        mvc.perform(post("/rest/v2/working-copies/" + UUID.randomUUID() + "/validations"))
+            .andExpect(status().isServiceUnavailable());
+        assertTrue(output.getAll().contains("stayed locked"), output.getAll());
     }
 }
