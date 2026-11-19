@@ -52,11 +52,21 @@ public class WebConfig implements WebMvcConfigurer {
         return new AppInfo();
     }
 
+    /**
+     * The pool that validates uploaded files (not the runs of working copies: see {@link #workingCopyRunExecutor}).
+     *
+     * @param threads {@code validation.threads}, default the processors minus one, at least 1; a value below 1
+     * means the default
+     */
     @Bean(name = "toolThreadPoolTaskExecutor")
-    public Executor threadPoolTaskExecutor() {
+    public Executor threadPoolTaskExecutor(@Value("${validation.threads:0}") int threads) {
         ThreadPoolTaskExecutor tpe = new ThreadPoolTaskExecutor();
-        tpe.setCorePoolSize(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+        tpe.setCorePoolSize(threads > 0 ? threads : defaultUploadThreads());
         return tpe;
+    }
+
+    private static int defaultUploadThreads() {
+        return Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
     /**

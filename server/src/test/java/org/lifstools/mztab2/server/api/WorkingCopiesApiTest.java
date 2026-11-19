@@ -756,6 +756,68 @@ class WorkingCopiesApiTest {
     }
 
     @Test
+    void undoWithNothingToUndoIs409NothingToUndo() throws Exception {
+        String id = validation("nothing-undo.mzTab", example());
+        create(id);
+        mvc.perform(post(BASE + "/" + id + "/undo").param("revision", "0")).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error").value("nothing_to_undo"))
+            .andExpect(jsonPath("$.message").value("There is nothing to undo."));
+    }
+
+    @Test
+    void redoWithNothingToRedoIs409NothingToUndo() throws Exception {
+        String id = validation("nothing-redo.mzTab", example());
+        create(id);
+        mvc.perform(post(BASE + "/" + id + "/redo").param("revision", "0")).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error").value("nothing_to_undo"))
+            .andExpect(jsonPath("$.message").value("There is nothing to redo."));
+    }
+
+    private JsonNode info(String id) throws Exception {
+        return json.readTree(mvc.perform(get(BASE + "/" + id)).andExpect(status().isOk()).andReturn().getResponse()
+            .getContentAsString());
+    }
+
+    /** reportRevision is non-null exactly when GET /report answers 200, and then names the run's revision. */
+    private void assertReportAgrees(String id, Long expected) throws Exception {
+        JsonNode r = info(id).get("reportRevision");
+        if (expected == null) {
+            assertTrue(r == null || r.isNull(), "reportRevision " + r);
+            mvc.perform(get(BASE + "/" + id + "/report").param("format", "md")).andExpect(status().isConflict());
+        } else {
+            assertEquals(expected.longValue(), r.asLong());
+            mvc.perform(get(BASE + "/" + id + "/report").param("format", "md")).andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void reportRevisionIsTheLastDoneRun() throws Exception {
+        assumeTrue(EngineTestSupport.has21(), "the 2.1 engine is not built");
+        String id = validationWithProfile("report-revision.mzTab", emptyParameterFile("2.0"), "2.0");
+        create(id);
+        assertReportAgrees(id, null);
+        check(id, 0);
+        assertReportAgrees(id, 0L);
+        // an edit moves the copy on; the report stays that of the run of revision 0
+        mvc.perform(post(BASE + "/" + id + "/edits").contentType(MediaType.APPLICATION_JSON)
+            .content(edits(0, "{\"op\":\"SetMetadataValue\",\"line\":2,\"value\":\"2.1.0-M\"}")))
+            .andExpect(status().isOk());
+        assertReportAgrees(id, 0L);
+        // a later semantic run that cannot be made fails; the report stays revision 0's (HTTP-level agreement only: the
+        // RUNNING state is asserted deterministically in WorkingCopyServiceTest)
+        mvc.perform(post(BASE + "/" + id + "/validations").param("semantic", "true")).andExpect(status().isAccepted());
+        long end = System.currentTimeMillis() + 60_000;
+        String status;
+        do {
+            assertReportAgrees(id, 0L);
+            Thread.sleep(20);
+            status = info(id).at("/validation/status").asText();
+        } while (!"FAILED".equals(status) && System.currentTimeMillis() < end);
+        assertEquals("FAILED", status);
+        assertReportAgrees(id, 0L);
+    }
+
+    @Test
     void reportOfAnUncheckedCopyIs409() throws Exception {
         String id = validation("unchecked.mzTab", example());
         create(id);

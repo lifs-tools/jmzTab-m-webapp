@@ -31,7 +31,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +61,7 @@ import org.springframework.test.util.ReflectionTestUtils;
  * that a person editing neither delays the validation of an upload nor queues without limit.
  */
 @SpringBootTest(properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false",
-    "workingcopy.runs.threads=1", "workingcopy.runs.queue=1"})
+    "workingcopy.runs.threads=1", "workingcopy.runs.queue=1", "validation.threads=1"})
 @ExtendWith(AwaitAsyncValidations.class)
 class WorkingCopyRunExecutorTest {
 
@@ -140,7 +142,7 @@ class WorkingCopyRunExecutorTest {
     @Test
     void copyRunsDoNotUseTheValidationPool() {
         WorkingCopyService target = AopTestUtils.getTargetObject(copies);
-        Object used = ReflectionTestUtils.getField(target, "executor");
+        Object used = ReflectionTestUtils.getField(ReflectionTestUtils.getField(target, "runs"), "executor");
         assertNotNull(used);
         assertNotSame(validationExecutor, used);
         assertSame(runExecutor, used);
@@ -189,7 +191,8 @@ class WorkingCopyRunExecutorTest {
         copies.requestValidation(a, false);
         assertTrue(held.awaitArrival(TIMEOUT));
         copies.requestValidation(b, false);
-        // the copy pool is full: one run active, one queued
+        // every copy-run thread is held and the copy queue is full. The upload pool has one thread (validation.threads)
+        // whatever the host, so a copy run that shared it would leave the upload waiting until the gate is released
 
         UUID upload = submit("upload.mzTab", line);
         assertEquals(ValidationStatus.FINISHED, sessions.find(upload).orElseThrow().status());
@@ -208,23 +211,52 @@ class WorkingCopyRunExecutorTest {
         copies.create(b, SourceEncoding.UTF_8);
         copies.create(c, SourceEncoding.UTF_8);
 
-        // c's run meets a busy engine and is asked again in 2 seconds
-        engine.retryAfterSeconds(2);
-        engine.mode(EngineProxy.Mode.BUSY);
-        int before = engine.jobs().size();
-        copies.requestValidation(c, false);
-        Instant end = Instant.now().plus(TIMEOUT);
-        while (engine.jobs().size() == before && Instant.now().isBefore(end)) {
-            Thread.sleep(20);
-        }
-        engine.mode(EngineProxy.Mode.FORWARD);
+        // c's run meets a busy engine and is asked again in 2 seconds; its retry is held back until the copy pool
+        // is full, so that no timing decides what the retry finds
+        CountDownLatch deferred = new CountDownLatch(1);
+        CountDownLatch poolFull = new CountDownLatch(1);
+        WorkingCopyService target = AopTestUtils.getTargetObject(copies);
+        target.retryGate(id -> {
+            if (id.equals(c)) {
+                try {
+                    poolFull.await(TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        target.retryDeferred(id -> {
+            if (id.equals(c)) {
+                deferred.countDown();
+            }
+        });
+        try {
+            engine.retryAfterSeconds(2);
+            engine.mode(EngineProxy.Mode.BUSY);
+            int before = engine.jobs().size();
+            copies.requestValidation(c, false);
+            Instant end = Instant.now().plus(TIMEOUT);
+            while (engine.jobs().size() == before && Instant.now().isBefore(end)) {
+                Thread.sleep(20);
+            }
+            assertTrue(engine.jobs().size() > before, "c's first attempt reached the engine");
+            engine.mode(EngineProxy.Mode.FORWARD);
 
-        // the only thread and the only queue place are taken when c's retry is due
-        EngineProxy.Gate held = engine.holdNextValidation();
-        copies.requestValidation(a, false);
-        assertTrue(held.awaitArrival(TIMEOUT));
-        copies.requestValidation(b, false);
-        Thread.sleep(3500);
+            EngineProxy.Gate held = engine.holdNextValidation();
+            copies.requestValidation(a, false);
+            assertTrue(held.awaitArrival(TIMEOUT));
+            copies.requestValidation(b, false);
+            poolFull.countDown();
+            assertTrue(deferred.await(TIMEOUT.toSeconds(), TimeUnit.SECONDS), "c's retry found the pool full");
+            releaseAndAwaitDone(c, held, a, b);
+        } finally {
+            poolFull.countDown();
+            target.retryGate(null);
+            target.retryDeferred(null);
+        }
+    }
+
+    private void releaseAndAwaitDone(UUID c, EngineProxy.Gate held, UUID a, UUID b) throws Exception {
         WorkingCopyValidation waiting = copies.info(c).validation();
         assertNotNull(waiting);
         assertEquals(WorkingCopyValidation.Status.RUNNING, waiting.status(), "c waits, it has not failed");

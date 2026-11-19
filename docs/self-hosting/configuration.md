@@ -36,6 +36,7 @@ The sections up to [Health and info endpoints](#health-and-info-endpoints) are t
 
 | Property | Default | Meaning |
 |---|---|---|
+| `validation.threads` | the processors minus one, at least 1 | How many uploaded files are validated at the same time (the upload validation pool). A value below 1 means the default. Checks of working copies do not use it: see `workingcopy.runs.threads`. |
 | `workingcopy.runs.threads` | half the processors, at least 1 | How many checks of working copies run at the same time. They have a pool of their own, so editing never delays the validation of an uploaded file. Must be above 0, or the application does not start. |
 | `workingcopy.runs.queue` | `16` | How many checks may wait for a thread. When it is full, a request for a check answers 503 with `Retry-After` and "Too many files are being checked. Please try again in a moment."; the file stays as it was, and the editor asks again by itself. Must be above 0, or the application does not start. |
 

@@ -20,7 +20,7 @@ import {
 
 import { JsonNode } from '../../api/models/json-node';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
-import { quietRequest } from '../../core/http-error.interceptor';
+import { editorRequest, engineRequest, retryReads } from '../../core/request-timeout.interceptor';
 import { EditOps, LAYOUT_OPS, MaybeSavedError, StoredImportPreview, WorkingCopyStore, serverMessage } from './working-copy.store';
 
 /** Edits that change the columns: every view (and the page's cached headers) must read the table again. */
@@ -43,12 +43,12 @@ export class WorkingCopySource extends DocumentSource {
   }
 
   metadataGroups(): Observable<DocMetadataGroup[]> {
-    return this.api.listWorkingCopyMetadataGroups({ id: this.id }, quietRequest());
+    return this.api.listWorkingCopyMetadataGroups({ id: this.id }, editorRequest()).pipe(retryReads());
   }
 
   metadataPage(group: string, page: number, size: number, key?: string): Observable<DocMetadataPage> {
     return this.stamped(() =>
-      this.api.getWorkingCopyMetadataPage({ id: this.id, group, page, size, ...(key ? { key } : {}) }, quietRequest()),
+      this.api.getWorkingCopyMetadataPage({ id: this.id, group, page, size, ...(key ? { key } : {}) }, editorRequest()),
     );
   }
 
@@ -58,10 +58,11 @@ export class WorkingCopySource extends DocumentSource {
    * at least from `readAt` on; the store refuses an edit of it when the layout (lines, columns) changed since.
    */
   private stamped<T extends object>(read: () => Observable<T>): Observable<T & { readAt: number }> {
+    // a read asked again (no answer) is stamped anew: the revision known when it is sent
     return defer(() => {
       const readAt = this.store.currentRevision();
       return read().pipe(map((page) => ({ ...page, readAt })));
-    });
+    }).pipe(retryReads());
   }
 
   tablePage(section: DocSection, q: DocTableQuery): Observable<DocTablePage> {
@@ -85,7 +86,7 @@ export class WorkingCopySource extends DocumentSource {
           ? { positionFilter: filtersByPosition(q).map((f) => `${f.position}:${f.text}`) }
           : {}),
       },
-      quietRequest(),
+      editorRequest(),
     ));
   }
 
@@ -113,9 +114,9 @@ export class WorkingCopySource extends DocumentSource {
     return defer(() => {
       const readAt = this.store.currentRevision();
       return this.api
-        .getWorkingCopyDuplicateColumns({ id: this.id, header }, quietRequest())
+        .getWorkingCopyDuplicateColumns({ id: this.id, header }, editorRequest())
         .pipe(map((list) => list.map((d) => ({ ...d, readAt }))));
-    });
+    }).pipe(retryReads());
   }
 }
 
@@ -143,7 +144,9 @@ export class WorkingCopyImportSource extends ImportSource {
   private readonly store = inject(WorkingCopyStore);
 
   override importKinds(): Observable<string[]> {
-    return this.api.listWorkingCopyImportKinds({ id: this.store.id() }, quietRequest()).pipe(catchError(toDocError));
+    return this.api
+      .listWorkingCopyImportKinds({ id: this.store.id() }, editorRequest())
+      .pipe(retryReads(), catchError(toDocError));
   }
 
   override previewImport(req: ImportRequestView): Observable<ImportPreviewView> {
@@ -158,6 +161,7 @@ export class WorkingCopyImportSource extends ImportSource {
   }
 
   override stillMissing(): Observable<StillMissingView> {
-    return this.api.getWorkingCopyStillMissing({ id: this.store.id() }, quietRequest()).pipe(catchError(toDocError));
+    // decided by the engine: given 120 s, and not asked again by itself (the panel's Try again does)
+    return this.api.getWorkingCopyStillMissing({ id: this.store.id() }, engineRequest()).pipe(catchError(toDocError));
   }
 }

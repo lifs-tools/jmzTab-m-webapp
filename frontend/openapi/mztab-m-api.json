@@ -3892,6 +3892,10 @@
           "origin" : {
             "type" : "string"
           },
+          "reportRevision" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
           "revision" : {
             "format" : "int64",
             "type" : "integer"
@@ -5597,7 +5601,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Re-applies the change undone last; 409 if the revision is stale or there is nothing to redo",
+        "summary" : "Re-applies the change undone last; 409 if the revision is stale or there is nothing to redo (error code nothing_to_undo)",
         "tags" : [ "working-copies" ]
       }
     },
@@ -5834,7 +5838,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Reverts the newest change; 409 if the revision is stale or there is nothing to undo",
+        "summary" : "Reverts the newest change; 409 if the revision is stale or there is nothing to undo (error code nothing_to_undo)",
         "tags" : [ "working-copies" ]
       }
     },

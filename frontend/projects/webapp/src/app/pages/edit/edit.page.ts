@@ -28,7 +28,7 @@ import { ValidationMessage } from '../../api/models/validation-message';
 import { WorkingCopyInfo } from '../../api/models/working-copy-info';
 import { WorkingCopiesService } from '../../api/services/working-copies.service';
 import { AppInfoStore } from '../../core/app-info.store';
-import { quietRequest } from '../../core/http-error.interceptor';
+import { editorRequest, retryReads } from '../../core/request-timeout.interceptor';
 import { lineOf } from '../../core/mztab-version';
 import { QuickFixState } from '../result/guidance-panel.component';
 import { DocTab, DocTarget, groupOf, targetOf } from '../result/message-groups';
@@ -282,7 +282,8 @@ export class EditPage {
   private headerOf(id: string, prefix: Prefix): Observable<readonly string[]> {
     const known = this.headers().get(prefix);
     if (known) return of(known);
-    return this.api.getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, quietRequest()).pipe(
+    return this.api.getWorkingCopyTablePage({ id, section: SECTION_OF[prefix], page: 0, size: 1 }, editorRequest()).pipe(
+      retryReads(),
       map((page) => page.allColumns ?? []),
       tap((columns) => this.headers.update((h) => new Map(h).set(prefix, columns))),
     );
@@ -378,7 +379,7 @@ export class EditPage {
     const run = ++this.inspection;
     const id = this.store.id();
     const from = Math.max(1, n - 1);
-    this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, quietRequest()).subscribe({
+    this.api.getWorkingCopyLines({ id, from, count: n - from + 2 }, editorRequest()).pipe(retryReads()).subscribe({
       next: (lines) => {
         if (run !== this.inspection) return;
         const at = (k: number) => lines.find((l) => l.number === k);
@@ -430,7 +431,7 @@ export class EditPage {
       this.store.notices.next(movedNotice);
       return;
     }
-    this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, quietRequest()).subscribe({
+    this.api.getWorkingCopyLines({ id: this.store.id(), from: n, count: 1 }, editorRequest()).pipe(retryReads()).subscribe({
       next: (lines) => {
         const line = lines.find((l) => l.number === n);
         if (run === this.inspection && line) {

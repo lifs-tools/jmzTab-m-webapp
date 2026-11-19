@@ -511,6 +511,44 @@ class WorkingCopyServiceTest {
         assertEquals(2L, second.messagesRevision());
     }
 
+    /** reportRevision is the last DONE run's revision while a later run is RUNNING, and moves when that run is DONE. */
+    @Test
+    void reportRevisionIsTheLastDoneRunWhileALaterRunIsRunning() throws Exception {
+        UUID id = submit("report-revision.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        assertNull(copies.info(id).reportRevision(), "no run yet");
+        copies.edit(id, batch(0, new SetMetadataValue(3, "revision-one")));
+        copies.requestValidation(id, false);
+        assertEquals(Status.DONE, awaitRun(id, 1).status());
+        assertEquals(1L, copies.info(id).reportRevision());
+
+        copies.edit(id, batch(1, new SetMetadataValue(3, "revision-two")));
+        assertEquals(1L, copies.info(id).reportRevision(), "an edit does not change the run the report serves");
+        EngineProxy.Gate gate = ENGINE.holdNextValidation();
+        copies.requestValidation(id, false);
+        assertTrue(gate.awaitArrival(TIMEOUT), "the second run reached the engine");
+        WorkingCopyInfo during = copies.info(id);
+        assertEquals(Status.RUNNING, during.validation().status());
+        assertEquals(1L, during.reportRevision(), "the report is still that of the run of revision 1");
+        assertNotNull(copies.resolutionReport(id));
+
+        gate.release();
+        assertEquals(Status.DONE, awaitRun(id, 2).status());
+        assertEquals(2L, copies.info(id).reportRevision());
+    }
+
+    /** A copy whose only run failed has no report: reportRevision is null, as the report's 409. */
+    @Test
+    void reportRevisionIsNullWhenNoRunEverFinished() throws Exception {
+        UUID id = submit("report-never-done.mzTab", example());
+        copies.create(id, SourceEncoding.UTF_8);
+        ENGINE.mode(EngineProxy.Mode.DOWN);
+        copies.requestValidation(id, false);
+        assertEquals(Status.FAILED, awaitRun(id, 0).status());
+        assertNull(copies.info(id).reportRevision());
+        assertThrows(WorkingCopyConflictException.class, () -> copies.resolutionReport(id));
+    }
+
     /** The revision of the last change after which lines or columns may have moved, for a client that reloads. */
     @Test
     void infoSaysWhichRevisionLastMovedLines() throws Exception {

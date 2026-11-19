@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 
 import { AppInfoDto } from '../../api/models/app-info-dto';
 import { ValidationProfile } from '../../api/models/validation-profile';
+import { REQUEST_TIMEOUT } from '../../core/request-timeout.interceptor';
 import { FIX_POLL_MS, ValidatorFormComponent } from './validator-form.component';
 
 const PROFILES: ValidationProfile[] = [
@@ -91,6 +92,14 @@ describe('ValidatorFormComponent', () => {
     expect(req.request.params.get('maxErrors')).toBe('100');
     expect(req.request.params.get('validationProfile')).toBe('mztab-m-2.0-default');
     expect((req.request.body as FormData).get('file')).toBeTruthy();
+    req.flush({ id: 'x' }, { status: 202, statusText: 'Accepted' });
+  });
+
+  it('an upload has no client timeout: it takes as long as the file needs', async () => {
+    await render();
+    await choose('input[data-testid=file-input]', mzTab());
+    const req = await submit();
+    expect(req.request.context.get(REQUEST_TIMEOUT)).toBeNull();
     req.flush({ id: 'x' }, { status: 202, statusText: 'Accepted' });
   });
 

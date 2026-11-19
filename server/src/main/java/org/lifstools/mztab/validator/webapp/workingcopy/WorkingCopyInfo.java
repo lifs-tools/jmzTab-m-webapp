@@ -52,10 +52,12 @@ import org.springframework.lang.Nullable;
  * made from the engine's skeleton, which has no validation behind it
  * @param validationProfile the repository rules a CV check of the copy applies: the new file's own, or the upload's
  * validation's; null if that validation no longer exists
+ * @param reportRevision the revision of the run whose report {@code GET /{id}/report} serves now (the last run that
+ * finished with a result, even if a later one is running or failed); null if the report would answer 409
  */
 public record WorkingCopyInfo(UUID id, String fileName, long revision, @Nullable String mzTabVersion, long lineCount,
     SectionsSummary sections, boolean canUndo, boolean canRedo, Instant expiresAt,
     @Nullable WorkingCopyValidation validation, @Nullable Long cvCheckedRevision,
     long layoutRevision, @Nullable UUID lastChangeId, @Nullable UUID generation, String origin,
-    @Nullable ProfileRef validationProfile) {
+    @Nullable ProfileRef validationProfile, @Nullable Long reportRevision) {
 }
